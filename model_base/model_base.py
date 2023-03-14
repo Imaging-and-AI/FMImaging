@@ -108,7 +108,6 @@ class SpatialLocalAttention(nn.Module):
     """
     Multi-head cnn attention model for local spatial attention
     """
-
     def __init__(self, C, C_out=16, wind_size=8, a_type="conv", n_head=8,\
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), dropout_p=0.1):
         """
@@ -136,7 +135,10 @@ class SpatialLocalAttention(nn.Module):
         self.C_out = C_out
         self.n_head = n_head
 
-        assert a_type=="conv" or a_type=="lin"
+        assert a_type=="conv" or a_type=="lin", \
+            f"Only supported attention types are \"conv\" and \"lin\""
+        assert self.C_out % self.n_head == 0, \
+            f"Number of output channles {self.C_out} should be divisible by number of heads {self.n_head}"
 
         if a_type=="conv":
             # key, query, value projections convolution
@@ -164,9 +166,8 @@ class SpatialLocalAttention(nn.Module):
         B, T, C, H, W = x.size()
         Ws = self.wind_size
 
-        assert self.C_out % self.n_head == 0
-        assert H % Ws == 0
-        assert W % Ws == 0
+        assert H % Ws == 0, f"Height {H} should be divisible by window size {Ws}"
+        assert W % Ws == 0, f"Width {W} should be divisible by window size {Ws}"
 
         Hg = torch.div(H, Ws, rounding_mode="floor")
         Wg = torch.div(W, Ws, rounding_mode="floor")
@@ -206,7 +207,6 @@ class SpatialLocalAttention(nn.Module):
         """
         Reshape the input into windows of local areas
         """
-
         b, t, c, h, w = x.shape
         Ws = self.wind_size
 
@@ -220,7 +220,6 @@ class SpatialLocalAttention(nn.Module):
         """
         Reshape the windows back into the complete image
         """
-
         b, t, c, _, _, _, _ = x.shape
 
         im_view = x.permute(0, 1, 2, 3, 5, 4, 6)
@@ -228,12 +227,10 @@ class SpatialLocalAttention(nn.Module):
 
         return im_view
 
-
 class SpatialGlobalAttention(nn.Module):
     """
     Multi-head cnn attention model for global spatial attention
     """
-
     def __init__(self, C, C_out=16, grid_size=8, a_type="conv", n_head=8,\
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), dropout_p=0.1):
         """
@@ -262,7 +259,10 @@ class SpatialGlobalAttention(nn.Module):
         self.C_out = C_out
         self.n_head = n_head
 
-        assert a_type=="conv" or a_type=="lin"
+        assert a_type=="conv" or a_type=="lin", \
+            f"Only supported attention types are \"conv\" and \"lin\""
+        assert self.C_out % self.n_head == 0, \
+            f"Number of output channles {self.C_out} should be divisible by number of heads {self.n_head}"
 
         if a_type=="conv":
             # key, query, value projections convolution
@@ -291,9 +291,8 @@ class SpatialGlobalAttention(nn.Module):
         B, T, C, H, W = x.size()
         Gs = self.grid_size
 
-        assert self.C_out % self.n_head == 0
-        assert H % Gs == 0
-        assert W % Gs == 0
+        assert H % Gs == 0, f"Height {H} should be divisible by grid size {Gs}"
+        assert W % Gs == 0, f"Width {W} should be divisible by grid size {Gs}"
 
         Hg = torch.div(H, Gs, rounding_mode="floor")
         Wg = torch.div(W, Gs, rounding_mode="floor")
@@ -347,7 +346,6 @@ class SpatialGlobalAttention(nn.Module):
         """
         Reshape the sparse global grid back into complete image
         """
-
         b, t, c, _, _, _, _ = x.shape
 
         im_view = x.permute(0, 1, 2, 5, 3, 6, 4)
@@ -355,12 +353,10 @@ class SpatialGlobalAttention(nn.Module):
 
         return im_view
 
-
 class TemporalCnnAttention(nn.Module):
     """
     Multi-head cnn attention model for complete temporal attention
     """
-
     def __init__(self, C, C_out=16, is_causal=False, n_head=8, \
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), dropout_p=0.1):
         """
@@ -387,6 +383,9 @@ class TemporalCnnAttention(nn.Module):
         self.is_causal = is_causal
         self.n_head = n_head
 
+        assert self.C_out % self.n_head == 0, \
+            f"Number of output channles {self.C_out} should be divisible by number of heads {self.n_head}"
+
         # key, query, value projections convolution
         # Wk, Wq, Wv
         self.key = Conv2DExt(C, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
@@ -407,8 +406,6 @@ class TemporalCnnAttention(nn.Module):
         @rets:
             y ([B, T, C_out, H', W']): logits
         """
-        assert self.C_out % self.n_head == 0
-
         B, T, C, H, W = x.size()
 
         # apply the key, query and value matrix
@@ -454,7 +451,6 @@ class CnnTransformer(nn.Module):
     x-> LayerNorm -> attention -> + -> LayerNorm -> CNN mixer -> + -> logits
     |-----------------------------| |----------------------------|
     """
-
     def __init__(self, C, C_out=16, H=64, W=64, att_mode="temporal", a_type="conv",\
                     window_size=8, is_causal=False, n_head=8,\
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1),\
@@ -482,8 +478,10 @@ class CnnTransformer(nn.Module):
         """
         super().__init__()
 
-        assert att_mode=="local" or att_mode=="global" or att_mode=="temporal"
-        assert norm_mode=="layer" or norm_mode=="batch" or norm_mode=="instance"
+        assert att_mode=="local" or att_mode=="global" or att_mode=="temporal", \
+            f"att_mode {att_mode} not implemented"
+        assert norm_mode=="layer" or norm_mode=="batch" or norm_mode=="instance", \
+            f"norm_mode {norm_mode} not implemented"
 
         if(norm_mode=="layer"):
             self.n1 = nn.LayerNorm([C, H, W])
@@ -538,7 +536,6 @@ class CNNTBlock(nn.Module):
     The first cell expands the channel dimension.
     Can use Conv2D mixer with all cells, last cell, or none at all.
     """
-
     def __init__(self, att_types, C, C_out=16, H=64, W=64,\
                     a_type="conv", window_size=8, is_causal=False, n_head=8,\
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1),\
@@ -572,10 +569,12 @@ class CNNTBlock(nn.Module):
         """
         super().__init__()
 
-        assert(len(att_types)>=1)
+        assert (len(att_types)>=1), f"At least one attention module is requried to build the model"
 
-        assert with_mixer=="all" or with_mixer=="last" or with_mixer=="none"
-        assert interpolate=="none" or interpolate=="up" or interpolate=="down"
+        assert with_mixer=="all" or with_mixer=="last" or with_mixer=="none", \
+            f"Mixer type {with_mixer} not implemented"
+        assert interpolate=="none" or interpolate=="up" or interpolate=="down", \
+            f"Interpolate {interpolate} not implemented"
 
         first_mixer = with_mixer=="all" or (with_mixer=="last" and len(att_types)==1)
         first_cell = CnnTransformer(C=C, C_out=C_out, H=H, W=W, att_mode=att_types[0], a_type=a_type,
