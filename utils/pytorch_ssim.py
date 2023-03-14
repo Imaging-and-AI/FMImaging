@@ -87,7 +87,17 @@ def _ssim_3D(img1, img2, window, window_size, channel, size_average = True):
 # Neat wrappers to handle devices and arbitrary sizes
 
 class SSIM(torch.nn.Module):
+    """
+    SSIM for 2D images
+    """
     def __init__(self, window_size=11, channel=1, size_average=True, device='cpu'):
+        """
+        @args:
+            - window_size (int, odd number): size of square window filter
+            - channel (int): expected channels of the images
+            - size_average (bool): whether to average over all or over batch
+            - device (torch.device): device to run on
+        """
         super(SSIM, self).__init__()
         self.window_size = window_size
         self.size_average = size_average
@@ -113,7 +123,17 @@ class SSIM(torch.nn.Module):
         return _ssim(img1, img2, window, self.window_size, channel, self.size_average)
 
 class SSIM3D(torch.nn.Module):
+    """
+    SSIM3D for 3D images
+    """
     def __init__(self, window_size=11, channel=1, size_average=True, device='cpu'):
+        """
+        @args:
+            - window_size (int, odd number): size of square window filter
+            - channel (int): expected channels of the images
+            - size_average (bool): whether to average over all or over batch
+            - device (torch.device): device to run on
+        """
         super(SSIM3D, self).__init__()
         self.window_size = window_size
         self.size_average = size_average
