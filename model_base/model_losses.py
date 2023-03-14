@@ -42,7 +42,7 @@ class SSIM_Loss:
 
         B, T, C, H, W = targets.shape
         if(self.complex_i):
-            assert C==2
+            assert C==2, f"Complex type require image to have C=2, given C={C}"
             outputs_im = torch.sqrt(outputs[:,:,0]*outputs[:,:,0] + outputs[:,:,1]*outputs[:,:,1])
             targets_im = torch.sqrt(targets[:,:,0]*targets[:,:,0] + targets[:,:,1]*targets[:,:,1])
         else:
@@ -91,7 +91,7 @@ class SSIM3D_Loss:
 
         B, T, C, H, W = targets.shape
         if(self.complex_i):
-            assert C==2
+            assert C==2, f"Complex type require image to have C=2, given C={C}"
             outputs_im = torch.sqrt(outputs[:,:,0]*outputs[:,:,0] + outputs[:,:,1]*outputs[:,:,1])
             targets_im = torch.sqrt(targets[:,:,0]*targets[:,:,0] + targets[:,:,1]*targets[:,:,1])
         else:
@@ -102,6 +102,7 @@ class SSIM3D_Loss:
         targets_im = torch.permute(targets_im, (0, 2, 1, 3, 4))
 
         if weights is not None:
+
             if not weights.ndim==1:
                 raise NotImplementedError(f"Only support 1D(Batch) weights for SSIM3D_Loss")
             v_ssim = torch.sum(weights*self.ssim_loss(outputs_im, targets_im)) / torch.sum(weights)
@@ -132,13 +133,12 @@ class L1_Loss:
         B, T, C, H, W = targets.shape
 
         if(self.complex_i):
-            assert C==2
+            assert C==2, f"Complex type require image to have C=2, given C={C}"
             diff_L1 = torch.abs(outputs[:,:,0]-targets[:,:,0]) + torch.abs(outputs[:,:,1]-targets[:,:,1])
         else:
             diff_L1 = torch.abs(outputs-targets)
 
         if(weights is not None):
-            assert weights.ndim==1 or weights.ndim==2
 
             if(weights.ndim==1):
                 weights = weights.reshape(B,1,1,1,1)
@@ -172,7 +172,7 @@ class MSE_Loss:
         B, T, C, H, W = targets.shape
 
         if(self.complex_i):
-            assert C==2
+            assert C==2, f"Complex type require image to have C=2, given C={C}"
             diff_mag_square = torch.square(outputs[:,:,0]-targets[:,:,0]) + torch.square(outputs[:,:,1]-targets[:,:,1])
         else:
             diff_mag_square = torch.square(outputs-targets)
@@ -231,8 +231,8 @@ class Combined_Loss:
             - complex_i (bool): whether images are 2 channelled for complex data
             - device (torch.device): device to run the loss on
         """
-        assert len(losses)>0
-        assert len(losses)==len(loss_weights)
+        assert len(losses)>0, f"At least one loss is required to setup"
+        assert len(losses)<=len(loss_weights), f"Each loss should have its weight"
 
         self.complex_i = complex_i
         self.device = device
