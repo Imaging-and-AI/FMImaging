@@ -32,7 +32,7 @@ from utils.utils import get_device
 # -------------------------------------------------------------------------------------------------
 # Base model for rest to inherit
 
-class STCNNT_Base_Runtime_Model(nn.Module):
+class STCNNT_Base_Runtime(nn.Module):
     """
     Base Runtime model of STCNNT
     Sets up the optimizer, scheduler and loss
@@ -184,7 +184,7 @@ class STCNNT_Base_Runtime_Model(nn.Module):
 # -------------------------------------------------------------------------------------------------
 # CNNT unet
 
-class CNNT_Unet(STCNNT_Base_Runtime_Model):
+class CNNT_Unet(STCNNT_Base_Runtime):
     """
     CNNT Unet implementation with 2 downsample and 2 upsample layers
     Concatenates the outputs with skip connections
