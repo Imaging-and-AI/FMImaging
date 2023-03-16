@@ -170,7 +170,7 @@ class SpatialLocalAttention(nn.Module):
         Breaks the input into windows of given size and each window attends to itself locally
 
         @args:
-            - C_in (int): number of Channels of the input dimension
+            - C_in (int): number of input channels
             - C_out (int): number of output channels
             - wind_size (int): window size for local attention
             - a_type ("conv", "lin"): defines what type of attention to use
@@ -296,7 +296,7 @@ class SpatialGlobalAttention(nn.Module):
         each grid attends to itself
 
         @args:
-            - C_in (int): number of Channels of the input dimension
+            - C_in (int): number of input channels
             - C_out (int): number of output channels
             - grid_size (int): grid size for global attention
             - a_type ("conv", "lin"): defines what type of attention to use
@@ -422,7 +422,7 @@ class TemporalCnnAttention(nn.Module):
         Calculates attention using all the time points
 
         @args:
-            - C_in (int): number of Channels of the input dimension
+            - C_in (int): number of input channels
             - C_out (int): number of output channels
             - is_causal (bool): whether to mask attention to imply causality
             - n_head (int): number of heads in self attention
@@ -514,7 +514,7 @@ class CnnTransformer(nn.Module):
         Complete transformer cell
 
         @args:
-            - C_in (int): number of Channels of the input dimension
+            - C_in (int): number of input channels
             - C_out (int): number of output channels
             - H (int): expected height of the input
             - W (int): expected width of the input
@@ -607,7 +607,7 @@ class CNNTBlock(nn.Module):
         @args:
             - att_types (list of "local", "global", "temporal"):
                 CNNT cell are stacked in this type and order
-            - C_in (int): number of Channels of the input dimension
+            - C_in (int): number of input channels
             - C_out (int): number of output channels
             - H (int): expected height of the input
             - W (int): expected width of the input
@@ -625,7 +625,7 @@ class CNNTBlock(nn.Module):
             - interpolate ("none", "up", "down"):
                 whether to interpolate and scale the image up or down by 2
             - interp_align_c (bool):
-                whether to align corner of not when interpolating
+                whether to align corner or not when interpolating
         """
         super().__init__()
 
