@@ -170,7 +170,7 @@ class SpatialLocalAttention(nn.Module):
         Breaks the input into windows of given size and each window attends to itself locally
 
         @args:
-            - C (int): number of Channels of the input dimension
+            - C_in (int): number of Channels of the input dimension
             - C_out (int): number of output channels
             - wind_size (int): window size for local attention
             - a_type ("conv", "lin"): defines what type of attention to use
@@ -204,6 +204,7 @@ class SpatialLocalAttention(nn.Module):
 
         self.output_proj = Conv2DExt(C_out, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
         self.attn_drop = nn.Dropout(dropout_p)
+        self.resid_drop = nn.Dropout(dropout_p)
 
     def forward(self, x):
         """
@@ -250,7 +251,7 @@ class SpatialLocalAttention(nn.Module):
         y = y.reshape(B,T,nh,HWg,hc,Ws,Ws).transpose(3, 4).reshape(B, T, nh*hc, Hg, Wg, Ws, Ws)
 
         y = self.grid2im(y, H, W)
-        y = y + self.output_proj(y)
+        y = y + self.resid_drop(self.output_proj(y))
 
         return y
 
@@ -295,7 +296,7 @@ class SpatialGlobalAttention(nn.Module):
         each grid attends to itself
 
         @args:
-            - C (int): number of Channels of the input dimension
+            - C_in (int): number of Channels of the input dimension
             - C_out (int): number of output channels
             - grid_size (int): grid size for global attention
             - a_type ("conv", "lin"): defines what type of attention to use
@@ -377,7 +378,7 @@ class SpatialGlobalAttention(nn.Module):
         y = y.reshape(B,T,nh,HWg,hc,Gs,Gs).transpose(3, 4).reshape(B, T, nh*hc, Hg, Wg, Gs, Gs)
 
         y = self.grid2im(y, H, W)
-        y = y + self.output_proj(y)
+        y = y + self.resid_drop(self.output_proj(y))
 
         return y
 
@@ -421,7 +422,7 @@ class TemporalCnnAttention(nn.Module):
         Calculates attention using all the time points
 
         @args:
-            - C (int): number of Channels of the input dimension
+            - C_in (int): number of Channels of the input dimension
             - C_out (int): number of output channels
             - is_causal (bool): whether to mask attention to imply causality
             - n_head (int): number of heads in self attention
@@ -489,7 +490,7 @@ class TemporalCnnAttention(nn.Module):
         # (B, nh, T, T) * (B, nh, T, hc, H', W')
         y = att @ v.view(B, nh, T, hc*H_prime*W_prime)
         y = y.transpose(1, 2).contiguous().view(B, T, self.C_out, H_prime, W_prime)
-        y = y + self.output_proj(y)
+        y = y + self.resid_drop(self.output_proj(y))
 
         return y
 
@@ -513,7 +514,7 @@ class CnnTransformer(nn.Module):
         Complete transformer cell
 
         @args:
-            - C (int): number of Channels of the input dimension
+            - C_in (int): number of Channels of the input dimension
             - C_out (int): number of output channels
             - H (int): expected height of the input
             - W (int): expected width of the input
@@ -606,7 +607,7 @@ class CNNTBlock(nn.Module):
         @args:
             - att_types (list of "local", "global", "temporal"):
                 CNNT cell are stacked in this type and order
-            - C (int): number of Channels of the input dimension
+            - C_in (int): number of Channels of the input dimension
             - C_out (int): number of output channels
             - H (int): expected height of the input
             - W (int): expected width of the input
