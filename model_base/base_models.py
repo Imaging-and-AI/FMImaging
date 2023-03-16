@@ -22,6 +22,9 @@ import torch.optim as optim
 from pathlib import Path
 from argparse import Namespace
 
+Project_DIR = Path(__file__).parents[0].resolve()
+sys.path.insert(1, str(Project_DIR))
+
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
