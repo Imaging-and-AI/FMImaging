@@ -12,12 +12,11 @@ Allows custom weights for each indvidual loss calculation as well
 """
 
 import sys
+import torch
 from pathlib import Path
 
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
-
-import torch
 
 from utils.pytorch_ssim import SSIM, SSIM3D
 
@@ -42,7 +41,7 @@ class SSIM_Loss:
 
         B, T, C, H, W = targets.shape
         if(self.complex_i):
-            assert C==2, f"Complex type require image to have C=2, given C={C}"
+            assert C==2, f"Complex type requires image to have C=2, given C={C}"
             outputs_im = torch.sqrt(outputs[:,:,0]*outputs[:,:,0] + outputs[:,:,1]*outputs[:,:,1])
             targets_im = torch.sqrt(targets[:,:,0]*targets[:,:,0] + targets[:,:,1]*targets[:,:,1])
         else:
@@ -91,7 +90,7 @@ class SSIM3D_Loss:
 
         B, T, C, H, W = targets.shape
         if(self.complex_i):
-            assert C==2, f"Complex type require image to have C=2, given C={C}"
+            assert C==2, f"Complex type requires image to have C=2, given C={C}"
             outputs_im = torch.sqrt(outputs[:,:,0]*outputs[:,:,0] + outputs[:,:,1]*outputs[:,:,1])
             targets_im = torch.sqrt(targets[:,:,0]*targets[:,:,0] + targets[:,:,1]*targets[:,:,1])
         else:
@@ -133,7 +132,7 @@ class L1_Loss:
         B, T, C, H, W = targets.shape
 
         if(self.complex_i):
-            assert C==2, f"Complex type require image to have C=2, given C={C}"
+            assert C==2, f"Complex type requires image to have C=2, given C={C}"
             diff_L1 = torch.abs(outputs[:,:,0]-targets[:,:,0]) + torch.abs(outputs[:,:,1]-targets[:,:,1])
         else:
             diff_L1 = torch.abs(outputs-targets)
@@ -172,7 +171,7 @@ class MSE_Loss:
         B, T, C, H, W = targets.shape
 
         if(self.complex_i):
-            assert C==2, f"Complex type require image to have C=2, given C={C}"
+            assert C==2, f"Complex type requires image to have C=2, given C={C}"
             diff_mag_square = torch.square(outputs[:,:,0]-targets[:,:,0]) + torch.square(outputs[:,:,1]-targets[:,:,1])
         else:
             diff_mag_square = torch.square(outputs-targets)
@@ -251,7 +250,7 @@ class Combined_Loss:
         elif loss_name=="ssim3D":
             loss_f = SSIM3D_Loss(window_size=11, complex_i=self.complex_i, device=self.device)
         else:
-            raise NotImplementedError(f"Loss type not supported: {loss_name}")
+            raise NotImplementedError(f"Loss type not implemented: {loss_name}")
 
         return loss_f
     

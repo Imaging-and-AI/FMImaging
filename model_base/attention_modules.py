@@ -51,7 +51,7 @@ class Conv2DExt(nn.Module):
         self.conv2d = nn.Conv2d(*args,**kwargs)
 
     def forward(self, input):
-        # requried input to have 5 dimensions
+        # requires input to have 5 dimensions
         B, T, C, H, W = input.shape
         y = self.conv2d(input.reshape((B*T, C, H, W)))
         return torch.reshape(y, [B, T, *y.shape[1:]])
@@ -64,7 +64,7 @@ class Conv2DGridExt(nn.Module):
         self.conv2d = nn.Conv2d(*args,**kwargs)
 
     def forward(self, input):
-        # requried input to have 7 dimensions
+        # requires input to have 7 dimensions
         B, T, C, Hg, Wg, Gh, Gw = input.shape
         input = input.permute(0,1,3,4,2,5,6)
         y = self.conv2d(input.reshape((-1, C, Gh, Gw)))
@@ -80,7 +80,7 @@ class LinearGridExt(nn.Module):
         self.linear = nn.Linear(*args,**kwargs)
 
     def forward(self, input):
-        # requried input to have 7 dimensions
+        # requires input to have 7 dimensions
         B, T, C, Hg, Wg, Gh, Gw = input.shape
         input = input.permute(0,1,3,4,2,5,6)
         y = self.linear(input.reshape((-1, C*Gh*Gw)))
@@ -96,9 +96,59 @@ class Conv3DExt(nn.Module):
         self.conv3d = nn.Conv3d(*args,**kwargs)
 
     def forward(self, input):
-        # requried input to have 5 dimensions
+        # requires input to have 5 dimensions
         y = self.conv3d(torch.permute(input, (0, 2, 1, 3, 4)))
         return torch.permute(y, (0, 2, 1, 3, 4))
+    
+class BatchNorm2DExt(nn.Module):
+    # Extends BatchNorm2D to 5D inputs
+
+    def __init__(self,*args,**kwargs):
+        super().__init__()
+        self.bn = nn.BatchNorm2d(*args,**kwargs)
+
+    def forward(self, input):
+        # requires input to have 5 dimensions
+        B, T, C, H, W = input.shape
+        norm_input = self.bn(input.reshape(B*T,C,H,W))
+        return norm_input.reshape(input.shape)
+    
+class InstanceNorm2DExt(nn.Module):
+    # Extends InstanceNorm2D to 5D inputs
+
+    def __init__(self,*args,**kwargs):
+        super().__init__()
+        self.inst = nn.InstanceNorm2d(*args,**kwargs)
+
+    def forward(self, input):
+        # requires input to have 5 dimensions
+        B, T, C, H, W = input.shape
+        norm_input = self.inst(input.reshape(B*T,C,H,W))
+        return norm_input.reshape(input.shape)
+    
+class BatchNorm3DExt(nn.Module):
+    # Corrects BatchNorm3D, switching first and second dimension
+
+    def __init__(self,*args,**kwargs):
+        super().__init__()
+        self.bn = nn.BatchNorm3d(*args,**kwargs)
+
+    def forward(self, input):
+        # requires input to have 5 dimensions
+        norm_input = self.bn(input.permute(0,2,1,3,4))
+        return norm_input.permute(0,2,1,3,4)
+    
+class InstanceNorm3DExt(nn.Module):
+    # Corrects InstanceNorm3D, switching first and second dimension
+
+    def __init__(self,*args,**kwargs):
+        super().__init__()
+        self.inst = nn.InstanceNorm3d(*args,**kwargs)
+
+    def forward(self, input):
+        # requires input to have 5 dimensions
+        norm_input = self.inst(input.permute(0,2,1,3,4))
+        return norm_input.permute(0,2,1,3,4)
 
 # -------------------------------------------------------------------------------------------------
 # The CNN transformers to process the [B, T, C, H, W], a series of images
@@ -108,7 +158,7 @@ class SpatialLocalAttention(nn.Module):
     """
     Multi-head cnn attention model for local spatial attention
     """
-    def __init__(self, C, C_out=16, wind_size=8, a_type="conv", n_head=8,\
+    def __init__(self, C_in, C_out=16, wind_size=8, a_type="conv", n_head=8,\
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), dropout_p=0.1):
         """
         Defines the layer for a cnn self-attention on spatial dimension with local windows
@@ -131,26 +181,26 @@ class SpatialLocalAttention(nn.Module):
         super().__init__()
 
         self.wind_size = wind_size
-        self.C = C
+        self.C_in = C_in
         self.C_out = C_out
         self.n_head = n_head
 
-        assert a_type=="conv" or a_type=="lin", \
-            f"Only supported attention types are \"conv\" and \"lin\""
         assert self.C_out % self.n_head == 0, \
             f"Number of output channles {self.C_out} should be divisible by number of heads {self.n_head}"
 
         if a_type=="conv":
             # key, query, value projections convolution
             # Wk, Wq, Wv
-            self.key = Conv2DGridExt(C, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
-            self.query = Conv2DGridExt(C, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
-            self.value = Conv2DGridExt(C, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
+            self.key = Conv2DGridExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
+            self.query = Conv2DGridExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
+            self.value = Conv2DGridExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
         elif a_type=="lin":
             # linear projections
-            self.key = LinearGridExt(C*wind_size*wind_size, C_out*wind_size*wind_size, bias=True)
-            self.query = LinearGridExt(C*wind_size*wind_size, C_out*wind_size*wind_size, bias=True)
-            self.value = LinearGridExt(C*wind_size*wind_size, C_out*wind_size*wind_size, bias=True)
+            self.key = LinearGridExt(C_in*wind_size*wind_size, C_out*wind_size*wind_size, bias=True)
+            self.query = LinearGridExt(C_in*wind_size*wind_size, C_out*wind_size*wind_size, bias=True)
+            self.value = LinearGridExt(C_in*wind_size*wind_size, C_out*wind_size*wind_size, bias=True)
+        else:
+            raise NotImplementedError(f"Attention type not implemented: {a_type}")
 
         self.output_proj = Conv2DExt(C_out, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
         self.attn_drop = nn.Dropout(dropout_p)
@@ -166,6 +216,7 @@ class SpatialLocalAttention(nn.Module):
         B, T, C, H, W = x.size()
         Ws = self.wind_size
 
+        assert C == self.C_in, f"Input channel {C} does not match expected input channel {self.C_in}"
         assert H % Ws == 0, f"Height {H} should be divisible by window size {Ws}"
         assert W % Ws == 0, f"Width {W} should be divisible by window size {Ws}"
 
@@ -199,7 +250,7 @@ class SpatialLocalAttention(nn.Module):
         y = y.reshape(B,T,nh,HWg,hc,Ws,Ws).transpose(3, 4).reshape(B, T, nh*hc, Hg, Wg, Ws, Ws)
 
         y = self.grid2im(y, H, W)
-        # y = self.output_proj(y)
+        y = y + self.output_proj(y)
 
         return y
 
@@ -231,7 +282,7 @@ class SpatialGlobalAttention(nn.Module):
     """
     Multi-head cnn attention model for global spatial attention
     """
-    def __init__(self, C, C_out=16, grid_size=8, a_type="conv", n_head=8,\
+    def __init__(self, C_in, C_out=16, grid_size=8, a_type="conv", n_head=8,\
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), dropout_p=0.1):
         """
         Defines the layer for a cnn self-attention on spatial dimension with global grid
@@ -255,26 +306,26 @@ class SpatialGlobalAttention(nn.Module):
         super().__init__()
 
         self.grid_size = grid_size
-        self.C = C
+        self.C_in = C_in
         self.C_out = C_out
         self.n_head = n_head
 
-        assert a_type=="conv" or a_type=="lin", \
-            f"Only supported attention types are \"conv\" and \"lin\""
         assert self.C_out % self.n_head == 0, \
             f"Number of output channles {self.C_out} should be divisible by number of heads {self.n_head}"
 
         if a_type=="conv":
             # key, query, value projections convolution
             # Wk, Wq, Wv
-            self.key = Conv2DGridExt(C, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
-            self.query = Conv2DGridExt(C, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
-            self.value = Conv2DGridExt(C, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
+            self.key = Conv2DGridExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
+            self.query = Conv2DGridExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
+            self.value = Conv2DGridExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
         elif a_type=="lin":
             # linear projections
-            self.key = LinearGridExt(C*grid_size*grid_size, C_out*grid_size*grid_size, bias=True)
-            self.query = LinearGridExt(C*grid_size*grid_size, C_out*grid_size*grid_size, bias=True)
-            self.value = LinearGridExt(C*grid_size*grid_size, C_out*grid_size*grid_size, bias=True)
+            self.key = LinearGridExt(C_in*grid_size*grid_size, C_out*grid_size*grid_size, bias=True)
+            self.query = LinearGridExt(C_in*grid_size*grid_size, C_out*grid_size*grid_size, bias=True)
+            self.value = LinearGridExt(C_in*grid_size*grid_size, C_out*grid_size*grid_size, bias=True)
+        else:
+            raise NotImplementedError(f"Attention type not implemented: {a_type}")
 
         self.output_proj = Conv2DExt(C_out, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
         self.attn_drop = nn.Dropout(dropout_p)
@@ -291,6 +342,7 @@ class SpatialGlobalAttention(nn.Module):
         B, T, C, H, W = x.size()
         Gs = self.grid_size
 
+        assert C == self.C_in, f"Input channel {C} does not match expected input channel {self.C_in}"
         assert H % Gs == 0, f"Height {H} should be divisible by grid size {Gs}"
         assert W % Gs == 0, f"Width {W} should be divisible by grid size {Gs}"
 
@@ -325,7 +377,7 @@ class SpatialGlobalAttention(nn.Module):
         y = y.reshape(B,T,nh,HWg,hc,Gs,Gs).transpose(3, 4).reshape(B, T, nh*hc, Hg, Wg, Gs, Gs)
 
         y = self.grid2im(y, H, W)
-        # y = self.output_proj(y)
+        y = y + self.output_proj(y)
 
         return y
 
@@ -357,7 +409,7 @@ class TemporalCnnAttention(nn.Module):
     """
     Multi-head cnn attention model for complete temporal attention
     """
-    def __init__(self, C, C_out=16, is_causal=False, n_head=8, \
+    def __init__(self, C_in, C_out=16, is_causal=False, n_head=8, \
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), dropout_p=0.1):
         """
         Defines the layer for a cnn self-attention on temporal axis
@@ -378,7 +430,7 @@ class TemporalCnnAttention(nn.Module):
         """
         super().__init__()
 
-        self.C = C
+        self.C_in = C_in
         self.C_out = C_out
         self.is_causal = is_causal
         self.n_head = n_head
@@ -388,9 +440,9 @@ class TemporalCnnAttention(nn.Module):
 
         # key, query, value projections convolution
         # Wk, Wq, Wv
-        self.key = Conv2DExt(C, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
-        self.query = Conv2DExt(C, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
-        self.value = Conv2DExt(C, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
+        self.key = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
+        self.query = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
+        self.value = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
 
         self.output_proj = Conv2DExt(C_out, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
         self.attn_drop = nn.Dropout(dropout_p)
@@ -407,6 +459,8 @@ class TemporalCnnAttention(nn.Module):
             y ([B, T, C_out, H', W']): logits
         """
         B, T, C, H, W = x.size()
+
+        assert C == self.C_in, f"Input channel {C} does not match expected input channel {self.C_in}"
 
         # apply the key, query and value matrix
         k = self.key(x)
@@ -435,7 +489,7 @@ class TemporalCnnAttention(nn.Module):
         # (B, nh, T, T) * (B, nh, T, hc, H', W')
         y = att @ v.view(B, nh, T, hc*H_prime*W_prime)
         y = y.transpose(1, 2).contiguous().view(B, T, self.C_out, H_prime, W_prime)
-        # y = self.output_proj(y)
+        y = y + self.output_proj(y)
 
         return y
 
@@ -451,7 +505,7 @@ class CnnTransformer(nn.Module):
     x-> LayerNorm -> attention -> + -> LayerNorm -> CNN mixer -> + -> logits
     |-----------------------------| |----------------------------|
     """
-    def __init__(self, C, C_out=16, H=64, W=64, att_mode="temporal", a_type="conv",\
+    def __init__(self, C_in, C_out=16, H=64, W=64, att_mode="temporal", a_type="conv",\
                     window_size=8, is_causal=False, n_head=8,\
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1),\
                     dropout_p=0.1, with_mixer=True, norm_mode="layer"):
@@ -473,37 +527,46 @@ class CnnTransformer(nn.Module):
             - kernel_size, stride, padding (int, int): convolution parameters
             - dropout (float): probability of dropout
             - with_mixer (bool): whether to add a conv2D mixer after attention
-            - norm_mode ("layer", "batch", "instance"):
-                layer - norm along C, H, W; batch - norm along B*T; or instance
+            - norm_mode ("layer", "batch2d", "instance2d", "batch3d", "instance3d"):
+                - layer: each C,H,W
+                - batch2d: along B*T
+                - instance2d: each H,W
+                - batch3d: along B
+                - instance3d: each T,H,W
         """
         super().__init__()
 
-        assert att_mode=="local" or att_mode=="global" or att_mode=="temporal", \
-            f"att_mode {att_mode} not implemented"
-        assert norm_mode=="layer" or norm_mode=="batch" or norm_mode=="instance", \
-            f"norm_mode {norm_mode} not implemented"
-
         if(norm_mode=="layer"):
-            self.n1 = nn.LayerNorm([C, H, W])
+            self.n1 = nn.LayerNorm([C_in, H, W])
             self.n2 = nn.LayerNorm([C_out, H, W])
-        elif(norm_mode=="batch"):
-            self.n1 = nn.BatchNorm2d(C)
-            self.n2 = nn.BatchNorm2d(C_out)
-        elif(norm_mode=="instance"):
-            self.n1 = nn.InstanceNorm2d(C)
-            self.n2 = nn.InstanceNorm2d(C_out)
+        elif(norm_mode=="batch2d"):
+            self.n1 = BatchNorm2DExt(C_in)
+            self.n2 = BatchNorm2DExt(C_out)
+        elif(norm_mode=="instance2d"):
+            self.n1 = InstanceNorm2DExt(C_in)
+            self.n2 = InstanceNorm2DExt(C_out)
+        elif(norm_mode=="batch3d"):
+            self.n1 = BatchNorm3DExt(C_in)
+            self.n2 = BatchNorm3DExt(C_out)
+        elif(norm_mode=="instance3d"):
+            self.n1 = InstanceNorm3DExt(C_in)
+            self.n2 = InstanceNorm3DExt(C_out)
+        else:
+            raise NotImplementedError(f"Norm mode not implemented: {norm_mode}")
 
-        if C!=C_out:
-            self.input_proj = Conv2DExt(C, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
+        if C_in!=C_out:
+            self.input_proj = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
         else:
             self.input_proj = nn.Identity()
 
         if(att_mode=="temporal"):
-            self.attn = TemporalCnnAttention(C=C, C_out=C_out, is_causal=is_causal, n_head=n_head, kernel_size=kernel_size, stride=stride, padding=padding, dropout_p=dropout_p)
+            self.attn = TemporalCnnAttention(C_in=C_in, C_out=C_out, is_causal=is_causal, n_head=n_head, kernel_size=kernel_size, stride=stride, padding=padding, dropout_p=dropout_p)
         elif(att_mode=="local"):
-            self.attn = SpatialLocalAttention(C=C, C_out=C_out, wind_size=window_size, a_type=a_type, n_head=n_head, kernel_size=kernel_size, stride=stride, padding=padding, dropout_p=dropout_p)
+            self.attn = SpatialLocalAttention(C_in=C_in, C_out=C_out, wind_size=window_size, a_type=a_type, n_head=n_head, kernel_size=kernel_size, stride=stride, padding=padding, dropout_p=dropout_p)
         elif(att_mode=="global"):
-            self.attn = SpatialGlobalAttention(C=C, C_out=C_out, grid_size=window_size, a_type=a_type, n_head=n_head, kernel_size=kernel_size, stride=stride, padding=padding, dropout_p=dropout_p)
+            self.attn = SpatialGlobalAttention(C_in=C_in, C_out=C_out, grid_size=window_size, a_type=a_type, n_head=n_head, kernel_size=kernel_size, stride=stride, padding=padding, dropout_p=dropout_p)
+        else:
+            raise NotImplementedError(f"Attention mode not implemented: {att_mode}")
 
         self.with_mixer = with_mixer
         if(self.with_mixer):
@@ -516,14 +579,10 @@ class CnnTransformer(nn.Module):
 
     def forward(self, x):
 
-        B, T, C, H, W = x.shape
-        x1 = torch.reshape(self.n1(torch.reshape(x, (B*T, C, H, W))), x.shape)
-        x = self.input_proj(x) + self.attn(x1)
+        x = self.input_proj(x) + self.attn(self.n1(x))
 
         if(self.with_mixer):
-            B, T, C, H, W = x.shape
-            x2 = torch.reshape(self.n2(torch.reshape(x, (B*T, C, H, W))), x.shape)
-            x = x + self.mlp(x2)
+            x = x + self.mlp(self.n2(x))
 
         return x
 
@@ -536,7 +595,7 @@ class CNNTBlock(nn.Module):
     The first cell expands the channel dimension.
     Can use Conv2D mixer with all cells, last cell, or none at all.
     """
-    def __init__(self, att_types, C, C_out=16, H=64, W=64,\
+    def __init__(self, att_types, C_in, C_out=16, H=64, W=64,\
                     a_type="conv", window_size=8, is_causal=False, n_head=8,\
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1),\
                     dropout_p=0.1, with_mixer="all", norm_mode="layer",\
@@ -572,17 +631,17 @@ class CNNTBlock(nn.Module):
         assert (len(att_types)>=1), f"At least one attention module is requried to build the model"
 
         assert with_mixer=="all" or with_mixer=="last" or with_mixer=="none", \
-            f"Mixer type {with_mixer} not implemented"
+            f"Mixer type not implemented: {with_mixer}"
         assert interpolate=="none" or interpolate=="up" or interpolate=="down", \
-            f"Interpolate {interpolate} not implemented"
+            f"Interpolate not implemented: {interpolate}"
 
         first_mixer = with_mixer=="all" or (with_mixer=="last" and len(att_types)==1)
-        first_cell = CnnTransformer(C=C, C_out=C_out, H=H, W=W, att_mode=att_types[0], a_type=a_type,
+        first_cell = CnnTransformer(C_in=C_in, C_out=C_out, H=H, W=W, att_mode=att_types[0], a_type=a_type,
                                         window_size=window_size, is_causal=is_causal, n_head=n_head,
                                         kernel_size=kernel_size, stride=stride, padding=padding,
                                         dropout_p=dropout_p, with_mixer=first_mixer, norm_mode=norm_mode)
 
-        remaining_cells = [CnnTransformer(C=C_out, C_out=C_out, H=H, W=W, att_mode=x, a_type=a_type,
+        remaining_cells = [CnnTransformer(C_in=C_out, C_out=C_out, H=H, W=W, att_mode=x, a_type=a_type,
                                             window_size=window_size, is_causal=is_causal, n_head=n_head,
                                             kernel_size=kernel_size, stride=stride, padding=padding,
                                             dropout_p=dropout_p, with_mixer=(with_mixer=="all"), norm_mode=norm_mode)
@@ -590,7 +649,7 @@ class CNNTBlock(nn.Module):
 
         # Last cell mixer fix
         if with_mixer=="last" and len(att_types)>1:
-            remaining_cells[-1] = CnnTransformer(C=C_out, C_out=C_out, H=H, W=W, att_mode=att_types[-1], a_type=a_type,
+            remaining_cells[-1] = CnnTransformer(C_in=C_out, C_out=C_out, H=H, W=W, att_mode=att_types[-1], a_type=a_type,
                                                     window_size=window_size, is_causal=is_causal, n_head=n_head,
                                                     kernel_size=kernel_size, stride=stride, padding=padding,
                                                     dropout_p=dropout_p, with_mixer=True, norm_mode=norm_mode)
@@ -611,11 +670,12 @@ class CNNTBlock(nn.Module):
             interp = F.interpolate(x, scale_factor=(1.0, 0.5, 0.5), mode="trilinear", align_corners=self.interp_align_c, recompute_scale_factor=False)
             interp = interp.view(B, T, C, torch.div(H, 2, rounding_mode="floor"), torch.div(W, 2, rounding_mode="floor"))
 
-        if self.interpolate=="up":
+        elif self.interpolate=="up":
             interp = F.interpolate(x, scale_factor=(1.0, 2.0, 2.0), mode="trilinear", align_corners=self.interp_align_c, recompute_scale_factor=False)
             interp = interp.view(B, T, C, H*2, W*2)
 
-        # self.interpolate=="none"
+        else: # self.interpolate=="none"
+            pass
 
         # Returns both: "x" without interpolation and "interp" that is x interpolated
         return x, interp
@@ -634,7 +694,7 @@ def tests():
     a_types = ["conv", "lin"]
     for a_type in a_types:
 
-        spacial_local = SpatialLocalAttention(wind_size=8, a_type=a_type, C=C, C_out=C_out)
+        spacial_local = SpatialLocalAttention(wind_size=8, a_type=a_type, C_in=C, C_out=C_out)
         test_out = spacial_local(test_in)
 
         Bo, To, Co, Ho, Wo = test_out.shape
@@ -645,13 +705,13 @@ def tests():
     a_types = ["conv", "lin"]
     for a_type in a_types:
 
-        spacial_local = SpatialGlobalAttention(grid_size=8, a_type=a_type, C=C, C_out=C_out)
+        spacial_local = SpatialGlobalAttention(grid_size=8, a_type=a_type, C_in=C, C_out=C_out)
         test_out = spacial_local(test_in)
 
         Bo, To, Co, Ho, Wo = test_out.shape
         assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
 
-    print("Passed spacial Global")
+    print("Passed spacial global")
 
     causals = [True, False]
     for causal in causals:
@@ -665,11 +725,11 @@ def tests():
     print("Passed temporal")
 
     att_types = ["temporal", "local", "global"]
-    norm_types = ["instance", "batch", "layer"]
+    norm_types = ["instance2d", "batch2d", "layer", "instance3d", "batch3d"]
     for att_type in att_types:
         for norm_type in norm_types:
 
-            CNNT_Cell = CnnTransformer(C=C, C_out=C_out, H=H, W=W, att_mode=att_type, norm_mode=norm_type)
+            CNNT_Cell = CnnTransformer(C_in=C, C_out=C_out, H=H, W=W, att_mode=att_type, norm_mode=norm_type)
             test_out = CNNT_Cell(test_in)
 
             Bo, To, Co, Ho, Wo = test_out.shape
@@ -684,7 +744,7 @@ def tests():
 
     for att_types in att_typess:
         for with_mixer in with_mixers:
-            CNNT_Block = CNNTBlock(att_types=att_types, C=C, C_out=C_out, with_mixer=with_mixer)
+            CNNT_Block = CNNTBlock(att_types=att_types, C_in=C, C_out=C_out, with_mixer=with_mixer)
             test_out, _ = CNNT_Block(test_in)
 
             Bo, To, Co, Ho, Wo = test_out.shape
@@ -697,7 +757,7 @@ def tests():
 
     for interpolate in interpolates:
         for interp_align_c in interp_align_cs:
-            CNNT_Block = CNNTBlock(att_types=att_types, C=C, C_out=C_out, with_mixer=with_mixer,\
+            CNNT_Block = CNNTBlock(att_types=att_types, C_in=C, C_out=C_out, with_mixer=with_mixer,\
                                    interpolate=interpolate, interp_align_c=interp_align_c)
             _, test_out = CNNT_Block(test_in)
 
