@@ -5,6 +5,18 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Cifar10_main",
+            "type": "python",
+            "request": "launch",
+            "program": "C:/Users/rehmana2/Documents/Current/Projects/STCNNT/cifar10/main_cifar.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
+            "args": [
+                "--run_name", "test_run"
+            ]
+        },
+        {
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
