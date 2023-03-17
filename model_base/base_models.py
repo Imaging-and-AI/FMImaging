@@ -200,12 +200,13 @@ class CNNT_Unet(STCNNT_Base_Runtime):
             - config (Namespace): runtime namespace for setup
             - total_steps (int): total training steps. used for OneCycleLR
         @args (from config):
+            - channels (int list): number of channels in each of the 3 layers
             - att_types (list of "local", "global", "temporal"):
                 CNNT cell are stacked in this type and order
             - C_in (int): number of input channels
             - C_out (int): number of output channels
-            - H (int): expected height of the input
-            - W (int): expected width of the input
+            - height (int list): expected heights of the input
+            - width (int list): expected widths of the input
             - a_type ("conv", "lin"):
                 type of attention in spatial heads
             - window_size (int): size of window for local and global att
@@ -217,8 +218,6 @@ class CNNT_Unet(STCNNT_Base_Runtime):
                 add conv2D mixer after att to all/last/none CNNT cells
             - norm_mode ("layer", "batch", "instance"):
                 layer - norm along C, H, W; batch - norm along B*T; or instance
-            - interpolate ("none", "up", "down"):
-                whether to interpolate and scale the image up or down by 2
             - interp_align_c (bool):
                 whether to align corner or not when interpolating
             - residual (bool):
@@ -241,6 +240,10 @@ class CNNT_Unet(STCNNT_Base_Runtime):
 
         c = config # shortening due to numerous uses
 
+        for h in c.height: assert not h % 8, f"height {h} should be divisible by 8"
+        for w in c.width: assert not w % 8, f"width {w} should be divisible by 8"
+        assert len(c.channels) == 3, f"Requires exactly 3 channel numbers"
+
         kwargs = {
             "att_types":c.att_types, "C_in":c.C_in, "C_out":c.channels[0],\
             "H":c.height[0], "W":c.width[0], "a_type":c.a_type,\
@@ -250,11 +253,6 @@ class CNNT_Unet(STCNNT_Base_Runtime):
             "with_mixer":c.with_mixer, "norm_mode":c.norm_mode,\
             "interpolate":"down", "interp_align_c":c.interp_align_c
         }
-
-        assert not(kwargs["H"] % 8 or kwargs["W"] % 8),\
-            f"Require H and W dimension sizes to be divisible by 8"
-        assert len(c.channels) == 3,\
-            f"Requires exactly 3 channel numbers"
 
         self.down1 = CNNTBlock(**kwargs)
 
