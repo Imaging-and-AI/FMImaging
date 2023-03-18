@@ -13,7 +13,14 @@
             "justMyCode": true,
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
             "args": [
-                "--run_name", "test_run"
+                "--run_name", "test_run",
+                "--num_workers", "0",
+                "--time", "1",
+                "--height", "32",
+                "--width", "32",
+                "--num_epoch", "5",
+                "--save_cycle", "2",
+                "--device", "cpu"
             ]
         },
         {
