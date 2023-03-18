@@ -114,7 +114,7 @@ class STCNNT_Base_Runtime(nn.Module):
         c = self.config # short config name because of multiple uses
         self.optim = None
         self.sched = None
-        self.sched_on_batch = False
+        self.stype = None
         if c.optim is None:
             return
 
@@ -133,13 +133,15 @@ class STCNNT_Base_Runtime(nn.Module):
             self.sched = optim.lr_scheduler.ReduceLROnPlateau(self.optim, mode="min", factor=0.75,
                                                                     patience=5, cooldown=3, min_lr=1e-8,
                                                                     verbose=True)
+            self.stype = "ReduceLROnPlateau"
         elif c.scheduler == "StepLR":
             self.sched = optim.lr_scheduler.StepLR(self.optim, step_size=5, gamma=0.8, last_epoch=-1,
                                                         verbose=True)
+            self.stype = "StepLR"
         elif c.scheduler == "OneCycleLR":
             self.sched = optim.lr_scheduler.OneCycleLR(self.optim, max_lr=c.global_lr*4, total_steps=total_steps,
                                                             pct_start=0.3, anneal_strategy="cos", verbose=True)
-            self.sched_on_batch = True
+            self.stype = "OneCycleLR"
         else:
             raise NotImplementedError(f"Scheduler not implemented: {c.scheduler}")
 
@@ -194,11 +196,12 @@ class CNNT_Unet(STCNNT_Base_Runtime):
     Final layer does not interpolate
     Instead uses output projection to get desired output channels
     """
-    def __init__(self, config, total_steps=1) -> None:
+    def __init__(self, config, total_steps=1, load=False) -> None:
         """
         @args:
             - config (Namespace): runtime namespace for setup
             - total_steps (int): total training steps. used for OneCycleLR
+            - load (bool): whether to try loading from config.load_path or not
         @args (from config):
             - channels (int list): number of channels in each of the 3 layers
             - att_types (list of "local", "global", "temporal"):
@@ -292,7 +295,7 @@ class CNNT_Unet(STCNNT_Base_Runtime):
         self.set_up_loss(device=device)
         self.set_up_optim_and_scheduling(total_steps=total_steps)
 
-        if c.load_path is not None:
+        if load and c.load_path is not None:
             self.load(device=device)
     
     def forward(self, x):
