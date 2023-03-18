@@ -16,9 +16,8 @@ from model_base.base_models import *
 class STCNNT_Cifar(STCNNT_Base_Runtime):
     """
     STCNNT for Cifar 10
-    Build on top of CNNT Unet with additional layers for classification
+    Built on top of CNNT Unet with additional layers for classification
     """
-
     def __init__(self, config, total_steps=1) -> None:
         """
         @args:
