@@ -136,6 +136,8 @@ def setup_run(config, dirs={"log_path", "model_path", "check_path"}):
     torch.manual_seed(config.seed)
 
     # setup dp/ddp
+    device = get_device(config.device)
+    if config.device is None: config.update({"device":device}, allow_val_change=True)
     world_size = torch.cuda.device_count()
     config["ddp"] = config.device == "cuda" and world_size > 1
     config["world_size"] = world_size if config.ddp else -1
