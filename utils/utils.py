@@ -29,6 +29,7 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for STCNNT")
     """
     # common paths
     parser.add_argument("--log_path", type=str, default=None, help='directory for log files')
+    parser.add_argument("--results_path", type=str, default=None, help='folder to save results in')
     parser.add_argument("--model_path", type=str, default=None, help='directory for saving the final model')
     parser.add_argument("--check_path", type=str, default=None, help='directory for saving checkpoints (model weights)')
 
@@ -98,7 +99,7 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for STCNNT")
 # -------------------------------------------------------------------------------------------------
 # setup the run
 
-def setup_run(config, dirs=["log_path", "model_path", "check_path"]):
+def setup_run(config, dirs=["log_path", "results_path", "model_path", "check_path"]):
     """
     sets up datetime, logging, seed and ddp
     @args:

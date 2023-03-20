@@ -4,6 +4,7 @@ Can be run from command line to load and test a model
 Provides functionality to also be called during runtime while/after training:
     - eval_test
 """
+import json
 import wandb
 import logging
 import argparse
@@ -33,6 +34,7 @@ def eval_test(model, config, test_set=None, device="cpu", id=""):
         - config (Namespace): config of the run
         - test_set (torch Dataset): the data to test on
         - device (torch.device): the device to run the test on
+        - id (str): unique id to log and save results with
     @rets:
         - test_loss_avg (float): the average test loss
         - test_loss_acc (float): the average test acc [0,1]
@@ -84,6 +86,8 @@ def eval_test(model, config, test_set=None, device="cpu", id=""):
     wandb.log({f"test_loss_avg_{id}":test_loss.avg,
                 f"test_acc_avg_{id}":test_acc.avg})
 
+    save_results(config, test_loss.avg, test_acc.avg, id)
+
     return test_loss.avg, test_acc.avg
 
 # -------------------------------------------------------------------------------------------------
@@ -106,30 +110,34 @@ def arg_parser():
 
     return parser.parse_args()
 
-def check_args(args):
+def check_args(config):
     """
     checks the cmd args to make sure they are correct
     @args:
-        - args (Namespace): the argparser
+        - config (Namespace): runtime namespace for setup
     @rets:
-        - args (Namespcae): the checked and updated argparse for Cifar10
+        - config (Namespcae): the checked and updated argparse for Cifar10
     """
-    assert args.run_name is not None, f"Please provide a \"--run_name\" for wandb"
-    assert args.data_root is not None, f"Please provide a \"--data_root\" to load the data"
-    assert args.saved_model_path is not None, f"Please provide a \"--saved_model_path\" for loading a checkpoint"
+    assert config.run_name is not None, f"Please provide a \"--run_name\" for wandb"
+    assert config.data_root is not None, f"Please provide a \"--data_root\" to load the data"
+    assert config.results_path is not None, f"Please provide a \"--results_path\" to save the results in"
+    assert config.saved_model_path is not None, f"Please provide a \"--saved_model_path\" for loading a checkpoint"
 
-    assert args.saved_model_path.endswith(".pt") or args.saved_model_path.endswith(".pts"),\
+    assert config.saved_model_path.endswith(".pt") or config.saved_model_path.endswith(".pts"),\
             f"Saved model should either be \"*.pt\" or \"*.pts\""
-    assert not(args.saved_model_path.endswith(".pt")) or \
-            (args.saved_model_path.endswith(".pt") and args.saved_model_config.endswith(".json")),\
+    assert not(config.saved_model_path.endswith(".pt")) or \
+            (config.saved_model_path.endswith(".pt") and config.saved_model_config.endswith(".json")),\
             f"If loading from \"*.pt\" need a \"*.json\" config file"
 
-    args.load_path = args.saved_model_path
-    args.time = 1
-    args.height = [32]
-    args.width = [32]
+    config.load_path = config.saved_model_path
+    config.time = 1
+    config.height = [32]
+    config.width = [32]
 
-    return args
+    return config
+
+# -------------------------------------------------------------------------------------------------
+# load dataset and model
 
 def transform_f(x):
     """
@@ -161,25 +169,48 @@ def create_base_test_set(config):
 
     return test_set
 
-def load_model(args):
+def load_model(config):
     """
     load a ".pt" or ".pts" model
     ".pt" models require ".json" to create the model
     @args:
-        - args (Namespace): the argpaser
+        - config (Namespace): runtime namespace for setup
     @rets:
         - model (torch model): the model ready for inference
     """
-    if args.saved_model_path.endswith(".pt"):
-        args.load_path = args.saved_model_path
-        model = STCNNT_Cifar(config=args)
+    if config.saved_model_path.endswith(".pt"):
+        config.load_path = config.saved_model_path
+        model = STCNNT_Cifar(config=config)
     else:
-        model = torch.jit.load(args.saved_model_path)
+        model = torch.jit.load(config.saved_model_path)
 
     return model
 
 # -------------------------------------------------------------------------------------------------
-# the main function for setup and eval call
+# save results
+
+def save_results(config, loss, acc, id=""):
+    """
+    save the results
+    @args:
+        - config (Namespace): runtime namespace for setup
+        - loss (float): test loss
+        - acc (float): test accuracy [0,1]
+        - id (str): unique id to save results with
+    """
+    file_name = f"{config.run_name}_{config.date}_{id}_results"
+    results_file_name = os.path.join(config.results_path, file_name)
+
+    result_dict = {
+        "test_loss" : loss,
+        "test_acc" : acc
+    }
+
+    with open(f"{results_file_name}.json", "w") as file:
+        json.dump(result_dict, file)
+
+# -------------------------------------------------------------------------------------------------
+# the main function for setup, eval call and saving results
 
 def main():
 
