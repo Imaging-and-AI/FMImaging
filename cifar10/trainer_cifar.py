@@ -74,7 +74,7 @@ def trainer(rank, model, config, train_set, val_set):
     train_loss = AverageMeter()
 
     for epoch in range(c.num_epochs):
-        logging.info(f"{'-'*30}Epoch:{epoch}/{c.num_epochs}{'-'*30}")
+        logging.info(f"{'-'*20}Epoch:{epoch}/{c.num_epochs}{'-'*20}")
 
         model.train()
         if c.ddp: train_loader.sampler.set_epoch(epoch)
@@ -107,7 +107,7 @@ def trainer(rank, model, config, train_set, val_set):
                 wandb.log({"running_train_loss": loss.item()})
 
                 pbar.update(1)
-                pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {train_loss.avg:.4f}, lr {curr_lr:.8f}")
+                pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {loss.item():.4f}, lr {curr_lr:.8f}")
 
         pbar.set_postfix_str(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {train_loss.avg:.4f}, lr {curr_lr:.8f}")
         # silently log to only the file as well
@@ -115,7 +115,7 @@ def trainer(rank, model, config, train_set, val_set):
 
         if rank<=0: # main or master process
             # run eval, save and log in this process
-            val_loss_avg = eval_val(model, c, val_set, epoch, device)
+            val_loss_avg, _ = eval_val(model, c, val_set, epoch, device)
             if(val_loss_avg<best_val_loss):
                 best_val_loss = val_loss_avg
                 best_model_wts = copy.deepcopy(model.state_dict())
@@ -125,8 +125,7 @@ def trainer(rank, model, config, train_set, val_set):
                 model.module.save(epoch) if c.ddp else model.save(epoch)
 
             wandb.log({"epoch": epoch,
-                        "train_loss_avg": train_loss.avg,
-                        "val_loss_avg": val_loss_avg})
+                        "train_loss_avg": train_loss.avg})
 
             if stype == "ReduceLROnPlateau":
                 sched.step(val_loss_avg)
@@ -157,7 +156,12 @@ def trainer(rank, model, config, train_set, val_set):
 
         model = model.module if c.ddp else model
         model.save(epoch) # save the final weights
-        eval_test(model, config, test_set=None, device=device)
+        # test last model
+        eval_test(model, config, test_set=None, device=device, id="last")
+        # test best model
+        model.load_state_dict(best_model_wts)
+        eval_test(model, config, test_set=None, device=device, id="best")
+        # save both models
         save_final_model(model, config, best_model_wts)
 
     if c.ddp: # cleanup
@@ -180,12 +184,13 @@ def eval_val(model, config, val_set, epoch, device):
     """
     c = config # shortening due to numerous uses
 
-    val_loader = DataLoader(dataset=val_set, batch_size=c.batch_size, shuffle=True, sampler=None,
+    val_loader = DataLoader(dataset=val_set, batch_size=c.batch_size, shuffle=False, sampler=None,
                                 num_workers=c.num_workers, prefetch_factor=c.prefetch_factor,
                                 persistent_workers=c.num_workers>0)
 
     loss_f = nn.CrossEntropyLoss()
     val_loss = AverageMeter()
+    val_acc = AverageMeter()
 
     model.eval()
     model.to(device)
@@ -197,19 +202,28 @@ def eval_val(model, config, val_set, epoch, device):
         for idx in range(total_iters):
 
             inputs, labels = next(val_loader_iter)
+
             inputs = inputs.to(device)
             labels = labels.to(device)
+            total = labels.size(0)
 
             output = model(inputs)
             loss = loss_f(output, labels)
+            val_loss.update(loss.item(), n=total)
 
-            val_loss.update(loss.item(), n=c.batch_size)
-            wandb.log({"running_val_loss": loss.item()})
+            _, predicted = torch.max(output.data, 1)
+            correct = (predicted == labels).sum().item()
+            val_acc.update(correct/total, n=total)
+
+            wandb.log({f"running_val_loss": loss.item(),
+                        f"running_val_acc": correct/total})
 
             pbar.update(1)
-            pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {val_loss.avg:.4f}")
+            pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {loss.item():.4f}, {correct/total:.4f}")
 
-    pbar.set_postfix_str(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {val_loss.avg:.4f}")
+    pbar.set_postfix_str(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {val_loss.avg:.4f}, {val_acc.avg}")
     logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {val_loss.avg:.4f}")
+    wandb.log({f"val_loss_avg_{id}":val_loss.avg,
+                f"val_acc_avg_{id}":val_acc.avg})
 
     return val_loss.avg
