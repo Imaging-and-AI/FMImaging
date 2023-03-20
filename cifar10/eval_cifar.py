@@ -215,12 +215,12 @@ def save_results(config, loss, acc, id=""):
 def main():
 
     config = check_args(arg_parser())
+    setup_run(config, dirs=["log_path"])
 
     model = load_model(config)
     wandb.init(project=config.project, entity=config.wandb_entity, config=config,
                         name=config.run_name, notes=config.run_notes)
 
-    setup_run(config, dirs=["log_path"])
     eval_test(model, config, test_set=None, device="cuda")
 
 if __name__=="__main__":
