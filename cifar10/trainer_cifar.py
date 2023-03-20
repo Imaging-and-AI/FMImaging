@@ -226,15 +226,12 @@ def eval_val(model, config, val_set, epoch, device):
             correct = (predicted == labels).sum().item()
             val_acc.update(correct/total, n=total)
 
-            wandb.log({f"running_val_loss": loss.item(),
-                        f"running_val_acc": correct/total})
-
             pbar.update(1)
             pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {loss.item():.4f}, {correct/total:.4f}")
 
     pbar.set_postfix_str(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {val_loss.avg:.4f}, {val_acc.avg}")
     logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {val_loss.avg:.4f}")
-    wandb.log({f"val_loss_avg_{id}":val_loss.avg,
-                f"val_acc_avg_{id}":val_acc.avg})
+    wandb.log({f"val_loss_avg":val_loss.avg,
+                f"val_acc_avg":val_acc.avg})
 
     return val_loss.avg, val_acc.avg
