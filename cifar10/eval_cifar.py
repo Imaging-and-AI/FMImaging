@@ -190,7 +190,7 @@ def main():
                         name=args.run_name, notes=args.run_notes)
     config = wandb.config
 
-    setup_run(config)
+    setup_run(config, dirs=["log_path"])
     eval_test(model, config, test_set=None, device="cuda")
 
 if __name__=="__main__":

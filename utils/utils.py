@@ -98,12 +98,12 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for STCNNT")
 # -------------------------------------------------------------------------------------------------
 # setup the run
 
-def setup_run(config, dirs={"log_path", "model_path", "check_path"}):
+def setup_run(config, dirs=["log_path", "model_path", "check_path"]):
     """
     sets up datetime, logging, seed and ddp
     @args:
         - config (Namespace): runtime namespace for setup
-        - dirs (Set): the directory to be created
+        - dirs (str list): the directories from config to be created
     """
     # get current date
     now = datetime.now()
@@ -127,7 +127,6 @@ def setup_run(config, dirs={"log_path", "model_path", "check_path"}):
     file_only_logger.propagate=False
 
     # create relevent directories
-    dirs.update(["log_path", "model_path", "check_path"])
     for dir in dirs:
         os.makedirs(config[dir], exist_ok=True)
         logging.info(f"Run:{config.run_name}, {dir} is {config[dir]}")
