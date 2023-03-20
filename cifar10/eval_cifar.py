@@ -129,10 +129,11 @@ def check_args(config):
             (config.saved_model_path.endswith(".pt") and config.saved_model_config.endswith(".json")),\
             f"If loading from \"*.pt\" need a \"*.json\" config file"
 
-    config.load_path = config.saved_model_path
     config.time = 1
     config.height = [32]
     config.width = [32]
+    config.load_path = config.saved_model_path
+    if config.log_path is None: config.log_path = config.results_path
 
     return config
 
