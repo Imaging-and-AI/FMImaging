@@ -20,7 +20,8 @@
                 "--width", "32",
                 "--num_epoch", "5",
                 "--save_cycle", "2",
-                "--device", "cpu"
+                "--device", "cpu",
+                "-D"
             ]
         },
         {

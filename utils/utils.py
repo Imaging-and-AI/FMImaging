@@ -91,6 +91,7 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for STCNNT")
     parser.add_argument("--seed", type=int, default=3407, help='seed for randomization')
     parser.add_argument("--device", type=str, default=None, help='device to train on')
     parser.add_argument("--load_path", type=str, default=None, help='path to load model weights from')
+    parser.add_argument("--debug", "-D", action="store_true", help='option to run in debug mode')
 
     return parser
 

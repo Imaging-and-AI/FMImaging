@@ -81,7 +81,7 @@ def trainer(rank, model, config, train_set, val_set):
         train_loss.reset()
 
         train_loader_iter = iter(train_loader)
-        total_iters = len(train_loader)
+        total_iters = len(train_loader) if not c.debug else 10
         with tqdm(total=total_iters) as pbar:
 
             for idx in range(total_iters):
@@ -191,7 +191,7 @@ def eval_val(model, config, val_set, epoch, device):
     model.to(device)
 
     val_loader_iter = iter(val_loader)
-    total_iters = len(val_loader)
+    total_iters = len(val_loader) if not c.debug else 10
     with tqdm(total=total_iters) as pbar:
 
         for idx in range(total_iters):

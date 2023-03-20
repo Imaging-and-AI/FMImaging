@@ -52,7 +52,7 @@ def eval_test(model, config, test_set=None, device="cpu"):
     model.to(device)
 
     test_loader_iter = iter(test_loader)
-    total_iters = len(test_loader)
+    total_iters = len(test_loader) if not c.debug else 10
     with tqdm(total=total_iters) as pbar:
 
         for idx in  np.arange(total_iters):
