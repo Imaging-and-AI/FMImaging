@@ -38,6 +38,10 @@ def save_final_model(model, config, best_model_wts):
         - model (torch model): model to be saved
         - config (Namespace): runtime namespace for setup
         - best_model_wts (model.state_dict): the best model weight during the run
+    @args (from config):
+        - time, C_in (int): for model input
+        - height, width (int list): for model input
+        - model_path (str): the directory to save in
     @rets:
         - last_model_name, best_model_name (str):
             the path the last and the best saved models respectively
