@@ -108,7 +108,7 @@ def setup_run(config, dirs=["log_path", "model_path", "check_path"]):
     # get current date
     now = datetime.now()
     now = now.strftime("%m-%d-%Y_T%H-%M-%S")
-    config["date"] = now
+    config.date = now
 
     # setup logging
     os.makedirs(config.log_path, exist_ok=True)
@@ -127,26 +127,29 @@ def setup_run(config, dirs=["log_path", "model_path", "check_path"]):
     file_only_logger.propagate=False
 
     # create relevent directories
+    try:
+        config_dict = dict(config)
+    except TypeError:
+        config_dict = vars(config)
     for dir in dirs:
-        os.makedirs(config[dir], exist_ok=True)
-        logging.info(f"Run:{config.run_name}, {dir} is {config[dir]}")
+        os.makedirs(config_dict[dir], exist_ok=True)
+        logging.info(f"Run:{config.run_name}, {dir} is {config_dict[dir]}")
     
     # set seed
     np.random.seed(config.seed)
     torch.manual_seed(config.seed)
 
     # setup dp/ddp
-    device = get_device(config.device)
-    if config.device is None: config.update({"device":device}, allow_val_change=True)
+    config.device = get_device(config.device)
     world_size = torch.cuda.device_count()
-    config["ddp"] = config.device == "cuda" and world_size > 1
-    config["world_size"] = world_size if config.ddp else -1
-    logging.info(f"Training on {get_device(config.device)} with dp set to {config.ddp}")
+    config.ddp = config.device == "cuda" and world_size > 1
+    config.world_size = world_size if config.ddp else -1
+    logging.info(f"Training on {config.device} with ddp set to {config.ddp}")
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '12355'
 
     # pytorch loader fix
-    if config.num_workers==0: config.update({"prefetch_factor":2}, allow_val_change=True)
+    if config.num_workers==0: config.prefetch_factor = 2
 
 # -------------------------------------------------------------------------------------------------
 # wrapper around getting device

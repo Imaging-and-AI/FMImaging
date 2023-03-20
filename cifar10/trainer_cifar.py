@@ -63,7 +63,17 @@ def trainer(rank, model, config, train_set, val_set):
                                 num_workers=c.num_workers, prefetch_factor=c.prefetch_factor,
                                 persistent_workers=c.num_workers>0)
 
-    wandb.watch(model)
+    if rank<=0: # main or master process
+        logging.info(f"Configuration for this run:\n{config}")
+
+        trainable_params, total_params = get_number_of_params(model)
+        logging.info(f"Trainable parameters: {trainable_params:,}, Total parameters: {total_params:,}")
+
+        wandb.init(project=c.project, entity=c.wandb_entity, config=c,
+                    name=c.run_name, notes=c.run_notes)
+        wandb.watch(model)
+        wandb.log({"trainable_params":trainable_params,
+                    "total_params": total_params})
 
     # save best model to be saved at the end
     best_val_loss = numpy.inf
@@ -103,8 +113,8 @@ def trainer(rank, model, config, train_set, val_set):
                 if stype == "OneCycleLR": sched.step()
                 curr_lr = optim.param_groups[0]['lr']
 
-                train_loss.update(loss.item(), n=c.batch_size)
-                wandb.log({"running_train_loss": loss.item()})
+                train_loss.update(loss.item(), n=inputs.shape[0])
+                if rank<=0: wandb.log({"running_train_loss": loss.item()})
 
                 pbar.update(1)
                 pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {loss.item():.4f}, lr {curr_lr:.8f}")
@@ -181,6 +191,7 @@ def eval_val(model, config, val_set, epoch, device):
         - device (torch.device): the device to run eval on
     @rets:
         - val_loss_avg (float): the average val loss
+        - val_acc_avg (float): the average val loss
     """
     c = config # shortening due to numerous uses
 
@@ -226,4 +237,4 @@ def eval_val(model, config, val_set, epoch, device):
     wandb.log({f"val_loss_avg_{id}":val_loss.avg,
                 f"val_acc_avg_{id}":val_acc.avg})
 
-    return val_loss.avg
+    return val_loss.avg, val_acc.avg

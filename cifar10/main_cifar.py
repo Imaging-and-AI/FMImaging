@@ -79,20 +79,13 @@ def create_dataset(config):
 
 def main():
     
-    args = arg_parser()
-    assert args.run_name is not None, f"Please provide a \"--run_name\" for wandb"
+    config = arg_parser()
+    assert config.run_name is not None, f"Please provide a \"--run_name\" for wandb"
 
-    run = wandb.init(project=args.project, entity=args.wandb_entity, config=args,
-                        name=args.run_name, notes=args.run_notes)
-    config = wandb.config
     setup_run(config)
 
     train_set, val_set = create_dataset(config=config)
     model = STCNNT_Cifar(config=config, total_steps=len(train_set)//config.batch_size)
-    trainable_params, total_params = get_number_of_params(model)
-
-    logging.info(f"Configuration for this run:\n{config}")
-    logging.info(f"Trainable parameters: {trainable_params:,}, Total parameters: {total_params:,}")
 
     if not config.ddp: # run in main process
         trainer(rank=-1, model=model, config=config,
