@@ -25,7 +25,7 @@ from model_cifar import STCNNT_Cifar
 # -------------------------------------------------------------------------------------------------
 # main test function
 
-def eval_test(model, config, test_set=None, device="cpu"):
+def eval_test(model, config, test_set=None, device="cpu", id=""):
     """
     The test evaluation.
     @args:
@@ -35,18 +35,20 @@ def eval_test(model, config, test_set=None, device="cpu"):
         - device (torch.device): the device to run the test on
     @rets:
         - test_loss_avg (float): the average test loss
+        - test_loss_acc (float): the average test acc [0,1]
     """
     c = config # shortening due to numerous uses
 
     # if no test_set given then load the base set
     if test_set is None: test_set = create_base_test_set(config)
 
-    test_loader = DataLoader(dataset=test_set, batch_size=c.batch_size, shuffle=True, sampler=None,
+    test_loader = DataLoader(dataset=test_set, batch_size=c.batch_size, shuffle=False, sampler=None,
                                 num_workers=c.num_workers, prefetch_factor=c.prefetch_factor,
                                 persistent_workers=c.num_workers>0)
 
     loss_f = torch.nn.CrossEntropyLoss()
     test_loss = AverageMeter()
+    test_acc = AverageMeter()
 
     model.eval()
     model.to(device)
@@ -61,21 +63,28 @@ def eval_test(model, config, test_set=None, device="cpu"):
 
             inputs = inputs.to(device)
             labels = labels.to(device)
+            total = labels.size(0)
 
             output = model(inputs)
             loss = loss_f(output, labels)
-            test_loss.update(loss.item(), n=c.batch_size)
+            test_loss.update(loss.item(), n=total)
 
-            wandb.log({"running_test_loss": loss.item()})
+            _, predicted = torch.max(output.data, 1)
+            correct = (predicted == labels).sum().item()
+            test_acc.update(correct/total, n=total)
+
+            wandb.log({f"running_test_loss_{id}": loss.item()})
+            wandb.log({f"running_test_acc_{id}": correct/total})
 
             pbar.update(1)
-            pbar.set_description(f"Test {inputs.shape}, {test_loss.avg:.4f}")
+            pbar.set_description(f"Test {inputs.shape}, {loss.item():.4f}, {correct/total:.4f}")
 
-    pbar.set_postfix_str(f"Test results: {test_loss.avg:.4f}")
-    logging.info(f"Test results: {test_loss.avg:.4f}")
-    wandb.log({"test_loss_avg":test_loss.avg})
+    pbar.set_postfix_str(f"Test results: {test_loss.avg:.4f}, {test_acc.avg:.4f}")
+    logging.info(f"Test results: {test_loss.avg:.4f}, {test_acc.avg:.4f}")
+    wandb.log({f"test_loss_avg_{id}":test_loss.avg,
+                f"test_acc_avg_{id}":test_acc.avg})
 
-    return test_loss.avg
+    return test_loss.avg, test_acc.avg
 
 # -------------------------------------------------------------------------------------------------
 # setup for testing from cmd
