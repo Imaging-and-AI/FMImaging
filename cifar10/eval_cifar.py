@@ -79,9 +79,9 @@ def eval_test(model, config, test_set=None, device="cpu", id=""):
                         f"running_test_acc_{id}": correct/total})
 
             pbar.update(1)
-            pbar.set_description(f"Test {inputs.shape}, {loss.item():.4f}, {correct/total:.4f}")
+            pbar.set_description(f"Test {id} {inputs.shape}, {loss.item():.4f}, {correct/total:.4f}")
 
-    pbar.set_postfix_str(f"Test results: {test_loss.avg:.4f}, {test_acc.avg:.4f}")
+    pbar.set_postfix_str(f"Test {id} results: {test_loss.avg:.4f}, {test_acc.avg:.4f}")
     logging.info(f"Test results: {test_loss.avg:.4f}, {test_acc.avg:.4f}")
     wandb.log({f"test_loss_avg_{id}":test_loss.avg,
                 f"test_acc_avg_{id}":test_acc.avg})
