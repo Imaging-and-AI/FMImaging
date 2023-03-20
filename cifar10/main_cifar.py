@@ -37,6 +37,27 @@ def arg_parser():
 
     return parser.parse_args()
 
+def check_args(config):
+    """
+    checks the cmd args to make sure they are correct
+    @args:
+        - config (Namespace): runtime namespace for setup
+    @rets:
+        - config (Namespcae): the checked and updated argparse for Cifar10
+    """
+    assert config.run_name is not None, f"Please provide a \"--run_name\" for wandb"
+    assert config.data_root is not None, f"Please provide a \"--data_root\" to load the data"
+    assert config.log_path is not None, f"Please provide a \"--log_path\" to save the logs in"
+    assert config.results_path is not None, f"Please provide a \"--results_path\" to save the results in"
+    assert config.model_path is not None, f"Please provide a \"--model_path\" to save the final model in"
+    assert config.check_path is not None, f"Please provide a \"--check_path\" to save the checkpoints in"
+
+    config.time = 1
+    config.height = [32]
+    config.width = [32]
+
+    return config
+
 # -------------------------------------------------------------------------------------------------
 # create the train and val sets
 
@@ -79,9 +100,7 @@ def create_dataset(config):
 
 def main():
     
-    config = arg_parser()
-    assert config.run_name is not None, f"Please provide a \"--run_name\" for wandb"
-
+    config = check_args(arg_parser())
     setup_run(config)
 
     train_set, val_set = create_dataset(config=config)
