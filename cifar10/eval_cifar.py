@@ -183,12 +183,11 @@ def load_model(args):
 
 def main():
 
-    args = check_args(arg_parser())
+    config = check_args(arg_parser())
 
-    model = load_model(args)
-    run = wandb.init(project=args.project, entity=args.wandb_entity, config=args,
-                        name=args.run_name, notes=args.run_notes)
-    config = wandb.config
+    model = load_model(config)
+    wandb.init(project=config.project, entity=config.wandb_entity, config=config,
+                        name=config.run_name, notes=config.run_notes)
 
     setup_run(config, dirs=["log_path"])
     eval_test(model, config, test_set=None, device="cuda")
