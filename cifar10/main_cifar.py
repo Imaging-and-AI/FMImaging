@@ -40,6 +40,16 @@ def arg_parser():
 # -------------------------------------------------------------------------------------------------
 # create the train and val sets
 
+def transform_f(x):
+    """
+    transform function for cifar images
+    @args:
+        - x (cifar dataset return object): the input image
+    @rets:
+        - x (torch.Tensor): 4D torch tensor [T,C,H,W], T=1
+    """
+    return tv.transforms.ToTensor()(x).unsqueeze(0)
+
 def create_dataset(config):
     """
     create the train and val set using torchvision datasets
@@ -55,9 +65,6 @@ def create_dataset(config):
     """
     assert config.time==1 and config.height[0]==32 and config.width[0]==32,\
         f"For Cifar10, time height width should 1 32 32"
-
-    def transform_f(x):
-        return tv.transforms.ToTensor()(x).unsqueeze(0)
     
     train_set = tv.datasets.CIFAR10(root=config.data_root, train=True,
                                     download=True, transform=transform_f)
