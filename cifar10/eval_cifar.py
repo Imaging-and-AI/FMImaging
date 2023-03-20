@@ -73,8 +73,8 @@ def eval_test(model, config, test_set=None, device="cpu", id=""):
             correct = (predicted == labels).sum().item()
             test_acc.update(correct/total, n=total)
 
-            wandb.log({f"running_test_loss_{id}": loss.item()})
-            wandb.log({f"running_test_acc_{id}": correct/total})
+            wandb.log({f"running_test_loss_{id}": loss.item(),
+                        f"running_test_acc_{id}": correct/total})
 
             pbar.update(1)
             pbar.set_description(f"Test {inputs.shape}, {loss.item():.4f}, {correct/total:.4f}")
