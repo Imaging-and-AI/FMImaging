@@ -61,7 +61,11 @@ def save_final_model(model, config, best_model_wts):
 
         logging.info(f"Saving config at {name}.json")
         with open(f"{name}.json", "w") as file:
-            json.dump(dict(config), file)
+            try:
+                config_dict = dict(config)
+            except TypeError:
+                config_dict = vars(config)
+            json.dump(config_dict, file)
 
     last_model_name = f"{model_file_name}_last"
     save_model_instance(model, name=last_model_name)
