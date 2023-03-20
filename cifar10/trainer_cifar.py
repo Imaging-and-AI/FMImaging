@@ -232,6 +232,6 @@ def eval_val(model, config, val_set, epoch, device):
     pbar.set_postfix_str(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {val_loss.avg:.4f}, {val_acc.avg}")
     logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {val_loss.avg:.4f}")
     wandb.log({f"val_loss_avg":val_loss.avg,
-                f"val_acc_avg":val_acc.avg})
+                f"val_acc":val_acc.avg})
 
     return val_loss.avg, val_acc.avg
