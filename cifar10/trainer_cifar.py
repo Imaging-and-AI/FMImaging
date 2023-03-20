@@ -42,7 +42,7 @@ def trainer(rank, model, config, train_set, val_set):
     c = config # shortening due to numerous uses
 
     if c.ddp:
-        dist.init_process_group("gloo", rank=rank, world_size=c.world_size)
+        dist.init_process_group("nccl", rank=rank, world_size=c.world_size)
         device = rank
         model = model.to(device)
         model = DDP(model, device_ids=[rank])
@@ -50,6 +50,7 @@ def trainer(rank, model, config, train_set, val_set):
         sched = model.module.sched
         stype = model.module.stype
         sampler = DistributedSampler(train_set)
+        shuffle = False
     else:
         # No init required if not ddp
         device = c.device
@@ -58,8 +59,9 @@ def trainer(rank, model, config, train_set, val_set):
         sched = model.sched
         stype = model.stype
         sampler = None
+        shuffle = True
 
-    train_loader = DataLoader(dataset=train_set, batch_size=c.batch_size, shuffle=True, sampler=sampler,
+    train_loader = DataLoader(dataset=train_set, batch_size=c.batch_size, shuffle=shuffle, sampler=sampler,
                                 num_workers=c.num_workers, prefetch_factor=c.prefetch_factor,
                                 persistent_workers=c.num_workers>0)
 
@@ -77,14 +79,14 @@ def trainer(rank, model, config, train_set, val_set):
 
     # save best model to be saved at the end
     best_val_loss = numpy.inf
-    best_model_wts = copy.deepcopy(model.state_dict())
+    best_model_wts = copy.deepcopy(model.module.state_dict() if c.ddp else model.state_dict())
 
     # general cross entropy loss
     loss_f = nn.CrossEntropyLoss()
     train_loss = AverageMeter()
 
     for epoch in range(c.num_epochs):
-        logging.info(f"{'-'*20}Epoch:{epoch}/{c.num_epochs}{'-'*20}")
+        if rank<=0: logging.info(f"{'-'*20}Epoch:{epoch}/{c.num_epochs}{'-'*20}")
 
         model.train()
         if c.ddp: train_loader.sampler.set_epoch(epoch)
@@ -92,7 +94,7 @@ def trainer(rank, model, config, train_set, val_set):
 
         train_loader_iter = iter(train_loader)
         total_iters = len(train_loader) if not c.debug else 10
-        with tqdm(total=total_iters) as pbar:
+        with tqdm(total=total_iters, disable=rank>0) as pbar:
 
             for idx in range(total_iters):
 
@@ -120,15 +122,16 @@ def trainer(rank, model, config, train_set, val_set):
                 pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {loss.item():.4f}, lr {curr_lr:.8f}")
 
         pbar.set_postfix_str(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {train_loss.avg:.4f}, lr {curr_lr:.8f}")
-        # silently log to only the file as well
-        logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {train_loss.avg:.4f}, lr {curr_lr:.8f}")
 
         if rank<=0: # main or master process
             # run eval, save and log in this process
-            val_loss_avg, _ = eval_val(model, c, val_set, epoch, device)
-            if(val_loss_avg<best_val_loss):
+            val_loss_avg, val_loss_acc = eval_val(model, c, val_set, epoch, device) # TODO: fix for ddp
+            if val_loss_avg < best_val_loss:
                 best_val_loss = val_loss_avg
-                best_model_wts = copy.deepcopy(model.state_dict())
+                best_model_wts = copy.deepcopy(model.module.state_dict() if c.ddp else model.state_dict())
+
+            # silently log to only the file as well
+            logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {train_loss.avg:.4f}, lr {curr_lr:.8f}, val, {val_loss_avg}, {val_loss_acc}")
 
             # save the model weights every save_cycle
             if epoch % c.save_cycle == 0:
@@ -143,22 +146,23 @@ def trainer(rank, model, config, train_set, val_set):
                 sched.step()
 
             if c.ddp:
-                # share new lr across devices
-                new_lr_0 = optim.param_groups[0]['lr']
-                dist.broadcast(torch.tensor(new_lr_0), src=0)
+                new_lr_0 = torch.zeros(1).to(rank)
+                new_lr_0[0] = optim.param_groups[0]["lr"]
+                dist.broadcast(new_lr_0, src=0)
+
                 if c.no_w_decay:
-                    new_lr_1 = optim.param_groups[1]['lr']
-                    dist.broadcast(torch.tensor(new_lr_1), src=0)
+                    new_lr_1 = torch.zeros(1).to(rank)
+                    new_lr_1[0] = optim.param_groups[1]["lr"]
+                    dist.broadcast(new_lr_1, src=0)
         else: # child processes
-            # update the lr from master process
-            new_lr_0 = torch.zeros(1)
-            dist.broadcast(torch.tensor(new_lr_0), src=0)
-            optim.param_groups[0]['lr'] = new_lr_0
+            new_lr_0 = torch.zeros(1).to(rank)
+            dist.broadcast(new_lr_0, src=0)
+            optim.param_groups[0]["lr"] = new_lr_0.item()
 
             if c.no_w_decay:
-                new_lr_1 = torch.zeros(1)
-                dist.broadcast(torch.tensor(new_lr_1), src=0)
-                optim.param_groups[1]['lr'] = new_lr_1
+                new_lr_1 = torch.zeros(1).to(rank)
+                dist.broadcast(new_lr_1, src=0)
+                optim.param_groups[1]["lr"] = new_lr_1.item()
 
     if rank<=0: # main or master process
         # test and save model
