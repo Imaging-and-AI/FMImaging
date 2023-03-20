@@ -44,7 +44,7 @@ def eval_test(model, config, test_set=None, device="cpu"):
     test_loader = DataLoader(dataset=test_set, batch_size=c.batch_size, shuffle=True, sampler=None,
                                 num_workers=c.num_workers, prefetch_factor=c.prefetch_factor,
                                 persistent_workers=c.num_workers>0)
-    
+
     loss_f = torch.nn.CrossEntropyLoss()
     test_loss = AverageMeter()
 
@@ -89,9 +89,9 @@ def arg_parser():
     """
     parser = argparse.ArgumentParser("Argument parser for STCNNT Cifar10 test evaluation")
 
-    parser.add_argument("--data_root", type=str, default="C:/Users/rehmana2/Documents/Current/Projects/cifar10", help='root folder for the data')
-    parser.add_argument("--saved_model_path", type=str, default="C:/Users/rehmana2/Documents/Current/Projects/cifar10", help='root folder for the data')
-    parser.add_argument("--saved_model_config", type=str, default="C:/Users/rehmana2/Documents/Current/Projects/cifar10", help='root folder for the data')
+    parser.add_argument("--data_root", type=str, default=None, help='root folder for the data')
+    parser.add_argument("--saved_model_path", type=str, default=None, help='model path endswith ".pt" or ".pts"')
+    parser.add_argument("--saved_model_config", type=str, default=None, help='the config of the model. required when using ".pt"')
 
     parser = add_shared_args(parser=parser)
 
@@ -106,6 +106,7 @@ def check_args(args):
         - args (Namespcae): the checked and updated argparse for Cifar10
     """
     assert args.run_name is not None, f"Please provide a \"--run_name\" for wandb"
+    assert args.data_root is not None, f"Please provide a \"--data_root\" to load the data"
     assert args.saved_model_path is not None, f"Please provide a \"--saved_model_path\" for loading a checkpoint"
 
     assert args.saved_model_path.endswith(".pt") or args.saved_model_path.endswith(".pts"),\
@@ -113,13 +114,23 @@ def check_args(args):
     assert not(args.saved_model_path.endswith(".pt")) or \
             (args.saved_model_path.endswith(".pt") and args.saved_model_config.endswith(".json")),\
             f"If loading from \"*.pt\" need a \"*.json\" config file"
-    
+
     args.load_path = args.saved_model_path
     args.time = 1
     args.height = [32]
     args.width = [32]
 
     return args
+
+def transform_f(x):
+    """
+    transform function for cifar images
+    @args:
+        - x (cifar dataset return object): the input image
+    @rets:
+        - x (torch.Tensor): 4D torch tensor [T,C,H,W], T=1
+    """
+    return tv.transforms.ToTensor()(x).unsqueeze(0)
 
 def create_base_test_set(config):
     """
@@ -136,9 +147,6 @@ def create_base_test_set(config):
     assert config.time==1 and config.height[0]==32 and config.width[0]==32,\
         f"For Cifar10, time height width should 1 32 32"
 
-    def transform_f(x):
-        return tv.transforms.ToTensor()(x).unsqueeze(0)
-    
     test_set = tv.datasets.CIFAR10(root=config.data_root, train=False,
                                     download=True, transform=transform_f)
 
@@ -169,7 +177,7 @@ def main():
     args = check_args(arg_parser())
 
     model = load_model(args)
-    run = wandb.init(project=args.project, entity=args.wandb_entity, config=args, 
+    run = wandb.init(project=args.project, entity=args.wandb_entity, config=args,
                         name=args.run_name, notes=args.run_notes)
     config = wandb.config
 
