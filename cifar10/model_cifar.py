@@ -33,7 +33,8 @@ class STCNNT_Cifar(STCNNT_Base_Runtime):
                                     nn.LeakyReLU(),
                                     nn.Linear(config.head_channels[0]*config.height[0]//2*config.width[0]//2, config.head_channels[1]),
                                     nn.LeakyReLU(),
-                                    nn.Linear(config.head_channels[1], config.head_channels[2]))
+                                    nn.Linear(config.head_channels[1], config.head_channels[2]),
+                                    nn.Softmax(dim=1))
 
         device = get_device(device=config.device)
         self.set_up_optim_and_scheduling(total_steps=total_steps)
