@@ -33,6 +33,7 @@ def arg_parser():
     """
     parser = argparse.ArgumentParser("Argument parser for STCNNT Cifar10")
     parser.add_argument("--data_root", type=str, default=None, help='root folder for the data')
+    parser.add_argument("--head_channels", nargs='+', type=int, default=[8,128,10], help='number of channels for cifar head')
     parser = add_shared_args(parser=parser)
 
     return parser.parse_args()
