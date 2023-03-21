@@ -131,8 +131,6 @@ def trainer(rank, model, config, train_set, val_set):
 
             pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {train_loss.avg:.4f}, {train_acc.avg:.4f}, lr {curr_lr:.8f}")
 
-        pbar.set_postfix_str(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {train_loss.avg:.4f}, {train_acc.avg:.4f}, lr {curr_lr:.8f}")
-
         if rank<=0: # main or master process
             # run eval, save and log in this process
             model_e = model.module if c.ddp else model
@@ -248,7 +246,7 @@ def eval_val(model, config, val_set, epoch, device):
             pbar.update(1)
             pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {loss.item():.4f}, {correct/total:.4f}")
 
-    pbar.set_postfix_str(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {val_loss.avg:.4f}, {val_acc.avg:.4f}")
+        pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {val_loss.avg:.4f}, {val_acc.avg:.4f}")
     wandb.log({f"val_loss_avg":val_loss.avg,
                 f"val_acc":val_acc.avg})
 
