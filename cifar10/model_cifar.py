@@ -28,13 +28,13 @@ class STCNNT_Cifar(STCNNT_Base_Runtime):
 
         self.unet = CNNT_Unet(config=config, total_steps=total_steps, load=False)
         self.head = nn.Sequential(nn.Flatten(start_dim=0, end_dim=1),
-                                    nn.Conv2d(config.C_out, config.head_channels[0], kernel_size=3, stride=2, padding=1),
+                                    nn.Conv2d(config.C_out, config.head_channels[0], kernel_size=32, stride=1, padding=0),
                                     nn.Flatten(start_dim=1, end_dim=-1),
                                     nn.LeakyReLU(),
-                                    nn.Linear(config.head_channels[0]*config.height[0]//2*config.width[0]//2, config.head_channels[1]),
+                                    #nn.Linear(config.head_channels[0]*config.height[0]//2*config.width[0]//2, config.head_channels[1]),
+                                    nn.Linear(config.head_channels[0], config.head_channels[1]),
                                     nn.LeakyReLU(),
-                                    nn.Linear(config.head_channels[1], config.head_channels[2]),
-                                    nn.Softmax(dim=1))
+                                    nn.Linear(config.head_channels[1], config.head_channels[2]))
 
         device = get_device(device=config.device)
         self.set_up_optim_and_scheduling(total_steps=total_steps)
