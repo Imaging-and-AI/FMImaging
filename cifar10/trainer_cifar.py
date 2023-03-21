@@ -150,7 +150,7 @@ def trainer(rank, model, config, train_set, val_set):
 
             wandb.log({"epoch": epoch,
                         "train_loss_avg": train_loss.avg,
-                        "train_acc_avg": train_acc.avg})
+                        "train_acc": train_acc.avg})
 
             if stype == "ReduceLROnPlateau":
                 sched.step(val_loss_avg)
