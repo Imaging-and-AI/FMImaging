@@ -8,7 +8,7 @@
             "name": "Cifar10_main",
             "type": "python",
             "request": "launch",
-            "program": "C:/Users/rehmana2/Documents/Current/Projects/STCNNT/cifar10/main_cifar.py",
+            "program": "/put/path/here/STCNNT/cifar10/main_cifar.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},

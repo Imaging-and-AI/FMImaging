@@ -66,6 +66,7 @@ def trainer(rank, model, config, train_set, val_set):
                                 persistent_workers=c.num_workers>0)
 
     if rank<=0: # main or master process
+        setup_logger(config)
         logging.info(f"Configuration for this run:\n{config}")
 
         trainable_params, total_params = get_number_of_params(model)
@@ -77,9 +78,9 @@ def trainer(rank, model, config, train_set, val_set):
         wandb.log({"trainable_params":trainable_params,
                     "total_params": total_params})
 
-    # save best model to be saved at the end
-    best_val_loss = numpy.inf
-    best_model_wts = copy.deepcopy(model.module.state_dict() if c.ddp else model.state_dict())
+        # save best model to be saved at the end
+        best_val_loss = numpy.inf
+        best_model_wts = copy.deepcopy(model.module.state_dict() if c.ddp else model.state_dict())
 
     # general cross entropy loss
     loss_f = nn.CrossEntropyLoss()
@@ -125,17 +126,18 @@ def trainer(rank, model, config, train_set, val_set):
 
         if rank<=0: # main or master process
             # run eval, save and log in this process
-            val_loss_avg, val_loss_acc = eval_val(model, c, val_set, epoch, device) # TODO: fix for ddp
+            model_e = model.module if c.ddp else model
+            val_loss_avg, val_loss_acc = eval_val(model_e, c, val_set, epoch, device)
             if val_loss_avg < best_val_loss:
                 best_val_loss = val_loss_avg
-                best_model_wts = copy.deepcopy(model.module.state_dict() if c.ddp else model.state_dict())
+                best_model_wts = copy.deepcopy(model_e.state_dict())
 
             # silently log to only the file as well
             logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {train_loss.avg:.4f}, lr {curr_lr:.8f}, val, {val_loss_avg}, {val_loss_acc}")
 
             # save the model weights every save_cycle
             if epoch % c.save_cycle == 0:
-                model.module.save(epoch) if c.ddp else model.save(epoch)
+                model_e.save(epoch)
 
             wandb.log({"epoch": epoch,
                         "train_loss_avg": train_loss.avg})

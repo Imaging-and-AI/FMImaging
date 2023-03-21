@@ -97,6 +97,28 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for STCNNT")
     return parser
 
 # -------------------------------------------------------------------------------------------------
+# setup logger
+
+def setup_logger(config):
+    """
+    logger setup to be called from any process
+    """
+    os.makedirs(config.log_path, exist_ok=True)
+    log_file_name = os.path.join(config.log_path, f"{config.run_name}_{config.date}.log")
+    level = logging.INFO
+    format = "%(asctime)s [%(levelname)s] %(message)s"
+    file_handler = logging.FileHandler(log_file_name)
+    file_handler.setFormatter(logging.Formatter(format))
+    stream_handler = logging.StreamHandler()
+
+    logging.basicConfig(level=level, format=format, handlers=[file_handler,stream_handler])
+
+    file_only_logger = logging.getLogger("file_only") # seperate logger for files only
+    file_only_logger.addHandler(file_handler)
+    file_only_logger.setLevel(logging.INFO)
+    file_only_logger.propagate=False
+
+# -------------------------------------------------------------------------------------------------
 # setup the run
 
 def setup_run(config, dirs=["log_path", "results_path", "model_path", "check_path"]):
@@ -112,20 +134,7 @@ def setup_run(config, dirs=["log_path", "results_path", "model_path", "check_pat
     config.date = now
 
     # setup logging
-    os.makedirs(config.log_path, exist_ok=True)
-    log_file_name = os.path.join(config.log_path, f"{config.run_name}_{now}.log")
-    level = logging.INFO
-    format = "%(asctime)s [%(levelname)s] %(message)s"
-    file_handler = logging.FileHandler(log_file_name)
-    file_handler.setFormatter(logging.Formatter(format))
-    stream_handler = logging.StreamHandler()
-
-    logging.basicConfig(level=level, format=format, handlers=[file_handler, stream_handler])
-
-    file_only_logger = logging.getLogger("file_only") # seperate logger for files only
-    file_only_logger.addHandler(file_handler)
-    file_only_logger.setLevel(logging.INFO)
-    file_only_logger.propagate=False
+    setup_logger(config)
 
     # create relevent directories
     try:
