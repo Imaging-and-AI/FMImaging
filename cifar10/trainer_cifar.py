@@ -150,7 +150,9 @@ def trainer(rank, model, config, train_set, val_set):
 
             wandb.log({"epoch": epoch,
                         "train_loss_avg": train_loss.avg,
-                        "train_acc": train_acc.avg})
+                        "train_acc": train_acc.avg,
+                        "val_loss_avg":val_loss_avg,
+                        "val_acc":val_acc})
 
             if stype == "ReduceLROnPlateau":
                 sched.step(val_loss_avg)
@@ -247,7 +249,5 @@ def eval_val(model, config, val_set, epoch, device):
             pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {loss.item():.4f}, {correct/total:.4f}")
 
         pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {val_loss.avg:.4f}, {val_acc.avg:.4f}")
-    wandb.log({f"val_loss_avg":val_loss.avg,
-                f"val_acc":val_acc.avg})
 
     return val_loss.avg, val_acc.avg
