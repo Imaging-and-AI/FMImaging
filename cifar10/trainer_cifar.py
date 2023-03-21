@@ -80,11 +80,13 @@ def trainer(rank, model, config, train_set, val_set):
 
         # save best model to be saved at the end
         best_val_loss = numpy.inf
+        best_val_acc = 0
         best_model_wts = copy.deepcopy(model.module.state_dict() if c.ddp else model.state_dict())
 
     # general cross entropy loss
     loss_f = nn.CrossEntropyLoss()
     train_loss = AverageMeter()
+    train_acc = AverageMeter()
 
     for epoch in range(c.num_epochs):
         if rank<=0: logging.info(f"{'-'*20}Epoch:{epoch}/{c.num_epochs}{'-'*20}")
@@ -116,31 +118,41 @@ def trainer(rank, model, config, train_set, val_set):
                 if stype == "OneCycleLR": sched.step()
                 curr_lr = optim.param_groups[0]['lr']
 
-                train_loss.update(loss.item(), n=inputs.shape[0])
+                total=inputs.shape[0]
+                _, predicted = torch.max(output.data, 1)
+                correct = (predicted == labels).sum().item()
+                train_acc.update(correct/total, n=total)
+
+                train_loss.update(loss.item(), n=total)
                 if rank<=0: wandb.log({"running_train_loss": loss.item()})
 
                 pbar.update(1)
                 pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {loss.item():.4f}, lr {curr_lr:.8f}")
 
-        pbar.set_postfix_str(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {train_loss.avg:.4f}, lr {curr_lr:.8f}")
+            pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {train_loss.avg:.4f}, {train_acc.avg:.4f}, lr {curr_lr:.8f}")
+
+        pbar.set_postfix_str(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {train_loss.avg:.4f}, {train_acc.avg:.4f}, lr {curr_lr:.8f}")
 
         if rank<=0: # main or master process
             # run eval, save and log in this process
             model_e = model.module if c.ddp else model
-            val_loss_avg, val_loss_acc = eval_val(model_e, c, val_set, epoch, device)
+            val_loss_avg, val_acc = eval_val(model_e, c, val_set, epoch, device)
             if val_loss_avg < best_val_loss:
                 best_val_loss = val_loss_avg
                 best_model_wts = copy.deepcopy(model_e.state_dict())
+            if val_acc > best_val_acc:
+                best_val_acc = val_acc
 
             # silently log to only the file as well
-            logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {train_loss.avg:.4f}, lr {curr_lr:.8f}, val, {val_loss_avg}, {val_loss_acc}")
+            logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {train_loss.avg:.4f}, lr {curr_lr:.8f}, val, {val_loss_avg:.4f}, {val_acc:.4f}")
 
             # save the model weights every save_cycle
             if epoch % c.save_cycle == 0:
                 model_e.save(epoch)
 
             wandb.log({"epoch": epoch,
-                        "train_loss_avg": train_loss.avg})
+                        "train_loss_avg": train_loss.avg,
+                        "train_acc_avg": train_acc.avg})
 
             if stype == "ReduceLROnPlateau":
                 sched.step(val_loss_avg)
@@ -168,7 +180,8 @@ def trainer(rank, model, config, train_set, val_set):
 
     if rank<=0: # main or master process
         # test and save model
-        wandb.log({"best_val_loss": best_val_loss})
+        wandb.log({"best_val_loss": best_val_loss,
+                    "best_val_acc": best_val_acc})
 
         model = model.module if c.ddp else model
         model.save(epoch) # save the final weights
@@ -235,8 +248,7 @@ def eval_val(model, config, val_set, epoch, device):
             pbar.update(1)
             pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {loss.item():.4f}, {correct/total:.4f}")
 
-    pbar.set_postfix_str(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {val_loss.avg:.4f}, {val_acc.avg}")
-    logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {val_loss.avg:.4f}")
+    pbar.set_postfix_str(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {val_loss.avg:.4f}, {val_acc.avg:.4f}")
     wandb.log({f"val_loss_avg":val_loss.avg,
                 f"val_acc":val_acc.avg})
 
