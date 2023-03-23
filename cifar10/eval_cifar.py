@@ -103,6 +103,7 @@ def arg_parser():
     parser = argparse.ArgumentParser("Argument parser for STCNNT Cifar10 test evaluation")
 
     parser.add_argument("--data_root", type=str, default=None, help='root folder for the data')
+    parser.add_argument("--data_set", type=str, default="cifar10", help='choice of dataset: "cifar10", "cifar100')
     parser.add_argument("--saved_model_path", type=str, default=None, help='model path endswith ".pt" or ".pts"')
     parser.add_argument("--saved_model_config", type=str, default=None, help='the config of the model. required when using ".pt"')
 
@@ -164,9 +165,15 @@ def create_base_test_set(config):
     """
     assert config.time==1 and config.height[0]==32 and config.width[0]==32,\
         f"For Cifar10, time height width should 1 32 32"
-
-    test_set = tv.datasets.CIFAR10(root=config.data_root, train=False,
+    
+    if config.data_set == "cifar10":
+        test_set = tv.datasets.CIFAR10(root=config.data_root, train=False,
                                     download=True, transform=transform_f)
+    elif config.data_set == "cifar100":
+        test_set = tv.datasets.CIFAR100(root=config.data_root, train=False,
+                                    download=True, transform=transform_f)
+    else:
+        raise NotImplementedError(f"Data set not implemented:{config.data_set}")
 
     return test_set
 

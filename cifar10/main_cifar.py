@@ -33,6 +33,7 @@ def arg_parser():
     """
     parser = argparse.ArgumentParser("Argument parser for STCNNT Cifar10")
     parser.add_argument("--data_root", type=str, default=None, help='root folder for the data')
+    parser.add_argument("--data_set", type=str, default="cifar10", help='choice of dataset: "cifar10", "cifar100')
     parser.add_argument("--head_channels", nargs='+', type=int, default=[8,128,10], help='number of channels for cifar head')
     parser = add_shared_args(parser=parser)
 
@@ -88,11 +89,20 @@ def create_dataset(config):
     assert config.time==1 and config.height[0]==32 and config.width[0]==32,\
         f"For Cifar10, time height width should 1 32 32"
     
-    train_set = tv.datasets.CIFAR10(root=config.data_root, train=True,
-                                    download=True, transform=transform_f)
+    if config.data_set == "cifar10":
+        train_set = tv.datasets.CIFAR10(root=config.data_root, train=True,
+                                        download=True, transform=transform_f)
 
-    val_set = tv.datasets.CIFAR10(root=config.data_root, train=False,
-                                    download=True, transform=transform_f)
+        val_set = tv.datasets.CIFAR10(root=config.data_root, train=False,
+                                        download=True, transform=transform_f)
+    elif config.data_set == "cifar100":
+        train_set = tv.datasets.CIFAR100(root=config.data_root, train=True,
+                                        download=True, transform=transform_f)
+
+        val_set = tv.datasets.CIFAR100(root=config.data_root, train=False,
+                                        download=True, transform=transform_f)
+    else:
+        raise NotImplementedError(f"Data set not implemented:{config.data_set}")
 
     return train_set, val_set
 
