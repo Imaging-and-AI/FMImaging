@@ -26,15 +26,19 @@ class STCNNT_Cifar(STCNNT_Base_Runtime):
         """
         super().__init__(config=config)
 
+        final_c = 10 if config.data_set == "cifar10" else 100
+
         self.unet = CNNT_Unet(config=config, total_steps=total_steps, load=False)
-        self.head = nn.Sequential(nn.Flatten(start_dim=0, end_dim=1),
-                                    nn.Conv2d(config.C_out, config.head_channels[0], kernel_size=32, stride=1, padding=0),
-                                    nn.Flatten(start_dim=1, end_dim=-1),
-                                    nn.LeakyReLU(),
-                                    #nn.Linear(config.head_channels[0]*config.height[0]//2*config.width[0]//2, config.head_channels[1]),
-                                    nn.Linear(config.head_channels[0], config.head_channels[1]),
-                                    nn.LeakyReLU(),
-                                    nn.Linear(config.head_channels[1], config.head_channels[2]))
+        self.head = nn.Sequential(nn.Flatten(start_dim=1, end_dim=-1),
+                                    # nn.Conv2d(config.C_out, 128, kernel_size=3, stride=2, padding=1),
+                                    # nn.LeakyReLU(),
+                                    # nn.Conv2d(128, 64, kernel_size=3, stride=2, padding=1),
+                                    # nn.LeakyReLU(),
+                                    # nn.Flatten(start_dim=1, end_dim=-1),
+                                    # #nn.Linear(config.head_channels[0]*config.height[0]//2*config.width[0]//2, config.head_channels[1]),
+                                    # nn.Linear(64*8*8, 128),
+                                    # nn.LeakyReLU(),
+                                    nn.Linear(config.C_out*32*32, final_c))
 
         device = get_device(device=config.device)
         self.set_up_optim_and_scheduling(total_steps=total_steps)
