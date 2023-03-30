@@ -15,6 +15,7 @@ import argparse
 import numpy as np
 
 from datetime import datetime
+from torchinfo import summary
 
 # -------------------------------------------------------------------------------------------------
 # parser for commonly shared args (subject to change over time)
@@ -93,6 +94,7 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for STCNNT")
     parser.add_argument("--device", type=str, default=None, help='device to train on')
     parser.add_argument("--load_path", type=str, default=None, help='path to load model weights from')
     parser.add_argument("--debug", "-D", action="store_true", help='option to run in debug mode')
+    parser.add_argument("--summary_depth", type=int, default=4, help='depth to print the model summary till')
 
     return parser
 
@@ -107,7 +109,7 @@ def setup_logger(config):
     log_file_name = os.path.join(config.log_path, f"{config.run_name}_{config.date}.log")
     level = logging.INFO
     format = "%(asctime)s [%(levelname)s] %(message)s"
-    file_handler = logging.FileHandler(log_file_name)
+    file_handler = logging.FileHandler(log_file_name, 'a', 'utf-8')
     file_handler.setFormatter(logging.Formatter(format))
     stream_handler = logging.StreamHandler()
 
@@ -177,7 +179,7 @@ def get_device(device=None):
             "cuda" if torch.cuda.is_available() else "cpu"
 
 # -------------------------------------------------------------------------------------------------
-# total model parameters
+# model info
 
 def get_number_of_params(model):
     """
@@ -192,6 +194,31 @@ def get_number_of_params(model):
     total_params = sum(param.numel() for param in model.parameters())
 
     return trainable_params, total_params
+
+def model_info(model, config):
+    """
+    Prints model info and sets total and trainable parameters in the config
+    @args:
+        - model (torch model): the model to check parameters of
+        - config (Namespace): runtime namespace for setup
+    @rets:
+        - model_summary (ModelStatistics object): the model summary
+            see torchinfo/model_statistics.py for more information.
+    """
+    c = config
+    input_size = (c.batch_size, c.time, c.C_in, c.height[-1], c.width[-1])
+    col_names=("num_params", "params_percent", "mult_adds", "input_size", "output_size", "trainable")
+    row_settings=["var_names", "depth"]
+    dtypes=[torch.float32]
+
+    model_summary = summary(model, verbose=0, mode="train", depth=c.summary_depth,\
+                            input_size=input_size, col_names=col_names,\
+                            row_settings=row_settings, dtypes=dtypes)
+
+    c.trainable_params = model_summary.trainable_params
+    c.total_params = model_summary.total_params
+
+    return model_summary
 
 # -------------------------------------------------------------------------------------------------
 # average metric tracker

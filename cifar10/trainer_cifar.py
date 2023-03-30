@@ -66,17 +66,13 @@ def trainer(rank, model, config, train_set, val_set):
                                 persistent_workers=c.num_workers>0)
 
     if rank<=0: # main or master process
-        setup_logger(config)
-        logging.info(f"Configuration for this run:\n{config}")
-
-        trainable_params, total_params = get_number_of_params(model)
-        logging.info(f"Trainable parameters: {trainable_params:,}, Total parameters: {total_params:,}")
+        if c.ddp: setup_logger(config) # setup master process logging
 
         wandb.init(project=c.project, entity=c.wandb_entity, config=c,
                     name=c.run_name, notes=c.run_notes)
         wandb.watch(model)
-        wandb.log({"trainable_params":trainable_params,
-                    "total_params": total_params})
+        wandb.log({"trainable_params":c.trainable_params,
+                    "total_params":c.total_params})
 
         # save best model to be saved at the end
         best_val_loss = numpy.inf
@@ -142,7 +138,8 @@ def trainer(rank, model, config, train_set, val_set):
                 best_val_acc = val_acc
 
             # silently log to only the file as well
-            logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {train_loss.avg:.4f}, lr {curr_lr:.8f}, val, {val_loss_avg:.4f}, {val_acc:.4f}")
+            logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {train_loss.avg:.4f}, {train_acc.avg:.4f}, lr {curr_lr:.8f}")
+            logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, val, {val_loss_avg:.4f}, {val_acc:.4f}")
 
             # save the model weights every save_cycle
             if epoch % c.save_cycle == 0:

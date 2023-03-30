@@ -117,6 +117,11 @@ def main():
     train_set, val_set = create_dataset(config=config)
     model = STCNNT_Cifar(config=config, total_steps=len(train_set)//config.batch_size)
 
+    # model summary
+    model_summary = model_info(model, config)
+    logging.info(f"Configuration for this run:\n{config}")
+    logging.info(f"Model Summary:\n{str(model_summary)}")
+
     if not config.ddp: # run in main process
         trainer(rank=-1, model=model, config=config,
                 train_set=train_set, val_set=val_set)
