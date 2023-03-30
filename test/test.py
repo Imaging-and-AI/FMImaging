@@ -1,6 +1,6 @@
 # Testing TODO s
 ## Norms 2D vs 3D
-## weight decay vs no_w_decay
+## striding conv for temp att
 
 import sys
 from pathlib import Path

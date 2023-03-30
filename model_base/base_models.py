@@ -109,7 +109,8 @@ class STCNNT_Base_Runtime(nn.Module):
             - global_lr (float): global learning rate
             - beta1, beta2 (float): parameters for adam
             - weight_decay (float): parameter for regularization
-            - no_w_decay (bool): whether to separate model params for regularization
+            - all_w_decay (bool): whether to separate model params for regularization
+                if False then norms and embeddings do not experience weight decay
         """
         c = self.config # short config name because of multiple uses
         self.optim = None
@@ -118,7 +119,7 @@ class STCNNT_Base_Runtime(nn.Module):
         if c.optim is None:
             return
 
-        optim_groups = self.configure_optim_groups() if c.no_w_decay else self.parameters()
+        optim_groups = self.configure_optim_groups() if not c.all_w_decay else self.parameters()
 
         if c.optim == "adamw":
             self.optim = optim.AdamW(optim_groups, lr=c.global_lr, betas=(c.beta1, c.beta2), weight_decay=c.weight_decay)
@@ -236,7 +237,7 @@ class CNNT_Unet(STCNNT_Base_Runtime):
             - global_lr (float): global learning rate
             - beta1, beta2 (float): parameters for adam
             - weight_decay (float): parameter for regularization
-            - no_w_decay (bool): whether to separate model params for regularization
+            - all_w_decay (bool): whether to separate model params for regularization
             - load_path (str): path to load the weights from
         """
         super().__init__(config)
@@ -368,7 +369,7 @@ def tests():
     config.residual = True
     config.device = None
     config.channels = [16,32,64]
-    config.no_w_decay = False
+    config.all_w_decay = True
     config.optim = "adamw"
     config.scheduler = "StepLR"
 
@@ -376,14 +377,14 @@ def tests():
 
     optims = ["adamw", "sgd", "nadam"]
     schedulers = ["StepLR", "OneCycleLR", "ReduceLROnPlateau"]
-    no_w_decays = [True, False]
+    all_w_decays = [True, False]
 
     for optim in optims:
         for scheduler in schedulers:
-            for no_w_decay in no_w_decays:
+            for all_w_decay in all_w_decays:
                 config.optim = optim    
                 config.scheduler = scheduler
-                config.no_w_decay = no_w_decay
+                config.all_w_decay = all_w_decay
 
                 cnnt_unet = CNNT_Unet(config=config)
                 test_out = cnnt_unet(test_in)

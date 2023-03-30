@@ -87,7 +87,7 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for STCNNT")
 
     parser.add_argument("--scheduler", type=str, default="ReduceLROnPlateau", help='"ReduceLROnPlateau", "StepLR", or "OneCycleLR"')
     parser.add_argument("--weight_decay", type=float, default=0.1, help='weight decay for regularization')
-    parser.add_argument("--no_w_decay", action="store_true", help='option of having norm and bias params not have weight decay')
+    parser.add_argument("--all_w_decay", action="store_true", help='option of having all params have weight decay. By default norms and embeddings do not')
 
     # misc arguments
     parser.add_argument("--seed", type=int, default=3407, help='seed for randomization')

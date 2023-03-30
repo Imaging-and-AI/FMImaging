@@ -161,7 +161,7 @@ def trainer(rank, model, config, train_set, val_set):
                 new_lr_0[0] = optim.param_groups[0]["lr"]
                 dist.broadcast(new_lr_0, src=0)
 
-                if c.no_w_decay:
+                if not c.all_w_decay:
                     new_lr_1 = torch.zeros(1).to(rank)
                     new_lr_1[0] = optim.param_groups[1]["lr"]
                     dist.broadcast(new_lr_1, src=0)
@@ -170,7 +170,7 @@ def trainer(rank, model, config, train_set, val_set):
             dist.broadcast(new_lr_0, src=0)
             optim.param_groups[0]["lr"] = new_lr_0.item()
 
-            if c.no_w_decay:
+            if not c.all_w_decay:
                 new_lr_1 = torch.zeros(1).to(rank)
                 dist.broadcast(new_lr_1, src=0)
                 optim.param_groups[1]["lr"] = new_lr_1.item()

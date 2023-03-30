@@ -24,7 +24,6 @@ cmd.extend([
     "--device", "cuda",
     "--norm_mode", "batch2d",
     "--window_size", "8",
-    "--no_w_decay"
 ])
 
 # commands to iterate over
