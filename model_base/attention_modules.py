@@ -636,6 +636,7 @@ class CNNTBlock(nn.Module):
         assert interpolate=="none" or interpolate=="up" or interpolate=="down", \
             f"Interpolate not implemented: {interpolate}"
 
+        # First cell expands the number of channels
         first_mixer = with_mixer=="all" or (with_mixer=="last" and len(att_types)==1)
         first_cell = CnnTransformer(C_in=C_in, C_out=C_out, H=H, W=W, att_mode=att_types[0], a_type=a_type,
                                         window_size=window_size, is_causal=is_causal, n_head=n_head,
@@ -646,7 +647,7 @@ class CNNTBlock(nn.Module):
                                             window_size=window_size, is_causal=is_causal, n_head=n_head,
                                             kernel_size=kernel_size, stride=stride, padding=padding,
                                             dropout_p=dropout_p, with_mixer=(with_mixer=="all"), norm_mode=norm_mode)
-                            for x in att_types]
+                            for x in att_types[1:]]
 
         # Last cell mixer fix
         if with_mixer=="last" and len(att_types)>1:
