@@ -27,7 +27,7 @@ cmd.extend([
 ])
 
 # commands to iterate over
-att_types = ["temporal", "linear", "global"]
+att_types = ["temporal", "local", "global"]
 cells_in_a_block = 12
 for att_type in att_types:
 
