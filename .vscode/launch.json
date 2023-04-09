@@ -8,7 +8,7 @@
             "name": "Cifar10_main",
             "type": "python",
             "request": "launch",
-            "program": "/put/path/here/STCNNT/cifar10/main_cifar.py",
+            "program": "~/projects/STCNNT_2/STCNNT/cifar10/main_cifar.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
@@ -20,8 +20,16 @@
                 "--width", "32",
                 "--num_epoch", "5",
                 "--save_cycle", "2",
-                "--device", "cpu",
-                "-D"
+                "--device", "cuda",
+                "-D",
+                "--check_path", "~/projects/STCNNT_2/checkpoints/",
+                "--log_path", "~/projects/STCNNT_2/logs/",
+                "--data_root", "~/projects/STCNNT_2/cifar10/",
+                "--results_path", "~/projects/STCNNT_2/results/",
+                "--model_path", "~/projects/STCNNT_2/models/",
+                "--norm_mode", "batch2d",
+                "--with_mixer", "none",
+                "--att_types", "temporal", "temporal", "temporal"
             ]
         },
         {
