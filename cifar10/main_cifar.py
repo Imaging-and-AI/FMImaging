@@ -45,7 +45,7 @@ def check_args(config):
     @args:
         - config (Namespace): runtime namespace for setup
     @rets:
-        - config (Namespcae): the checked and updated argparse for Cifar10
+        - config (Namespace): the checked and updated argparse for Cifar10
     """
     assert config.run_name is not None, f"Please provide a \"--run_name\" for wandb"
     assert config.data_root is not None, f"Please provide a \"--data_root\" to load the data"
@@ -115,7 +115,9 @@ def main():
     setup_run(config)
 
     train_set, val_set = create_dataset(config=config)
-    model = STCNNT_Cifar(config=config, total_steps=len(train_set)//config.batch_size)
+
+    total_steps = len(train_set)//config.batch_size*config.num_epochs
+    model = STCNNT_Cifar(config=config, total_steps=total_steps)
 
     # model summary
     model_summary = model_info(model, config)
