@@ -45,7 +45,7 @@ def trainer(rank, model, config, train_set, val_set):
         dist.init_process_group("nccl", rank=rank, world_size=c.world_size)
         device = rank
         model = model.to(device)
-        model = DDP(model, device_ids=[rank])
+        model = DDP(model, device_ids=[rank], find_unused_parameters=True)
         optim = model.module.optim
         sched = model.module.sched
         stype = model.module.stype
