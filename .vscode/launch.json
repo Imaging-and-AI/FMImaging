@@ -33,6 +33,38 @@
             ]
         },
         {
+            "name": "MRI",
+            "type": "python",
+            "request": "launch",
+            "program": "~/projects/STCNNT_2/STCNNT/mri/main_mri.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
+            "args": [
+                "-D",
+                "--run_name", "mri_test_run",
+                "--time", "30",
+                "--height", "128", "144",
+                "--width", "128", "144",
+                "--num_epoch", "5",
+                "--save_cycle", "2",
+                "--device", "cuda",
+                "--check_path", "~/projects/STCNNT_2/checkpoints/",
+                "--log_path", "~/projects/STCNNT_2/logs/",
+                "--results_path", "~/projects/STCNNT_2/results/",
+                "--model_path", "~/projects/STCNNT_2/models/",
+                "--data_root", "~/projects/STCNNT_2/mri/",
+                "--norm_mode", "batch2d",
+                "--with_mixer", "none",
+                "--att_types", "temporal", "temporal", "temporal",
+                "--ratio", "50", "0", "0",
+                "--complex_i",
+                "--residual",
+                "--losses","mse","l1","ssim","ssim3D",
+                "--loss_weights","1.0","1.0","1.0","1.0"
+            ]
+        },
+        {
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
