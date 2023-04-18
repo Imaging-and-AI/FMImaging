@@ -497,7 +497,7 @@ class TemporalCnnAttention(nn.Module):
 # -------------------------------------------------------------------------------------------------
 # Complete transformer cell
 
-class CnnTransformer(nn.Module):
+class STCNNT_Cell(nn.Module):
     """
     CNN Transformer Cell with any attention type
 
@@ -520,8 +520,7 @@ class CnnTransformer(nn.Module):
             - W (int): expected width of the input
             - att_mode ("local", "global", "temporal"):
                 different methods of attention mechanism
-            - a_type ("conv", "lin"):
-                type of attention in spatial heads
+            - a_type ("conv", "lin"): type of attention in spatial heads
             - window_size (int): size of window for local and global att
             - is_causal (bool): whether to mask attention to imply causality
             - n_head (int): number of heads in self attention
@@ -590,7 +589,7 @@ class CnnTransformer(nn.Module):
 # -------------------------------------------------------------------------------------------------
 # A block of multiple transformer cells stacked on top of each other
 
-class CNNTBlock(nn.Module):
+class STCNNT_Block(nn.Module):
     """
     A stack of CNNT cells
     The first cell expands the channel dimension.
@@ -599,27 +598,27 @@ class CNNTBlock(nn.Module):
     def __init__(self, att_types, C_in, C_out=16, H=64, W=64,\
                     a_type="conv", window_size=8, is_causal=False, n_head=8,\
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1),\
-                    dropout_p=0.1, with_mixer="all", norm_mode="layer",\
+                    dropout_p=0.1, norm_mode="layer",\
                     interpolate="none", interp_align_c=False):
         """
         Transformer block
 
         @args:
-            - att_types (list of "local", "global", "temporal"):
-                CNNT cell are stacked in this type and order
+            - att_types (str): order of attention types and their following mlps
+                format is XYXY...
+                - X is "L", "G" or "T" for attention type
+                - Y is "0" or "1" for with or without mixer
+                - requires len(att_types) to be even
             - C_in (int): number of input channels
             - C_out (int): number of output channels
             - H (int): expected height of the input
             - W (int): expected width of the input
-            - a_type ("conv", "lin"):
-                type of attention in spatial heads
+            - a_type ("conv", "lin"): type of attention in spatial heads
             - window_size (int): size of window for local and global att
             - is_causal (bool): whether to mask attention to imply causality
             - n_head (int): number of heads in self attention
             - kernel_size, stride, padding (int, int): convolution parameters
             - dropout (float): probability of dropout
-            - with_mixer ("all", "last", "none"):
-                add conv2D mixer after att to all/last/none CNNT cells
             - norm_mode ("layer", "batch", "instance"):
                 layer - norm along C, H, W; batch - norm along B*T; or instance
             - interpolate ("none", "up", "down"):
@@ -630,36 +629,45 @@ class CNNTBlock(nn.Module):
         super().__init__()
 
         assert (len(att_types)>=1), f"At least one attention module is requried to build the model"
+        assert not (len(att_types)%2), f"require attention and mixer info for each cell"
 
-        assert with_mixer=="all" or with_mixer=="last" or with_mixer=="none", \
-            f"Mixer type not implemented: {with_mixer}"
         assert interpolate=="none" or interpolate=="up" or interpolate=="down", \
             f"Interpolate not implemented: {interpolate}"
 
-        # First cell expands the number of channels
-        first_mixer = with_mixer=="all" or (with_mixer=="last" and len(att_types)==1)
-        first_cell = CnnTransformer(C_in=C_in, C_out=C_out, H=H, W=W, att_mode=att_types[0], a_type=a_type,
-                                        window_size=window_size, is_causal=is_causal, n_head=n_head,
-                                        kernel_size=kernel_size, stride=stride, padding=padding,
-                                        dropout_p=dropout_p, with_mixer=first_mixer, norm_mode=norm_mode)
+        self.cells = []
 
-        remaining_cells = [CnnTransformer(C_in=C_out, C_out=C_out, H=H, W=W, att_mode=x, a_type=a_type,
+        for i in range(len(att_types)//2):
+
+            att_type = att_types[2*i]
+            mixer = att_types[2*i+1]
+
+            assert att_type=='L' or att_type=='G' or att_type=='T', \
+                f"att_type not implemented: {att_type} at index {2*i} in {att_types}"
+            assert mixer=='0' or mixer=='1', \
+                f"mixer not implemented: {mixer} at index {2*i+1} in {att_types}"
+
+            if att_type=='L':
+                att_type = "local"
+            elif att_type=='G':
+                att_type = "global"
+            else: #'T'
+                att_type = "temporal"
+
+            C = C_in if i==0 else C_out
+
+            self.cells.append(STCNNT_Cell(C_in=C, C_out=C_out, H=H, W=W, att_mode=att_type, a_type=a_type,
                                             window_size=window_size, is_causal=is_causal, n_head=n_head,
                                             kernel_size=kernel_size, stride=stride, padding=padding,
-                                            dropout_p=dropout_p, with_mixer=(with_mixer=="all"), norm_mode=norm_mode)
-                            for x in att_types[1:]]
+                                            dropout_p=dropout_p, with_mixer=(mixer=='1'), norm_mode=norm_mode))
 
-        # Last cell mixer fix
-        if with_mixer=="last" and len(att_types)>1:
-            remaining_cells[-1] = CnnTransformer(C_in=C_out, C_out=C_out, H=H, W=W, att_mode=att_types[-1], a_type=a_type,
-                                                    window_size=window_size, is_causal=is_causal, n_head=n_head,
-                                                    kernel_size=kernel_size, stride=stride, padding=padding,
-                                                    dropout_p=dropout_p, with_mixer=True, norm_mode=norm_mode)
-
-        self.block = nn.Sequential(*[first_cell, *remaining_cells])
+        self.make_block()
 
         self.interpolate = interpolate
         self.interp_align_c = interp_align_c
+
+    def make_block(self):
+
+        self.block = nn.Sequential(*self.cells)
 
     def forward(self, x):
 
@@ -731,7 +739,7 @@ def tests():
     for att_type in att_types:
         for norm_type in norm_types:
 
-            CNNT_Cell = CnnTransformer(C_in=C, C_out=C_out, H=H, W=W, att_mode=att_type, norm_mode=norm_type)
+            CNNT_Cell = STCNNT_Cell(C_in=C, C_out=C_out, H=H, W=W, att_mode=att_type, norm_mode=norm_type)
             test_out = CNNT_Cell(test_in)
 
             Bo, To, Co, Ho, Wo = test_out.shape
@@ -739,18 +747,14 @@ def tests():
 
     print("Passed CNNT Cell")
 
-    att_typess = [["local"], ["global"], ["temporal"],
-                    ["local", "local"], ["global", "global"], ["temporal", "temporal"],
-                    ["local", "global", "temporal"], ["temporal", "local", "global"]]
-    with_mixers = ["all", "last", "none"]
+    att_typess = ["L1", "G1", "T1", "L0", "L1", "G0", "G1", "T1", "T0", "L0G1T0", "T1L0G1"]
 
     for att_types in att_typess:
-        for with_mixer in with_mixers:
-            CNNT_Block = CNNTBlock(att_types=att_types, C_in=C, C_out=C_out, with_mixer=with_mixer)
-            test_out, _ = CNNT_Block(test_in)
+        CNNT_Block = STCNNT_Block(att_types=att_types, C_in=C, C_out=C_out)
+        test_out, _ = CNNT_Block(test_in)
 
-            Bo, To, Co, Ho, Wo = test_out.shape
-            assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
+        Bo, To, Co, Ho, Wo = test_out.shape
+        assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
 
     print("Passed CNNT Block att_types and mixers")
 
@@ -759,7 +763,7 @@ def tests():
 
     for interpolate in interpolates:
         for interp_align_c in interp_align_cs:
-            CNNT_Block = CNNTBlock(att_types=att_types, C_in=C, C_out=C_out, with_mixer=with_mixer,\
+            CNNT_Block = STCNNT_Block(att_types=att_types, C_in=C, C_out=C_out,\
                                    interpolate=interpolate, interp_align_c=interp_align_c)
             _, test_out = CNNT_Block(test_in)
 

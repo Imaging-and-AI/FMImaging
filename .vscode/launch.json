@@ -28,8 +28,7 @@
                 "--results_path", "~/projects/STCNNT_2/results/",
                 "--model_path", "~/projects/STCNNT_2/models/",
                 "--norm_mode", "batch2d",
-                "--with_mixer", "none",
-                "--att_types", "temporal", "temporal", "temporal"
+                "--att_types", "T0T0T1"
             ]
         },
         {
@@ -55,8 +54,7 @@
                 "--model_path", "~/projects/STCNNT_2/models/",
                 "--data_root", "~/projects/STCNNT_2/mri/",
                 "--norm_mode", "batch2d",
-                "--with_mixer", "none",
-                "--att_types", "temporal", "temporal", "temporal",
+                "--att_types", "T0T0T1",
                 "--ratio", "50", "0", "0",
                 "--complex_i",
                 "--residual",

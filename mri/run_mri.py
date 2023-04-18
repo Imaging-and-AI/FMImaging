@@ -21,21 +21,13 @@ cmd.extend([
 cmd.extend([
     "--batch_size", "8",
     "--device", "cuda",
-    "--att_types", "temporal", "temporal", "temporal",
-    "--with_mixer", "none",
+    "--att_types", "T0T0T0",
     "--time", "16",
     "--complex_i",
     "--residual",
     "--ratio", "100", "0", "0",
     "--losses", "mse", "l1"
 ])
-
-# commands to iterate over
-# att_types = ["temporal", "local", "global"]
-# a_types = ["conv", "lin"]
-# mixers = ["all", "none"]
-# cells_in_a_block = 3
-# for att_type, a_type, mixer in itertools.product(att_types, a_types, mixers):
 
 norm_modes = ["instance2d", "instance3d", "batch2d", "batch3d", "layer"]
 

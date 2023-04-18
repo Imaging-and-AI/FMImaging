@@ -205,8 +205,12 @@ class CNNT_Unet(STCNNT_Base_Runtime):
             - load (bool): whether to try loading from config.load_path or not
         @args (from config):
             - channels (int list): number of channels in each of the 3 layers
-            - att_types (list of "local", "global", "temporal"):
-                CNNT cell are stacked in this type and order
+            - att_types (str list): order of attention types and their following mlps
+                format is list of XYXYXYXY...
+                - X is "L", "G" or "T" for attention type
+                - Y is "0" or "1" for with or without mixer
+                - only first one is used for this model to create consistent blocks
+                - requires len(att_types[0]) to be even
             - C_in (int): number of input channels
             - C_out (int): number of output channels
             - height (int list): expected heights of the input
@@ -218,8 +222,6 @@ class CNNT_Unet(STCNNT_Base_Runtime):
             - n_head (int): number of heads in self attention
             - kernel_size, stride, padding (int, int): convolution parameters
             - dropout (float): probability of dropout
-            - with_mixer ("all", "last", "none"):
-                add conv2D mixer after att to all/last/none CNNT cells
             - norm_mode ("layer", "batch", "instance"):
                 layer - norm along C, H, W; batch - norm along B*T; or instance
             - interp_align_c (bool):
@@ -249,42 +251,42 @@ class CNNT_Unet(STCNNT_Base_Runtime):
         assert len(c.channels) == 3, f"Requires exactly 3 channel numbers"
 
         kwargs = {
-            "att_types":c.att_types, "C_in":c.C_in, "C_out":c.channels[0],\
+            "att_types":c.att_types[0], "C_in":c.C_in, "C_out":c.channels[0],\
             "H":c.height[0], "W":c.width[0], "a_type":c.a_type,\
             "is_causal":c.is_causal, "dropout_p":c.dropout_p,\
             "n_head":c.n_head, "kernel_size":(c.kernel_size, c.kernel_size),\
             "stride":(c.stride, c.stride), "padding":(c.padding, c.padding),\
-            "with_mixer":c.with_mixer, "norm_mode":c.norm_mode,\
+            "norm_mode":c.norm_mode,\
             "interpolate":"down", "interp_align_c":c.interp_align_c
         }
 
-        self.down1 = CNNTBlock(**kwargs)
+        self.down1 = STCNNT_Block(**kwargs)
 
         kwargs["C_in"] = c.channels[0]
         kwargs["C_out"] = c.channels[1]
         kwargs["H"] = c.height[0]//2
         kwargs["W"] = c.width[0]//2
-        self.down2 = CNNTBlock(**kwargs)
+        self.down2 = STCNNT_Block(**kwargs)
         
         kwargs["C_in"] = c.channels[1]
         kwargs["C_out"] = c.channels[2]
         kwargs["H"] = c.height[0]//4
         kwargs["W"] = c.width[0]//4
         kwargs["interpolate"] = "up"
-        self.up1 = CNNTBlock(**kwargs)
+        self.up1 = STCNNT_Block(**kwargs)
 
         kwargs["C_in"] = c.channels[1]+c.channels[2]
         kwargs["C_out"] = c.channels[2]
         kwargs["H"] = c.height[0]//2
         kwargs["W"] = c.width[0]//2
-        self.up2 = CNNTBlock(**kwargs)
+        self.up2 = STCNNT_Block(**kwargs)
 
         kwargs["C_in"] = c.channels[0]+c.channels[2]
         kwargs["C_out"] = c.channels[1]
         kwargs["H"] = c.height[0]
         kwargs["W"] = c.width[0]
         kwargs["interpolate"] = "none"
-        self.final = CNNTBlock(**kwargs)
+        self.final = STCNNT_Block(**kwargs)
 
         self.output_proj = Conv2DExt(c.channels[1], c.C_out, kernel_size=kwargs["kernel_size"],\
                                         stride=kwargs["stride"], padding=kwargs["padding"])
@@ -355,12 +357,11 @@ def tests():
     config.height = [H]
     config.width = [W]
     config.norm_mode = "instance3d"
-    config.att_types = ["temporal","temporal","temporal","temporal"]
+    config.att_types = ["T0T1T0T1"]
     config.a_type = "conv"
     config.is_causal = False
     config.n_head = 8
     config.interp_align_c = True
-    config.with_mixer = "all"
     # losses
     config.losses = ["mse"]
     config.loss_weights = [1.0]
