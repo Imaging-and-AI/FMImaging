@@ -213,10 +213,13 @@ def model_info(model, config):
 
     model_summary = summary(model, verbose=0, mode="train", depth=c.summary_depth,\
                             input_size=input_size, col_names=col_names,\
-                            row_settings=row_settings, dtypes=dtypes)
+                            row_settings=row_settings, dtypes=dtypes,\
+                            device=config.device)
 
     c.trainable_params = model_summary.trainable_params
     c.total_params = model_summary.total_params
+
+    torch.cuda.empty_cache()
 
     return model_summary
 
