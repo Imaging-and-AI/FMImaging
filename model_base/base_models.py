@@ -64,7 +64,7 @@ class STCNNT_Base_Runtime(nn.Module):
         decay = set()
         no_decay = set()
         whitelist_weight_modules = (nn.Linear, nn.Conv2d, nn.Conv3d)
-        blacklist_weight_modules = (nn.LayerNorm, nn.BatchNorm2d, nn.InstanceNorm2d)
+        blacklist_weight_modules = (nn.LayerNorm, nn.BatchNorm2d, nn.BatchNorm3d, nn.InstanceNorm2d, nn.InstanceNorm3d)
         for mn, m in self.named_modules():
             for pn, p in m.named_parameters():
                 fpn = '%s.%s' % (mn, pn) if mn else pn # full param name
