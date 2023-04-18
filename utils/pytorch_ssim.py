@@ -108,12 +108,13 @@ class SSIM(torch.nn.Module):
     def forward(self, img1, img2):
         (_, channel, _, _) = img1.size()
 
-        if channel == self.channel and self.window.data.type() == img1.data.type():
+        if channel == self.channel and self.window.data.type() == img1.data.type() and \
+            self.window.get_device() == img1.get_device():
             window = self.window
         else:
             window = create_window(self.window_size, channel)
 
-            if img1.is_cuda:
+            if window.get_device() != img1.get_device():
                 window = window.cuda(img1.get_device())
             window = window.type_as(img1)
 
@@ -144,12 +145,13 @@ class SSIM3D(torch.nn.Module):
     def forward(self, img1, img2):
         (_, channel, _, _, _) = img1.size()
 
-        if channel == self.channel and self.window.data.type() == img1.data.type():
+        if channel == self.channel and self.window.data.type() == img1.data.type() and \
+            self.window.get_device() == img1.get_device():
             window = self.window
         else:
             window = create_window_3D(self.window_size, channel)
 
-            if img1.is_cuda:
+            if window.get_device() != img1.get_device():
                 window = window.cuda(img1.get_device())
             window = window.type_as(img1)
 
