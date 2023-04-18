@@ -42,12 +42,13 @@ class SSIM_Loss:
         B, T, C, H, W = targets.shape
         if(self.complex_i):
             assert C==2, f"Complex type requires image to have C=2, given C={C}"
-            outputs_im = torch.sqrt(outputs[:,:,0]*outputs[:,:,0] + outputs[:,:,1]*outputs[:,:,1])
-            targets_im = torch.sqrt(targets[:,:,0]*targets[:,:,0] + targets[:,:,1]*targets[:,:,1])
+            outputs_im = torch.sqrt(outputs[:,:,:1]*outputs[:,:,:1] + outputs[:,:,1:]*outputs[:,:,1:])
+            targets_im = torch.sqrt(targets[:,:,:1]*targets[:,:,:1] + targets[:,:,1:]*targets[:,:,1:])
         else:
             outputs_im = outputs
             targets_im = targets
 
+        B, T, C, H, W = targets_im.shape
         outputs_im = torch.reshape(outputs_im, (B*T, C, H, W))
         targets_im = torch.reshape(targets_im, (B*T, C, H, W))
 
@@ -91,8 +92,8 @@ class SSIM3D_Loss:
         B, T, C, H, W = targets.shape
         if(self.complex_i):
             assert C==2, f"Complex type requires image to have C=2, given C={C}"
-            outputs_im = torch.sqrt(outputs[:,:,0]*outputs[:,:,0] + outputs[:,:,1]*outputs[:,:,1])
-            targets_im = torch.sqrt(targets[:,:,0]*targets[:,:,0] + targets[:,:,1]*targets[:,:,1])
+            outputs_im = torch.sqrt(outputs[:,:,:1]*outputs[:,:,:1] + outputs[:,:,1:]*outputs[:,:,1:])
+            targets_im = torch.sqrt(targets[:,:,:1]*targets[:,:,:1] + targets[:,:,1:]*targets[:,:,1:])
         else:
             outputs_im = outputs
             targets_im = targets
@@ -130,10 +131,9 @@ class L1_Loss:
     def __call__(self, outputs, targets, weights=None):
 
         B, T, C, H, W = targets.shape
-
         if(self.complex_i):
             assert C==2, f"Complex type requires image to have C=2, given C={C}"
-            diff_L1 = torch.abs(outputs[:,:,0]-targets[:,:,0]) + torch.abs(outputs[:,:,1]-targets[:,:,1])
+            diff_L1 = torch.abs(outputs[:,:,:1]-targets[:,:,:1]) + torch.abs(outputs[:,:,1:]-targets[:,:,1:])
         else:
             diff_L1 = torch.abs(outputs-targets)
 
@@ -150,7 +150,7 @@ class L1_Loss:
         else:
             v_l1 = torch.sum(diff_L1)
 
-        return v_l1 / (B*T*C*H*W)
+        return v_l1 / diff_L1.numel()
 
 # -------------------------------------------------------------------------------------------------
 # MSE loss
@@ -169,10 +169,9 @@ class MSE_Loss:
     def __call__(self, outputs, targets, weights=None):
 
         B, T, C, H, W = targets.shape
-
         if(self.complex_i):
             assert C==2, f"Complex type requires image to have C=2, given C={C}"
-            diff_mag_square = torch.square(outputs[:,:,0]-targets[:,:,0]) + torch.square(outputs[:,:,1]-targets[:,:,1])
+            diff_mag_square = torch.square(outputs[:,:,:1]-targets[:,:,:1]) + torch.square(outputs[:,:,1:]-targets[:,:,1:])
         else:
             diff_mag_square = torch.square(outputs-targets)
 
@@ -189,7 +188,7 @@ class MSE_Loss:
         else:
             v_l2 = torch.sum(diff_mag_square)
 
-        return v_l2 / (B*T*C*H*W)
+        return v_l2 / diff_mag_square.numel()
 
 # -------------------------------------------------------------------------------------------------
 # PSNR
