@@ -64,7 +64,7 @@ The temporal or slice correlation is explored by computing the temporal attentio
 
 These **L, G, T** attention mechanisms are implemented as **Attention** modules.
 
-###Cell
+### Cell
 
 After implementing each attention module, a **Cell** is defined as one **Attention** module with the **mixer**. Given an input tensor $[B, T, C_{in}, H, W]$, a Cell transforms the input tensor and produce another tensor $[B, T, C_{out}, H, W]$.
 
@@ -101,7 +101,7 @@ User can specify whether a cell has mixer or not.
 
 Overall, we name the spatial-temporal CNN transformers as **ST-CNNT**.
 
-###Block
+### Block
 A block is a stack of cells. For example, a block with local, global and temporal attentions can be built as:
 
 ![Block with three attentions](./doc/images/Block.JPG)
@@ -115,11 +115,11 @@ How to put together attention modules to make a model? How many attentions will 
 
 In the LLMs, the stack of attentions proves to be very effective. For imaging, previous researches had explored similar architecture (e.g. [3B swin v2](https://arxiv.org/abs/2111.09883) and [20B ViT](https://arxiv.org/abs/2302.05442)). With our intention to combine convolution back into the transformer and to utilize the inductive bias, we should explore different architectures.
 
-###ST-CNNT U-Net
+### ST-CNNT U-Net
 
 The U-net architecture is enhanced with ST-CNNT cells. 
 
-![stcnnt_unet](./doc/images/stcnnt_Unet.JPG)
+<img src="./doc/images/stcnnt_Unet.JPG"  width="50%" height="100%">
 
 Here every resolution stage includes one block containing multiple cells. Model can specify number of feature maps at each resolution stage. The [Unet with attention](https://arxiv.org/abs/1804.03999) is implemented here. Downsample and upsample are implemented with interpolation.
 
@@ -127,7 +127,7 @@ The attention in unet is added to gate the feature map in lower resolution level
 
 ![attention_in_unet](./doc/images/Attention_in_Unet.JPG)
 
-###ST-CNNT HR-Net
+### ST-CNNT HR-Net
 
 This network is modified from the [high-resolution architecture](https://www.microsoft.com/en-us/research/blog/high-resolution-network-a-universal-neural-architecture-for-visual-recognition/).
 
@@ -138,6 +138,6 @@ The network is defined as levels and stages. Every block is numbered by its leve
 
 After the fusion stage, the model will output per-level tensors and the aggregated tensor. 
 
-###ST-CNNT LLM
+### ST-CNNT LLM
 
 As a baseline, the stack of blocks serves as an architecture comparable to LLMs. The difference is the non-causal attention is used in all blocks.
