@@ -140,4 +140,9 @@ After the fusion stage, the model will output per-level tensors and the aggregat
 
 ### ST-CNNT LLM
 
-As a baseline, the stack of blocks serves as an architecture comparable to LLMs. The difference is the non-causal attention is used in all blocks.
+As a baseline, the stack of blocks serves as an architecture similar to the LLMs. The difference is the non-causal attention is used in all blocks and we added the dense skip connections between blocks.
+
+![stcnnt_LLMs](./doc/images/stcnnt_LLM.JPG)
+
+In the current design, the Block will not change number of input channels. 
+
