@@ -628,7 +628,7 @@ class STCNNT_Block(nn.Module):
         """
         super().__init__()
 
-        assert (len(att_types)>=1), f"At least one attention module is requried to build the model"
+        assert (len(att_types)>=1), f"At least one attention module is required to build the model"
         assert not (len(att_types)%2), f"require attention and mixer info for each cell"
 
         assert interpolate=="none" or interpolate=="up" or interpolate=="down", \
