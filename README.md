@@ -132,7 +132,7 @@ The attention in unet is added to gate the feature map in lower resolution level
 This network is modified from the [high-resolution architecture](https://www.microsoft.com/en-us/research/blog/high-resolution-network-a-universal-neural-architecture-for-visual-recognition/).
 
 
-![stcnnt_hrnet](./doc/images/stcnnt_HRNet.JPG)
+![stcnnt_hrnet](./doc/images/stcnnt_HRNet_v2.JPG)
 
 The network is defined as levels and stages. Every block is numbered by its level and stage indexes (starting from 0). The downsample and upsample modules are added to link different blocks. Different up/downsample modules are implemented, with TLG attentions or 1x1 CONV. Bilinear interpolation is used to alter spatial resolution.
 
