@@ -1,23 +1,22 @@
 """
-Main base models of STCNNT
-Provides implementation for the following:
-    - STCNNT_Base_Runtime_Model:
-        - the base class that setups the optimizer scheduler and loss
-        - also provides ability to save and load checkpoints
-    - CNNT_Unet:
-        - the original CNNT_Unet
-        - 2 down, 2 up and then a final layer
-        - original was made of 4 temporal cells per block
-        - now can use spatial cells as well
+Backbone model - UNet architecture, with attention
+
+This file implements a UNet design for the imaging backbone. The input to the model is [B, T, C_in, H, W]. The output of the model is [B, T, C_out, H, W].
+For every resolution level, the image size will be reduced by x2, with the number of channels increasing by x2.
+
+Please ref to the project page for the network design.
+
 """
 
 import os
 import sys
 import logging
+from collections import OrderedDict
 
 import torch
 import torch.nn as nn
-import torch.optim as optim
+from torch import Tensor
+import torch.nn.functional as F
 
 from pathlib import Path
 from argparse import Namespace
@@ -30,191 +29,165 @@ sys.path.insert(1, str(Project_DIR))
 
 from losses import *
 from attention_modules import *
-from utils.utils import get_device
+from utils.utils import get_device, model_info
+
+from base_models import STCNNT_Base_Runtime
 
 # -------------------------------------------------------------------------------------------------
-# Base model for rest to inherit
+# building blocks
 
-class STCNNT_Base_Runtime(nn.Module):
+class _D2(torch.Module):
     """
-    Base Runtime model of STCNNT
-    Sets up the optimizer, scheduler and loss
-    Provides generic save and load functionality
+    Downsample by 2 layer
+
+    This module takes in a [B, T, C, H, W] tensor and downsample it to [B, T, C, H//2, W//2]
+    
+    By default, the operation is performed with a bilinear interpolation. If with_conv is True, a 1x1 convolution is added after interpolation.
+    If with_interpolation is False, the stride convolution is used.
     """
-    def __init__(self, config) -> None:
-        """
-        @args:
-            - config (Namespace): runtime namespace for setup
-        """
+    
+    def __init__(self, C_in=16, C_out=-1, use_interpolation=True, with_conv=True) -> None:
         super().__init__()
-        self.config = config
+        
+        self.C_in = C_in
+        self.C_out = C_out if C_out>0 else C_in
+        
+        self.use_interpolation = use_interpolation
+        self.with_conv = with_conv
 
-    def configure_optim_groups(self):
-        """
-        Copied (and modified) from mingpt: https://github.com/karpathy/minGPT
-        This long function is unfortunately doing something very simple and is being very defensive:
-        We are separating out all parameters of the model into two buckets: those that will experience
-        weight decay for regularization and those that won't (biases, and layernorm/embedding weights).
-        We are then returning the optimizer groups.
-
-        @args (from config):
-            - weight_decay (float): weight decay coefficient for regularization
-        """
-        # separate out all parameters to those that will and won't experience regularizing weight decay
-        decay = set()
-        no_decay = set()
-        whitelist_weight_modules = (nn.Linear, nn.Conv2d, nn.Conv3d)
-        blacklist_weight_modules = (nn.LayerNorm, nn.BatchNorm2d, nn.BatchNorm3d, nn.InstanceNorm2d, nn.InstanceNorm3d)
-        for mn, m in self.named_modules():
-            for pn, p in m.named_parameters():
-                fpn = '%s.%s' % (mn, pn) if mn else pn # full param name
-                # random note: because named_modules and named_parameters are recursive
-                # we will see the same tensors p many many times. but doing it this way
-                # allows us to know which parent module any tensor p belongs to...
-                if pn.endswith('bias'):
-                    # all biases will not be decayed
-                    no_decay.add(fpn)
-                elif pn.endswith('weight') and isinstance(m, whitelist_weight_modules):
-                    # weights of whitelist modules will be weight decayed
-                    decay.add(fpn)
-                elif pn.endswith('weight') and isinstance(m, blacklist_weight_modules):
-                    # weights of blacklist modules will NOT be weight decayed
-                    no_decay.add(fpn)
-
-        # validate that we considered every parameter
-        param_dict = {pn: p for pn, p in self.named_parameters()}
-        inter_params = decay & no_decay
-        union_params = decay | no_decay
-        assert len(inter_params) == 0, "parameters %s made it into both decay/no_decay sets!" % (str(inter_params), )
-        assert len(param_dict.keys() - union_params) == 0, "parameters %s were not separated into either decay/no_decay set!" \
-                                                    % (str(param_dict.keys() - union_params), )
-
-        # create the pytorch optimizer object
-        optim_groups = [
-            {"params": [param_dict[pn] for pn in sorted(list(decay))], "weight_decay": self.config.weight_decay},
-            {"params": [param_dict[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0},
-        ]
-
-        return optim_groups
-
-    def set_up_optim_and_scheduling(self, total_steps=1):
-        """
-        Sets up the optimizer and the learning rate scheduler using the config
-        @args:
-            - total_steps (int): total training steps. used for OneCycleLR
-        @args (from config):
-            - optim ("adamw", "sgd", "nadam"): choices for optimizer
-            - scheduler ("ReduceOnPlateau", "StepLR", "OneCycleLR"):
-                choices for learning rate schedulers
-            - global_lr (float): global learning rate
-            - beta1, beta2 (float): parameters for adam
-            - weight_decay (float): parameter for regularization
-            - all_w_decay (bool): whether to separate model params for regularization
-                if False then norms and embeddings do not experience weight decay
-        """
-        c = self.config # short config name because of multiple uses
-        self.optim = None
-        self.sched = None
-        self.stype = None
-        if c.optim is None:
-            return
-
-        optim_groups = self.configure_optim_groups() if not c.all_w_decay else self.parameters()
-
-        if c.optim == "adamw":
-            self.optim = optim.AdamW(optim_groups, lr=c.global_lr, betas=(c.beta1, c.beta2), weight_decay=c.weight_decay)
-        elif c.optim == "sgd":
-            self.optim = optim.SGD(optim_groups, lr=c.global_lr, momentum=0.9, weight_decay=c.weight_decay)
-        elif c.optim == "nadam":
-            self.optim = optim.NAdam(optim_groups, lr=c.global_lr, betas=(c.beta1, c.beta2), weight_decay=c.weight_decay)
+        self.stride_conv = None
+        self.conv = None
+        
+        if not self.use_interpolation:
+            self.stride_conv = Conv2DExt(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[3,3], stride=[2,2], padding=[1,1])
+        elif self.with_conv or (self.C_in != self.C_out):
+            self.conv = Conv2DExt(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[1,1], stride=[1,1], padding=[0,0])
+            
+        
+    def forward(self, x:Tensor) -> Tensor:        
+        B, T, C, H, W = x.shape
+        if self.use_interpolation:
+            y = F.interpolate(x, scale_factor=(0.5, 0.5), mode="bilinear", align_corners=False, recompute_scale_factor=False)
+            if self.conv:
+                y = self.conv(y)
         else:
-            raise NotImplementedError(f"Optimizer not implemented: {c.optim}")
+            y = self.stride_conv(x)
+        
+        return y
+          
+# -------------------------------------------------------------------------------------------------
+   
+class _U2(torch.Module):
+    """
+    Upsample by 2
 
-        if c.scheduler == "ReduceLROnPlateau":
-            self.sched = optim.lr_scheduler.ReduceLROnPlateau(self.optim, mode="min", factor=0.75,
-                                                                    patience=5, cooldown=3, min_lr=1e-8,
-                                                                    verbose=True)
-            self.stype = "ReduceLROnPlateau"
-        elif c.scheduler == "StepLR":
-            self.sched = optim.lr_scheduler.StepLR(self.optim, step_size=5, gamma=0.8, last_epoch=-1,
-                                                        verbose=True)
-            self.stype = "StepLR"
-        elif c.scheduler == "OneCycleLR":
-            self.sched = optim.lr_scheduler.OneCycleLR(self.optim, max_lr=c.global_lr*4, total_steps=total_steps,
-                                                            pct_start=0.3, anneal_strategy="cos", verbose=True)
-            self.stype = "OneCycleLR"
-        else:
-            raise NotImplementedError(f"Scheduler not implemented: {c.scheduler}")
+    This module takes in a [B, T, Cin, H, W] tensor and upsample it to [B, T, Cout, 2*H, 2*W]
+    
+    By default, the operation is performed with a bilinear interpolation. If with_conv is True, a 1x1 convolution is added after interpolation.
+    """
+    
+    def __init__(self, C_in=16, C_out=-1, with_conv=True) -> None:
+        super().__init__()
+        
+        self.C_in = C_in
+        self.C_out = C_out if C_out>0 else C_in
+        
+        self.with_conv = with_conv
 
-    def set_up_loss(self, device="cpu"):
-        """
-        Sets up the combined loss
-        @args:
-            - device (torch.device): device to setup the loss on
-        @args (from config):
-            - losses (list of "ssim", "ssim3D", "l1", "mse"):
-                list of losses to be combined
-            - loss_weights (list of floats)
-                weights of the losses in the combined loss
-            - complex_i (bool): whether we are dealing with complex images or not
-        """
-        self.loss_f = Combined_Loss(self.config.losses, self.config.loss_weights,
-                                    complex_i=self.config.complex_i, device=device)
-
-    def save(self, epoch):
-        """
-        Save model checkpoints
-        @args:
-            - epoch (int): current epoch of the training cycle
-        @args (from config):
-            - date (datetime str): runtime date
-            - checkpath (str): directory to save checkpoint in
-        """
-        save_file_name = f"{self.config.date}_epoch-{epoch}.pth"
-        save_path = os.path.join(self.config.check_path, save_file_name)
-        logging.info(f"Saving weights at {save_path}")
-        torch.save(self.state_dict(), save_path)
-
-    def load(self, device=None):
-        """
-        Load a checkpoint from the load path in config
-        @args:
-            - device (torch.device): device to setup the model on
-        @args (from config):
-            - load_path (str): path to load the weights from
-        """
-        logging.info(f"Loading model from {self.config.load_path}")
-        device = get_device(device=device)
-        self.load_state_dict(torch.load(self.config.load_path, map_location=device))
+        self.conv = None        
+        if self.with_conv or (self.C_in != self.C_out):
+            self.conv = Conv2DExt(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[1,1], stride=[1,1], padding=[0,0])
+            
+        
+    def forward(self, x:Tensor) -> Tensor:        
+        B, T, C, H, W = x.shape
+        y = F.interpolate(x, size=(2*H, 2*W), mode="bilinear", align_corners=False, recompute_scale_factor=False)
+        if self.with_conv:
+            y = self.conv(y)
+        
+        return y
 
 # -------------------------------------------------------------------------------------------------
-# CNNT unet
 
-class CNNT_Unet(STCNNT_Base_Runtime):
+class _unet_attention(torch.Module):
     """
-    CNNT Unet implementation with 2 downsample and 2 upsample layers
-    Concatenates the outputs with skip connections
-    Final layer does not interpolate
-    Instead uses output projection to get desired output channels
+    Unet attention scheme
+
+    The query q is from the lower resolution level [B, T, C_q, H, W]; 
+    The value x is from the higher resolution level [B, T, C, H, W]
+    
+    Output is a gated value tensor [B, T, C, H, W]
     """
+    
+    def __init__(self, C_q=32, C=16) -> None:
+        super().__init__()
+        
+        self.C_q = C_q
+        self.C = C
+        
+        self.conv_query = Conv2DExt(in_channels=self.C_q, out_channels=self.C, kernel_size=[1,1], stride=[1,1], padding=[0,0])
+        self.conv_x = Conv2DExt(in_channels=self.C, out_channels=self.C, kernel_size=[1,1], stride=[1,1], padding=[0,0])
+        
+        self.conv_gate = Conv2DExt(in_channels=self.C, out_channels=1, kernel_size=[1,1], stride=[1,1], padding=[0,0])
+        
+    def forward(self, q:Tensor, x:Tensor) -> Tensor:        
+        B, T, C_q, H, W = q.shape
+        B, T, C, H, W = x.shape
+        
+        v = F.relu(self.conv_query(q) + self.conv_x(x), inplace=False)
+        g = torch.sigmoid(self.conv_gate(v)) # [B, T, 1, H, W]
+        
+        y = x * g
+        
+        return y
+    
+# -------------------------------------------------------------------------------------------------
+# stcnnt hrnet
+
+class STCNNT_Unet(STCNNT_Base_Runtime):
+    """
+    This class implemented the stcnnt version of Unet with maximal 5 down/upsample levels.
+    """
+    
     def __init__(self, config, total_steps=1, load=False) -> None:
         """
         @args:
             - config (Namespace): runtime namespace for setup
             - total_steps (int): total training steps. used for OneCycleLR
             - load (bool): whether to try loading from config.load_path or not
+            
         @args (from config):
-            - channels (int list): number of channels in each of the 3 layers
-            - att_types (str list): order of attention types and their following mlps
+            
+            ---------------------------------------------------------------    
+            model specific arguments
+            ---------------------------------------------------------------    
+            
+            - C (int): number of channels, when resolution is reduced by x2, number of channels will increase by x2
+            
+            - num_resolution_levels (int): number of resolution levels; each deeper level will reduce spatial size by x2
+            
+            - block_str (a str or a list of strings): order of attention types and mixer
                 format is list of XYXYXYXY...
                 - X is "L", "G" or "T" for attention type
                 - Y is "0" or "1" for with or without mixer
                 - only first one is used for this model to create consistent blocks
                 - requires len(att_types[0]) to be even
+                
+                This string is the "Block string" to define the attention layers in a block. 
+                If a list of string is given, each string defines the attention structure for a resolution level. The last string is the bridge structure.
+                      
+            - use_interpolation (bool): whether to use interpolation in downsample layer; if False, use stride convolution
+            - with_conv (bool): whether to add conv in down/upsample layers; if False, only interpolation is performed
+                                       
+            ---------------------------------------------------------------    
+            Shared arguments used in this model
+            ---------------------------------------------------------------
             - C_in (int): number of input channels
             - C_out (int): number of output channels
+                
             - height (int list): expected heights of the input
-            - width (int list): expected widths of the input
+            - width (int list): expected widths of the input                    
+            
             - a_type ("conv", "lin"):
                 type of attention in spatial heads
             - window_size (int): size of window for local and global att
@@ -223,16 +196,12 @@ class CNNT_Unet(STCNNT_Base_Runtime):
             - kernel_size, stride, padding (int, int): convolution parameters
             - dropout (float): probability of dropout
             - norm_mode ("layer", "batch", "instance"):
-                layer - norm along C, H, W; batch - norm along B*T; or instance
+                layer - norm along C, H, W; batch - norm along B*T; or instance norm along H, W for C
             - interp_align_c (bool):
                 whether to align corner or not when interpolating
             - residual (bool):
                 whether to add long skip residual connection or not
-            - losses (list of "ssim", "ssim3D", "l1", "mse"):
-                list of losses to be combined
-            - loss_weights (list of floats)
-                weights of the losses in the combined loss
-            - complex_i (bool): whether we are dealing with complex images or not
+
             - optim ("adamw", "sgd", "nadam"): choices for optimizer
             - scheduler ("ReduceOnPlateau", "StepLR", "OneCycleLR"):
                 choices for learning rate schedulers
@@ -240,60 +209,167 @@ class CNNT_Unet(STCNNT_Base_Runtime):
             - beta1, beta2 (float): parameters for adam
             - weight_decay (float): parameter for regularization
             - all_w_decay (bool): whether to separate model params for regularization
+            
+            - losses (list of "ssim", "ssim3D", "l1", "mse"):
+                list of losses to be combined
+            - loss_weights (list of floats)
+                weights of the losses in the combined loss
+            - complex_i (bool): whether we are dealing with complex images or not
+            
             - load_path (str): path to load the weights from
         """
         super().__init__(config)
 
-        c = config # shortening due to numerous uses
+        C = config.C
+        num_resolution_levels = config.num_resolution_levels
+        block_str = config.block_str
+        use_interpolation = config.use_interpolation
+        with_conv = config.with_conv
+        
+        assert(C >= config.C_in, "Number of channels should be larger than C_in")
+        assert(num_resolution_levels <= 5 and num_resolution_levels>=1, "Maximal number of resolution levels is 5")
 
-        for h in c.height: assert not h % 8, f"height {h} should be divisible by 8"
-        for w in c.width: assert not w % 8, f"width {w} should be divisible by 8"
-        assert len(c.channels) == 3, f"Requires exactly 3 channel numbers"
-
-        kwargs = {
-            "att_types":c.att_types[0], "C_in":c.C_in, "C_out":c.channels[0],\
-            "H":c.height[0], "W":c.width[0], "a_type":c.a_type,\
-            "is_causal":c.is_causal, "dropout_p":c.dropout_p,\
-            "n_head":c.n_head, "kernel_size":(c.kernel_size, c.kernel_size),\
-            "stride":(c.stride, c.stride), "padding":(c.padding, c.padding),\
+        self.C = C
+        self.num_resolution_levels = num_resolution_levels
+        self.block_str = block_str if isinstance(block_str, list) else [block_str for n in range(self.num_resolution_levels+1)] # with bridge
+        self.use_interpolation = use_interpolation
+        self.with_conv = with_conv
+        
+        c = config
+        kwargs = {            
+            "att_types":c.att_types[0],             
+            "C_in":c.C_in, 
+            "C_out":c.C,\
+            "H":c.height[0], 
+            "W":c.width[0], 
+            "a_type":c.a_type,\
+            "is_causal":c.is_causal, 
+            "dropout_p":c.dropout_p,\
+            "n_head":c.n_head, 
+            "kernel_size":(c.kernel_size, c.kernel_size),\
+            "stride":(c.stride, c.stride), 
+            "padding":(c.padding, c.padding),\
             "norm_mode":c.norm_mode,\
-            "interpolate":"down", "interp_align_c":c.interp_align_c
+            "interpolate":"none", 
+            "interp_align_c":c.interp_align_c
         }
 
-        self.down1 = STCNNT_Block(**kwargs)
-
-        kwargs["C_in"] = c.channels[0]
-        kwargs["C_out"] = c.channels[1]
-        kwargs["H"] = c.height[0]//2
-        kwargs["W"] = c.width[0]//2
-        self.down2 = STCNNT_Block(**kwargs)
+        if num_resolution_levels >= 1:
+            # define D0
+            kwargs["C_in"] = c.C_in
+            kwargs["C_out"] = self.C
+            kwargs["H"] = c.height[0]
+            kwargs["W"] = c.width[0]
+            kwargs["a_type"] = self.block_str[0]
+            self.D0 = STCNNT_Block(**kwargs)
+            
+            self.down_0 = _D2(C_in=kwargs["C_out"], C_out=kwargs["C_out"], use_interpolation=self.use_interpolation, with_conv=self.with_conv)
+                
+        if num_resolution_levels >= 2:
+            # define D1
+            kwargs["C_in"] = self.C
+            kwargs["C_out"] = 2*self.C
+            kwargs["H"] = c.height[0] // 2
+            kwargs["W"] = c.width[0] // 2
+            kwargs["a_type"] = self.block_str[1]
+            self.D1 = STCNNT_Block(**kwargs)
+            
+            self.down_1 = _D2(C_in=kwargs["C_out"], C_out=kwargs["C_out"], use_interpolation=self.use_interpolation, with_conv=self.with_conv)
+            
+        if num_resolution_levels >= 3:
+            # define D2
+            kwargs["C_in"] = 2*self.C
+            kwargs["C_out"] = 4*self.C
+            kwargs["H"] = c.height[0] // 4
+            kwargs["W"] = c.width[0] // 4
+            kwargs["a_type"] = self.block_str[2]
+            self.D2 = STCNNT_Block(**kwargs)
+            
+            self.down_2 = _D2(C_in=kwargs["C_out"], C_out=kwargs["C_out"], use_interpolation=self.use_interpolation, with_conv=self.with_conv)
+            
+        if num_resolution_levels >= 4:
+            # define D3
+            kwargs["C_in"] = 4*self.C
+            kwargs["C_out"] = 8*self.C
+            kwargs["H"] = c.height[0] // 8
+            kwargs["W"] = c.width[0] // 8
+            kwargs["a_type"] = self.block_str[3]
+            self.D3 = STCNNT_Block(**kwargs)
+            
+            self.down_3 = _D2(C_in=kwargs["C_out"], C_out=kwargs["C_out"], use_interpolation=self.use_interpolation, with_conv=self.with_conv)
+            
+        if num_resolution_levels >= 5:
+            # define D4
+            kwargs["C_in"] = 8*self.C
+            kwargs["C_out"] = 16*self.C
+            kwargs["H"] = c.height[0] // 16
+            kwargs["W"] = c.width[0] // 16
+            kwargs["a_type"] = self.block_str[4]
+            self.D4 = STCNNT_Block(**kwargs)
+            
+            self.down_4 = _D2(C_in=kwargs["C_out"], C_out=kwargs["C_out"], use_interpolation=self.use_interpolation, with_conv=self.with_conv)
+            
+        # define the bridge
+        kwargs["C_in"] = kwargs["C_out"]
+        kwargs["a_type"] = self.block_str[-1]
+        self.bridge = STCNNT_Block(**kwargs)
         
-        kwargs["C_in"] = c.channels[1]
-        kwargs["C_out"] = c.channels[2]
-        kwargs["H"] = c.height[0]//4
-        kwargs["W"] = c.width[0]//4
-        kwargs["interpolate"] = "up"
-        self.up1 = STCNNT_Block(**kwargs)
-
-        kwargs["C_in"] = c.channels[1]+c.channels[2]
-        kwargs["C_out"] = c.channels[2]
-        kwargs["H"] = c.height[0]//2
-        kwargs["W"] = c.width[0]//2
-        self.up2 = STCNNT_Block(**kwargs)
-
-        kwargs["C_in"] = c.channels[0]+c.channels[2]
-        kwargs["C_out"] = c.channels[1]
-        kwargs["H"] = c.height[0]
-        kwargs["W"] = c.width[0]
-        kwargs["interpolate"] = "none"
-        self.final = STCNNT_Block(**kwargs)
-
-        self.output_proj = Conv2DExt(c.channels[1], c.C_out, kernel_size=kwargs["kernel_size"],\
-                                        stride=kwargs["stride"], padding=kwargs["padding"])
-        
+        if num_resolution_levels >= 5:
+            self.up_4 = _D2(C_in=16*self.C, C_out=16*self.C, use_interpolation=self.use_interpolation, with_conv=self.with_conv)
+            self.attention_4 = _unet_attention(C_q=16*self.C, C=16*self.C)
+            
+            kwargs["C_in"] = 32*self.C
+            kwargs["C_out"] = 16*self.C
+            kwargs["H"] = c.height[0] // 16
+            kwargs["W"] = c.width[0] // 16
+            kwargs["a_type"] = self.block_str[4]
+            self.U4 = STCNNT_Block(**kwargs)
+            
+        if num_resolution_levels >= 4:
+            self.up_3 = _D2(C_in=8*self.C, C_out=8*self.C, use_interpolation=self.use_interpolation, with_conv=self.with_conv)
+            self.attention_3 = _unet_attention(C_q=8*self.C, C=8*self.C)
+            
+            kwargs["C_in"] = 16*self.C
+            kwargs["C_out"] = 8*self.C
+            kwargs["H"] = c.height[0] // 8
+            kwargs["W"] = c.width[0] // 8
+            kwargs["a_type"] = self.block_str[3]
+            self.U3 = STCNNT_Block(**kwargs)    
+                
+        if num_resolution_levels >= 3:
+            self.up_2 = _D2(C_in=4*self.C, C_out=4*self.C, use_interpolation=self.use_interpolation, with_conv=self.with_conv)
+            self.attention_2 = _unet_attention(C_q=4*self.C, C=4*self.C)
+            
+            kwargs["C_in"] = 8*self.C
+            kwargs["C_out"] = 4*self.C
+            kwargs["H"] = c.height[0] // 4
+            kwargs["W"] = c.width[0] // 4
+            kwargs["a_type"] = self.block_str[2]
+            self.U2 = STCNNT_Block(**kwargs) 
+                     
+        if num_resolution_levels >= 2:
+            self.up_1 = _D2(C_in=2*self.C, C_out=2*self.C, use_interpolation=self.use_interpolation, with_conv=self.with_conv)
+            self.attention_1 = _unet_attention(C_q=2*self.C, C=2*self.C)
+            
+            kwargs["C_in"] = 4*self.C
+            kwargs["C_out"] = 2*self.C
+            kwargs["H"] = c.height[0] // 2
+            kwargs["W"] = c.width[0] // 2
+            kwargs["a_type"] = self.block_str[1]
+            self.U1 = STCNNT_Block(**kwargs) 
+            
+        if num_resolution_levels >= 1:
+            self.up_0 = _D2(C_in=self.C, C_out=self.C, use_interpolation=self.use_interpolation, with_conv=self.with_conv)
+            self.attention_0 = _unet_attention(C_q=self.C, C=self.C)
+            
+            kwargs["C_in"] = 2*self.C
+            kwargs["C_out"] = self.C_out
+            kwargs["H"] = c.height[0]
+            kwargs["W"] = c.width[0]
+            kwargs["a_type"] = self.block_str[0]
+            self.U0 = STCNNT_Block(**kwargs) 
+                                                    
         # set up remaining stuff
-        self.residual = c.residual
-
         device = get_device(device=c.device)
         self.set_up_loss(device=device)
         self.set_up_optim_and_scheduling(total_steps=total_steps)
@@ -304,41 +380,113 @@ class CNNT_Unet(STCNNT_Base_Runtime):
     def forward(self, x):
         """
         @args:
-            - x (5D torch.Tensor): the input image
+            - x (5D torch.Tensor): the input image, [B, T, Cin, H, W]
+            
+        @@rets:       
+            - y_hat (5D torch.Tensor): output tensor, [B, T, Cout, H, W]
         """
 
-        _,_,_,H,W = x.shape
-        assert not(H % 8 or W % 8),\
-            f"Require H and W dimension sizes to be divisible by 8"
-                                                # x :[B, T,  C, 64, 64]
-        x1, x1_interp = self.down1(x)           # x1:[B, T, 16, 64, 64], x1_interp:[B, T, 16, 32, 32]
-        x2, x2_interp = self.down2(x1_interp)   # x2:[B, T, 32, 32, 32], x2_interp:[B, T, 32, 16, 16]
-
-        y1, y1_interp = self.up1(x2_interp)     # y1:[B, T, 64, 16, 16], y1_interp:[B, T, 64, 32, 32]
-        c1 = torch.cat((y1_interp, x2), dim=2)  # c1:[B, T, 96, 32, 32]
-        y2, y2_interp = self.up2(c1)            # y2:[B, T, 64, 32, 32], y2_interp:[B, T, 64, 64, 64] 
-        c2 = torch.cat((y2_interp, x1), dim=2)  # c2:[B, T, 80, 64, 64] 
-
-        z1, z1_interp = self.final(c2)          # z1:[B, T, 32, 64, 64], z1_interp:[B, T, 32, 64, 64]
-
-        output = self.output_proj(z1)
-
-        return x-output if self.residual else output
-    
-    def computer_loss(self, outputs, targets, weights=None):
-        """
-        @args:
-            - outputs (5D torch.Tensor): the predicted model out
-            - targets (5D torch.Tenosr): the targets to map to
-            - weights (torch.Tensor): weights to apply during loss computation
-        """
-        return self.loss_f(outputs, targets, weights)
+        B, T, Cin, H, W = x.shape
+            
+        # first we go down the resolution ... 
+        if self.num_resolution_levels <= 1:
+            x_0 = self.D0(x)
+            x_d_0 = self.down_0(x_0)
+            
+        if self.num_resolution_levels <= 2:
+            x_1 = self.D1(x_d_0)
+            x_d_1 = self.down_1(x_1)
+            
+        if self.num_resolution_levels <= 3:
+            x_2 = self.D2(x_d_1)
+            x_d_2 = self.down_1(x_2)
+            
+        if self.num_resolution_levels <= 4:
+            x_3 = self.D3(x_d_2)
+            x_d_3 = self.down_1(x_3)
+            
+        if self.num_resolution_levels <= 5:
+            x_4 = self.D4(x_d_3)
+            x_d_4 = self.down_1(x_4)
+            
+        # now we go up the resolution ...                 
+        if self.num_resolution_levels == 1:
+            y_d_0 = self.bridge(x_d_0)
+            y_0 = self.up_0(y_d_0)
+            x_gated_0 = self.attention_0(q=y_0, x=x_0)
+            y_hat = self.U0(torch.cat((x_gated_0, y_0), dim=2))
+            
+        if self.num_resolution_levels == 2:
+            y_d_1 = self.bridge(x_d_1)
+            y_1 = self.up_1(y_d_1)
+            x_gated_1 = self.attention_1(q=y_1, x=x_1)
+            y_d_0 = self.U1(torch.cat((x_gated_1, y_1), dim=2))
+                             
+            y_0 = self.up_0(y_d_0)
+            x_gated_0 = self.attention_0(q=y_0, x=x_0)
+            y_hat = self.U0(torch.cat((x_gated_0, y_0), dim=2))
+            
+        if self.num_resolution_levels == 3:
+            y_d_2 = self.bridge(x_d_2)
+            y_2 = self.up_2(y_d_2)
+            x_gated_2 = self.attention_2(q=y_2, x=x_2)
+            y_d_1 = self.U2(torch.cat((x_gated_2, y_2), dim=2))
+            
+            y_1 = self.up_1(y_d_1)
+            x_gated_1 = self.attention_1(q=y_1, x=x_1)
+            y_d_0 = self.U1(torch.cat((x_gated_1, y_1), dim=2))
+                             
+            y_0 = self.up_0(y_d_0)
+            x_gated_0 = self.attention_0(q=y_0, x=x_0)
+            y_hat = self.U0(torch.cat((x_gated_0, y_0), dim=2))
+            
+        if self.num_resolution_levels == 4:
+            y_d_3 = self.bridge(x_d_3)
+            y_3 = self.up_3(y_d_3)
+            x_gated_3 = self.attention_3(q=y_3, x=x_3)
+            y_d_2 = self.U3(torch.cat((x_gated_3, y_3), dim=2))
+            
+            y_2 = self.up_2(y_d_2)
+            x_gated_2 = self.attention_2(q=y_2, x=x_2)
+            y_d_1 = self.U2(torch.cat((x_gated_2, y_2), dim=2))
+            
+            y_1 = self.up_1(y_d_1)
+            x_gated_1 = self.attention_1(q=y_1, x=x_1)
+            y_d_0 = self.U1(torch.cat((x_gated_1, y_1), dim=2))
+                             
+            y_0 = self.up_0(y_d_0)
+            x_gated_0 = self.attention_0(q=y_0, x=x_0)
+            y_hat = self.U0(torch.cat((x_gated_0, y_0), dim=2))
+            
+        if self.num_resolution_levels == 5:
+            y_d_4 = self.bridge(x_d_4)
+            y_4 = self.up_4(y_d_4)
+            x_gated_4 = self.attention_4(q=y_4, x=x_4)
+            y_d_3 = self.U4(torch.cat((x_gated_4, y_4), dim=2))
+            
+            y_3 = self.up_3(y_d_3)
+            x_gated_3 = self.attention_3(q=y_3, x=x_3)
+            y_d_2 = self.U3(torch.cat((x_gated_3, y_3), dim=2))
+            
+            y_2 = self.up_2(y_d_2)
+            x_gated_2 = self.attention_2(q=y_2, x=x_2)
+            y_d_1 = self.U2(torch.cat((x_gated_2, y_2), dim=2))
+            
+            y_1 = self.up_1(y_d_1)
+            x_gated_1 = self.attention_1(q=y_1, x=x_1)
+            y_d_0 = self.U1(torch.cat((x_gated_1, y_1), dim=2))
+                             
+            y_0 = self.up_0(y_d_0)
+            x_gated_0 = self.attention_0(q=y_0, x=x_0)
+            y_hat = self.U0(torch.cat((x_gated_0, y_0), dim=2))
+            
+        return y_hat
 
 # -------------------------------------------------------------------------------------------------
 
 def tests():
 
-    B,T,C,H,W = 2,4,1,64,64
+    B,T,C,H,W = 32, 12, 1, 512, 512
     test_in = torch.rand(B,T,C,H,W)
 
     config = Namespace()
@@ -356,8 +504,9 @@ def tests():
     config.C_out = C
     config.height = [H]
     config.width = [W]
+    config.batch_size = B
+    config.time = T
     config.norm_mode = "instance3d"
-    config.att_types = ["T0T1T0T1"]
     config.a_type = "conv"
     config.is_causal = False
     config.n_head = 8
@@ -376,6 +525,11 @@ def tests():
 
     config.complex_i = False
 
+    config.C = 16
+    config.num_resolution_levels = 5
+    config.block_str = ['', '', '', '', '']
+    config.use_interpolation = True
+
     optims = ["adamw", "sgd", "nadam"]
     schedulers = ["StepLR", "OneCycleLR", "ReduceLROnPlateau"]
     all_w_decays = [True, False]
@@ -387,9 +541,9 @@ def tests():
                 config.scheduler = scheduler
                 config.all_w_decay = all_w_decay
 
-                cnnt_unet = CNNT_Unet(config=config)
-                test_out = cnnt_unet(test_in)
-                loss = cnnt_unet.computer_loss(test_out, test_in)
+                model = STCNNT_Unet(config=config)
+                test_out = model(test_in)
+                loss = model.computer_loss(test_out, test_in)
 
                 print(loss)
 
@@ -404,9 +558,9 @@ def tests():
             config.channels = channels
             config. residual = residual
 
-            cnnt_unet = CNNT_Unet(config=config)
-            test_out = cnnt_unet(test_in)
-            loss = cnnt_unet.computer_loss(test_out, test_in)
+            model = STCNNT_Unet(config=config)
+            test_out = model(test_in)
+            loss = model.computer_loss(test_out, test_in)
 
             print(loss)
 
@@ -417,14 +571,18 @@ def tests():
     for device in devices:
         config.device = device
 
-        cnnt_unet = CNNT_Unet(config=config)
-        test_out = cnnt_unet(test_in)
-        loss = cnnt_unet.computer_loss(test_out, test_in)
+        model = STCNNT_Unet(config=config)
+        test_out = model(test_in)
+        loss = model.computer_loss(test_out, test_in)
 
         print(loss)
 
     print("Passed devices")
 
+    model_summary = model_info(model, config)
+    print(f"Configuration for this run:\n{config}")
+    print(f"Model Summary:\n{str(model_summary)}")
+    
     print("Passed all tests")
 
 
