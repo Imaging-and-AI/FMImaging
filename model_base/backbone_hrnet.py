@@ -30,7 +30,7 @@ sys.path.insert(1, str(Project_DIR))
 
 from losses import *
 from attention_modules import *
-from utils.utils import get_device
+from utils.utils import get_device, model_info
 
 from base_models import STCNNT_Base_Runtime
 
@@ -156,7 +156,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
     This class implemented the stcnnt version of HRnet with maximal 5 levels.
     """
     
-    def __init__(self, C, num_resolution_levels, block_str, config, total_steps=1, load=False) -> None:
+    def __init__(self, config, total_steps=1, load=False) -> None:
         """
         @args:
             - config (Namespace): runtime namespace for setup
@@ -626,7 +626,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
 
 def tests():
 
-    B,T,C,H,W = 2,4,1,64,64
+    B,T,C,H,W = 32, 12, 1, 512, 512
     test_in = torch.rand(B,T,C,H,W)
 
     config = Namespace()
@@ -644,8 +644,9 @@ def tests():
     config.C_out = C
     config.height = [H]
     config.width = [W]
+    config.batch_size = B
+    config.time = T
     config.norm_mode = "instance3d"
-    config.att_types = ["T0T1T0T1"]
     config.a_type = "conv"
     config.is_causal = False
     config.n_head = 8
@@ -664,6 +665,11 @@ def tests():
 
     config.complex_i = False
 
+    config.C = 16
+    config.num_resolution_levels = 5
+    config.block_str = ['', '', '', '', '']
+    config.use_interpolation = True
+
     optims = ["adamw", "sgd", "nadam"]
     schedulers = ["StepLR", "OneCycleLR", "ReduceLROnPlateau"]
     all_w_decays = [True, False]
@@ -675,9 +681,9 @@ def tests():
                 config.scheduler = scheduler
                 config.all_w_decay = all_w_decay
 
-                cnnt_unet = CNNT_Unet(config=config)
-                test_out = cnnt_unet(test_in)
-                loss = cnnt_unet.computer_loss(test_out, test_in)
+                model = STCNNT_HRnet(config=config)
+                test_out = model(test_in)
+                loss = model.computer_loss(test_out, test_in)
 
                 print(loss)
 
@@ -692,9 +698,9 @@ def tests():
             config.channels = channels
             config. residual = residual
 
-            cnnt_unet = CNNT_Unet(config=config)
-            test_out = cnnt_unet(test_in)
-            loss = cnnt_unet.computer_loss(test_out, test_in)
+            model = STCNNT_HRnet(config=config)
+            test_out = model(test_in)
+            loss = model.computer_loss(test_out, test_in)
 
             print(loss)
 
@@ -705,14 +711,18 @@ def tests():
     for device in devices:
         config.device = device
 
-        cnnt_unet = CNNT_Unet(config=config)
-        test_out = cnnt_unet(test_in)
-        loss = cnnt_unet.computer_loss(test_out, test_in)
+        model = STCNNT_HRnet(config=config)
+        test_out = model(test_in)
+        loss = model.computer_loss(test_out, test_in)
 
         print(loss)
 
     print("Passed devices")
 
+    model_summary = model_info(model, config)
+    print(f"Configuration for this run:\n{config}")
+    print(f"Model Summary:\n{str(model_summary)}")
+    
     print("Passed all tests")
 
 
