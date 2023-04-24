@@ -114,8 +114,8 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
         block_str = config.block_str
         add_skip_connections = config.add_skip_connections
         
-        assert(C >= config.C_in, "Number of channels should be larger than C_in")
-        assert(num_stages <= 5 and num_stages>=2, "Maximal number of stages is 5")
+        assert C >= config.C_in, "Number of channels should be larger than C_in"
+        assert num_stages <= 5 and num_stages>=2, "Maximal number of stages is 5"
 
         self.C = C
         self.num_stages = num_stages
@@ -147,7 +147,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs["a_type"] = self.block_str[0]
+            kwargs["att_types"] = self.block_str[0]
             self.B0 = STCNNT_Block(**kwargs)
                         
         if num_stages >= 2:
@@ -156,7 +156,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs["a_type"] = self.block_str[1]
+            kwargs["att_types"] = self.block_str[1]
             self.B1 = STCNNT_Block(**kwargs)
         
         if num_stages >= 3:
@@ -165,7 +165,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 2*self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs["a_type"] = self.block_str[2]
+            kwargs["att_types"] = self.block_str[2]
             self.B2 = STCNNT_Block(**kwargs)
             
         if num_stages >= 4:
@@ -174,7 +174,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 4*self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs["a_type"] = self.block_str[3]
+            kwargs["att_types"] = self.block_str[3]
             self.B3 = STCNNT_Block(**kwargs)
             
         if num_stages >= 5:
@@ -183,7 +183,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 8*self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs["a_type"] = self.block_str[4]
+            kwargs["att_types"] = self.block_str[4]
             self.B4 = STCNNT_Block(**kwargs)
             
         # set up remaining stuff
@@ -299,9 +299,6 @@ def tests():
 
                 model = STCNNT_LLMnet(config=config)
                 test_out = model(test_in)
-                loss = model.computer_loss(test_out, test_in)
-
-                print(loss)
 
     print("Passed optimizers and schedulers")
 

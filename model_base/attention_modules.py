@@ -474,7 +474,7 @@ class TemporalCnnAttention(nn.Module):
 
         B, nh, T, hc, H_prime, W_prime = k.shape
 
-        # Compute attention matrix, use the matrix broadcasing 
+        # Compute attention matrix, use the matrix broadcasting 
         # https://pytorch.org/docs/stable/notes/broadcasting.html
         # (B, nh, T, hc, H', W') x (B, nh, hc, H', W', T) -> (B, nh, T, T)
         att = (q.view(B, nh, T, hc*H_prime*W_prime) @ k.view(B, nh, T, hc*H_prime*W_prime).transpose(-2, -1))\
