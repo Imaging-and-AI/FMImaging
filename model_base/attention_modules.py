@@ -18,12 +18,34 @@ Provides implementation of following modules (in order of increasing complexity)
 """
 
 import math
+import sys
+from collections import OrderedDict
+
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
+from pathlib import Path
+Project_DIR = Path(__file__).parents[0].resolve()
+sys.path.insert(1, str(Project_DIR))
+
+Project_DIR = Path(__file__).parents[1].resolve()
+sys.path.insert(1, str(Project_DIR))
+
+from utils.utils import get_device, model_info, get_gpu_ram_usage, create_generic_class_str
+
 # -------------------------------------------------------------------------------------------------
 # Extensions and helpers
+
+class NewGELU(nn.Module):
+    """
+    Borrowed from the minGPT repo.
+    
+    Implementation of the GELU activation function currently in Google BERT repo (identical to OpenAI GPT).
+    Reference: Gaussian Error Linear Units (GELU) paper: https://arxiv.org/abs/1606.08415
+    """
+    def forward(self, x):
+        return 0.5 * x * (1.0 + torch.tanh(math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3.0))))
 
 def compute_conv_output_shape(h_w, kernel_size, stride, pad, dilation):
     """
@@ -97,8 +119,7 @@ class Conv3DExt(nn.Module):
 
     def forward(self, input):
         # requires input to have 5 dimensions
-        y = self.conv3d(torch.permute(input, (0, 2, 1, 3, 4)))
-        return torch.permute(y, (0, 2, 1, 3, 4))
+        return torch.permute(self.conv3d(torch.permute(input, (0, 2, 1, 3, 4))), (0, 2, 1, 3, 4))
     
 class BatchNorm2DExt(nn.Module):
     # Extends BatchNorm2D to 5D inputs
@@ -241,13 +262,19 @@ class SpatialLocalAttention(nn.Module):
         # https://pytorch.org/docs/stable/notes/broadcasting.html
         # (B, T, nh, HWg, hc*Ws*Ws) x (B, T, nh, hc*Ws*Ws, HWg) -> (B, T, nh, HWg, HWg)
         att = (q.reshape(B,T,nh,HWg,hc*Ws*Ws) @ k.reshape(B,T,nh,HWg,hc*Ws*Ws).transpose(-2, -1))\
-                * torch.tensor(1.0 / math.sqrt(hc*Ws*Ws))
+            * torch.tensor(1.0 / math.sqrt(hc*Ws*Ws))
+        
+        # att = torch.zeros((B,T, nh, HWg, HWg), dtype=q.dtype, device=q.device)
+        # for b in range(B):
+        #     for t in range(T):
+        #         att[b, t] = (q[b, t].reshape(1,1,nh,HWg,hc*Ws*Ws) @ k[b, t].reshape(1,1,nh,HWg,hc*Ws*Ws).transpose(-2, -1))\
+        #                 * torch.tensor(1.0 / math.sqrt(hc*Ws*Ws))
 
         att = F.softmax(att, dim=-1)
         att = self.attn_drop(att)
 
         # (B, T, nh, HWg, HWg) * (B, T, nh, HWg, hc*Gs*Gs)
-        y = att @ v.reshape(B, T, nh, HWg, hc*Ws*Ws)
+        y = att @ v.reshape(B, T, nh, HWg, hc*Ws*Ws)               
         y = y.reshape(B,T,nh,HWg,hc,Ws,Ws).transpose(3, 4).reshape(B, T, nh*hc, Hg, Wg, Ws, Ws)
 
         y = self.grid2im(y, H, W)
@@ -367,14 +394,19 @@ class SpatialGlobalAttention(nn.Module):
         # Compute attention matrix, use the matrix broadcasing 
         # https://pytorch.org/docs/stable/notes/broadcasting.html
         # (B, T, nh, HWg, hc*Gs*Gs) x (B, T, nh, hc*Gs*Gs, HWg) -> (B, T, nh, HWg, HWg)
-        att = (q.reshape(B,T,nh,HWg,hc*Gs*Gs) @ k.reshape(B,T,nh,HWg,hc*Gs*Gs).transpose(-2, -1))\
-                * torch.tensor(1.0 / math.sqrt(hc*Gs*Gs))
+        att = (q.reshape(B,T,nh,HWg,hc*Gs*Gs) @ k.reshape(B,T,nh,HWg,hc*Gs*Gs).transpose(-2, -1)) \
+            * torch.tensor(1.0 / math.sqrt(hc*Gs*Gs))
+
+        # att = torch.zeros((B,T, nh, HWg, HWg), dtype=q.dtype, device=q.device)
+        # for b in range(B):
+        #     for t in range(T):
+        #         att[b, t] = (q[b, t].reshape(1,1,nh,HWg,hc*Gs*Gs) @ k[b, t].reshape(1,1,nh,HWg,hc*Gs*Gs).transpose(-2, -1)) * torch.tensor(1.0 / math.sqrt(hc*Gs*Gs))
 
         att = F.softmax(att, dim=-1)
         att = self.attn_drop(att)
 
         # (B, T, nh, HWg, HWg) * (B, T, nh, HWg, hc*Gs*Gs)
-        y = att @ v.reshape(B, T, nh, HWg, hc*Gs*Gs)
+        y = att @ v.reshape(B, T, nh, HWg, hc*Gs*Gs)        
         y = y.reshape(B,T,nh,HWg,hc,Gs,Gs).transpose(3, 4).reshape(B, T, nh*hc, Hg, Wg, Gs, Gs)
 
         y = self.grid2im(y, H, W)
@@ -474,7 +506,7 @@ class TemporalCnnAttention(nn.Module):
 
         B, nh, T, hc, H_prime, W_prime = k.shape
 
-        # Compute attention matrix, use the matrix broadcasing 
+        # Compute attention matrix, use the matrix broadcasting 
         # https://pytorch.org/docs/stable/notes/broadcasting.html
         # (B, nh, T, hc, H', W') x (B, nh, hc, H', W', T) -> (B, nh, T, T)
         att = (q.view(B, nh, T, hc*H_prime*W_prime) @ k.view(B, nh, T, hc*H_prime*W_prime).transpose(-2, -1))\
@@ -488,7 +520,7 @@ class TemporalCnnAttention(nn.Module):
         att = self.attn_drop(att)
 
         # (B, nh, T, T) * (B, nh, T, hc, H', W')
-        y = att @ v.view(B, nh, T, hc*H_prime*W_prime)
+        y = att @ v.view(B, nh, T, hc*H_prime*W_prime)       
         y = y.transpose(1, 2).contiguous().view(B, T, self.C_out, H_prime, W_prime)
         y = y + self.resid_drop(self.output_proj(y))
 
@@ -501,9 +533,9 @@ class STCNNT_Cell(nn.Module):
     """
     CNN Transformer Cell with any attention type
 
-    The Pre-LayerNorm implementation is used here:
+    The Pre-Norm implementation is used here:
 
-    x-> LayerNorm -> attention -> + -> LayerNorm -> CNN mixer -> + -> logits
+    x-> Norm -> attention -> + -> Norm -> CNN mixer -> + -> logits
     |-----------------------------| |----------------------------|
     """
     def __init__(self, C_in, C_out=16, H=64, W=64, att_mode="temporal", a_type="conv",\
@@ -525,7 +557,7 @@ class STCNNT_Cell(nn.Module):
             - is_causal (bool): whether to mask attention to imply causality
             - n_head (int): number of heads in self attention
             - kernel_size, stride, padding (int, int): convolution parameters
-            - dropout (float): probability of dropout
+            - dropout_p (float): probability of dropout
             - with_mixer (bool): whether to add a conv2D mixer after attention
             - norm_mode ("layer", "batch2d", "instance2d", "batch3d", "instance3d"):
                 - layer: each C,H,W
@@ -535,6 +567,21 @@ class STCNNT_Cell(nn.Module):
                 - instance3d: each T,H,W
         """
         super().__init__()
+
+        self.C_in = C_in
+        self.C_out = C_out
+        self.H = H
+        self.W = W
+        self.att_mode = att_mode
+        self.a_type = a_type
+        self.window_size = window_size
+        self.window_size = window_size
+        self.is_causal = is_causal
+        self.n_head = n_head
+        self.kernel_size = kernel_size
+        self.dropout = dropout_p
+        self.with_mixer = with_mixer
+        self.norm_mode = norm_mode
 
         if(norm_mode=="layer"):
             self.n1 = nn.LayerNorm([C_in, H, W])
@@ -571,20 +618,36 @@ class STCNNT_Cell(nn.Module):
         self.with_mixer = with_mixer
         if(self.with_mixer):
             self.mlp = nn.Sequential(
-                Conv2DExt(C_out, 4*C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True),
-                nn.GELU(),
-                Conv2DExt(4*C_out, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True),
+                Conv2DExt(C_out, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True),
+                NewGELU(),
+                Conv2DExt(C_out, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True),
                 nn.Dropout(dropout_p),
             )
+            
+            # self.mlp = nn.Sequential(
+            #     Conv2DExt(C_out, 4*C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True),
+            #     #nn.GELU(),
+            #     NewGELU(),
+            #     Conv2DExt(4*C_out, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True),
+            #     nn.Dropout(dropout_p),
+            # )
 
+    @property
+    def device(self):
+        return next(self.parameters()).device
+    
     def forward(self, x):
 
         x = self.input_proj(x) + self.attn(self.n1(x))
 
         if(self.with_mixer):
             x = x + self.mlp(self.n2(x))
-
+            
         return x
+
+    def __str__(self):
+        res = create_generic_class_str(self)
+        return res
 
 # -------------------------------------------------------------------------------------------------
 # A block of multiple transformer cells stacked on top of each other
@@ -634,6 +697,23 @@ class STCNNT_Block(nn.Module):
         assert interpolate=="none" or interpolate=="up" or interpolate=="down", \
             f"Interpolate not implemented: {interpolate}"
 
+        self.att_types = att_types
+        self.C_in = C_in
+        self.C_out =C_out
+        self.H = H
+        self.W = W
+        self.a_type = a_type
+        self.window_size = window_size
+        self.is_causal = is_causal
+        self.n_head = n_head
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.padding = padding
+        self.dropout_p = dropout_p
+        self.norm_mode = norm_mode
+        self.interpolate = interpolate
+        self.interp_align_c = interp_align_c
+                    
         self.cells = []
 
         for i in range(len(att_types)//2):
@@ -655,26 +735,29 @@ class STCNNT_Block(nn.Module):
 
             C = C_in if i==0 else C_out
 
-            self.cells.append(STCNNT_Cell(C_in=C, C_out=C_out, H=H, W=W, att_mode=att_type, a_type=a_type,
+            self.cells.append((f"{att_type}_{i}", STCNNT_Cell(C_in=C, C_out=C_out, H=H, W=W, att_mode=att_type, a_type=a_type,
                                             window_size=window_size, is_causal=is_causal, n_head=n_head,
                                             kernel_size=kernel_size, stride=stride, padding=padding,
-                                            dropout_p=dropout_p, with_mixer=(mixer=='1'), norm_mode=norm_mode))
+                                            dropout_p=dropout_p, with_mixer=(mixer=='1'), norm_mode=norm_mode)))
 
         self.make_block()
 
         self.interpolate = interpolate
         self.interp_align_c = interp_align_c
 
+    @property
+    def device(self):
+        return next(self.parameters()).device
+    
     def make_block(self):
-
-        self.block = nn.Sequential(*self.cells)
+        self.block = nn.Sequential(OrderedDict(self.cells))
 
     def forward(self, x):
 
         x = self.block(x)
 
         B, T, C, H, W = x.shape
-        interp = x
+        interp = None
 
         if self.interpolate=="down":
             interp = F.interpolate(x, scale_factor=(1.0, 0.5, 0.5), mode="trilinear", align_corners=self.interp_align_c, recompute_scale_factor=False)
@@ -690,6 +773,9 @@ class STCNNT_Block(nn.Module):
         # Returns both: "x" without interpolation and "interp" that is x interpolated
         return x, interp
 
+    def __str__(self):
+        res = create_generic_class_str(self)
+        return res
 # -------------------------------------------------------------------------------------------------
 
 def tests():
@@ -744,6 +830,8 @@ def tests():
 
             Bo, To, Co, Ho, Wo = test_out.shape
             assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
+            
+            print(CNNT_Cell)
 
     print("Passed CNNT Cell")
 
@@ -755,6 +843,8 @@ def tests():
 
         Bo, To, Co, Ho, Wo = test_out.shape
         assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
+
+        print(CNNT_Block)
 
     print("Passed CNNT Block att_types and mixers")
 

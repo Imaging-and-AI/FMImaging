@@ -549,7 +549,7 @@ def generate_3D_MR_correlated_noise(T=30, RO=192, E1=144, REP=1,
     fRO = generate_symmetric_filter(RO, filterType="Gaussian", sigma=kspace_filter_sigma, width=10)
     fE1 = generate_symmetric_filter(E1, filterType="Gaussian", sigma=kspace_filter_sigma, width=10)
 
-    # repeat the filters accross the time dimension
+    # repeat the filters across the time dimension
     fROs = np.repeat(fRO[None,:], T, axis=0)
     fE1s = np.repeat(fE1[None,:], T, axis=0)
     
