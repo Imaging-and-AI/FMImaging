@@ -1,7 +1,7 @@
 """
 Backbone model - UNet architecture, with attention
 
-This file implements a UNet design for the imaging backbone. The input to the model is [B, T, C_in, H, W]. The output of the model is [B, T, C_out, H, W].
+This file implements a UNet design for the imaging backbone. The input to the model is [B, T, C_in, H, W]. The output of the model is [B, T, C, H, W].
 For every resolution level, the image size will be reduced by x2, with the number of channels increasing by x2.
 
 Please ref to the project page for the network design.
@@ -36,7 +36,7 @@ from base_models import STCNNT_Base_Runtime
 # -------------------------------------------------------------------------------------------------
 # building blocks
 
-class _D2(torch.Module):
+class _D2(nn.Module):
     """
     Downsample by 2 layer
 
@@ -67,7 +67,8 @@ class _D2(torch.Module):
     def forward(self, x:Tensor) -> Tensor:        
         B, T, C, H, W = x.shape
         if self.use_interpolation:
-            y = F.interpolate(x, scale_factor=(0.5, 0.5), mode="bilinear", align_corners=False, recompute_scale_factor=False)
+            y = F.interpolate(x.view((B*T, C, H, W)), scale_factor=(0.5, 0.5), mode="bilinear", align_corners=False, recompute_scale_factor=False)
+            y = torch.reshape(y, (B, T, C, H//2, W//2))
             if self.conv:
                 y = self.conv(y)
         else:
@@ -77,7 +78,7 @@ class _D2(torch.Module):
           
 # -------------------------------------------------------------------------------------------------
    
-class _U2(torch.Module):
+class _U2(nn.Module):
     """
     Upsample by 2
 
@@ -101,7 +102,8 @@ class _U2(torch.Module):
         
     def forward(self, x:Tensor) -> Tensor:        
         B, T, C, H, W = x.shape
-        y = F.interpolate(x, size=(2*H, 2*W), mode="bilinear", align_corners=False, recompute_scale_factor=False)
+        y = F.interpolate(x.view((B*T, C, H, W)), size=(2*H, 2*W), mode="bilinear", align_corners=False, recompute_scale_factor=False)
+        y = torch.reshape(y, (B, T, C, 2*H, 2*W))
         if self.with_conv:
             y = self.conv(y)
         
@@ -109,7 +111,7 @@ class _U2(torch.Module):
 
 # -------------------------------------------------------------------------------------------------
 
-class _unet_attention(torch.Module):
+class _unet_attention(nn.Module):
     """
     Unet attention scheme
 
@@ -226,8 +228,8 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
         use_interpolation = config.use_interpolation
         with_conv = config.with_conv
         
-        assert(C >= config.C_in, "Number of channels should be larger than C_in")
-        assert(num_resolution_levels <= 5 and num_resolution_levels>=1, "Maximal number of resolution levels is 5")
+        assert C >= config.C_in, "Number of channels should be larger than C_in"
+        assert num_resolution_levels <= 5 and num_resolution_levels>=1, "Maximal number of resolution levels is 5"
 
         self.C = C
         self.num_resolution_levels = num_resolution_levels
@@ -237,19 +239,19 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
         
         c = config
         kwargs = {            
-            "att_types":c.att_types[0],             
             "C_in":c.C_in, 
-            "C_out":c.C,\
+            "C_out":c.C,
             "H":c.height[0], 
             "W":c.width[0], 
-            "a_type":c.a_type,\
+            "a_type":c.a_type,
+            "window_size": c.window_size, 
             "is_causal":c.is_causal, 
-            "dropout_p":c.dropout_p,\
+            "dropout_p":c.dropout_p,
             "n_head":c.n_head, 
-            "kernel_size":(c.kernel_size, c.kernel_size),\
+            "kernel_size":(c.kernel_size, c.kernel_size),
             "stride":(c.stride, c.stride), 
-            "padding":(c.padding, c.padding),\
-            "norm_mode":c.norm_mode,\
+            "padding":(c.padding, c.padding),
+            "norm_mode":c.norm_mode,
             "interpolate":"none", 
             "interp_align_c":c.interp_align_c
         }
@@ -260,7 +262,7 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs["a_type"] = self.block_str[0]
+            kwargs["att_types"] = self.block_str[0]
             self.D0 = STCNNT_Block(**kwargs)
             
             self.down_0 = _D2(C_in=kwargs["C_out"], C_out=kwargs["C_out"], use_interpolation=self.use_interpolation, with_conv=self.with_conv)
@@ -271,7 +273,7 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 2*self.C
             kwargs["H"] = c.height[0] // 2
             kwargs["W"] = c.width[0] // 2
-            kwargs["a_type"] = self.block_str[1]
+            kwargs["att_types"] = self.block_str[1]
             self.D1 = STCNNT_Block(**kwargs)
             
             self.down_1 = _D2(C_in=kwargs["C_out"], C_out=kwargs["C_out"], use_interpolation=self.use_interpolation, with_conv=self.with_conv)
@@ -282,7 +284,7 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 4*self.C
             kwargs["H"] = c.height[0] // 4
             kwargs["W"] = c.width[0] // 4
-            kwargs["a_type"] = self.block_str[2]
+            kwargs["att_types"] = self.block_str[2]
             self.D2 = STCNNT_Block(**kwargs)
             
             self.down_2 = _D2(C_in=kwargs["C_out"], C_out=kwargs["C_out"], use_interpolation=self.use_interpolation, with_conv=self.with_conv)
@@ -293,7 +295,7 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 8*self.C
             kwargs["H"] = c.height[0] // 8
             kwargs["W"] = c.width[0] // 8
-            kwargs["a_type"] = self.block_str[3]
+            kwargs["att_types"] = self.block_str[3]
             self.D3 = STCNNT_Block(**kwargs)
             
             self.down_3 = _D2(C_in=kwargs["C_out"], C_out=kwargs["C_out"], use_interpolation=self.use_interpolation, with_conv=self.with_conv)
@@ -304,69 +306,69 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 16*self.C
             kwargs["H"] = c.height[0] // 16
             kwargs["W"] = c.width[0] // 16
-            kwargs["a_type"] = self.block_str[4]
+            kwargs["att_types"] = self.block_str[4]
             self.D4 = STCNNT_Block(**kwargs)
             
             self.down_4 = _D2(C_in=kwargs["C_out"], C_out=kwargs["C_out"], use_interpolation=self.use_interpolation, with_conv=self.with_conv)
             
         # define the bridge
         kwargs["C_in"] = kwargs["C_out"]
-        kwargs["a_type"] = self.block_str[-1]
+        kwargs["att_types"] = self.block_str[-1]
         self.bridge = STCNNT_Block(**kwargs)
         
         if num_resolution_levels >= 5:
-            self.up_4 = _D2(C_in=16*self.C, C_out=16*self.C, use_interpolation=self.use_interpolation, with_conv=self.with_conv)
+            self.up_4 = _U2(C_in=16*self.C, C_out=16*self.C, with_conv=self.with_conv)
             self.attention_4 = _unet_attention(C_q=16*self.C, C=16*self.C)
             
             kwargs["C_in"] = 32*self.C
-            kwargs["C_out"] = 16*self.C
+            kwargs["C_out"] = 8*self.C
             kwargs["H"] = c.height[0] // 16
             kwargs["W"] = c.width[0] // 16
-            kwargs["a_type"] = self.block_str[4]
+            kwargs["att_types"] = self.block_str[4]
             self.U4 = STCNNT_Block(**kwargs)
             
         if num_resolution_levels >= 4:
-            self.up_3 = _D2(C_in=8*self.C, C_out=8*self.C, use_interpolation=self.use_interpolation, with_conv=self.with_conv)
+            self.up_3 = _U2(C_in=8*self.C, C_out=8*self.C, with_conv=self.with_conv)
             self.attention_3 = _unet_attention(C_q=8*self.C, C=8*self.C)
             
             kwargs["C_in"] = 16*self.C
-            kwargs["C_out"] = 8*self.C
+            kwargs["C_out"] = 4*self.C
             kwargs["H"] = c.height[0] // 8
             kwargs["W"] = c.width[0] // 8
-            kwargs["a_type"] = self.block_str[3]
+            kwargs["att_types"] = self.block_str[3]
             self.U3 = STCNNT_Block(**kwargs)    
                 
         if num_resolution_levels >= 3:
-            self.up_2 = _D2(C_in=4*self.C, C_out=4*self.C, use_interpolation=self.use_interpolation, with_conv=self.with_conv)
+            self.up_2 = _U2(C_in=4*self.C, C_out=4*self.C, with_conv=self.with_conv)
             self.attention_2 = _unet_attention(C_q=4*self.C, C=4*self.C)
             
             kwargs["C_in"] = 8*self.C
-            kwargs["C_out"] = 4*self.C
+            kwargs["C_out"] = 2*self.C
             kwargs["H"] = c.height[0] // 4
             kwargs["W"] = c.width[0] // 4
-            kwargs["a_type"] = self.block_str[2]
+            kwargs["att_types"] = self.block_str[2]
             self.U2 = STCNNT_Block(**kwargs) 
                      
         if num_resolution_levels >= 2:
-            self.up_1 = _D2(C_in=2*self.C, C_out=2*self.C, use_interpolation=self.use_interpolation, with_conv=self.with_conv)
+            self.up_1 = _U2(C_in=2*self.C, C_out=2*self.C, with_conv=self.with_conv)
             self.attention_1 = _unet_attention(C_q=2*self.C, C=2*self.C)
             
             kwargs["C_in"] = 4*self.C
-            kwargs["C_out"] = 2*self.C
+            kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0] // 2
             kwargs["W"] = c.width[0] // 2
-            kwargs["a_type"] = self.block_str[1]
+            kwargs["att_types"] = self.block_str[1]
             self.U1 = STCNNT_Block(**kwargs) 
             
         if num_resolution_levels >= 1:
-            self.up_0 = _D2(C_in=self.C, C_out=self.C, use_interpolation=self.use_interpolation, with_conv=self.with_conv)
+            self.up_0 = _U2(C_in=self.C, C_out=self.C, with_conv=self.with_conv)
             self.attention_0 = _unet_attention(C_q=self.C, C=self.C)
             
             kwargs["C_in"] = 2*self.C
-            kwargs["C_out"] = self.C_out
+            kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs["a_type"] = self.block_str[0]
+            kwargs["att_types"] = self.block_str[0]
             self.U0 = STCNNT_Block(**kwargs) 
                                                     
         # set up remaining stuff
@@ -389,105 +391,109 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
         B, T, Cin, H, W = x.shape
             
         # first we go down the resolution ... 
-        if self.num_resolution_levels <= 1:
-            x_0 = self.D0(x)
+        if self.num_resolution_levels >= 1:
+            x_0, _ = self.D0(x)
             x_d_0 = self.down_0(x_0)
             
-        if self.num_resolution_levels <= 2:
-            x_1 = self.D1(x_d_0)
+        if self.num_resolution_levels >= 2:
+            x_1, _ = self.D1(x_d_0)
             x_d_1 = self.down_1(x_1)
             
-        if self.num_resolution_levels <= 3:
-            x_2 = self.D2(x_d_1)
-            x_d_2 = self.down_1(x_2)
+        if self.num_resolution_levels >= 3:
+            x_2, _ = self.D2(x_d_1)
+            x_d_2 = self.down_2(x_2)
             
-        if self.num_resolution_levels <= 4:
-            x_3 = self.D3(x_d_2)
-            x_d_3 = self.down_1(x_3)
+        if self.num_resolution_levels >= 4:
+            x_3, _ = self.D3(x_d_2)
+            x_d_3 = self.down_3(x_3)
             
-        if self.num_resolution_levels <= 5:
-            x_4 = self.D4(x_d_3)
-            x_d_4 = self.down_1(x_4)
+        if self.num_resolution_levels >= 5:
+            x_4, _ = self.D4(x_d_3)
+            x_d_4 = self.down_4(x_4)
             
         # now we go up the resolution ...                 
         if self.num_resolution_levels == 1:
-            y_d_0 = self.bridge(x_d_0)
+            y_d_0, _ = self.bridge(x_d_0)
             y_0 = self.up_0(y_d_0)
             x_gated_0 = self.attention_0(q=y_0, x=x_0)
-            y_hat = self.U0(torch.cat((x_gated_0, y_0), dim=2))
+            y_hat, _ = self.U0(torch.cat((x_gated_0, y_0), dim=2))
             
         if self.num_resolution_levels == 2:
-            y_d_1 = self.bridge(x_d_1)
+            y_d_1, _ = self.bridge(x_d_1)
             y_1 = self.up_1(y_d_1)
             x_gated_1 = self.attention_1(q=y_1, x=x_1)
-            y_d_0 = self.U1(torch.cat((x_gated_1, y_1), dim=2))
+            y_d_0, _ = self.U1(torch.cat((x_gated_1, y_1), dim=2))
                              
             y_0 = self.up_0(y_d_0)
             x_gated_0 = self.attention_0(q=y_0, x=x_0)
-            y_hat = self.U0(torch.cat((x_gated_0, y_0), dim=2))
+            y_hat, _ = self.U0(torch.cat((x_gated_0, y_0), dim=2))
             
         if self.num_resolution_levels == 3:
-            y_d_2 = self.bridge(x_d_2)
+            y_d_2, _ = self.bridge(x_d_2)
             y_2 = self.up_2(y_d_2)
             x_gated_2 = self.attention_2(q=y_2, x=x_2)
-            y_d_1 = self.U2(torch.cat((x_gated_2, y_2), dim=2))
+            y_d_1, _ = self.U2(torch.cat((x_gated_2, y_2), dim=2))
             
             y_1 = self.up_1(y_d_1)
             x_gated_1 = self.attention_1(q=y_1, x=x_1)
-            y_d_0 = self.U1(torch.cat((x_gated_1, y_1), dim=2))
+            y_d_0, _ = self.U1(torch.cat((x_gated_1, y_1), dim=2))
                              
             y_0 = self.up_0(y_d_0)
             x_gated_0 = self.attention_0(q=y_0, x=x_0)
-            y_hat = self.U0(torch.cat((x_gated_0, y_0), dim=2))
+            y_hat, _ = self.U0(torch.cat((x_gated_0, y_0), dim=2))
             
         if self.num_resolution_levels == 4:
-            y_d_3 = self.bridge(x_d_3)
+            y_d_3, _ = self.bridge(x_d_3)
             y_3 = self.up_3(y_d_3)
             x_gated_3 = self.attention_3(q=y_3, x=x_3)
-            y_d_2 = self.U3(torch.cat((x_gated_3, y_3), dim=2))
+            y_d_2, _ = self.U3(torch.cat((x_gated_3, y_3), dim=2))
             
             y_2 = self.up_2(y_d_2)
             x_gated_2 = self.attention_2(q=y_2, x=x_2)
-            y_d_1 = self.U2(torch.cat((x_gated_2, y_2), dim=2))
+            y_d_1, _ = self.U2(torch.cat((x_gated_2, y_2), dim=2))
             
             y_1 = self.up_1(y_d_1)
             x_gated_1 = self.attention_1(q=y_1, x=x_1)
-            y_d_0 = self.U1(torch.cat((x_gated_1, y_1), dim=2))
+            y_d_0, _ = self.U1(torch.cat((x_gated_1, y_1), dim=2))
                              
             y_0 = self.up_0(y_d_0)
             x_gated_0 = self.attention_0(q=y_0, x=x_0)
-            y_hat = self.U0(torch.cat((x_gated_0, y_0), dim=2))
+            y_hat, _ = self.U0(torch.cat((x_gated_0, y_0), dim=2))
             
         if self.num_resolution_levels == 5:
-            y_d_4 = self.bridge(x_d_4)
+            y_d_4, _ = self.bridge(x_d_4)
             y_4 = self.up_4(y_d_4)
             x_gated_4 = self.attention_4(q=y_4, x=x_4)
-            y_d_3 = self.U4(torch.cat((x_gated_4, y_4), dim=2))
+            y_d_3, _ = self.U4(torch.cat((x_gated_4, y_4), dim=2))
             
             y_3 = self.up_3(y_d_3)
             x_gated_3 = self.attention_3(q=y_3, x=x_3)
-            y_d_2 = self.U3(torch.cat((x_gated_3, y_3), dim=2))
+            y_d_2, _ = self.U3(torch.cat((x_gated_3, y_3), dim=2))
             
             y_2 = self.up_2(y_d_2)
             x_gated_2 = self.attention_2(q=y_2, x=x_2)
-            y_d_1 = self.U2(torch.cat((x_gated_2, y_2), dim=2))
+            y_d_1, _ = self.U2(torch.cat((x_gated_2, y_2), dim=2))
             
             y_1 = self.up_1(y_d_1)
             x_gated_1 = self.attention_1(q=y_1, x=x_1)
-            y_d_0 = self.U1(torch.cat((x_gated_1, y_1), dim=2))
+            y_d_0, _ = self.U1(torch.cat((x_gated_1, y_1), dim=2))
                              
             y_0 = self.up_0(y_d_0)
             x_gated_0 = self.attention_0(q=y_0, x=x_0)
-            y_hat = self.U0(torch.cat((x_gated_0, y_0), dim=2))
+            y_hat, _ = self.U0(torch.cat((x_gated_0, y_0), dim=2))
             
         return y_hat
 
+    def __str__(self):
+        res = create_generic_class_str(obj=self, exclusion_list=[nn.Module, OrderedDict, STCNNT_Block, _D2, _U2, _unet_attention])
+        return res
+    
 # -------------------------------------------------------------------------------------------------
 
 def tests():
 
-    B,T,C,H,W = 32, 12, 1, 512, 512
-    test_in = torch.rand(B,T,C,H,W)
+    B,T,C,H,W = 8, 8, 1, 256, 256
+    test_in = torch.rand(B,T,C,H,W, dtype=torch.float32)
 
     config = Namespace()
     # optimizer and scheduler
@@ -511,6 +517,7 @@ def tests():
     config.is_causal = False
     config.n_head = 8
     config.interp_align_c = True
+    config.window_size = 16
     # losses
     config.losses = ["mse"]
     config.loss_weights = [1.0]
@@ -525,61 +532,54 @@ def tests():
 
     config.complex_i = False
 
+    config.summary_depth = 4
+
     config.C = 16
-    config.num_resolution_levels = 5
-    config.block_str = ['', '', '', '', '']
+    config.num_resolution_levels = 4
+    config.block_str = ["T1L1G1", 
+                        "T1L1G1T1L1G1", 
+                        "T1L1G1T1L1G1T1L1G1", 
+                        "T1L1G1T1L1G1T1L1G1T1L1G1", 
+                        "T1L1G1T1L1G1T1L1G1T1L1G1"]
+    
     config.use_interpolation = True
+    config.with_conv = True
 
-    optims = ["adamw", "sgd", "nadam"]
-    schedulers = ["StepLR", "OneCycleLR", "ReduceLROnPlateau"]
-    all_w_decays = [True, False]
+    config.optim = "adamw"    
+    config.scheduler = "ReduceLROnPlateau"
+    config.all_w_decay = True
+    device = get_device()
+    
+    model = STCNNT_Unet(config=config)
+    model.to(device=device)
+            
+    print(model)
+                    
+    start_event = torch.cuda.Event(enable_timing=True)
+    end_event = torch.cuda.Event(enable_timing=True)
+    start_event.record()
 
-    for optim in optims:
-        for scheduler in schedulers:
-            for all_w_decay in all_w_decays:
-                config.optim = optim    
-                config.scheduler = scheduler
-                config.all_w_decay = all_w_decay
+    test_out = model(test_in.to(device=device))
+    loss = model.loss_f(test_out, 2*test_out)
+    
+    loss.backward()
+    
+    end_event.record()
+    torch.cuda.synchronize()
+    elapsed_time_ms = start_event.elapsed_time(end_event)
+    
+    print(f"forward time: {elapsed_time_ms:.3f}ms")
+    get_gpu_ram_usage(device=device)
 
-                model = STCNNT_Unet(config=config)
-                test_out = model(test_in)
-                loss = model.computer_loss(test_out, test_in)
+    del model, test_out
+    torch.cuda.empty_cache()
+    
+    get_gpu_ram_usage(device=device)
 
-                print(loss)
-
-    print("Passed optimizers and schedulers")
-
-    heads_and_channelss = [(8,[16,32,64]),(5,[5,50,15]),(13,[13,13,13])]
-    residuals = [True, False]
-
-    for n_head, channels in heads_and_channelss:
-        for residual in residuals:
-            config.n_head = n_head
-            config.channels = channels
-            config. residual = residual
-
-            model = STCNNT_Unet(config=config)
-            test_out = model(test_in)
-            loss = model.computer_loss(test_out, test_in)
-
-            print(loss)
-
-    print("Passed channels and residual")
-
-    devices = ["cuda", "cpu", "cuda:0"]
-
-    for device in devices:
-        config.device = device
-
-        model = STCNNT_Unet(config=config)
-        test_out = model(test_in)
-        loss = model.computer_loss(test_out, test_in)
-
-        print(loss)
-
-    print("Passed devices")
-
-    model_summary = model_info(model, config)
+    model = STCNNT_Unet(config=config)
+    model.to(device=device)
+    with torch.no_grad():
+        model_summary = model_info(model, config)
     print(f"Configuration for this run:\n{config}")
     print(f"Model Summary:\n{str(model_summary)}")
     

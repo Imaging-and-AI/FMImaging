@@ -37,7 +37,7 @@ from base_models import STCNNT_Base_Runtime
 # -------------------------------------------------------------------------------------------------
 # building blocks
 
-class _D2(torch.Module):
+class _D2(nn.Module):
     """
     Downsample by 2 layer
 
@@ -68,7 +68,8 @@ class _D2(torch.Module):
     def forward(self, x:Tensor) -> Tensor:        
         B, T, C, H, W = x.shape
         if self.use_interpolation:
-            y = F.interpolate(x, scale_factor=(0.5, 0.5), mode="bilinear", align_corners=False, recompute_scale_factor=False)
+            y = F.interpolate(x.view((B*T, C, H, W)), scale_factor=(0.5, 0.5), mode="bilinear", align_corners=False, recompute_scale_factor=False)
+            y = torch.reshape(y, (B, T, *y.shape[1:]))
             if self.conv:
                 y = self.conv(y)
         else:
@@ -77,7 +78,7 @@ class _D2(torch.Module):
         return y
     
 
-class _DownSample(torch.Module):
+class _DownSample(nn.Module):
     """
     Downsample by x4, by using two D2 layers
     """
@@ -91,14 +92,14 @@ class _DownSample(torch.Module):
         for n in range(1, N):
             layers.append( (f'D2_{n}', _D2(C_in=C_out, C_out=C_out, use_interpolation=use_interpolation, with_conv=with_conv)) )
                     
-        self.block = nn.Sequential(layers)
+        self.block = nn.Sequential(OrderedDict(layers))
         
     def forward(self, x:Tensor) -> Tensor:
         return self.block(x)
        
 # -------------------------------------------------------------------------------------------------
    
-class _U2(torch.Module):
+class _U2(nn.Module):
     """
     Upsample by 2
 
@@ -122,14 +123,15 @@ class _U2(torch.Module):
         
     def forward(self, x:Tensor) -> Tensor:        
         B, T, C, H, W = x.shape
-        y = F.interpolate(x, size=(2*H, 2*W), mode="bilinear", align_corners=False, recompute_scale_factor=False)
+        y = F.interpolate(x.view((B*T, C, H, W)), size=(2*H, 2*W), mode="bilinear", align_corners=False, recompute_scale_factor=False)
+        y = torch.reshape(y, (B, T, *y.shape[1:]))
         if self.with_conv:
             y = self.conv(y)
         
         return y
     
 
-class _UpSample(torch.Module):
+class _UpSample(nn.Module):
     """
     Upsample by N times
     """
@@ -143,7 +145,7 @@ class _UpSample(torch.Module):
         for n in range(1, N):
             layers.append( (f'U2_{n}', _U2(C_in=C_out, C_out=C_out, with_conv=with_conv)) )
                     
-        self.block = nn.Sequential(layers)
+        self.block = nn.Sequential(OrderedDict(layers))
         
     def forward(self, x:Tensor) -> Tensor:
         return self.block(x)
@@ -228,30 +230,31 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
         block_str = config.block_str
         use_interpolation = config.use_interpolation
         
-        assert(C >= config.C_in, "Number of channels should be larger than C_in")
-        assert(num_resolution_levels <= 5 and num_resolution_levels>=2, "Maximal number of resolution levels is 5")
+        assert C >= config.C_in, "Number of channels should be larger than C_in"
+        assert num_resolution_levels <= 5 and num_resolution_levels>=2, "Maximal number of resolution levels is 5"
 
         self.C = C
         self.num_resolution_levels = num_resolution_levels
         self.block_str = block_str if isinstance(block_str, list) else [block_str for n in range(self.num_resolution_levels)]
+        self.use_interpolation = use_interpolation
         
         c = config
         kwargs = {            
-            "att_types":c.att_types[0],             
             "C_in":c.C_in, 
-            "C_out":c.channels[0],\
+            "C_out":c.channels[0],
             "H":c.height[0], 
             "W":c.width[0], 
-            "a_type":c.a_type,\
+            "a_type":c.a_type,
+            "window_size": c.window_size, 
             "is_causal":c.is_causal, 
-            "dropout_p":c.dropout_p,\
-            "n_head":c.n_head, 
-            "kernel_size":(c.kernel_size, c.kernel_size),\
+            "n_head":c.n_head,             
+            "kernel_size":(c.kernel_size, c.kernel_size),
             "stride":(c.stride, c.stride), 
-            "padding":(c.padding, c.padding),\
-            "norm_mode":c.norm_mode,\
+            "padding":(c.padding, c.padding),
+            "dropout_p":c.dropout_p,
+            "norm_mode":c.norm_mode,
             "interpolate":"none", 
-            "interp_align_c":c.interp_align_c
+            "interp_align_c":c.interp_align_c            
         }
 
         if num_resolution_levels >= 1:
@@ -260,7 +263,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs["a_type"] = self.block_str[0]
+            kwargs["att_types"] = self.block_str[0]
             self.B00 = STCNNT_Block(**kwargs)
             
             # output stage 0
@@ -268,7 +271,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs["a_type"] = self.block_str[0]
+            kwargs["att_types"] = self.block_str[0]
             self.output_B0 = STCNNT_Block(**kwargs)
             
         if num_resolution_levels >= 2:
@@ -277,7 +280,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs["a_type"] = self.block_str[0]
+            kwargs["att_types"] = self.block_str[0]
             self.B01 = STCNNT_Block(**kwargs)
             
             # define B11
@@ -285,7 +288,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 2*self.C
             kwargs["H"] = c.height[0] // 2
             kwargs["W"] = c.width[0] // 2
-            kwargs["a_type"] = self.block_str[1]
+            kwargs["att_types"] = self.block_str[1]
             self.B11 = STCNNT_Block(**kwargs)
         
             # define down sample
@@ -296,7 +299,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 2*self.C
             kwargs["H"] = c.height[0] // 2
             kwargs["W"] = c.width[0] // 2
-            kwargs["a_type"] = self.block_str[1]
+            kwargs["att_types"] = self.block_str[1]
             self.output_B1 = STCNNT_Block(**kwargs)
             
         if num_resolution_levels >= 3:
@@ -305,7 +308,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs["a_type"] = self.block_str[0]
+            kwargs["att_types"] = self.block_str[0]
             self.B02 = STCNNT_Block(**kwargs)
             
             # define B12
@@ -313,7 +316,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 2*self.C
             kwargs["H"] = c.height[0] // 2
             kwargs["W"] = c.width[0] // 2
-            kwargs["a_type"] = self.block_str[1]
+            kwargs["att_types"] = self.block_str[1]
             self.B12 = STCNNT_Block(**kwargs)
         
             # define B22
@@ -321,7 +324,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 4*self.C
             kwargs["H"] = c.height[0] // 4
             kwargs["W"] = c.width[0] // 4
-            kwargs["a_type"] = self.block_str[2]
+            kwargs["att_types"] = self.block_str[2]
             self.B22 = STCNNT_Block(**kwargs)
             
             # define down sample
@@ -334,7 +337,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 4*self.C
             kwargs["H"] = c.height[0] // 4
             kwargs["W"] = c.width[0] // 4
-            kwargs["a_type"] = self.block_str[2]
+            kwargs["att_types"] = self.block_str[2]
             self.output_B2 = STCNNT_Block(**kwargs)
         
         if num_resolution_levels >= 4:
@@ -343,31 +346,31 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs["a_type"] = self.block_str[0]
-            self.B02 = STCNNT_Block(**kwargs)
+            kwargs["att_types"] = self.block_str[0]
+            self.B03 = STCNNT_Block(**kwargs)
             
             # define B13
             kwargs["C_in"] = 2*self.C
             kwargs["C_out"] = 2*self.C
             kwargs["H"] = c.height[0] // 2
             kwargs["W"] = c.width[0] // 2
-            kwargs["a_type"] = self.block_str[1]
-            self.B12 = STCNNT_Block(**kwargs)
+            kwargs["att_types"] = self.block_str[1]
+            self.B13 = STCNNT_Block(**kwargs)
         
             # define B23
             kwargs["C_in"] = 4*self.C
             kwargs["C_out"] = 4*self.C
             kwargs["H"] = c.height[0] // 4
             kwargs["W"] = c.width[0] // 4
-            kwargs["a_type"] = self.block_str[2]
-            self.B22 = STCNNT_Block(**kwargs)
+            kwargs["att_types"] = self.block_str[2]
+            self.B23 = STCNNT_Block(**kwargs)
             
             # define B33
             kwargs["C_in"] = 8*self.C
             kwargs["C_out"] = 8*self.C
             kwargs["H"] = c.height[0] // 8
             kwargs["W"] = c.width[0] // 8
-            kwargs["a_type"] = self.block_str[3]
+            kwargs["att_types"] = self.block_str[3]
             self.B33 = STCNNT_Block(**kwargs)
             
             # define down sample
@@ -383,7 +386,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 8*self.C
             kwargs["H"] = c.height[0] // 8
             kwargs["W"] = c.width[0] // 8
-            kwargs["a_type"] = self.block_str[3]
+            kwargs["att_types"] = self.block_str[3]
             self.output_B3 = STCNNT_Block(**kwargs)
             
         if num_resolution_levels >= 5:
@@ -392,7 +395,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs["a_type"] = self.block_str[0]
+            kwargs["att_types"] = self.block_str[0]
             self.B04 = STCNNT_Block(**kwargs)
             
             # define B14
@@ -400,7 +403,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 2*self.C
             kwargs["H"] = c.height[0] // 2
             kwargs["W"] = c.width[0] // 2
-            kwargs["a_type"] = self.block_str[1]
+            kwargs["att_types"] = self.block_str[1]
             self.B14 = STCNNT_Block(**kwargs)
         
             # define B24
@@ -408,7 +411,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 4*self.C
             kwargs["H"] = c.height[0] // 4
             kwargs["W"] = c.width[0] // 4
-            kwargs["a_type"] = self.block_str[2]
+            kwargs["att_types"] = self.block_str[2]
             self.B24 = STCNNT_Block(**kwargs)
             
             # define B34
@@ -416,7 +419,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 8*self.C
             kwargs["H"] = c.height[0] // 8
             kwargs["W"] = c.width[0] // 8
-            kwargs["a_type"] = self.block_str[3]
+            kwargs["att_types"] = self.block_str[3]
             self.B34 = STCNNT_Block(**kwargs)
             
             # define B44
@@ -424,7 +427,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 16*self.C
             kwargs["H"] = c.height[0] // 16
             kwargs["W"] = c.width[0] // 16
-            kwargs["a_type"] = self.block_str[4]
+            kwargs["att_types"] = self.block_str[4]
             self.B44 = STCNNT_Block(**kwargs)
             
             # define down sample
@@ -447,7 +450,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 16*self.C
             kwargs["H"] = c.height[0] // 16
             kwargs["W"] = c.width[0] // 16
-            kwargs["a_type"] = self.block_str[4]
+            kwargs["att_types"] = self.block_str[4]
             self.output_B4 = STCNNT_Block(**kwargs)
             
         # fusion stage
@@ -510,45 +513,45 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
         
         # compute the block outputs
         if self.num_resolution_levels >= 1:
-            x_00 = self.B00(x)
+            x_00, _ = self.B00(x)
             
         if self.num_resolution_levels >= 2:
-            x_01 = self.B01(x_00)        
-            x_11 = self.B11(self.down_00_11(x_01))
+            x_01, _ = self.B01(x_00)        
+            x_11, _ = self.B11(self.down_00_11(x_00))
                         
         if self.num_resolution_levels >= 3:
-            x_02 = self.B02(x_01)                       
-            x_12 = self.B12(x_11 + self.down_01_12(x_01))
-            x_22 = self.B22(self.down_11_22(x_11) + self.down_01_22(x_01))
+            x_02, _ = self.B02(x_01)                       
+            x_12, _ = self.B12(x_11 + self.down_01_12(x_01))
+            x_22, _ = self.B22(self.down_11_22(x_11) + self.down_01_22(x_01))
                         
         if self.num_resolution_levels >= 4:
-            x_03 = self.B03(x_02)            
-            x_13 = self.B13(x_12 + self.down_02_13(x_02))            
-            x_23 = self.B23(x_22 + self.down_12_23(x_12) + self.down_02_23(x_02))
-            x_33 = self.B33(self.down_22_33(x_22) 
+            x_03, _ = self.B03(x_02)            
+            x_13, _ = self.B13(x_12 + self.down_02_13(x_02))            
+            x_23, _ = self.B23(x_22 + self.down_12_23(x_12) + self.down_02_23(x_02))
+            x_33, _ = self.B33(self.down_22_33(x_22) 
                             + self.down_12_33(x_12) 
                             + self.down_02_33(x_02)
                             )
             
         if self.num_resolution_levels >= 5:
-            x_04 = self.B04(x_03)
-            x_14 = self.B14(x_13 + self.down_03_14(x_03))            
-            x_24 = self.B24(x_23 + self.down_13_24(x_13) + self.down_03_24(x_03))
+            x_04, _ = self.B04(x_03)
+            x_14, _ = self.B14(x_13 + self.down_03_14(x_03))            
+            x_24, _ = self.B24(x_23 + self.down_13_24(x_13) + self.down_03_24(x_03))
             
-            x_34 = self.B34(x_33 
+            x_34, _ = self.B34(x_33 
                             + self.down_23_34(x_23) 
                             + self.down_13_34(x_13) 
                             + self.down_03_34(x_03)
                             )
             
-            x_44 = self.B44(self.down_33_44(x_33) 
+            x_44, _ = self.B44(self.down_33_44(x_33) 
                             + self.down_23_44(x_23) 
                             + self.down_13_44(x_13) 
                             + self.down_03_44(x_03)
                             )
         
         if self.num_resolution_levels == 1:
-            y_hat_0 = self.output_B0(x_00)
+            y_hat_0, _ = self.output_B0(x_00)
             y_hat = y_hat_0
             y_level_outputs = (y_hat_0, )
             
@@ -556,8 +559,8 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             y_hat_0 = x_01 + self.up_1_0(x_11)
             y_hat_1 = x_11 + self.down_0_1(x_01)
             
-            y_hat_0 = self.output_B0(y_hat_0)
-            y_hat_1 = self.output_B1(y_hat_1)
+            y_hat_0, _ = self.output_B0(y_hat_0)
+            y_hat_1, _ = self.output_B1(y_hat_1)
             
             y_hat = torch.cat((y_hat_0, self.up_1(y_hat_1)), dim=2)
             
@@ -568,9 +571,9 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             y_hat_1 = self.down_0_1(x_02) + x_12 + self.up_2_1(x_22)
             y_hat_2 = self.down_0_2(x_02) + self.down_1_2(x_12) + x_22
             
-            y_hat_0 = self.output_B0(y_hat_0)
-            y_hat_1 = self.output_B1(y_hat_1)
-            y_hat_2 = self.output_B2(y_hat_2)
+            y_hat_0, _ = self.output_B0(y_hat_0)
+            y_hat_1, _ = self.output_B1(y_hat_1)
+            y_hat_2, _ = self.output_B2(y_hat_2)
             
             y_hat = torch.cat((y_hat_0, self.up_1(y_hat_1), self.up_2(y_hat_2)), dim=2)
             y_level_outputs = (y_hat_0, y_hat_1, y_hat_2)
@@ -581,10 +584,10 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             y_hat_2 = self.down_0_2(x_03) + self.down_1_2(x_13) + x_23 + self.up_3_2(x_33)
             y_hat_3 = self.down_0_3(x_03) + self.down_1_3(x_13) + self.down_2_3(x_23) + x_33
             
-            y_hat_0 = self.output_B0(y_hat_0)
-            y_hat_1 = self.output_B1(y_hat_1)
-            y_hat_2 = self.output_B2(y_hat_2)
-            y_hat_3 = self.output_B3(y_hat_3)
+            y_hat_0, _ = self.output_B0(y_hat_0)
+            y_hat_1, _ = self.output_B1(y_hat_1)
+            y_hat_2, _ = self.output_B2(y_hat_2)
+            y_hat_3, _ = self.output_B3(y_hat_3)
             
             y_hat = torch.cat(
                 (
@@ -603,11 +606,11 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             y_hat_3 = self.down_0_3(x_04)   + self.down_1_3(x_14)       + self.down_2_3(x_24)       +             x_34          + self.up_4_3(x_44) 
             y_hat_4 = self.down_0_4(x_04)   + self.down_1_4(x_14)       + self.down_2_4(x_24)       + self.down_3_4(x_34)       +             x_44
                         
-            y_hat_0 = self.output_B0(y_hat_0)
-            y_hat_1 = self.output_B1(y_hat_1)
-            y_hat_2 = self.output_B2(y_hat_2)
-            y_hat_3 = self.output_B3(y_hat_3)
-            y_hat_4 = self.output_B4(y_hat_4)
+            y_hat_0, _ = self.output_B0(y_hat_0)
+            y_hat_1, _ = self.output_B1(y_hat_1)
+            y_hat_2, _ = self.output_B2(y_hat_2)
+            y_hat_3, _ = self.output_B3(y_hat_3)
+            y_hat_4, _ = self.output_B4(y_hat_4)
             
             y_hat = torch.cat(
                 (
@@ -622,12 +625,16 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
                   
         return y_hat, y_level_outputs
 
+    def __str__(self):
+        res = create_generic_class_str(obj=self, exclusion_list=[nn.Module, OrderedDict, STCNNT_Block, _DownSample, _UpSample])
+        return res
+    
 # -------------------------------------------------------------------------------------------------
 
 def tests():
 
-    B,T,C,H,W = 32, 12, 1, 512, 512
-    test_in = torch.rand(B,T,C,H,W)
+    B,T,C,H,W = 2, 12, 1, 256, 256
+    test_in = torch.rand(B,T,C,H,W, dtype=torch.float32)
 
     config = Namespace()
     # optimizer and scheduler
@@ -651,6 +658,7 @@ def tests():
     config.is_causal = False
     config.n_head = 8
     config.interp_align_c = True
+    config.window_size = 16
     # losses
     config.losses = ["mse"]
     config.loss_weights = [1.0]
@@ -665,61 +673,54 @@ def tests():
 
     config.complex_i = False
 
+    config.summary_depth = 4
+
     config.C = 16
-    config.num_resolution_levels = 5
-    config.block_str = ['', '', '', '', '']
+    config.num_resolution_levels = 4
+    config.block_str = ["T0L0G1T0L0G1", 
+                        "T0L0G1T0L0G1", 
+                        "T1L1G1T1L1G1T1L1G1", 
+                        "T1L1G1T1L1G1T1L1G1T1L1G1",
+                        "T1L1G1T1L1G1T1L1G1T1L1G1"]
+    
     config.use_interpolation = True
+    config.with_conv = True
 
-    optims = ["adamw", "sgd", "nadam"]
-    schedulers = ["StepLR", "OneCycleLR", "ReduceLROnPlateau"]
-    all_w_decays = [True, False]
+    config.optim = "adamw"    
+    config.scheduler = "ReduceLROnPlateau"
+    config.all_w_decay = True
+    device = get_device()
+    
+    model = STCNNT_HRnet(config=config)
+    model.to(device=device)
+                                       
+    print(model) 
+    
+    start_event = torch.cuda.Event(enable_timing=True)
+    end_event = torch.cuda.Event(enable_timing=True)
+    start_event.record()
 
-    for optim in optims:
-        for scheduler in schedulers:
-            for all_w_decay in all_w_decays:
-                config.optim = optim    
-                config.scheduler = scheduler
-                config.all_w_decay = all_w_decay
+    y_hat, y_hat_levels = model(test_in.to(device=device))
+    loss = model.loss_f(y_hat, 2*y_hat)
+    
+    loss.backward()
+    
+    end_event.record()
+    torch.cuda.synchronize()
+    elapsed_time_ms = start_event.elapsed_time(end_event)
+    
+    print(f"forward time: {elapsed_time_ms:.3f}ms")
+    get_gpu_ram_usage(device=device)
 
-                model = STCNNT_HRnet(config=config)
-                test_out = model(test_in)
-                loss = model.computer_loss(test_out, test_in)
+    del model, y_hat, y_hat_levels
+    torch.cuda.empty_cache()
+    
+    get_gpu_ram_usage(device=device)
 
-                print(loss)
-
-    print("Passed optimizers and schedulers")
-
-    heads_and_channelss = [(8,[16,32,64]),(5,[5,50,15]),(13,[13,13,13])]
-    residuals = [True, False]
-
-    for n_head, channels in heads_and_channelss:
-        for residual in residuals:
-            config.n_head = n_head
-            config.channels = channels
-            config. residual = residual
-
-            model = STCNNT_HRnet(config=config)
-            test_out = model(test_in)
-            loss = model.computer_loss(test_out, test_in)
-
-            print(loss)
-
-    print("Passed channels and residual")
-
-    devices = ["cuda", "cpu", "cuda:0"]
-
-    for device in devices:
-        config.device = device
-
-        model = STCNNT_HRnet(config=config)
-        test_out = model(test_in)
-        loss = model.computer_loss(test_out, test_in)
-
-        print(loss)
-
-    print("Passed devices")
-
-    model_summary = model_info(model, config)
+    model = STCNNT_HRnet(config=config)
+    model.to(device=device)
+    with torch.no_grad():
+        model_summary = model_info(model, config)
     print(f"Configuration for this run:\n{config}")
     print(f"Model Summary:\n{str(model_summary)}")
     

@@ -126,21 +126,22 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
         kwargs = {            
             "att_types":c.att_types[0],             
             "C_in":c.C_in, 
-            "C_out":c.channels[0],\
+            "C_out":c.channels[0],
             "H":c.height[0], 
             "W":c.width[0], 
-            "a_type":c.a_type,\
+            "a_type":c.a_type,
+            "window_size": c.window_size, 
             "is_causal":c.is_causal, 
-            "dropout_p":c.dropout_p,\
-            "n_head":c.n_head, 
-            "kernel_size":(c.kernel_size, c.kernel_size),\
+            "n_head":c.n_head,             
+            "kernel_size":(c.kernel_size, c.kernel_size),
             "stride":(c.stride, c.stride), 
-            "padding":(c.padding, c.padding),\
-            "norm_mode":c.norm_mode,\
+            "padding":(c.padding, c.padding),
+            "dropout_p":c.dropout_p,
+            "norm_mode":c.norm_mode,
             "interpolate":"none", 
-            "interp_align_c":c.interp_align_c
+            "interp_align_c":c.interp_align_c            
         }
-
+                    
         if num_stages >= 1:
             # define B0
             kwargs["C_in"] = c.C_in
@@ -206,48 +207,52 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
         B, T, Cin, H, W = x.shape
                
         if self.add_skip_connections:
-            x0 = self.B0(x)
+            x0, _ = self.B0(x)
             y_hat = x0
             
             if self.num_stages >= 2:
-                x1 = self.B1(x0)
+                x1, _ = self.B1(x0)
                 y_hat = x1
                 
             if self.num_stages >= 3:
-                x2 = self.B2(torch.cat((x0, x1), dim=2))
+                x2, _ = self.B2(torch.cat((x0, x1), dim=2))
                 y_hat = x2
                 
             if self.num_stages >= 4:
-                x3 = self.B3(torch.cat((x0, x1, x2), dim=2))
+                x3, _ = self.B3(torch.cat((x0, x1, x2), dim=2))
                 y_hat = x3
                 
             if self.num_stages >= 5:
-                x4 = self.B4(torch.cat((x0, x1, x2, x3), dim=2))
+                x4, _ = self.B4(torch.cat((x0, x1, x2, x3), dim=2))
                 y_hat = x4
         else:
-            y_hat = self.B0(x)
+            y_hat, _ = self.B0(x)
             if self.num_stages >= 2:
-                y_hat = self.B1(y_hat)
+                y_hat, _ = self.B1(y_hat)
             if self.num_stages >= 3:
-                y_hat = self.B2(y_hat)
+                y_hat, _ = self.B2(y_hat)
             if self.num_stages >= 4:
-                y_hat = self.B3(y_hat)
+                y_hat, _ = self.B3(y_hat)
             if self.num_stages >= 5:
-                y_hat = self.B4(y_hat)
+                y_hat, _ = self.B4(y_hat)
                   
         return y_hat
+    
+    def __str__(self):
+        res = create_generic_class_str(obj=self, exclusion_list=[nn.Module, OrderedDict, STCNNT_Block])
+        return res
 
 # -------------------------------------------------------------------------------------------------
 
 def tests():
 
-    B,T,C,H,W = 32,16,1,512,512
+    B,T,C,H,W = 1,8,1,256,256
     test_in = torch.rand(B,T,C,H,W)
 
     config = Namespace()
     config.C = 16
-    config.num_stages = 5
-    config.block_str = 'T1L1G1T1L1G1'
+    config.num_stages = 3
+    config.block_str = 'T1L1G1T1L1G1T1L1G1T1L1G1T1L1G1'
     config.add_skip_connections = True
         
     # optimizer and scheduler
@@ -271,6 +276,7 @@ def tests():
     config.a_type = "conv"
     config.is_causal = False
     config.n_head = 8
+    config.window_size = 32
     config.interp_align_c = True
     # losses
     config.losses = ["mse"]
@@ -284,54 +290,51 @@ def tests():
     config.optim = "adamw"
     config.scheduler = "StepLR"
 
+    config.summary_depth = 4
+
     config.complex_i = False
 
     optims = ["adamw", "sgd", "nadam"]
     schedulers = ["StepLR", "OneCycleLR", "ReduceLROnPlateau"]
     all_w_decays = [True, False]
 
-    for optim in optims:
-        for scheduler in schedulers:
-            for all_w_decay in all_w_decays:
-                config.optim = optim    
-                config.scheduler = scheduler
-                config.all_w_decay = all_w_decay
+    device = get_device()
 
-                model = STCNNT_LLMnet(config=config)
-                test_out = model(test_in)
+    config.optim = "adamw"    
+    config.scheduler = "ReduceLROnPlateau"
+    config.all_w_decay = True
+
+    model = STCNNT_LLMnet(config=config)
+    model.to(device=device)
+                 
+    print(model)
+                    
+    start_event = torch.cuda.Event(enable_timing=True)
+    end_event = torch.cuda.Event(enable_timing=True)
+    start_event.record()
+
+    test_out = model(test_in.to(device=device))
+
+    end_event.record()
+    torch.cuda.synchronize()
+    elapsed_time_ms = start_event.elapsed_time(end_event)
+
+    
+    print(f"forward time: {elapsed_time_ms:.3f}ms")
+    print(f"torch.cuda.memory_allocated: {torch.cuda.memory_allocated(0)/1024/1024/1024:.3}GB")
+    print(f"torch.cuda.memory_reserved: {torch.cuda.memory_reserved(0)/1024/1024/1024:.3f}GB")
+    print(f"torch.cuda.max_memory_reserved: {torch.cuda.max_memory_reserved(0)/1024/1024/1024:.3f}GB")
+
+    del model, test_out
+    torch.cuda.empty_cache()
+    
+    print(f"torch.cuda.memory_allocated: {torch.cuda.memory_allocated(0)/1024/1024/1024:.3}GB")
+    print(f"torch.cuda.memory_reserved: {torch.cuda.memory_reserved(0)/1024/1024/1024:.3f}GB")
+    print(f"torch.cuda.max_memory_reserved: {torch.cuda.max_memory_reserved(0)/1024/1024/1024:.3f}GB")
 
     print("Passed optimizers and schedulers")
 
-    heads_and_channelss = [(8,[16,32,64]),(5,[5,50,15]),(13,[13,13,13])]
-    residuals = [True, False]
-
-    for n_head, channels in heads_and_channelss:
-        for residual in residuals:
-            config.n_head = n_head
-            config.channels = channels
-            config.residual = residual
-
-            model = STCNNT_LLMnet(config=config)
-            test_out = model(test_in)
-            loss = model.computer_loss(test_out, test_in)
-
-            print(loss)
-
-    print("Passed channels and residual")
-
-    devices = ["cuda", "cpu", "cuda:0"]
-
-    for device in devices:
-        config.device = device
-
-        model = STCNNT_LLMnet(config=config)
-        test_out = model(test_in)
-        loss = model.computer_loss(test_out, test_in)
-
-        print(loss)
-
-    print("Passed devices")
-
+    model = STCNNT_LLMnet(config=config)
     model_summary = model_info(model, config)
     print(f"Configuration for this run:\n{config}")
     print(f"Model Summary:\n{str(model_summary)}")

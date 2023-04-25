@@ -14,8 +14,13 @@ import logging
 import argparse
 import numpy as np
 
+from collections import OrderedDict
+
 from datetime import datetime
 from torchinfo import summary
+
+import torch
+import torch.nn as nn
 
 # -------------------------------------------------------------------------------------------------
 # parser for commonly shared args (subject to change over time)
@@ -176,6 +181,31 @@ def get_device(device=None):
 
     return device if device is not None else \
             "cuda" if torch.cuda.is_available() else "cpu"
+
+# -------------------------------------------------------------------------------------------------
+def get_gpu_ram_usage(device='cuda:0'):
+    print(f"torch.cuda.memory_allocated: {torch.cuda.memory_allocated(device=device)/1024/1024/1024:.3}GB")
+    print(f"torch.cuda.memory_reserved: {torch.cuda.memory_reserved(device=device)/1024/1024/1024:.3f}GB")
+    print(f"torch.cuda.max_memory_reserved: {torch.cuda.max_memory_reserved(device=device)/1024/1024/1024:.3f}GB")
+    
+# -------------------------------------------------------------------------------------------------    
+
+def create_generic_class_str(obj : object, exclusion_list=[nn.Module, OrderedDict]) -> str:
+    name = type(obj).__name__
+
+    vars_list = []
+    for key, value in vars(obj).items():
+        valid = True
+        for type_e in exclusion_list:
+            if isinstance(value, type_e) or key.startswith('_'):
+                valid = False
+                break
+        
+        if valid:
+            vars_list.append(f'{key}={value!r}')
+            
+    vars_str = ',\n'.join(vars_list)
+    return f'{name}({vars_str})'
 
 # -------------------------------------------------------------------------------------------------
 # model info
