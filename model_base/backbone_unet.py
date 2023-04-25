@@ -69,7 +69,7 @@ class _D2(nn.Module):
         if self.use_interpolation:
             y = F.interpolate(x.view((B*T, C, H, W)), scale_factor=(0.5, 0.5), mode="bilinear", align_corners=False, recompute_scale_factor=False)
             y = torch.reshape(y, (B, T, C, H//2, W//2))
-            if self.conv:
+            if self.with_conv:
                 y = self.conv(y)
         else:
             y = self.stride_conv(x)
@@ -177,6 +177,8 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
                 
                 This string is the "Block string" to define the attention layers in a block. 
                 If a list of string is given, each string defines the attention structure for a resolution level. The last string is the bridge structure.
+            
+            - use_unet_attention (bool): whether to use unet attention from lower resolution to higher resolution
                       
             - use_interpolation (bool): whether to use interpolation in downsample layer; if False, use stride convolution
             - with_conv (bool): whether to add conv in down/upsample layers; if False, only interpolation is performed
@@ -225,7 +227,8 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
         C = config.C
         num_resolution_levels = config.num_resolution_levels
         block_str = config.block_str
-        use_interpolation = config.use_interpolation
+        use_unet_attention = config.use_unet_attention
+        use_interpolation = config.use_interpolation        
         with_conv = config.with_conv
         
         assert C >= config.C_in, "Number of channels should be larger than C_in"
@@ -234,6 +237,7 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
         self.C = C
         self.num_resolution_levels = num_resolution_levels
         self.block_str = block_str if isinstance(block_str, list) else [block_str for n in range(self.num_resolution_levels+1)] # with bridge
+        self.use_unet_attention = use_unet_attention
         self.use_interpolation = use_interpolation
         self.with_conv = with_conv
         
@@ -318,7 +322,8 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
         
         if num_resolution_levels >= 5:
             self.up_4 = _U2(C_in=16*self.C, C_out=16*self.C, with_conv=self.with_conv)
-            self.attention_4 = _unet_attention(C_q=16*self.C, C=16*self.C)
+            if self.use_unet_attention:
+                self.attention_4 = _unet_attention(C_q=16*self.C, C=16*self.C)
             
             kwargs["C_in"] = 32*self.C
             kwargs["C_out"] = 8*self.C
@@ -329,7 +334,8 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             
         if num_resolution_levels >= 4:
             self.up_3 = _U2(C_in=8*self.C, C_out=8*self.C, with_conv=self.with_conv)
-            self.attention_3 = _unet_attention(C_q=8*self.C, C=8*self.C)
+            if self.use_unet_attention:
+                self.attention_3 = _unet_attention(C_q=8*self.C, C=8*self.C)
             
             kwargs["C_in"] = 16*self.C
             kwargs["C_out"] = 4*self.C
@@ -340,7 +346,8 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
                 
         if num_resolution_levels >= 3:
             self.up_2 = _U2(C_in=4*self.C, C_out=4*self.C, with_conv=self.with_conv)
-            self.attention_2 = _unet_attention(C_q=4*self.C, C=4*self.C)
+            if self.use_unet_attention:
+                self.attention_2 = _unet_attention(C_q=4*self.C, C=4*self.C)
             
             kwargs["C_in"] = 8*self.C
             kwargs["C_out"] = 2*self.C
@@ -351,7 +358,8 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
                      
         if num_resolution_levels >= 2:
             self.up_1 = _U2(C_in=2*self.C, C_out=2*self.C, with_conv=self.with_conv)
-            self.attention_1 = _unet_attention(C_q=2*self.C, C=2*self.C)
+            if self.use_unet_attention:
+                self.attention_1 = _unet_attention(C_q=2*self.C, C=2*self.C)
             
             kwargs["C_in"] = 4*self.C
             kwargs["C_out"] = self.C
@@ -362,7 +370,8 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             
         if num_resolution_levels >= 1:
             self.up_0 = _U2(C_in=self.C, C_out=self.C, with_conv=self.with_conv)
-            self.attention_0 = _unet_attention(C_q=self.C, C=self.C)
+            if self.use_unet_attention:
+                self.attention_0 = _unet_attention(C_q=self.C, C=self.C)
             
             kwargs["C_in"] = 2*self.C
             kwargs["C_out"] = self.C
@@ -415,71 +424,71 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
         if self.num_resolution_levels == 1:
             y_d_0, _ = self.bridge(x_d_0)
             y_0 = self.up_0(y_d_0)
-            x_gated_0 = self.attention_0(q=y_0, x=x_0)
+            x_gated_0 = self.attention_0(q=y_0, x=x_0) if self.use_unet_attention else x_0
             y_hat, _ = self.U0(torch.cat((x_gated_0, y_0), dim=2))
             
         if self.num_resolution_levels == 2:
             y_d_1, _ = self.bridge(x_d_1)
             y_1 = self.up_1(y_d_1)
-            x_gated_1 = self.attention_1(q=y_1, x=x_1)
+            x_gated_1 = self.attention_1(q=y_1, x=x_1) if self.use_unet_attention else x_1
             y_d_0, _ = self.U1(torch.cat((x_gated_1, y_1), dim=2))
                              
             y_0 = self.up_0(y_d_0)
-            x_gated_0 = self.attention_0(q=y_0, x=x_0)
+            x_gated_0 = self.attention_0(q=y_0, x=x_0) if self.use_unet_attention else x_0
             y_hat, _ = self.U0(torch.cat((x_gated_0, y_0), dim=2))
             
         if self.num_resolution_levels == 3:
             y_d_2, _ = self.bridge(x_d_2)
             y_2 = self.up_2(y_d_2)
-            x_gated_2 = self.attention_2(q=y_2, x=x_2)
+            x_gated_2 = self.attention_2(q=y_2, x=x_2) if self.use_unet_attention else x_2
             y_d_1, _ = self.U2(torch.cat((x_gated_2, y_2), dim=2))
             
             y_1 = self.up_1(y_d_1)
-            x_gated_1 = self.attention_1(q=y_1, x=x_1)
+            x_gated_1 = self.attention_1(q=y_1, x=x_1) if self.use_unet_attention else x_1
             y_d_0, _ = self.U1(torch.cat((x_gated_1, y_1), dim=2))
                              
             y_0 = self.up_0(y_d_0)
-            x_gated_0 = self.attention_0(q=y_0, x=x_0)
+            x_gated_0 = self.attention_0(q=y_0, x=x_0) if self.use_unet_attention else x_0
             y_hat, _ = self.U0(torch.cat((x_gated_0, y_0), dim=2))
             
         if self.num_resolution_levels == 4:
             y_d_3, _ = self.bridge(x_d_3)
             y_3 = self.up_3(y_d_3)
-            x_gated_3 = self.attention_3(q=y_3, x=x_3)
+            x_gated_3 = self.attention_3(q=y_3, x=x_3) if self.use_unet_attention else x_3
             y_d_2, _ = self.U3(torch.cat((x_gated_3, y_3), dim=2))
             
             y_2 = self.up_2(y_d_2)
-            x_gated_2 = self.attention_2(q=y_2, x=x_2)
+            x_gated_2 = self.attention_2(q=y_2, x=x_2) if self.use_unet_attention else x_2
             y_d_1, _ = self.U2(torch.cat((x_gated_2, y_2), dim=2))
             
             y_1 = self.up_1(y_d_1)
-            x_gated_1 = self.attention_1(q=y_1, x=x_1)
+            x_gated_1 = self.attention_1(q=y_1, x=x_1) if self.use_unet_attention else x_1
             y_d_0, _ = self.U1(torch.cat((x_gated_1, y_1), dim=2))
                              
             y_0 = self.up_0(y_d_0)
-            x_gated_0 = self.attention_0(q=y_0, x=x_0)
+            x_gated_0 = self.attention_0(q=y_0, x=x_0) if self.use_unet_attention else x_0
             y_hat, _ = self.U0(torch.cat((x_gated_0, y_0), dim=2))
             
         if self.num_resolution_levels == 5:
             y_d_4, _ = self.bridge(x_d_4)
             y_4 = self.up_4(y_d_4)
-            x_gated_4 = self.attention_4(q=y_4, x=x_4)
+            x_gated_4 = self.attention_4(q=y_4, x=x_4) if self.use_unet_attention else x_4
             y_d_3, _ = self.U4(torch.cat((x_gated_4, y_4), dim=2))
             
             y_3 = self.up_3(y_d_3)
-            x_gated_3 = self.attention_3(q=y_3, x=x_3)
+            x_gated_3 = self.attention_3(q=y_3, x=x_3) if self.use_unet_attention else x_3
             y_d_2, _ = self.U3(torch.cat((x_gated_3, y_3), dim=2))
             
             y_2 = self.up_2(y_d_2)
-            x_gated_2 = self.attention_2(q=y_2, x=x_2)
+            x_gated_2 = self.attention_2(q=y_2, x=x_2) if self.use_unet_attention else x_2
             y_d_1, _ = self.U2(torch.cat((x_gated_2, y_2), dim=2))
             
             y_1 = self.up_1(y_d_1)
-            x_gated_1 = self.attention_1(q=y_1, x=x_1)
+            x_gated_1 = self.attention_1(q=y_1, x=x_1) if self.use_unet_attention else x_1
             y_d_0, _ = self.U1(torch.cat((x_gated_1, y_1), dim=2))
                              
             y_0 = self.up_0(y_d_0)
-            x_gated_0 = self.attention_0(q=y_0, x=x_0)
+            x_gated_0 = self.attention_0(q=y_0, x=x_0) if self.use_unet_attention else x_0
             y_hat, _ = self.U0(torch.cat((x_gated_0, y_0), dim=2))
             
         return y_hat
@@ -542,6 +551,7 @@ def tests():
                         "T1L1G1T1L1G1T1L1G1T1L1G1", 
                         "T1L1G1T1L1G1T1L1G1T1L1G1"]
     
+    config.use_unet_attention = True
     config.use_interpolation = True
     config.with_conv = True
 

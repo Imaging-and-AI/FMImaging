@@ -119,20 +119,20 @@ In the LLMs, the stack of attentions proves to be very effective. For imaging, p
 
 The U-net architecture is enhanced with ST-CNNT cells. 
 
-<img src="./doc/images/stcnnt_Unet.JPG"  width="50%" height="100%">
+<img src="./doc/images/stcnnt_Unet.JPG"  width="30%" height="100%">
 
 Here every resolution stage includes one block containing multiple cells. Model can specify number of feature maps at each resolution stage. The [Unet with attention](https://arxiv.org/abs/1804.03999) is implemented here. Downsample and upsample are implemented with interpolation.
 
 The attention in unet is added to gate the feature map in lower resolution level to guide the higher resolution.
 
-![attention_in_unet](./doc/images/Attention_in_Unet.JPG)
+<img src="./doc/images/Attention_in_Unet.JPG"  width="100%" height="60%">
 
 ### ST-CNNT HR-Net
 
 This network is modified from the [high-resolution architecture](https://www.microsoft.com/en-us/research/blog/high-resolution-network-a-universal-neural-architecture-for-visual-recognition/).
 
 
-![stcnnt_hrnet](./doc/images/stcnnt_HRNet_v2.JPG)
+![stcnnt_hrnet](./doc/images/stcnnt_HRNet.JPG)
 
 The network is defined as levels and stages. Every block is numbered by its level and stage indexes (starting from 0). The downsample and upsample modules are added to link different blocks. Different up/downsample modules are implemented, with TLG attentions or 1x1 CONV. Bilinear interpolation is used to alter spatial resolution.
 
@@ -142,7 +142,7 @@ After the fusion stage, the model will output per-level tensors and the aggregat
 
 As a baseline, the stack of blocks serves as an architecture similar to the LLMs. The difference is the non-causal attention is used in all blocks and we added the dense skip connections between blocks.
 
-![stcnnt_LLMs](./doc/images/stcnnt_LLM.JPG)
+<img src="./doc/images/stcnnt_LLM.JPG"  width="40%" height="100%">
 
 In the current design, the Block will not change number of input channels. 
 

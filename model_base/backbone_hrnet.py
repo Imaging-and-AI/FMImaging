@@ -70,7 +70,7 @@ class _D2(nn.Module):
         if self.use_interpolation:
             y = F.interpolate(x.view((B*T, C, H, W)), scale_factor=(0.5, 0.5), mode="bilinear", align_corners=False, recompute_scale_factor=False)
             y = torch.reshape(y, (B, T, *y.shape[1:]))
-            if self.conv:
+            if self.with_conv:
                 y = self.conv(y)
         else:
             y = self.stride_conv(x)
