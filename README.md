@@ -37,10 +37,20 @@ Instead of cutting images into patches and process them with the standard transf
 **Local spatial attention (L)** 
 As shown by the red dots, local attention is computed by using the neighboring pixels in images or feature maps. The feature vectors at all red locations (key and values, K and V) are compared to the yellow vector (Q, query) to compute the attention coefficients. The attention outputs for yellow pixel is a weighted sum of value vectors.This is the same operation as the [swin transformer](https://arxiv.org/abs/2103.14030).
 
+Let the window size be $[w, w]$, the local attention computes a new pixel by computing attention coefficients of $w^2$ pixels together. Every pixel has $C$ channels. So for every pixel, attention matrix is $w^2 \times w^2$.
+
 **Global spatial attention (G)**
 While the local attention only explores neighboring pixels, global attention looks at more remote pixels for correlation. This will help model learn global information over large field-of-view. In the global attention, the blue vectors serve as K and V. The yellow vector, as Q, will compute its attention to K vectors. 
 
+Let the window size be $[w, w]$ with a stride $[S, S]$, the global attention computes a new pixel by computing attention coefficients of $w^2$ pixels together. Every pixel has $C$ channels. So for every pixel, attention matrix is $w^2 \times w^2$. The difference is that pixels are sampled with a stride.
+
 ref [here](https://ai.googleblog.com/2022/09/a-multi-axis-approach-for-vision.html).
+
+**Global patch attention (GP)**
+Computing attention coefficients between pixels may not be stable. Instead, we can perform the global patch attention, where pixels are first sampled with a stride. Then a neighborhood around every picked pixels are sampled. Suppose the window size to be $[w, w]$, we first pick $w^2$ pixels with stride $S$. Then for every pixel we pick a neighborhood of $[K, K]$. The resulting tensor is $[w, w, K, K, C]$, reshaping to $[w^2, K^2 \times C]$, where the $w^2 \times w^2$ attention matrix is computed.
+
+**ViT attention (V)**
+Besides the pixel-wise local or global attention, we can also perform the ViT type attention. First, the image is split into consecutive, non-overlapped $[w, w]$ patches by reshaping the $[B, T, C, H, W]$ to $[B, T, \frac{H}{w}, \frac{W}{w}, C \times w \times w]$. Then the $[\frac{H}{w}, \frac{W}{w}]$ attention matrix is computed for every $B$ and $T$. ViT attention is a type of global attention, but a patch is used to compute attention coefficients, instead of a single pixel.
 
 **Conv vs. Linear**
 To implement local and global attention, linear Q/K/V parameter matrixes can be utilized in the attention mechanism:
@@ -60,7 +70,9 @@ Here $CONV$ is the convolution over [C, H, W] for the pixels in the window and $
 Compare to the linear matrixes, the $CONV$ keeps the inductive bias and significantly reduce the computational cost. For the global attention, this is equivalent to dilated convolution.
 
 **Temporal attention (T)**
-The temporal or slice correlation is explored by computing the temporal attention. Given $T$ images or feature maps in a tensor $[B, T, C, H, W]$, the attention is computed between each $[C, H, W]$ array, resulting to a $T \times T$ attention matrix. Given the very high number of pixels in feature maps, the $CONV$ is used to compute $Q/K/V$.
+The temporal or slice correlation is explored by computing the temporal attention. Given $T$ images or feature maps in a tensor $[B, T, C, H, W]$, the attention is computed between each $[C, H, W]$ array, resulting to a $T \times T$ attention matrix. Given the very high number of pixels in feature maps, the $CONV$ is used to compute $Q/K/V$. 
+
+Another way (**T-pixel**) is to reshape the tensor to be $[B, H, W, T, C]$. For every pixel, a $T \times T$ attention matrix is computed.
 
 These **L, G, T** attention mechanisms are implemented as **Attention** modules.
 

@@ -54,7 +54,7 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for STCNNT")
     parser.add_argument("--width", nargs='+', type=int, default=[64, 128], help='list of widths of the image patch cutout')
 
     # dataloader arguments
-    parser.add_argument("--num_workers", type=int, default=4, help='number of workers for dataloading')
+    parser.add_argument("--num_workers", type=int, default=4, help='number of workers for data loading')
     parser.add_argument("--prefetch_factor", type=int, default=4, help='number of batches loaded in advance by each worker')
 
     # trainer arguments
