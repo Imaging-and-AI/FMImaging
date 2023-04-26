@@ -34,23 +34,32 @@ Instead of cutting images into patches and process them with the standard transf
 
 <img src="./doc/images/stcnnt_illustration.JPG"  width="80%" height="48%">
 
+Let the image size be $[H, W]$, the windows size be $[w, w]$ and patch size be $[k, k]$. The number of windows will be $[\frac {H}{w}, \frac{W}{w}]$. The number of patches is $[\frac{H}{k}, \frac{W}{k}]$. For example, for an $256 \times 256$ images, $w=32$ and $k=16$, we will have $8 \times 8$ windows and each window will have $2 \times 2$ patches.
+
 **Local spatial attention (L)** 
 As shown by the red dots, local attention is computed by using the neighboring pixels in images or feature maps. The feature vectors at all red locations (key and values, K and V) are compared to the yellow vector (Q, query) to compute the attention coefficients. The attention outputs for yellow pixel is a weighted sum of value vectors.This is the same operation as the [swin transformer](https://arxiv.org/abs/2103.14030).
 
-Let the window size be $[w, w]$, the local attention computes a new pixel by computing attention coefficients of $w^2$ pixels together. Every pixel has $C$ channels. So for every pixel, attention matrix is $w^2 \times w^2$.
+The local attention computes a new pixel by computing attention coefficients of $w^2$ pixels together. Every pixel has $C$ channels. So for every pixel, attention matrix is $w^2 \times w^2$.
 
 **Global spatial attention (G)**
 While the local attention only explores neighboring pixels, global attention looks at more remote pixels for correlation. This will help model learn global information over large field-of-view. In the global attention, the blue vectors serve as K and V. The yellow vector, as Q, will compute its attention to K vectors. 
 
-Let the window size be $[w, w]$ with a stride $[S, S]$, the global attention computes a new pixel by computing attention coefficients of $w^2$ pixels together. Every pixel has $C$ channels. So for every pixel, attention matrix is $w^2 \times w^2$. The difference is that pixels are sampled with a stride.
+With a stride $[S, S]$, the global attention computes a new pixel by computing attention coefficients of $w^2$ pixels together. Every pixel has $C$ channels. So for every pixel, attention matrix is $w^2 \times w^2$. The difference is that pixels are sampled with a stride.
 
 ref [here](https://ai.googleblog.com/2022/09/a-multi-axis-approach-for-vision.html).
 
+<img src="./doc/images/attention_in_details.jpg"  width="100%" height="100%">
+
+**Local patch attention (LP)**
+First the image is split to windows. All patches within a window are inputs for attention. The tensor is reshaped to $[B, T, \frac{H}{w}, \frac{K}{w}, \frac{w}{k}, \frac{w}{k}, k \times k \times C]$. $\frac{w}{k} \times \frac{w}{k}$ is the number of patches in a window. The attention is computed among patches within one image. Attention matrix size is $[\frac{w}{k} \frac{w}{k} \times \frac{w}{k} \frac{w}{k}]$.
+
 **Global patch attention (GP)**
-Computing attention coefficients between pixels may not be stable. Instead, we can perform the global patch attention, where pixels are first sampled with a stride. Then a neighborhood around every picked pixels are sampled. Suppose the window size to be $[w, w]$, we first pick $w^2$ pixels with stride $S$. Then for every pixel we pick a neighborhood of $[K, K]$. The resulting tensor is $[w, w, K, K, C]$, reshaping to $[w^2, K^2 \times C]$, where the $w^2 \times w^2$ attention matrix is computed.
+Computing attention coefficients between pixels may not be stable. Instead, we can perform the global patch attention, where pixels are first sampled with a stride. Then a neighborhood around every picked pixels are sampled.
+
+All corresponding patches from all windows are inputs for attention. The number of windows is $\frac{H}{w} \times \frac{W}{w}$. Every window has $\frac{w}{k} \times \frac{w}{k}$ patches. The tensor is reshaped to $[B, T, \frac{w}{k}, \frac{w}{k}, \frac{H}{w}, \frac{W}{w}, k \times k \times C]$. The attention matrix size is $\frac{H}{w} \frac{W}{w} \times \frac{H}{w} \frac{W}{w}$.
 
 **ViT attention (V)**
-Besides the pixel-wise local or global attention, we can also perform the ViT type attention. First, the image is split into consecutive, non-overlapped $[w, w]$ patches by reshaping the $[B, T, C, H, W]$ to $[B, T, \frac{H}{w}, \frac{W}{w}, C \times w \times w]$. Then the $[\frac{H}{w}, \frac{W}{w}]$ attention matrix is computed for every $B$ and $T$. ViT attention is a type of global attention, but a patch is used to compute attention coefficients, instead of a single pixel.
+Besides the pixel-wise local or global attention, we can also perform the ViT type attention. First, the image is split into consecutive, non-overlapped $[k, k]$ patches by reshaping the $[B, T, C, H, W]$ to $[B, T, \frac{H}{k}, \frac{W}{k}, C \times k \times k]$. Then the $[\frac{H}{k}\frac{W}{k} \times \frac{H}{k}\frac{W}{k}]$ attention matrix is computed for every $B$ and $T$. ViT attention is a type of global attention, while a window has only one patch.
 
 **Conv vs. Linear**
 To implement local and global attention, linear Q/K/V parameter matrixes can be utilized in the attention mechanism:
