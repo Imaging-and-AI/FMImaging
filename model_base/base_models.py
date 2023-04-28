@@ -30,7 +30,7 @@ sys.path.insert(1, str(Project_DIR))
 
 from losses import *
 from attention_modules import *
-from utils.utils import get_device
+from utils.utils import get_device, create_generic_class_str
 
 # -------------------------------------------------------------------------------------------------
 # Base model for rest to inherit
@@ -49,6 +49,10 @@ class STCNNT_Base_Runtime(nn.Module):
         super().__init__()
         self.config = config
 
+    @property
+    def device(self):
+        return next(self.parameters()).device
+    
     def configure_optim_groups(self):
         """
         Copied (and modified) from mingpt: https://github.com/karpathy/minGPT

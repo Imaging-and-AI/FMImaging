@@ -69,7 +69,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "20", "PYDEVD_DISABLE_FILE_VALIDATION": "1"},
             "args": []
         }
     ]

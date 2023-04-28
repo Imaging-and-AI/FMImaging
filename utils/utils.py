@@ -14,8 +14,13 @@ import logging
 import argparse
 import numpy as np
 
+from collections import OrderedDict
+
 from datetime import datetime
 from torchinfo import summary
+
+import torch
+import torch.nn as nn
 
 # -------------------------------------------------------------------------------------------------
 # parser for commonly shared args (subject to change over time)
@@ -49,7 +54,7 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for STCNNT")
     parser.add_argument("--width", nargs='+', type=int, default=[64, 128], help='list of widths of the image patch cutout')
 
     # dataloader arguments
-    parser.add_argument("--num_workers", type=int, default=4, help='number of workers for dataloading')
+    parser.add_argument("--num_workers", type=int, default=4, help='number of workers for data loading')
     parser.add_argument("--prefetch_factor", type=int, default=4, help='number of batches loaded in advance by each worker')
 
     # trainer arguments
@@ -177,6 +182,31 @@ def get_device(device=None):
 
     return device if device is not None else \
             "cuda" if torch.cuda.is_available() else "cpu"
+
+# -------------------------------------------------------------------------------------------------
+def get_gpu_ram_usage(device='cuda:0'):
+    print(f"torch.cuda.memory_allocated: {torch.cuda.memory_allocated(device=device)/1024/1024/1024:.3}GB")
+    print(f"torch.cuda.memory_reserved: {torch.cuda.memory_reserved(device=device)/1024/1024/1024:.3f}GB")
+    print(f"torch.cuda.max_memory_reserved: {torch.cuda.max_memory_reserved(device=device)/1024/1024/1024:.3f}GB")
+    
+# -------------------------------------------------------------------------------------------------    
+
+def create_generic_class_str(obj : object, exclusion_list=[nn.Module, OrderedDict]) -> str:
+    name = type(obj).__name__
+
+    vars_list = []
+    for key, value in vars(obj).items():
+        valid = True
+        for type_e in exclusion_list:
+            if isinstance(value, type_e) or key.startswith('_'):
+                valid = False
+                break
+        
+        if valid:
+            vars_list.append(f'{key}={value!r}')
+            
+    vars_str = ',\n'.join(vars_list)
+    return f'{name}({vars_str})'
 
 # -------------------------------------------------------------------------------------------------
 # model info
