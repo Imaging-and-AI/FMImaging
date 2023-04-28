@@ -21,37 +21,27 @@ cmd.extend([
 cmd.extend([
     "--batch_size", "8",
     "--device", "cuda",
-    "--att_types", "T0T0T0",
     "--time", "16",
     "--complex_i",
     "--residual",
     "--ratio", "100", "0", "0",
-    "--losses", "mse", "l1"
+    "--losses", "mse", "l1",
+    "--norm_mode", "instance2d",
+    "--num_epochs", "100",
+    "--height", "64", "96",
+    "--width", "64", "96"
 ])
 
-norm_modes = ["instance2d", "instance3d", "batch2d", "batch3d", "layer"]
+att_typess = ["T1T1T1T1", "L1L1L1L1", "T1L1T1L1", "L1T1L1T1"]
 
-for norm_mode in norm_modes:
+for att_types in att_typess:
 
     cmd_run = cmd.copy()
 
-    if norm_mode == "layer":
-        cmd_run.extend([
-            "--num_epochs", "200",
-            "--height", "96",
-            "--width", "96"
-        ])
-    else:
-        cmd_run.extend([
-            "--num_epochs", "100",
-            "--height", "48", "96",
-            "--width", "48", "96"
-        ])
-
     cmd_run.extend([
-        "--run_name", f"{norm_mode}_norm_3_temporal",
-        "--run_notes", f"{norm_mode}_norm_with_3_temporal_cell_per_block",
-        "--norm_mode", f"{norm_mode}"
+        "--run_name", f"{att_types}_new_standard",
+        "--run_notes", f"{att_types}_no_bias_same_c_mlp_strided_t",
+        "--att_types", f"{att_types}"
     ])
     print(f"Running command:\n{cmd_run}")
 
