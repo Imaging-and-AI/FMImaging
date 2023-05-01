@@ -2,6 +2,8 @@
 Data utilities for MRI data.
 Provides the torch dataset class for traind and test
 And a function to load the said classes with multiple h5files
+TODO: add doc for expected h5 file
+TODO: 2D and 3D classes
 """
 import os
 import sys
