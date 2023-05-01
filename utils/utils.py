@@ -3,10 +3,12 @@ General utility file for STCNNT
 
 Provides following utilities:
     - add_shared_args
+    - add_shared_STCNNT_args
     - setup_run
     - get_device
     - get_number_of_params
     - AverageMeter (class)
+    ...
 """
 import os
 import torch
@@ -24,8 +26,7 @@ import torch.nn as nn
 
 # -------------------------------------------------------------------------------------------------
 # parser for commonly shared args (subject to change over time)
-
-def add_shared_args(parser=argparse.ArgumentParser("Argument parser for STCNNT")):
+def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transformer projects")):
     """
     Add shared arguments between trainers
     @args:
@@ -47,8 +48,7 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for STCNNT")
     parser.add_argument("--sweep_id", type=str, default="none", help='sweep id for hyper parameter searching')
 
     # dataset arguments
-    parser.add_argument("--ratio", nargs='+', type=int, default=[90,5,5], help='Ratio (as a percentage) for train/val/test divide of given data. Does allow for using partial dataset')
-    parser.add_argument("--complex_i", action="store_true", help='whether we are dealing with complex images or not')
+    parser.add_argument("--ratio", nargs='+', type=int, default=[90,5,5], help='Ratio (as a percentage) for train/val/test divide of given data. Does allow for using partial dataset')    
     parser.add_argument("--time", type=int, default=16, help='the max time series length of the input cutout')
     parser.add_argument("--height", nargs='+', type=int, default=[64, 128], help='list of heights of the image patch cutout')
     parser.add_argument("--width", nargs='+', type=int, default=[64, 128], help='list of widths of the image patch cutout')
@@ -62,23 +62,6 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for STCNNT")
     parser.add_argument("--batch_size", type=int, default=8, help='size of each batch')
     parser.add_argument("--save_cycle", type=int, default=5, help='Number of epochs between saving model weights')
     parser.add_argument("--clip_grad_norm", type=float, default=1.0, help='gradient norm clip, if <=0, no clipping')
-
-    # base model arguments
-    parser.add_argument("--channels", nargs='+', type=int, default=[16,32,64], help='number of channels in each layer')
-    parser.add_argument("--att_types", nargs='+', type=str, default=["T0T0T1"], help='types of attention modules and mixer. "T","G","L" for attention type followed by "0","1" for mixer')
-    parser.add_argument("--C_in", type=int, default=3, help='number of channels in the input')
-    parser.add_argument("--C_out", type=int, default=16, help='number of channels in the output')
-    parser.add_argument("--a_type", type=str, default="conv", help='type of attention in the spatial attention modules')
-    parser.add_argument("--window_size", type=int, default=16, help='size of window for local and global att')
-    parser.add_argument("--n_head", type=int, default=8, help='number of transformer heads')
-    parser.add_argument("--kernel_size", type=int, default=3, help='size of the square kernel for CNN')
-    parser.add_argument("--stride", type=int, default=1, help='stride for CNN (equal x and y)')
-    parser.add_argument("--padding", type=int, default=1, help='padding for CNN (equal x and y)')
-    parser.add_argument("--dropout_p", type=float, default=0.1, help='pdrop regulization in transformer')
-    parser.add_argument("--norm_mode", type=str, default="instance2d", help='normalization mode: "layer", "batch2d", "instance2d", "batch3d", "instance3d"')
-    parser.add_argument("--residual", action="store_true", help='add long term residual connection')
-    parser.add_argument("--is_causal", action="store_true", help='treat timed data as causal and mask future entries')
-    parser.add_argument("--interp_align_c", action="store_true", help='align corners while interpolating')
 
     # loss, optimizer, and scheduler arguments
     parser.add_argument("--losses", nargs='+', type=str, default=["mse", "l1"], help='Any combination of "mse", "l1", "sobel", "ssim", "ssim3D"')
@@ -102,6 +85,39 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for STCNNT")
 
     return parser
 
+def add_shared_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for STCNNT")):
+    """
+    Add shared arguments between trainers
+    @args:
+        parser (argparse, optional): parser object
+    @rets:
+        parser : new/modified parser
+    """
+        
+    parser.add_argument("--complex_i", action="store_true", help='whether we are dealing with complex images or not')
+
+    # base model arguments
+    parser.add_argument("--channels", nargs='+', type=int, default=[16,32,64], help='number of channels in each layer')
+    parser.add_argument("--att_types", nargs='+', type=str, default=["T0T0T1"], help='types of attention modules and mixer. "T","G","L" for attention type followed by "0","1" for mixer')
+    parser.add_argument("--C_in", type=int, default=3, help='number of channels in the input')
+    parser.add_argument("--C_out", type=int, default=16, help='number of channels in the output')
+    parser.add_argument("--a_type", type=str, default="conv", help='type of attention in the spatial attention modules')
+    parser.add_argument("--window_size", type=int, default=64, help='size of window for local and global att, number of pixels along one dimension in a window')
+    parser.add_argument("--patch_size", type=int, default=16, help='size of patch for local and global att, number of pixels along one dimension in a patch')
+    parser.add_argument("--n_head", type=int, default=8, help='number of transformer heads')
+    parser.add_argument("--kernel_size", type=int, default=3, help='size of the square kernel for CNN')
+    parser.add_argument("--stride", type=int, default=1, help='stride for CNN (equal x and y)')
+    parser.add_argument("--padding", type=int, default=1, help='padding for CNN (equal x and y)')
+    parser.add_argument("--dropout_p", type=float, default=0.1, help='pdrop regularization in transformer')
+    parser.add_argument("--norm_mode", type=str, default="instance2d", help='normalization mode: "layer", "batch2d", "instance2d", "batch3d", "instance3d"')
+    parser.add_argument("--residual", action="store_true", help='add long term residual connection')
+    parser.add_argument("--is_causal", action="store_true", help='treat timed data as causal and mask future entries')
+    parser.add_argument("--interp_align_c", action="store_true", help='align corners while interpolating')
+
+    parser = add_shared_args(parser)
+
+    return parser
+
 # -------------------------------------------------------------------------------------------------
 # setup logger
 
@@ -119,7 +135,7 @@ def setup_logger(config):
 
     logging.basicConfig(level=level, format=format, handlers=[file_handler,stream_handler])
 
-    file_only_logger = logging.getLogger("file_only") # seperate logger for files only
+    file_only_logger = logging.getLogger("file_only") # separate logger for files only
     file_only_logger.addHandler(file_handler)
     file_only_logger.setLevel(logging.INFO)
     file_only_logger.propagate=False
@@ -142,7 +158,7 @@ def setup_run(config, dirs=["log_path", "results_path", "model_path", "check_pat
     # setup logging
     setup_logger(config)
 
-    # create relevent directories
+    # create relevant directories
     try:
         config_dict = dict(config)
     except TypeError:

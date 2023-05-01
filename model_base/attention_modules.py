@@ -25,6 +25,8 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
+from einops import rearrange
+
 from pathlib import Path
 Project_DIR = Path(__file__).parents[0].resolve()
 sys.path.insert(1, str(Project_DIR))
