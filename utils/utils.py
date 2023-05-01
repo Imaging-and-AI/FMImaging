@@ -6,7 +6,7 @@ Provides following utilities:
     - add_shared_STCNNT_args
     - setup_run
     - get_device
-    - get_number_of_params
+    - model_info
     - AverageMeter (class)
     ...
 """
@@ -20,9 +20,6 @@ from collections import OrderedDict
 
 from datetime import datetime
 from torchinfo import summary
-
-import torch
-import torch.nn as nn
 
 # -------------------------------------------------------------------------------------------------
 # parser for commonly shared args (subject to change over time)
@@ -102,18 +99,18 @@ def add_shared_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for S
     parser.add_argument("--C_in", type=int, default=3, help='number of channels in the input')
     parser.add_argument("--C_out", type=int, default=16, help='number of channels in the output')
     parser.add_argument("--a_type", type=str, default="conv", help='type of attention in the spatial attention modules')
-    parser.add_argument("--window_size", type=int, default=64, help='size of window for local and global att, number of pixels along one dimension in a window')
-    parser.add_argument("--patch_size", type=int, default=16, help='size of patch for local and global att, number of pixels along one dimension in a patch')
+    parser.add_argument("--window_size", type=int, default=16, help='size of window for local and global att')
     parser.add_argument("--n_head", type=int, default=8, help='number of transformer heads')
     parser.add_argument("--kernel_size", type=int, default=3, help='size of the square kernel for CNN')
     parser.add_argument("--stride", type=int, default=1, help='stride for CNN (equal x and y)')
     parser.add_argument("--padding", type=int, default=1, help='padding for CNN (equal x and y)')
-    parser.add_argument("--dropout_p", type=float, default=0.1, help='pdrop regularization in transformer')
+    parser.add_argument("--stride_t", type=int, default=2, help='stride for temporal attention cnn (equal x and y)')
+    parser.add_argument("--dropout_p", type=float, default=0.1, help='pdrop regulization in transformer')
     parser.add_argument("--norm_mode", type=str, default="instance2d", help='normalization mode: "layer", "batch2d", "instance2d", "batch3d", "instance3d"')
     parser.add_argument("--residual", action="store_true", help='add long term residual connection')
     parser.add_argument("--is_causal", action="store_true", help='treat timed data as causal and mask future entries')
     parser.add_argument("--interp_align_c", action="store_true", help='align corners while interpolating')
-
+    
     parser = add_shared_args(parser)
 
     return parser
@@ -200,13 +197,30 @@ def get_device(device=None):
 
 # -------------------------------------------------------------------------------------------------
 def get_gpu_ram_usage(device='cuda:0'):
-    print(f"torch.cuda.memory_allocated: {torch.cuda.memory_allocated(device=device)/1024/1024/1024:.3}GB")
-    print(f"torch.cuda.memory_reserved: {torch.cuda.memory_reserved(device=device)/1024/1024/1024:.3f}GB")
-    print(f"torch.cuda.max_memory_reserved: {torch.cuda.max_memory_reserved(device=device)/1024/1024/1024:.3f}GB")
+    """
+    Get info regarding memory usage of a device
+    @args:
+        - device (torch.device): the device to get info about
+    @rets:
+        - result_string (str): a string containing the info
+    """
+    result_string = f"torch.cuda.memory_allocated: {torch.cuda.memory_allocated(device=device)/1024/1024/1024:.3}GB\n" + \
+                    f"torch.cuda.memory_reserved: {torch.cuda.memory_reserved(device=device)/1024/1024/1024:.3f}GB\n" + \
+                    f"torch.cuda.max_memory_reserved: {torch.cuda.max_memory_reserved(device=device)/1024/1024/1024:.3f}GB"
+
+    return result_string
     
 # -------------------------------------------------------------------------------------------------    
 
-def create_generic_class_str(obj : object, exclusion_list=[nn.Module, OrderedDict]) -> str:
+def create_generic_class_str(obj : object, exclusion_list=[torch.nn.Module, OrderedDict]) -> str:
+    """
+    Create a generic name of a class
+    @args:
+        - obj (object): the class to make string of
+        - exclusion_list (object list): the objects to exclude from the class string
+    @rets:
+        - class_str (str): the generic class string
+    """
     name = type(obj).__name__
 
     vars_list = []

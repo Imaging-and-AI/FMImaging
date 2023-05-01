@@ -52,7 +52,7 @@ class STCNNT_Base_Runtime(nn.Module):
     @property
     def device(self):
         return next(self.parameters()).device
-    
+
     def configure_optim_groups(self):
         """
         Copied (and modified) from mingpt: https://github.com/karpathy/minGPT
@@ -224,7 +224,8 @@ class CNNT_Unet(STCNNT_Base_Runtime):
             - window_size (int): size of window for local and global att
             - is_causal (bool): whether to mask attention to imply causality
             - n_head (int): number of heads in self attention
-            - kernel_size, stride, padding (int, int): convolution parameters
+            - kernel_size, stride, padding (int): convolution parameters
+            - stride_t (int): special stride for temporal attention k,q matrices
             - dropout (float): probability of dropout
             - norm_mode ("layer", "batch", "instance"):
                 layer - norm along C, H, W; batch - norm along B*T; or instance
@@ -260,7 +261,7 @@ class CNNT_Unet(STCNNT_Base_Runtime):
             "is_causal":c.is_causal, "dropout_p":c.dropout_p,\
             "n_head":c.n_head, "kernel_size":(c.kernel_size, c.kernel_size),\
             "stride":(c.stride, c.stride), "padding":(c.padding, c.padding),\
-            "norm_mode":c.norm_mode,\
+            "stride_t":(c.stride_t, c.stride_t), "norm_mode":c.norm_mode,\
             "interpolate":"down", "interp_align_c":c.interp_align_c
         }
 
@@ -355,6 +356,7 @@ def tests():
     config.kernel_size = 3
     config.stride = 1
     config.padding = 1
+    config.stride_t = 2
     config.dropout_p = 0.1
     config.C_in = C
     config.C_out = C
@@ -430,7 +432,6 @@ def tests():
     print("Passed devices")
 
     print("Passed all tests")
-
 
 if __name__=="__main__":
     tests()

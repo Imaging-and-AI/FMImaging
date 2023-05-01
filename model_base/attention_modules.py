@@ -12,8 +12,8 @@ Provides implementation of following modules (in order of increasing complexity)
     - SpatialLocalAttention: Local windowed spatial attention
     - SpatialGlobalAttention: Global grided spatial attention
     - TemporalCnnAttention: Complete temporal attention
-    - CnnTransformer: A CNNT cell that wraps above attention with norms and mixers
-    - CNNTBlock: A stack of CnnTransformer cells
+    - STCNNT_Cell: An STCNNT cell that wraps above attention with norms and mixers
+    - STCNNT_Block: A stack of STCNNT_Cell
 
 """
 
@@ -214,14 +214,14 @@ class SpatialLocalAttention(nn.Module):
         if a_type=="conv":
             # key, query, value projections convolution
             # Wk, Wq, Wv
-            self.key = Conv2DGridExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
-            self.query = Conv2DGridExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
-            self.value = Conv2DGridExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
+            self.key = Conv2DGridExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
+            self.query = Conv2DGridExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
+            self.value = Conv2DGridExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
         elif a_type=="lin":
             # linear projections
-            self.key = LinearGridExt(C_in*wind_size*wind_size, C_out*wind_size*wind_size, bias=True)
-            self.query = LinearGridExt(C_in*wind_size*wind_size, C_out*wind_size*wind_size, bias=True)
-            self.value = LinearGridExt(C_in*wind_size*wind_size, C_out*wind_size*wind_size, bias=True)
+            self.key = LinearGridExt(C_in*wind_size*wind_size, C_out*wind_size*wind_size, bias=False)
+            self.query = LinearGridExt(C_in*wind_size*wind_size, C_out*wind_size*wind_size, bias=False)
+            self.value = LinearGridExt(C_in*wind_size*wind_size, C_out*wind_size*wind_size, bias=False)
         else:
             raise NotImplementedError(f"Attention type not implemented: {a_type}")
 
@@ -346,14 +346,14 @@ class SpatialGlobalAttention(nn.Module):
         if a_type=="conv":
             # key, query, value projections convolution
             # Wk, Wq, Wv
-            self.key = Conv2DGridExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
-            self.query = Conv2DGridExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
-            self.value = Conv2DGridExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
+            self.key = Conv2DGridExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
+            self.query = Conv2DGridExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
+            self.value = Conv2DGridExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
         elif a_type=="lin":
             # linear projections
-            self.key = LinearGridExt(C_in*grid_size*grid_size, C_out*grid_size*grid_size, bias=True)
-            self.query = LinearGridExt(C_in*grid_size*grid_size, C_out*grid_size*grid_size, bias=True)
-            self.value = LinearGridExt(C_in*grid_size*grid_size, C_out*grid_size*grid_size, bias=True)
+            self.key = LinearGridExt(C_in*grid_size*grid_size, C_out*grid_size*grid_size, bias=False)
+            self.query = LinearGridExt(C_in*grid_size*grid_size, C_out*grid_size*grid_size, bias=False)
+            self.value = LinearGridExt(C_in*grid_size*grid_size, C_out*grid_size*grid_size, bias=False)
         else:
             raise NotImplementedError(f"Attention type not implemented: {a_type}")
 
@@ -445,7 +445,8 @@ class TemporalCnnAttention(nn.Module):
     Multi-head cnn attention model for complete temporal attention
     """
     def __init__(self, C_in, C_out=16, is_causal=False, n_head=8, \
-                    kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), dropout_p=0.1):
+                    kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), \
+                    stride_t=(2,2), dropout_p=0.1):
         """
         Defines the layer for a cnn self-attention on temporal axis
 
@@ -461,6 +462,7 @@ class TemporalCnnAttention(nn.Module):
             - is_causal (bool): whether to mask attention to imply causality
             - n_head (int): number of heads in self attention
             - kernel_size, stride, padding (int, int): convolution parameters
+            - stride_t (int, int): special stride for temporal attention k,q matrices
             - dropout (float): probability of dropout
         """
         super().__init__()
@@ -469,15 +471,16 @@ class TemporalCnnAttention(nn.Module):
         self.C_out = C_out
         self.is_causal = is_causal
         self.n_head = n_head
+        self.stride_f = stride_t[0]
 
         assert self.C_out % self.n_head == 0, \
             f"Number of output channles {self.C_out} should be divisible by number of heads {self.n_head}"
 
         # key, query, value projections convolution
         # Wk, Wq, Wv
-        self.key = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
-        self.query = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
-        self.value = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
+        self.key = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_t, padding=padding, bias=False)
+        self.query = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_t, padding=padding, bias=False)
+        self.value = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
 
         self.output_proj = Conv2DExt(C_out, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
         self.attn_drop = nn.Dropout(dropout_p)
@@ -502,7 +505,7 @@ class TemporalCnnAttention(nn.Module):
         _,_,_,H_prime,W_prime = k.shape
         k = k.view(B, T, self.n_head, torch.div(self.C_out, self.n_head, rounding_mode="floor"), H_prime, W_prime).transpose(1, 2)
         q = self.query(x).view(B, T, self.n_head, torch.div(self.C_out, self.n_head, rounding_mode="floor"), H_prime, W_prime).transpose(1, 2)
-        v = self.value(x).view(B, T, self.n_head, torch.div(self.C_out, self.n_head, rounding_mode="floor"), H_prime, W_prime).transpose(1, 2)
+        v = self.value(x).view(B, T, self.n_head, torch.div(self.C_out, self.n_head, rounding_mode="floor"), H_prime*self.stride_f, W_prime*self.stride_f).transpose(1, 2)
 
         # k, q, v are [B, nh, T, hc, H', W']
 
@@ -522,8 +525,8 @@ class TemporalCnnAttention(nn.Module):
         att = self.attn_drop(att)
 
         # (B, nh, T, T) * (B, nh, T, hc, H', W')
-        y = att @ v.view(B, nh, T, hc*H_prime*W_prime)       
-        y = y.transpose(1, 2).contiguous().view(B, T, self.C_out, H_prime, W_prime)
+        y = att @ v.view(B, nh, T, hc*H_prime*W_prime*self.stride_f*self.stride_f)
+        y = y.transpose(1, 2).contiguous().view(B, T, self.C_out, H_prime*self.stride_f, W_prime*self.stride_f)
         y = y + self.resid_drop(self.output_proj(y))
 
         return y
@@ -543,7 +546,7 @@ class STCNNT_Cell(nn.Module):
     def __init__(self, C_in, C_out=16, H=64, W=64, att_mode="temporal", a_type="conv",\
                     window_size=8, is_causal=False, n_head=8,\
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1),\
-                    dropout_p=0.1, with_mixer=True, norm_mode="layer"):
+                    stride_t=(2,2), dropout_p=0.1, with_mixer=True, norm_mode="layer"):
         """
         Complete transformer cell
 
@@ -559,6 +562,7 @@ class STCNNT_Cell(nn.Module):
             - is_causal (bool): whether to mask attention to imply causality
             - n_head (int): number of heads in self attention
             - kernel_size, stride, padding (int, int): convolution parameters
+            - stride_t (int, int): special stride for temporal attention k,q matrices
             - dropout_p (float): probability of dropout
             - with_mixer (bool): whether to add a conv2D mixer after attention
             - norm_mode ("layer", "batch2d", "instance2d", "batch3d", "instance3d"):
@@ -609,7 +613,7 @@ class STCNNT_Cell(nn.Module):
             self.input_proj = nn.Identity()
 
         if(att_mode=="temporal"):
-            self.attn = TemporalCnnAttention(C_in=C_in, C_out=C_out, is_causal=is_causal, n_head=n_head, kernel_size=kernel_size, stride=stride, padding=padding, dropout_p=dropout_p)
+            self.attn = TemporalCnnAttention(C_in=C_in, C_out=C_out, is_causal=is_causal, n_head=n_head, kernel_size=kernel_size, stride=stride, padding=padding, stride_t=stride_t, dropout_p=dropout_p)
         elif(att_mode=="local"):
             self.attn = SpatialLocalAttention(C_in=C_in, C_out=C_out, wind_size=window_size, a_type=a_type, n_head=n_head, kernel_size=kernel_size, stride=stride, padding=padding, dropout_p=dropout_p)
         elif(att_mode=="global"):
@@ -625,26 +629,18 @@ class STCNNT_Cell(nn.Module):
                 Conv2DExt(C_out, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True),
                 nn.Dropout(dropout_p),
             )
-            
-            # self.mlp = nn.Sequential(
-            #     Conv2DExt(C_out, 4*C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True),
-            #     #nn.GELU(),
-            #     NewGELU(),
-            #     Conv2DExt(4*C_out, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True),
-            #     nn.Dropout(dropout_p),
-            # )
 
     @property
     def device(self):
         return next(self.parameters()).device
-    
+
     def forward(self, x):
 
         x = self.input_proj(x) + self.attn(self.n1(x))
 
         if(self.with_mixer):
             x = x + self.mlp(self.n2(x))
-            
+
         return x
 
     def __str__(self):
@@ -663,7 +659,7 @@ class STCNNT_Block(nn.Module):
     def __init__(self, att_types, C_in, C_out=16, H=64, W=64,\
                     a_type="conv", window_size=8, is_causal=False, n_head=8,\
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1),\
-                    dropout_p=0.1, norm_mode="layer",\
+                    stride_t=(2,2),dropout_p=0.1, norm_mode="layer",\
                     interpolate="none", interp_align_c=False):
         """
         Transformer block
@@ -683,6 +679,7 @@ class STCNNT_Block(nn.Module):
             - is_causal (bool): whether to mask attention to imply causality
             - n_head (int): number of heads in self attention
             - kernel_size, stride, padding (int, int): convolution parameters
+            - stride_t (int, int): special stride for temporal attention k,q matrices
             - dropout (float): probability of dropout
             - norm_mode ("layer", "batch", "instance"):
                 layer - norm along C, H, W; batch - norm along B*T; or instance
@@ -739,7 +736,7 @@ class STCNNT_Block(nn.Module):
 
             self.cells.append((f"{att_type}_{i}", STCNNT_Cell(C_in=C, C_out=C_out, H=H, W=W, att_mode=att_type, a_type=a_type,
                                             window_size=window_size, is_causal=is_causal, n_head=n_head,
-                                            kernel_size=kernel_size, stride=stride, padding=padding,
+                                            kernel_size=kernel_size, stride=stride, padding=padding, stride_t=stride_t,
                                             dropout_p=dropout_p, with_mixer=(mixer=='1'), norm_mode=norm_mode)))
 
         self.make_block()
@@ -750,7 +747,7 @@ class STCNNT_Block(nn.Module):
     @property
     def device(self):
         return next(self.parameters()).device
-    
+
     def make_block(self):
         self.block = nn.Sequential(OrderedDict(self.cells))
 
@@ -778,6 +775,7 @@ class STCNNT_Block(nn.Module):
     def __str__(self):
         res = create_generic_class_str(self)
         return res
+
 # -------------------------------------------------------------------------------------------------
 
 def tests():
@@ -857,9 +855,9 @@ def tests():
         for interp_align_c in interp_align_cs:
             CNNT_Block = STCNNT_Block(att_types=att_types, C_in=C, C_out=C_out,\
                                    interpolate=interpolate, interp_align_c=interp_align_c)
-            _, test_out = CNNT_Block(test_in)
+            test_out_1, test_out_2 = CNNT_Block(test_in)
 
-            Bo, To, Co, Ho, Wo = test_out.shape
+            Bo, To, Co, Ho, Wo = test_out_1.shape if interpolate=="none" else test_out_2.shape
             factor = 2 if interpolate=="up" else 0.5 if interpolate=="down" else 1
             assert B==Bo and T==To and Co==C_out and (H*factor)==Ho and (W*factor)==Wo
 
