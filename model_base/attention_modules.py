@@ -12,8 +12,8 @@ Provides implementation of following modules (in order of increasing complexity)
     - SpatialLocalAttention: Local windowed spatial attention
     - SpatialGlobalAttention: Global grided spatial attention
     - TemporalCnnAttention: Complete temporal attention
-    - CnnTransformer: A CNNT cell that wraps above attention with norms and mixers
-    - CNNTBlock: A stack of CnnTransformer cells
+    - STCNNT_Cell: An STCNNT cell that wraps above attention with norms and mixers
+    - STCNNT_Block: A stack of STCNNT_Cell
 
 """
 
@@ -627,26 +627,18 @@ class STCNNT_Cell(nn.Module):
                 Conv2DExt(C_out, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True),
                 nn.Dropout(dropout_p),
             )
-            
-            # self.mlp = nn.Sequential(
-            #     Conv2DExt(C_out, 4*C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True),
-            #     #nn.GELU(),
-            #     NewGELU(),
-            #     Conv2DExt(4*C_out, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True),
-            #     nn.Dropout(dropout_p),
-            # )
 
     @property
     def device(self):
         return next(self.parameters()).device
-    
+
     def forward(self, x):
 
         x = self.input_proj(x) + self.attn(self.n1(x))
 
         if(self.with_mixer):
             x = x + self.mlp(self.n2(x))
-            
+
         return x
 
     def __str__(self):
@@ -753,7 +745,7 @@ class STCNNT_Block(nn.Module):
     @property
     def device(self):
         return next(self.parameters()).device
-    
+
     def make_block(self):
         self.block = nn.Sequential(OrderedDict(self.cells))
 
@@ -781,6 +773,7 @@ class STCNNT_Block(nn.Module):
     def __str__(self):
         res = create_generic_class_str(self)
         return res
+
 # -------------------------------------------------------------------------------------------------
 
 def tests():
@@ -860,9 +853,9 @@ def tests():
         for interp_align_c in interp_align_cs:
             CNNT_Block = STCNNT_Block(att_types=att_types, C_in=C, C_out=C_out,\
                                    interpolate=interpolate, interp_align_c=interp_align_c)
-            _, test_out = CNNT_Block(test_in)
+            test_out_1, test_out_2 = CNNT_Block(test_in)
 
-            Bo, To, Co, Ho, Wo = test_out.shape
+            Bo, To, Co, Ho, Wo = test_out_1.shape if interpolate=="none" else test_out_2.shape
             factor = 2 if interpolate=="up" else 0.5 if interpolate=="down" else 1
             assert B==Bo and T==To and Co==C_out and (H*factor)==Ho and (W*factor)==Wo
 

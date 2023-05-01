@@ -52,7 +52,7 @@ class STCNNT_Base_Runtime(nn.Module):
     @property
     def device(self):
         return next(self.parameters()).device
-    
+
     def configure_optim_groups(self):
         """
         Copied (and modified) from mingpt: https://github.com/karpathy/minGPT
@@ -356,6 +356,7 @@ def tests():
     config.kernel_size = 3
     config.stride = 1
     config.padding = 1
+    config.stride_t = 2
     config.dropout_p = 0.1
     config.C_in = C
     config.C_out = C
@@ -431,7 +432,6 @@ def tests():
     print("Passed devices")
 
     print("Passed all tests")
-
 
 if __name__=="__main__":
     tests()

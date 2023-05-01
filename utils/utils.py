@@ -5,7 +5,7 @@ Provides following utilities:
     - add_shared_args
     - setup_run
     - get_device
-    - get_number_of_params
+    - model_info
     - AverageMeter (class)
 """
 import os
@@ -18,9 +18,6 @@ from collections import OrderedDict
 
 from datetime import datetime
 from torchinfo import summary
-
-import torch
-import torch.nn as nn
 
 # -------------------------------------------------------------------------------------------------
 # parser for commonly shared args (subject to change over time)
@@ -185,13 +182,30 @@ def get_device(device=None):
 
 # -------------------------------------------------------------------------------------------------
 def get_gpu_ram_usage(device='cuda:0'):
-    print(f"torch.cuda.memory_allocated: {torch.cuda.memory_allocated(device=device)/1024/1024/1024:.3}GB")
-    print(f"torch.cuda.memory_reserved: {torch.cuda.memory_reserved(device=device)/1024/1024/1024:.3f}GB")
-    print(f"torch.cuda.max_memory_reserved: {torch.cuda.max_memory_reserved(device=device)/1024/1024/1024:.3f}GB")
+    """
+    Get info regarding memory usage of a device
+    @args:
+        - device (torch.device): the device to get info about
+    @rets:
+        - result_string (str): a string containing the info
+    """
+    result_string = f"torch.cuda.memory_allocated: {torch.cuda.memory_allocated(device=device)/1024/1024/1024:.3}GB\n" + \
+                    f"torch.cuda.memory_reserved: {torch.cuda.memory_reserved(device=device)/1024/1024/1024:.3f}GB\n" + \
+                    f"torch.cuda.max_memory_reserved: {torch.cuda.max_memory_reserved(device=device)/1024/1024/1024:.3f}GB"
+
+    return result_string
     
 # -------------------------------------------------------------------------------------------------    
 
-def create_generic_class_str(obj : object, exclusion_list=[nn.Module, OrderedDict]) -> str:
+def create_generic_class_str(obj : object, exclusion_list=[torch.nn.Module, OrderedDict]) -> str:
+    """
+    Create a generic name of a class
+    @args:
+        - obj (object): the class to make string of
+        - exclusion_list (object list): the objects to exclude from the class string
+    @rets:
+        - class_str (str): the generic class string
+    """
     name = type(obj).__name__
 
     vars_list = []
