@@ -63,6 +63,27 @@
             ]
         },
         {
+            "name": "membrane potential",
+            "type": "python",
+            "request": "launch",
+            "program": "./membrane_potential/main.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
+            "args": [
+                "--run_name", "membrane_potential_prediction",
+                "--num_epoch", "20",
+                "--save_cycle", "2",
+                "--weight_decay", "0.0",
+                "--device", "cuda",
+                "--check_path", "~/projects/membrane_potential/checkpoints/",
+                "--log_path", "~/projects/membrane_potential/logs/",
+                "--results_path", "~/projects/membrane_potential/results/",
+                "--model_path", "~/projects/membrane_potential/models/",
+                "--data_root", "/export/Lab-Xue/MembranePotential/experiments"
+            ]
+        },
+        {
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",

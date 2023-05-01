@@ -107,7 +107,7 @@ def arg_parser():
     parser.add_argument("--saved_model_path", type=str, default=None, help='model path endswith ".pt" or ".pts"')
     parser.add_argument("--saved_model_config", type=str, default=None, help='the config of the model. required when using ".pt"')
 
-    parser = add_shared_args(parser=parser)
+    parser = add_shared_STCNNT_args(parser=parser)
 
     return parser.parse_args()
 

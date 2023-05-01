@@ -8,6 +8,7 @@
         "interp",
         "logits",
         "mlps",
+        "relu",
         "resid",
         "softmax",
         "Spatio",
