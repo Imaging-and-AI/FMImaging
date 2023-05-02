@@ -20,6 +20,8 @@ import time
 import scipy.io as sio
 from scipy import interpolate
 
+import matplotlib.pyplot as plt
+
 import logging
 logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
@@ -252,22 +254,22 @@ def set_up_dataset(train_dir, test_dir, batch_size=64, num_starts=20, chunk_leng
 
 # --------------------------------------------------------
 
-def plot_mp_prediction(A, MP, i_valid_spec, idx_select, wav, name, y_hat):
+def plot_mp_prediction(A, MP, i_valid_spec, idx_select, name, y_hat):
     """plot prediction results
     """
 
     B, T, D, = A.shape
     x = np.arange(T)
 
-    f = plt.figure()
-    for ind in range(B):
-        plt.subplot(B, 1, ind+1)
+    f = plt.figure(figsize=[16, 8])
+    for ind in range(2*(B//2)):
+        plt.subplot(2, B//2, ind+1)
         plt.plot(x, MP[ind], 'b.')
         plt.plot(x, MP[ind], 'b-')
-        plt.plot(x[idx_select==1], MP[ind][idx_select==1], 'r.')
-        plt.plot(x[i_valid_spec==0], MP[ind][i_valid_spec==0], 'k.')
+        plt.plot(x[idx_select[ind]==1], MP[ind][idx_select[ind]==1], 'r.')
+        plt.plot(x[i_valid_spec[ind]==0], MP[ind][i_valid_spec[ind]==0], 'k.')
         plt.plot(x, y_hat[ind], 'g--')
-        plt.plot(x[idx_select==1], y_hat[ind][idx_select==1], 'g.')
+        plt.plot(x[idx_select[ind]==1], y_hat[ind][idx_select[ind]==1], 'g.')
         plt.xlabel('time')
         plt.ylabel('MP')
         plt.title(name[ind])

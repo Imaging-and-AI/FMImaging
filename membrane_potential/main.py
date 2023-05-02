@@ -123,14 +123,15 @@ def run_training():
     
     train_set, test_set, loader_for_train, loader_for_val, loader_for_test = dataset.set_up_dataset(train_dir, test_dir, batch_size=config.batch_size, chunk_length=config.seq_length, num_starts=config.num_starts, val_frac=0.1)
     
-    for k in range(len(train_set)):
-        A, MP, i_valid_spec, idx_select, name  = train_set[k]
-        print(A.shape)
-        print(MP.shape)
-        print(i_valid_spec.shape)
-        print(idx_select.shape)
-        print(len(name))
+    # for k in range(len(train_set)):
+    #     A, MP, i_valid_spec, idx_select, name  = train_set[k]
+    #     print(A.shape)
+    #     print(MP.shape)
+    #     print(i_valid_spec.shape)
+    #     print(idx_select.shape)
+    #     print(len(name))
         
+    A, MP, i_valid_spec, idx_select, name  = train_set[0]
     T, D = A.shape
     
     assert MP.shape[0] == T
@@ -193,9 +194,9 @@ def run_training():
     seq_length_processed = 0
     
     # uncomment to use multiple GPUs
-    # if device != torch.device('cpu') and torch.cuda.device_count() > 1:
-    #     model = nn.DataParallel(model)
-    #     print(f"Train model on %d GPUs ... " % torch.cuda.device_count())
+    if device != torch.device('cpu') and torch.cuda.device_count() > 1:
+        model = nn.DataParallel(model)
+        print(f"Train model on %d GPUs ... " % torch.cuda.device_count())
             
     model.to(device=device)
     
@@ -255,7 +256,7 @@ def run_training():
             wandb.log({"batch learning rate":lr})
                 
             tq.update(config.batch_size)
-            tq.set_description(f"loss:{loss.item()}, learning rate:{lr}, lr_mult:{lr_mult}")
+            tq.set_description(f"{e} - loss:{loss.item():.8f}, learning rate:{lr:.6f}, lr_mult:{lr_mult:.6f}")
             
             running_loss_training += loss.item()
             
@@ -287,7 +288,7 @@ def run_training():
                 
                 val_losses.append(val_loss.item())
             
-                f = plot_mp_prediction(A.cpu().numpy(), MP.cpu().numpy(), i_valid_spec.cpu().numpy(), idx_select.cpu().numpy(), wav.numpy(), name, y_hat.cpu().numpy())
+                f = dataset.plot_mp_prediction(A.cpu().numpy(), MP.cpu().numpy(), i_valid_spec.cpu().numpy(), idx_select.cpu().numpy(), name, output.cpu().numpy())
                 
                 f.savefig(f"{config.results_path}/validation_epoch_{e}_batch_{batch_num}.png")
                 
@@ -343,7 +344,7 @@ def run_training():
                 t1_test = time.time()    
                 test_bar.set_description(f"duration: {t1_test-t0_test:.1f}, batch: {it}, loss: {loss.item():.6f}")
             
-                f = plot_mp_prediction(A.cpu().numpy(), MP.cpu().numpy(), i_valid_spec.cpu().numpy(), idx_select.cpu().numpy(), wav.numpy(), name, y_hat.cpu().numpy())                
+                f = dataset.plot_mp_prediction(A.cpu().numpy(), MP.cpu().numpy(), i_valid_spec.cpu().numpy(), idx_select.cpu().numpy(), name, y_hat.cpu().numpy())                
                 f.savefig(f"{config.results_path}/test_batch_{batch_num}.png")
                 
                 wandb.log({"test plot": f})

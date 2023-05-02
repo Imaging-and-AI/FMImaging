@@ -116,43 +116,13 @@ class MPPredictor(nn.Module):
         
         # project outputs to output_size channel        
         x = self.layer_norm(x)
-        x = F.relu(self.output_proj1(x))
+        x = F.gelu(self.output_proj1(x), approximate='tanh')
         logits = self.output_proj2(x)
         
         return logits
     
 # -------------------------------------------
 
-class LossMPPrediction:
-    """
-    Loss for membrane potential prediction
-    """
-
-    def __init__(self):
-        self.mse_loss = nn.MSELoss()
-        self.l1_loss = nn.L1Loss()
-
-    def __call__(self, y_hat, y, i_valid_spec, idx_select):
-        """Compute prediction loss
-
-        Args:
-            y_hat ([B, T, 1]): logits from the model, predicted potential
-            y ([B, T]): membrane potential
-            i_valid_spec ([B, T]): time points for reliable waveform inputs
-            idx_select ([B, T]): time points selected for reliable membrane potential computation
-
-        Returns:
-            loss (tensor): L2+L1 loss
-        """
-        
-        idx_select = torch.flatten(idx_select)
-        y_hat = torch.flatten(y_hat)
-        y = torch.flatten(y)
-        
-        loss = torch.sqrt(self.mse_loss(y[idx_select==1], y_hat[idx_select==1])) + self.l1_loss(y[idx_select==1], y_hat[idx_select==1])
-        
-        return loss
-                
 class MSELossMPPrediction:
     """
     MSE loss for membrane potential prediction
@@ -210,7 +180,47 @@ class L1LossMPPrediction:
         loss = self.l1_loss(y[idx_select==1], y_hat[idx_select==1])
         
         return loss
-                        
+                   
+class TVLoss1D(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, y_hat):
+        B, T, C = y_hat.shape
+        tv = torch.pow( (y_hat[:,1:,:] - y_hat[:,:T-1,:]), 2).mean()
+        return tv
+    
+class LossMPPrediction:
+    """
+    Loss for membrane potential prediction
+    """
+
+    def __init__(self):
+        self.mse_loss = nn.MSELoss()
+        self.l1_loss = nn.L1Loss()
+        self.tv_loss = TVLoss1D()
+        
+    def __call__(self, y_hat, y, i_valid_spec, idx_select):
+        """Compute prediction loss
+
+        Args:
+            y_hat ([B, T, 1]): logits from the model, predicted potential
+            y ([B, T]): membrane potential
+            i_valid_spec ([B, T]): time points for reliable waveform inputs
+            idx_select ([B, T]): time points selected for reliable membrane potential computation
+
+        Returns:
+            loss (tensor): L2+L1 loss
+        """
+        
+        idx_select = torch.flatten(idx_select)
+        y_hat_1d = torch.flatten(y_hat)
+        y = torch.flatten(y)
+        
+        loss = torch.sqrt(self.mse_loss(y[idx_select==1], y_hat_1d[idx_select==1])) + self.l1_loss(y[idx_select==1], y_hat_1d[idx_select==1]) + self.tv_loss(y_hat)
+        
+        return loss               
+                            
 # ----------------------------------------------------------
 
 def main():
