@@ -5,6 +5,16 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "20", "PYDEVD_DISABLE_FILE_VALIDATION": "1"},
+            "args": []
+        },
+        {
             "name": "Cifar10_main",
             "type": "python",
             "request": "launch",
@@ -47,7 +57,7 @@
                 "--width", "128", "144",
                 "--num_epoch", "5",
                 "--save_cycle", "2",
-                "--device", "cuda",
+                "--device", "cuda:0",
                 "--check_path", "~/projects/STCNNT_2/checkpoints/",
                 "--log_path", "~/projects/STCNNT_2/logs/",
                 "--results_path", "~/projects/STCNNT_2/results/",
@@ -62,15 +72,5 @@
                 "--loss_weights","1.0","1.0","1.0","1.0"
             ]
         },
-        {
-            "name": "Python: Current File",
-            "type": "python",
-            "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal",
-            "justMyCode": true,
-            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "20", "PYDEVD_DISABLE_FILE_VALIDATION": "1"},
-            "args": []
-        }
     ]
 }
