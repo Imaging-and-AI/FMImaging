@@ -29,7 +29,9 @@ def arg_parser():
     parser = argparse.ArgumentParser("Argument parser for STCNNT MRI")
     parser.add_argument("--data_root", type=str, default=None, help='root folder for the data')
     parser.add_argument("--train_files", type=str, nargs='+', default=["train_3D_3T_retro_cine_2020_small.h5"], help='list of train h5files')
-    parser.add_argument("--test_files", type=str, nargs='+', default=["train_3D_3T_retro_cine_2020_small_test.h5"], help='list of test h5files')
+    parser.add_argument("--test_files", type=str, nargs='+', default=["train_3D_3T_retro_cine_2020_small_2DT_test.h5"], help='list of test h5files')
+    parser.add_argument("--train_data_types", type=str, nargs='+', default=["2dt"], help='the type of each train file: "2d", "2dt", "3d"')
+    parser.add_argument("--test_data_types", type=str, nargs='+', default=["2dt"], help='the type of each test file: "2d", "2dt", "3d"')
     parser = add_shared_args(parser=parser)
 
     # Noise Augmentation arguments

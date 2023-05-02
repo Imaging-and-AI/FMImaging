@@ -31,7 +31,7 @@ class MRI2DTDenoisingDatasetTrain():
     The extracted patch maintains the strict temporal consistency
     This dataset is for 2D+T training, where the temporal redundancy is strong
     """
-    def __init__(self, h5file, keys, time_cutout=30, cutout_shape=[64, 64], use_gmap=True,
+    def __init__(self, h5file, keys, data_type, time_cutout=30, cutout_shape=[64, 64], use_gmap=True,
                     use_complex=True, min_noise_level=1.0, max_noise_level=6.0,
                     matrix_size_adjust_ratio=[0.5, 0.75, 1.0, 1.25, 1.5],
                     kspace_filter_sigma=[0.8, 1.0, 1.5, 2.0, 2.25],
@@ -46,6 +46,7 @@ class MRI2DTDenoisingDatasetTrain():
         @args:
             - h5file (h5File list): list of h5files to load images from
             - keys (key list list): list of list of keys. One for each h5file
+            - data_type ("2d"|"2dt"|"3d"): type of mri data (TODO: implement this)
             - time_cutout (int): cutout size in time dimension
             - cutout_shape (int list): 2 values for patch cutout shape
             - use_gmap (bool): whether to load and return gmap
@@ -255,7 +256,7 @@ class MRI2DTDenoisingDatasetTest():
     Dataset for MRI denoising testing.
     Returns full images. No cutouts.
     """
-    def __init__(self, h5file, keys, use_gmap=True, use_complex=True):
+    def __init__(self, h5file, keys, data_type, use_gmap=True, use_complex=True):
         """
         Initilize the denoising dataset
         Loads and stores everything
@@ -264,6 +265,7 @@ class MRI2DTDenoisingDatasetTest():
         @args:
             - h5file (h5File list): list of h5files to load images from
             - keys (key list list): list of list of keys. One for every h5file
+            - data_type ("2d"|"2dt"|"3d"): type of mri data (TODO: implement this)
             - use_gmap (bool): whether to load and return gmap
             - use_complex (bool): whether to return complex image
         """
@@ -341,6 +343,8 @@ def load_mri_data(config):
         - data_root (str): main folder of the data
         - train_files (str list): names of h5files in dataroot for training
         - test_files (str list): names of h5files in dataroot for testing
+        - train_data_types ("2d"|"2dt"|"3d" list): type of each train data file
+        - test_data_types ("2d"|"2dt"|"3d" list): type of each test data file
         - time (int): cutout size in time dimension
         - height (int list): different height cutouts
         - width (int list): different width cutouts
@@ -363,7 +367,6 @@ def load_mri_data(config):
     test_keys = []
 
     train_paths = [os.path.join(c.data_root, path_x) for path_x in c.train_files]
-    test_paths = [os.path.join(c.data_root, path_x) for path_x in c.test_files]
 
     for file in train_paths:
         if not os.path.exists(file):
@@ -385,51 +388,39 @@ def load_mri_data(config):
             val_keys[-1] = keys[-1:]
         if len(test_keys[-1])==0:
             test_keys[-1] = keys[-1:]
-    
+
+    # common kwargs
+    kwargs = {
+        "time_cutout" : c.time,
+        "use_complex" : c.complex_i,
+        "min_noise_level" : c.min_noise_level,
+        "max_noise_level" : c.max_noise_level,
+        "matrix_size_adjust_ratio" : c.matrix_size_adjust_ratio,
+        "kspace_filter_sigma" : c.kspace_filter_sigma,
+        "pf_filter_ratio" : c.pf_filter_ratio,
+        "phase_resolution_ratio" : c.phase_resolution_ratio,
+        "readout_resolution_ratio" : c.readout_resolution_ratio
+    }
+
     train_set = []
     for hw in zip(c.height, c.width):
-        train_set.append(MRI2DTDenoisingDatasetTrain(h5file=h5files, keys=train_keys,
-                                                        time_cutout=c.time,
-                                                        cutout_shape=hw,
-                                                        use_complex=c.complex_i,
-                                                        min_noise_level=c.min_noise_level,
-                                                        max_noise_level=c.max_noise_level,
-                                                        matrix_size_adjust_ratio=c.matrix_size_adjust_ratio,
-                                                        kspace_filter_sigma=c.kspace_filter_sigma,
-                                                        pf_filter_ratio=c.pf_filter_ratio,
-                                                        phase_resolution_ratio=c.phase_resolution_ratio,
-                                                        readout_resolution_ratio=c.readout_resolution_ratio)
-        )
+        train_set.extend([MRI2DTDenoisingDatasetTrain(h5file=[h_file], keys=[train_keys[i]],
+                                                        data_type=c.train_data_types[i], cutout_shape=hw,
+                                                        **kwargs) for (i,h_file) in enumerate(h5files)])
 
-    if len(c.test_files) == 0: # no test case given so use some from train data
-        val_set = MRI2DTDenoisingDatasetTrain(h5file=h5files, keys=val_keys,
-                                                use_complex=c.complex_i,
-                                                time_cutout=c.time,
-                                                cutout_shape=[c.height[-1], c.width[-1]],
-                                                min_noise_level=c.min_noise_level,
-                                                max_noise_level=c.max_noise_level,
-                                                matrix_size_adjust_ratio=c.matrix_size_adjust_ratio,
-                                                kspace_filter_sigma=c.kspace_filter_sigma,
-                                                pf_filter_ratio=c.pf_filter_ratio,
-                                                phase_resolution_ratio=c.phase_resolution_ratio,
-                                                readout_resolution_ratio=c.readout_resolution_ratio)
+    if c.test_files is None: # no test case given so use some from train data
+        val_set = [MRI2DTDenoisingDatasetTrain(h5file=[h_file], keys=[val_keys[i]], data_type=c.train_data_types[i],
+                                                cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
+                                                for (i,h_file) in enumerate(h5files)]
 
-        test_set = MRI2DTDenoisingDatasetTrain(h5file=h5files, keys=test_keys,
-                                                use_complex=c.complex_i,
-                                                time_cutout=c.time,
-                                                cutout_shape=[c.height[-1], c.width[-1]],
-                                                min_noise_level=c.min_noise_level,
-                                                max_noise_level=c.max_noise_level,
-                                                matrix_size_adjust_ratio=c.matrix_size_adjust_ratio,
-                                                kspace_filter_sigma=c.kspace_filter_sigma,
-                                                pf_filter_ratio=c.pf_filter_ratio,
-                                                phase_resolution_ratio=c.phase_resolution_ratio,
-                                                readout_resolution_ratio=c.readout_resolution_ratio)
+        test_set = [MRI2DTDenoisingDatasetTrain(h5file=[h_file], keys=[test_keys[i]], data_type=c.train_data_types[i],
+                                                cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
+                                                for (i,h_file) in enumerate(h5files)]
     else: # test case is given. take part of it as val set
         test_h5files = []
-        test_keys = []
+        test_paths = [os.path.join(c.data_root, path_x) for path_x in c.test_files]
 
-        for file in test_paths:
+        for i, file in enumerate(test_paths):
             if not os.path.exists(file):
                 raise RuntimeError(f"File not found: {file}")
 
@@ -437,12 +428,19 @@ def load_mri_data(config):
             h5file = h5py.File(file, libver='earliest', mode='r')
             keys = list(h5file.keys())
 
-            test_h5files.append(h5file)
-            test_keys.append(keys)
+            test_h5files.append((h5file,keys,c.test_data_types[i]))
 
-        test_set = MRI2DTDenoisingDatasetTest(test_h5files, keys=test_keys, use_complex=c.complex_i)
+        test_set = [MRI2DTDenoisingDatasetTest([h_file], keys=[t_keys], data_type=d_type, use_complex=c.complex_i) for (h_file,t_keys,d_type) in test_h5files]
 
-        # take 5 samples of last file as val set
-        val_set = MRI2DTDenoisingDatasetTest([h5file], keys=[keys[:5]], use_complex=c.complex_i)
+        val_set = []
+        val_len = 0
+        val_len_lim = 8
+        per_file = 1 if len(test_h5files)>val_len_lim else val_len_lim//len(test_h5files)
+        # take 10 samples through all files for val set
+        for h_file,t_keys,d_type in test_h5files:
+            val_set.append(MRI2DTDenoisingDatasetTest([h_file], keys=[t_keys[:per_file]], data_type=d_type, use_complex=c.complex_i))
+            val_len += per_file
+            if val_len > val_len_lim:
+                break
 
     return train_set, val_set, test_set

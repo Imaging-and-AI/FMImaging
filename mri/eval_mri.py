@@ -34,7 +34,7 @@ def eval_test(model, config, test_set=None, device="cpu", id=""):
     @args:
         - model (torch model): model to be tested
         - config (Namespace): runtime namespace for setup
-        - test_set (torch Dataset): the data to test on
+        - test_set (torch Dataset list): the data to test on
         - device (torch.device): the device to run the test on
         - id (str): unique id to log and save results with
     @rets:
@@ -47,9 +47,9 @@ def eval_test(model, config, test_set=None, device="cpu", id=""):
     """
     c = config # shortening due to numerous uses
 
-    test_loader = DataLoader(dataset=test_set, batch_size=1, shuffle=False, sampler=None,
+    test_loader = [DataLoader(dataset=test_set_x, batch_size=1, shuffle=False, sampler=None,
                                 num_workers=c.num_workers, prefetch_factor=c.prefetch_factor,
-                                persistent_workers=c.num_workers>0)
+                                persistent_workers=c.num_workers>0) for test_set_x in test_set]
 
     loss_f = model.loss_f
 
@@ -75,13 +75,21 @@ def eval_test(model, config, test_set=None, device="cpu", id=""):
     cutout = (c.time, c.height[-1], c.width[-1])
     overlap = (c.time//4, c.height[-1]//4, c.width[-1]//4)
 
-    test_loader_iter = iter(test_loader)
-    total_iters = len(test_loader) if not c.debug else 5
+    test_loader_iter = [iter(test_loader_x) for test_loader_x in test_loader]
+    total_iters = sum([len(loader_x) for loader_x in test_loader])
+    total_iters = total_iters if not c.debug else min(5, total_iters)
+
     with tqdm(total=total_iters) as pbar:
 
         for idx in range(total_iters):
 
-            x, y, gmaps_median, noise_sigmas = next(test_loader_iter)
+            loader_ind = idx % len(test_loader_iter)
+            stuff = next(test_loader_iter[loader_ind], None)
+            while stuff is None:
+                del test_loader_iter[loader_ind]
+                loader_ind = idx % len(test_loader_iter)
+                stuff = next(test_loader_iter[loader_ind], None)
+            x, y, gmaps_median, noise_sigmas = stuff
             x = x.to(device)
             y = y.to(device)
 
