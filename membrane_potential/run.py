@@ -1,0 +1,3 @@
+# run the training
+
+python3 ./membrane_potential/main.py --run_name membrane_potential_prediction --batch_size 32 --num_starts 40 --num_epoch 200 --save_cycle 2 --weight_decay 0.1 --device cuda --check_path ~/projects/membrane_potential/checkpoints/ --log_path ~/projects/membrane_potential/logs/ --results_path ~/projects/membrane_potential/results/ --model_path ~/projects/membrane_potential/models/ --data_root /export/Lab-Xue/MembranePotential/experiments --global_lr 0.001 --n_embd 512
