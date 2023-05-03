@@ -95,18 +95,33 @@ def add_shared_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for S
 
     # base model arguments
     parser.add_argument("--channels", nargs='+', type=int, default=[16,32,64], help='number of channels in each layer')
+    
     parser.add_argument("--att_types", nargs='+', type=str, default=["T0T0T1"], help='types of attention modules and mixer. "T","G","L" for attention type followed by "0","1" for mixer')
+    parser.add_argument("--cell_type", type=str, default="sequential", help='cell type, sequential or parallel')
+    
     parser.add_argument("--C_in", type=int, default=3, help='number of channels in the input')
     parser.add_argument("--C_out", type=int, default=16, help='number of channels in the output')
+    
     parser.add_argument("--a_type", type=str, default="conv", help='type of attention in the spatial attention modules')
-    parser.add_argument("--window_size", type=int, default=16, help='size of window for local and global att')
+    
+    parser.add_argument("--window_size", type=int, default=64, help='size of window for spatial attention. This is the number of pixels in a window. Given image height and weight H and W, number of windows is H/windows_size * W/windows_size')
+    parser.add_argument("--patch_size", type=int, default=16, help='size of patch for spatial attention. This is the number of pixels in a patch. An image is first split into windows. Every window is further split into patches.')
+    
     parser.add_argument("--n_head", type=int, default=8, help='number of transformer heads')
     parser.add_argument("--kernel_size", type=int, default=3, help='size of the square kernel for CNN')
     parser.add_argument("--stride", type=int, default=1, help='stride for CNN (equal x and y)')
     parser.add_argument("--padding", type=int, default=1, help='padding for CNN (equal x and y)')
-    parser.add_argument("--stride_t", type=int, default=2, help='stride for temporal attention cnn (equal x and y)')
+    parser.add_argument("--stride_t", type=int, default=2, help='stride for temporal attention cnn (equal x and y)')   
+    parser.add_argument("--normalize_Q_K", type=bool, default=False, help='whether to normalize Q and K before computing attention matrix')
+
+    parser.add_argument("--att_dropout_p", type=float, default=0.0, help='pdrop for the attention coefficient matrix')
     parser.add_argument("--dropout_p", type=float, default=0.1, help='pdrop regulization in transformer')
+    
+    parser.add_argument("--att_with_output_proj", type=bool, default=True, help='whether to add output projection in attention layer')
+    parser.add_argument("--scale_ratio_in_mixer", type=float, default=4.0, help='the scaling ratio to increase/decrease dimensions in the mixer of an attention layer')
+    
     parser.add_argument("--norm_mode", type=str, default="instance2d", help='normalization mode: "layer", "batch2d", "instance2d", "batch3d", "instance3d"')
+    
     parser.add_argument("--residual", action="store_true", help='add long term residual connection')
     parser.add_argument("--is_causal", action="store_true", help='treat timed data as causal and mask future entries')
     parser.add_argument("--interp_align_c", action="store_true", help='align corners while interpolating')

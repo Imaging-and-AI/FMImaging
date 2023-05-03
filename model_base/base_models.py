@@ -29,7 +29,8 @@ Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
 from losses import *
-from attention_modules import *
+from imaging_attention import *
+from backbone import *
 from utils.utils import get_device, create_generic_class_str
 
 # -------------------------------------------------------------------------------------------------
@@ -165,6 +166,21 @@ class STCNNT_Base_Runtime(nn.Module):
         self.loss_f = Combined_Loss(self.config.losses, self.config.loss_weights,
                                     complex_i=self.config.complex_i, device=device)
 
+    def set_window_patch_sizes(self, kwargs, H, num_windows_h, num_patch, module_name=None):        
+        kwargs["window_size"] = H // self.num_windows_h
+        kwargs["patch_size"] = kwargs["window_size"] // num_patch
+        
+        kwargs["window_size"] = 1 if kwargs["window_size"]<1 else kwargs["window_size"]
+        kwargs["patch_size"] = 1 if kwargs["patch_size"]<1 else kwargs["patch_size"]
+        
+        info_str = f" --> image size {H} - windows size {kwargs['''window_size''']} - patch size {kwargs['''patch_size''']}"
+        if module_name is not None:
+            info_str = module_name + info_str
+            
+        print(info_str)
+        
+        return kwargs
+    
     def save(self, epoch):
         """
         Save model checkpoints
@@ -262,7 +278,12 @@ class CNNT_Unet(STCNNT_Base_Runtime):
             "n_head":c.n_head, "kernel_size":(c.kernel_size, c.kernel_size),\
             "stride":(c.stride, c.stride), "padding":(c.padding, c.padding),\
             "stride_t":(c.stride_t, c.stride_t), "norm_mode":c.norm_mode,\
-            "interpolate":"down", "interp_align_c":c.interp_align_c
+            "interpolate":"down", "interp_align_c":c.interp_align_c,
+            "cell_type": c.cell_type,
+            "normalize_Q_K": c.normalize_Q_K, 
+            "att_dropout_p": c.att_dropout_p,
+            "att_with_output_proj": c.att_with_output_proj, 
+            "scale_ratio_in_mixer": c.scale_ratio_in_mixer 
         }
 
         self.down1 = STCNNT_Block(**kwargs)
