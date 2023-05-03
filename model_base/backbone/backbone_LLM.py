@@ -28,10 +28,14 @@ Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
 from losses import *
-from attention_modules import *
+from imaging_attention import *
+from cells import *
+from blocks import *
 from utils.utils import get_device, model_info
 
-from base_models import STCNNT_Base_Runtime
+from backbone_base import STCNNT_Base_Runtime
+
+__all__ = ['STCNNT_LLMnet']
 
 # -------------------------------------------------------------------------------------------------
 # stcnnt LLMnet
@@ -59,7 +63,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
 
             - block_str (str | list of strings): order of attention types and mixer
                 format is list of XYXYXYXY...
-                - X is "L", "G" or "T" for attention type
+                - X is "L", "G" or "T" or "V" for attention type
                 - Y is "0" or "1" for with or without mixer
                 - requires len(att_types[i]) to be even
 
@@ -76,14 +80,19 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             - height (int list): expected heights of the input
             - width (int list): expected widths of the input
 
-            - a_type ("conv", "lin"):
-                type of attention in spatial heads
+            - a_type ("conv", "lin"): type of attention in spatial heads
+            - cell_type ("sequential", "parallel"): type of attention cell
             - window_size (int): size of window for local and global att
+            - patch_size (int): size of patch for local and global att
             - is_causal (bool): whether to mask attention to imply causality
             - n_head (int): number of heads in self attention
             - kernel_size, stride, padding (int, int): convolution parameters
             - stride_t (int): special stride for temporal attention k,q matrices
+            - normalize_Q_K (bool): whether to use layernorm to normalize Q and K, as in 22B ViT paper
+            - att_dropout_p (float): probability of dropout for attention coefficients
             - dropout (float): probability of dropout
+            - att_with_output_proj (bool): whether to add output projection in the attention layer
+            - scale_ratio_in_mixer (float): channel scaling ratio in the mixer
             - norm_mode ("layer", "batch", "instance"):
                 layer - norm along C, H, W; batch - norm along B*T; or instance norm along H, W for C
             - interp_align_c (bool):
@@ -123,24 +132,36 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
         self.add_skip_connections = add_skip_connections
 
         c = config
+
+        # compute number of windows and patches
+        self.num_windows_h = c.height[0]//c.window_size
+        self.num_windows_w = c.width[0]//c.window_size
+        self.num_patch = c.window_size//c.patch_size
+
         kwargs = {
-            "att_types":c.att_types[0],
             "C_in":c.C_in,
-            "C_out":c.channels[0],
+            "C_out":c.C,
             "H":c.height[0],
             "W":c.width[0],
-            "a_type":c.a_type,
+            "a_type":c.a_type,            
             "window_size": c.window_size,
+            "patch_size": c.patch_size,
             "is_causal":c.is_causal,
+            "dropout_p":c.dropout_p,
             "n_head":c.n_head,
             "kernel_size":(c.kernel_size, c.kernel_size),
             "stride":(c.stride, c.stride),
             "padding":(c.padding, c.padding),
             "stride_t":(c.stride_t, c.stride_t),
-            "dropout_p":c.dropout_p,
             "norm_mode":c.norm_mode,
             "interpolate":"none",
-            "interp_align_c":c.interp_align_c
+            "interp_align_c":c.interp_align_c,
+            
+            "cell_type": c.cell_type,
+            "normalize_Q_K": c.normalize_Q_K, 
+            "att_dropout_p": c.att_dropout_p,
+            "att_with_output_proj": c.att_with_output_proj, 
+            "scale_ratio_in_mixer": c.scale_ratio_in_mixer 
         }
 
         if num_stages >= 1:
@@ -149,6 +170,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
+            kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B0")
             kwargs["att_types"] = self.block_str[0]
             self.B0 = STCNNT_Block(**kwargs)
 
@@ -158,6 +180,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
+            kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B1")
             kwargs["att_types"] = self.block_str[1]
             self.B1 = STCNNT_Block(**kwargs)
 
@@ -167,6 +190,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 2*self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
+            kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B2")
             kwargs["att_types"] = self.block_str[2]
             self.B2 = STCNNT_Block(**kwargs)
 
@@ -176,6 +200,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 4*self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
+            kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B3")
             kwargs["att_types"] = self.block_str[3]
             self.B3 = STCNNT_Block(**kwargs)
 
@@ -185,6 +210,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 8*self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
+            kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B4")
             kwargs["att_types"] = self.block_str[4]
             self.B4 = STCNNT_Block(**kwargs)
 
@@ -195,7 +221,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
 
         if load and c.load_path is not None:
             self.load(device=device)
-
+    
     def forward(self, x):
         """
         @args:
@@ -246,13 +272,13 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
 
 def tests():
 
-    B,T,C,H,W = 1,8,1,256,256
+    B,T,C,H,W = 2,8,1,256,256
     test_in = torch.rand(B,T,C,H,W)
 
     config = Namespace()
     config.C = 16
-    config.num_stages = 3
-    config.block_str = 'T1L1G1T1L1G1T1L1G1T1L1G1T1L1G1'
+    config.num_stages = 4
+    config.block_str = 'T1L1G1T1L1G1T1L1G1'
     config.add_skip_connections = True
 
     # optimizer and scheduler
@@ -272,13 +298,15 @@ def tests():
     config.width = [W]
     config.batch_size = B
     config.time = T
-    config.norm_mode = "instance3d"
-    config.att_types = ["T0T1T0T1"]
+    config.norm_mode = "instance2d"
     config.a_type = "conv"
     config.is_causal = False
     config.n_head = 8
-    config.window_size = 32
     config.interp_align_c = True
+    
+    config.window_size = H//8
+    config.patch_size = H//32
+    
     # losses
     config.losses = ["mse"]
     config.loss_weights = [1.0]
@@ -291,6 +319,12 @@ def tests():
     config.optim = "adamw"
     config.scheduler = "StepLR"
 
+    config.cell_type = "sequential"
+    config.normalize_Q_K = True 
+    config.att_dropout_p = 0.0
+    config.att_with_output_proj = True 
+    config.scale_ratio_in_mixer  = 1.0
+    
     config.summary_depth = 4
 
     config.complex_i = False

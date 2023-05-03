@@ -8,6 +8,7 @@
 """
 
 import sys
+import copy
 
 import torch
 import torch.nn as nn
@@ -37,6 +38,11 @@ import matplotlib.pyplot as plt
 from model import *
 import dataset
 
+if "FMIMAGING_PROJECT_BASE" in os.environ:
+    project_base_dir = os.environ['FMIMAGING_PROJECT_BASE']
+else:
+    project_base_dir = '/export/Lab-Xue/projects'
+    
 # ----------------------------------
 def add_args():
     """Parse command-line arguments."""
@@ -81,19 +87,19 @@ def check_args(config):
         config.run_name = "membrane_potential"
         
     if config.data_root is None:
-        config.data_root = "./data"
+        config.data_root = os.path.join(project_base_dir,  "membrane_potential", "data")
         
     if config.log_path is None:
-        config.log_path = "./" + config.run_name + "/log"
+        config.log_path = os.path.join(project_base_dir,  "membrane_potential", "log")
         
     if config.results_path is None:
-        config.results_path = "./" + config.run_name + "/res"
+        config.results_path = os.path.join(project_base_dir,  "membrane_potential", "res")
         
     if config.model_path is None:
-        config.model_path = "./" + config.run_name + "/model"
+        config.model_path = os.path.join(project_base_dir,  "membrane_potential", "model")
         
     if config.check_path is None:
-        config.check_path = "./" + config.run_name + "/checkpoints"
+        config.check_path = os.path.join(project_base_dir,  "membrane_potential", "checkpoints")
     
     return config
 
@@ -291,8 +297,13 @@ def run_training():
                 f = dataset.plot_mp_prediction(A.cpu().numpy(), MP.cpu().numpy(), i_valid_spec.cpu().numpy(), idx_select.cpu().numpy(), name, output.cpu().numpy())
                 
                 f.savefig(f"{config.results_path}/validation_epoch_{e}_batch_{batch_num}.png")
+                wandb.log({"val plot": f})                                
                 
-                wandb.log({"val plot": f})
+                np.save(f"{config.results_path}/validation_epoch_{e}_batch_{batch_num}_A.npy", x.detach().cpu().numpy())
+                np.save(f"{config.results_path}/validation_epoch_{e}_batch_{batch_num}_MP.npy", MP.detach().cpu().numpy())
+                np.save(f"{config.results_path}/validation_epoch_{e}_batch_{batch_num}_i_valid_spec.npy", i_valid_spec.detach().cpu().numpy())
+                np.save(f"{config.results_path}/validation_epoch_{e}_batch_{batch_num}_idx_select.npy", idx_select.detach().cpu().numpy())
+                np.save(f"{config.results_path}/validation_epoch_{e}_batch_{batch_num}_output.npy", output.detach().cpu().numpy())
                 
         t1_val = time.time()
             
@@ -302,7 +313,7 @@ def run_training():
         # keep the best model, evaluated on the validation set
         if(best_val_loss>np.mean(val_losses)):
             best_val_loss = np.mean(val_losses)
-            best_model = model
+            best_model = copy.deepcopy(model)
         
         wandb.log({"epoch":e, "train loss":loss_train[e], "val loss":loss_val[e]})
                        
@@ -349,6 +360,12 @@ def run_training():
                 
                 wandb.log({"test plot": f})
                 
+                np.save(f"{config.results_path}/test_batch_{it}_A.npy", x.detach().cpu().numpy())
+                np.save(f"{config.results_path}/test_batch_{it}_MP.npy", MP.detach().cpu().numpy())
+                np.save(f"{config.results_path}/validation_batch_{it}_i_valid_spec.npy", i_valid_spec.detach().cpu().numpy())
+                np.save(f"{config.results_path}/validation_batch_{it}_idx_select.npy", idx_select.detach().cpu().numpy())
+                np.save(f"{config.results_path}/validation_batch_{it}_output.npy", output.detach().cpu().numpy())
+                
         test_loss /= len(loader_for_test)
     
     # ----------------------------------------------
@@ -362,7 +379,12 @@ def main():
     wandb.init(project=config.project, entity=config.wandb_entity, config=config, name=config.run_name, notes=config.run_notes)
 
     # perform training
-    m, loss_train, loss_val, test_results = run_training()
-        
+    best_model, loss_train, loss_val, test_results = run_training()
+    
+    if isinstance(best_model, nn.DataParallel):
+        best_model = best_model.module
+    
+    torch.save(best_model.cpu().state_dict(), os.path.join(config.model_path, "best_model.pbt"))
+            
 if __name__ == '__main__':
     main()

@@ -217,7 +217,7 @@ class LossMPPrediction:
         y_hat_1d = torch.flatten(y_hat)
         y = torch.flatten(y)
         
-        loss = torch.sqrt(self.mse_loss(y[idx_select==1], y_hat_1d[idx_select==1])) + self.l1_loss(y[idx_select==1], y_hat_1d[idx_select==1]) + self.tv_loss(y_hat)
+        loss = torch.sqrt(self.mse_loss(y[idx_select==1], y_hat_1d[idx_select==1])) + self.l1_loss(y[idx_select==1], y_hat_1d[idx_select==1]) + 5 * self.tv_loss(y_hat)
         
         return loss               
                             

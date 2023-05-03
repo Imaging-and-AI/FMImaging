@@ -4,18 +4,24 @@ Python script to run bash scripts in batches
 
 import itertools
 import subprocess
+import os
 
 # base command to run a file
 cmd = ["python3", "cifar10/main_cifar.py"]
 
+if "FMIMAGING_PROJECT_BASE" in os.environ:
+    project_base_dir = os.environ['FMIMAGING_PROJECT_BASE']
+else:
+    project_base_dir = '/export/Lab-Xue/projects'
+
 # unchanging paths
 cmd.extend([
     "--data_set", "cifar10",
-    "--data_root", "/home/rehmana2/projects/STCNNT_2/cifar10",
-    "--check_path", "/home/rehmana2/projects/STCNNT_2/checkpoints",
-    "--model_path", "/home/rehmana2/projects/STCNNT_2/models",
-    "--log_path", "/home/rehmana2/projects/STCNNT_2/logs",
-    "--results_path", "/home/rehmana2/projects/STCNNT_2/results"
+    "--data_root", os.path.join(project_base_dir, "cifar10", "data"),
+    "--check_path", os.path.join(project_base_dir, "cifar10", "checkpoints"),
+    "--model_path", os.path.join(project_base_dir, "cifar10", "models"),
+    "--log_path", os.path.join(project_base_dir, "cifar10", "logs"),
+    "--results_path", os.path.join(project_base_dir, "cifar10", "results")
 ])
 
 # unchanging commands
