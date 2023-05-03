@@ -1,9 +1,6 @@
 """
 Main base models of STCNNT
 Provides implementation for the following:
-    - STCNNT_Base_Runtime_Model:
-        - the base class that setups the optimizer scheduler and loss
-        - also provides ability to save and load checkpoints
     - CNNT_Unet:
         - the original CNNT_Unet
         - 2 down, 2 up and then a final layer
