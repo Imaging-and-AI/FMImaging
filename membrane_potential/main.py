@@ -39,9 +39,9 @@ from model import *
 import dataset
 
 if "FMIMAGING_PROJECT_BASE" in os.environ:
-    project_base_dir = '/export/Lab-Xue/projects'
-else:
     project_base_dir = os.environ['FMIMAGING_PROJECT_BASE']
+else:
+    project_base_dir = '/export/Lab-Xue/projects'
     
 # ----------------------------------
 def add_args():

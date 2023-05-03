@@ -23,10 +23,15 @@ sys.path.insert(1, str(Project_DIR))
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
+Project_DIR = Path(__file__).parents[2].resolve()
+sys.path.insert(1, str(Project_DIR))
+
 from utils.utils import create_generic_class_str
 
 from imaging_attention import *
 from cells import *
+
+__all__ = ['STCNNT_Block']
 
 # -------------------------------------------------------------------------------------------------
 # A block of multiple transformer cells stacked on top of each other

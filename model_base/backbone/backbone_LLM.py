@@ -28,12 +28,12 @@ Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
 from losses import *
-from attention_modules import *
+from imaging_attention import *
 from cells import *
 from blocks import *
 from utils.utils import get_device, model_info
 
-from base_models import STCNNT_Base_Runtime
+from backbone_base import STCNNT_Base_Runtime
 
 __all__ = ['STCNNT_LLMnet']
 
@@ -170,7 +170,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs = self.set_window_patch_sizes(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B0")
+            kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B0")
             kwargs["att_types"] = self.block_str[0]
             self.B0 = STCNNT_Block(**kwargs)
 
@@ -180,7 +180,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs = self.set_window_patch_sizes(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B1")
+            kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B1")
             kwargs["att_types"] = self.block_str[1]
             self.B1 = STCNNT_Block(**kwargs)
 
@@ -190,7 +190,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 2*self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs = self.set_window_patch_sizes(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B2")
+            kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B2")
             kwargs["att_types"] = self.block_str[2]
             self.B2 = STCNNT_Block(**kwargs)
 
@@ -200,7 +200,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 4*self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs = self.set_window_patch_sizes(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B3")
+            kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B3")
             kwargs["att_types"] = self.block_str[3]
             self.B3 = STCNNT_Block(**kwargs)
 
@@ -210,7 +210,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 8*self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs = self.set_window_patch_sizes(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B4")
+            kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B4")
             kwargs["att_types"] = self.block_str[4]
             self.B4 = STCNNT_Block(**kwargs)
 

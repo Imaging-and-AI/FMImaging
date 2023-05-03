@@ -107,6 +107,11 @@ def add_shared_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for S
     parser.add_argument("--window_size", type=int, default=64, help='size of window for spatial attention. This is the number of pixels in a window. Given image height and weight H and W, number of windows is H/windows_size * W/windows_size')
     parser.add_argument("--patch_size", type=int, default=16, help='size of patch for spatial attention. This is the number of pixels in a patch. An image is first split into windows. Every window is further split into patches.')
     
+    parser.add_argument("--window_sizing_method", type=str, default="mixed", help='method to adjust window_size betweem resolution levels, "keep_window_size", "keep_num_window", "mixed".\
+                        "keep_window_size" means number of pixels in a window is kept after down/upsample the image; \
+                        "keep_num_window" means the number of windows is kept after down/upsample the image; \
+                        "mixed" means interleave both methods.')
+    
     parser.add_argument("--n_head", type=int, default=8, help='number of transformer heads')
     parser.add_argument("--kernel_size", type=int, default=3, help='size of the square kernel for CNN')
     parser.add_argument("--stride", type=int, default=1, help='stride for CNN (equal x and y)')

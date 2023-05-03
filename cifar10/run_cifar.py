@@ -10,9 +10,9 @@ import os
 cmd = ["python3", "cifar10/main_cifar.py"]
 
 if "FMIMAGING_PROJECT_BASE" in os.environ:
-    project_base_dir = '/export/Lab-Xue/projects'
-else:
     project_base_dir = os.environ['FMIMAGING_PROJECT_BASE']
+else:
+    project_base_dir = '/export/Lab-Xue/projects'
 
 # unchanging paths
 cmd.extend([

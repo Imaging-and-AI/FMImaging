@@ -25,9 +25,14 @@ sys.path.insert(1, str(Project_DIR))
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
+Project_DIR = Path(__file__).parents[2].resolve()
+sys.path.insert(1, str(Project_DIR))
+
 from utils.utils import create_generic_class_str
 
 from imaging_attention import *
+
+__all__ = ['STCNNT_Cell', 'STCNNT_Parallel_Cell']
 
 # -------------------------------------------------------------------------------------------------
 # Complete transformer cell
@@ -188,10 +193,11 @@ class STCNNT_Cell(nn.Module):
 class STCNNT_Parallel_Cell(nn.Module):
     """
     Parallel transformer cell
-
-    x-> input_proj -> Norm -> attention -> + -> + -> logits
-     |                  |---> CNN mixer----|    |
-     |------------------------------------------|                   
+                   
+    x -> Norm ----> attention --> + -> + -> logits
+      |        |--> CNN mixer-----|    |
+      |----------> input_proj ----> ---|
+                    
     """
     def __init__(self, C_in, C_out=16, H=64, W=64, att_mode="temporal", a_type="conv",
                     window_size=8, patch_size=16, is_causal=False, n_head=8,
@@ -224,15 +230,15 @@ class STCNNT_Parallel_Cell(nn.Module):
         self.norm_mode = norm_mode
 
         if(norm_mode=="layer"):
-            self.n1 = nn.LayerNorm([C_out, H, W])
+            self.n1 = nn.LayerNorm([C_in, H, W])
         elif(norm_mode=="batch2d"):
-            self.n1 = BatchNorm2DExt(C_out)
+            self.n1 = BatchNorm2DExt(C_in)
         elif(norm_mode=="instance2d"):
-            self.n1 = InstanceNorm2DExt(C_out)
+            self.n1 = InstanceNorm2DExt(C_in)
         elif(norm_mode=="batch3d"):
-            self.n1 = BatchNorm3DExt(C_out)
+            self.n1 = BatchNorm3DExt(C_in)
         elif(norm_mode=="instance3d"):
-            self.n1 = InstanceNorm3DExt(C_out)
+            self.n1 = InstanceNorm3DExt(C_in)
         else:
             raise NotImplementedError(f"Norm mode not implemented: {norm_mode}")
 
@@ -242,7 +248,7 @@ class STCNNT_Parallel_Cell(nn.Module):
             self.input_proj = nn.Identity()
 
         if(att_mode=="temporal"):
-            self.attn = TemporalCnnAttention(C_in=C_out, C_out=C_out, 
+            self.attn = TemporalCnnAttention(C_in=C_in, C_out=C_out, 
                                              is_causal=is_causal, n_head=n_head, 
                                              kernel_size=kernel_size, stride=stride, padding=padding, 
                                              stride_t=stride_t, 
@@ -250,7 +256,7 @@ class STCNNT_Parallel_Cell(nn.Module):
                                              att_dropout_p=att_dropout_p, dropout_p=dropout_p, 
                                              att_with_output_proj=att_with_output_proj)
         elif(att_mode=="local"):
-            self.attn = SpatialLocalAttention(C_in=C_out, C_out=C_out, 
+            self.attn = SpatialLocalAttention(C_in=C_in, C_out=C_out, 
                                               wind_size=window_size, patch_size=patch_size,
                                               a_type=a_type, n_head=n_head, 
                                               kernel_size=kernel_size, stride=stride, padding=padding, 
@@ -258,7 +264,7 @@ class STCNNT_Parallel_Cell(nn.Module):
                                               att_dropout_p=att_dropout_p, dropout_p=dropout_p, 
                                               att_with_output_proj=att_with_output_proj)
         elif(att_mode=="global"):
-            self.attn = SpatialGlobalAttention(C_in=C_out, C_out=C_out, 
+            self.attn = SpatialGlobalAttention(C_in=C_in, C_out=C_out, 
                                                wind_size=window_size, patch_size=patch_size,
                                                a_type=a_type, n_head=n_head, 
                                                kernel_size=kernel_size, stride=stride, padding=padding, 
@@ -266,7 +272,7 @@ class STCNNT_Parallel_Cell(nn.Module):
                                                att_dropout_p=att_dropout_p, dropout_p=dropout_p, 
                                                att_with_output_proj=att_with_output_proj)
         elif(att_mode=="vit"):
-            self.attn = SpatialViTAttention(C_in=C_out, C_out=C_out, 
+            self.attn = SpatialViTAttention(C_in=C_in, C_out=C_out, 
                                             wind_size=window_size, a_type=a_type, n_head=n_head, 
                                             kernel_size=kernel_size, stride=stride, padding=padding, 
                                             normalize_Q_K=normalize_Q_K, 
@@ -279,7 +285,7 @@ class STCNNT_Parallel_Cell(nn.Module):
         if(self.with_mixer):
             mixer_cha = int(scale_ratio_in_mixer*C_out)
             self.mlp = nn.Sequential(
-                Conv2DExt(C_out, mixer_cha, kernel_size=kernel_size, stride=stride, padding=padding, bias=True),
+                Conv2DExt(C_in, mixer_cha, kernel_size=kernel_size, stride=stride, padding=padding, bias=True),
                 NewGELU(),
                 Conv2DExt(mixer_cha, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True),
                 nn.Dropout(dropout_p),
@@ -291,16 +297,15 @@ class STCNNT_Parallel_Cell(nn.Module):
     
     def forward(self, x):
 
-        x = self.input_proj(x)
-        
         x_normed = self.n1(x)
-        
-        y = self.attn(x_normed)        
+
+        y = self.attn(x_normed)
+
         if(self.with_mixer):
             res_mixer = self.mlp(x_normed)
             y += res_mixer        
 
-        y += x_normed
+        y += self.input_proj(x)
 
         return y
 
