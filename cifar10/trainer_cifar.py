@@ -49,6 +49,7 @@ def trainer(rank, model, config, train_set, val_set):
         optim = model.module.optim
         sched = model.module.sched
         stype = model.module.stype
+        loss_f = model.module.loss_f
         sampler = DistributedSampler(train_set)
         shuffle = False
     else:
@@ -58,6 +59,7 @@ def trainer(rank, model, config, train_set, val_set):
         optim = model.optim
         sched = model.sched
         stype = model.stype
+        loss_f = model.loss_f
         sampler = None
         shuffle = True
 
@@ -79,8 +81,7 @@ def trainer(rank, model, config, train_set, val_set):
         best_val_acc = 0
         best_model_wts = copy.deepcopy(model.module.state_dict() if c.ddp else model.state_dict())
 
-    # general cross entropy loss
-    loss_f = nn.CrossEntropyLoss()
+    # general cross entropy loss    
     train_loss = AverageMeter()
     train_acc = AverageMeter()
 
@@ -123,9 +124,9 @@ def trainer(rank, model, config, train_set, val_set):
                 if rank<=0: wandb.log({"running_train_loss": loss.item()})
 
                 pbar.update(1)
-                pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {loss.item():.4f}, lr {curr_lr:.8f}")
+                pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, loss {loss.item():.4f}, lr {curr_lr:.8f}")
 
-            pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {train_loss.avg:.4f}, {train_acc.avg:.4f}, lr {curr_lr:.8f}")
+            pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, loss {train_loss.avg:.4f}, acc {train_acc.avg:.4f}, lr {curr_lr:.8f}")
 
         if rank<=0: # main or master process
             # run eval, save and log in this process
@@ -138,8 +139,8 @@ def trainer(rank, model, config, train_set, val_set):
                 best_val_acc = val_acc
 
             # silently log to only the file as well
-            logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {train_loss.avg:.4f}, {train_acc.avg:.4f}, lr {curr_lr:.8f}")
-            logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, val, {val_loss_avg:.4f}, {val_acc:.4f}")
+            logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, loss {train_loss.avg:.4f}, acc {train_acc.avg:.4f}, lr {curr_lr:.8f}")
+            logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, val, loss {val_loss_avg:.4f}, acc {val_acc:.4f}")
 
             # save the model weights every save_cycle
             if epoch % c.save_cycle == 0:
@@ -215,7 +216,7 @@ def eval_val(model, config, val_set, epoch, device):
                                 num_workers=c.num_workers, prefetch_factor=c.prefetch_factor,
                                 persistent_workers=c.num_workers>0)
 
-    loss_f = nn.CrossEntropyLoss()
+    loss_f = model.loss_f
     val_loss = AverageMeter()
     val_acc = AverageMeter()
 
@@ -243,8 +244,8 @@ def eval_val(model, config, val_set, epoch, device):
             val_acc.update(correct/total, n=total)
 
             pbar.update(1)
-            pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {loss.item():.4f}, {correct/total:.4f}")
+            pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, loss {loss.item():.4f}, acc {correct/total:.4f}")
 
-        pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {val_loss.avg:.4f}, {val_acc.avg:.4f}")
+        pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, loss {val_loss.avg:.4f}, acc {val_acc.avg:.4f}")
 
     return val_loss.avg, val_acc.avg

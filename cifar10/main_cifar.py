@@ -5,6 +5,7 @@ import wandb
 import logging
 import argparse
 import torchvision as tv
+from torchvision import transforms
 import torch.multiprocessing as mp
 
 import sys
@@ -71,7 +72,7 @@ def transform_f(x):
     @rets:
         - x (torch.Tensor): 4D torch tensor [T,C,H,W], T=1
     """
-    return tv.transforms.ToTensor()(x).unsqueeze(0)
+    return x.unsqueeze(0)
 
 def create_dataset(config):
     """
@@ -89,18 +90,34 @@ def create_dataset(config):
     assert config.time==1 and config.height[0]==32 and config.width[0]==32,\
         f"For Cifar10, time height width should 1 32 32"
     
+    transform_train = transforms.Compose([transforms.Resize((32,32)),  #resises the image so it can be perfect for our model.
+                                      transforms.RandomHorizontalFlip(), # FLips the image w.r.t horizontal axis
+                                      transforms.RandomRotation(10),     #Rotates the image to a specified angel
+                                      transforms.RandomAffine(0, shear=10, scale=(0.8,1.2)), #Performs actions like zooms, change shear angles.
+                                      transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2), # Set the color params
+                                      transforms.ToTensor(), # comvert the image to tensor so that it can work with torch
+                                      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)), #Normalize all the images
+                                      transform_f
+                               ])
+    
+    transform = transforms.Compose([transforms.Resize((32,32)),
+                               transforms.ToTensor(),
+                               transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                               transform_f
+                               ])
+    
     if config.data_set == "cifar10":
         train_set = tv.datasets.CIFAR10(root=config.data_root, train=True,
-                                        download=True, transform=transform_f)
+                                        download=True, transform=transform_train)
 
         val_set = tv.datasets.CIFAR10(root=config.data_root, train=False,
-                                        download=True, transform=transform_f)
+                                        download=True, transform=transform)
     elif config.data_set == "cifar100":
         train_set = tv.datasets.CIFAR100(root=config.data_root, train=True,
-                                        download=True, transform=transform_f)
+                                        download=True, transform=transform_train)
 
         val_set = tv.datasets.CIFAR100(root=config.data_root, train=False,
-                                        download=True, transform=transform_f)
+                                        download=True, transform=transform)
     else:
         raise NotImplementedError(f"Data set not implemented:{config.data_set}")
 

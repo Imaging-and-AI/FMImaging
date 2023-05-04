@@ -29,33 +29,32 @@ cmd.extend([
     "--num_epochs", "100",
     "--batch_size", "128",
     "--device", "cuda",
-    "--norm_mode", "batch2d",
+    "--norm_mode", "instance2d",
     "--window_size", "8",
+    "--patch_size", "2",
+    "--global_lr", "1e-3",
+    "--clip_grad_norm", "1.0",
+    "--normalize_Q_K", "False",
+    "--weight_decay", "0.001",
+    "--project", "cifar",
+    "--num_workers", "8"
 ])
 
 # commands to iterate over
-att_types = ["temporal", "local", "global"]
-att_types = ["T0T0T0", "T1T1T1", "L0L0L0", "L1L1L1", "G0G0G0", "G1G1G1"]
+att_types = ['T1L1G1T1L1G1T1L1G1', "T0T0T0", "T1T1T1", "L0L0L0", "L1L1L1", "G0G0G0", "G1G1G1"]
 a_types = ["conv", "lin"]
 cells_in_a_block = 3
 for att_type, a_type in itertools.product(att_types, a_types):
     if 'T' in att_type and a_type == "lin": continue
 
     cmd_run = cmd.copy()
-    if att_type == "temporal":
-        cmd_run.extend([
-            "--run_name", f"{att_type}_{cells_in_a_block}",
-            "--run_notes", f"{cells_in_a_block}_{att_type}_cells_in_a_block_w_mixer",
-            "--att_types", f"{att_type}"
-        ])
-    else:
-        cmd_run.extend([
-            "--run_name", f"{att_type}_{cells_in_a_block}_{a_type}_inst_n",
-            "--run_notes", f"{cells_in_a_block}_{att_type}_cells_in_a_block_w_mixer_atype_{a_type}_w_instance_n",
-            "--a_type", f"{a_type}",
-            "--att_types", f"{att_type}"
-        ])
+    cmd_run.extend([
+        "--run_name", f"cifar_{att_type}_{cells_in_a_block}_{a_type}_inst_n",
+        "--run_notes", f"{cells_in_a_block}_{att_type}_cells_in_a_block_w_mixer_atype_{a_type}_w_instance_n",
+        "--a_type", f"{a_type}",
+        "--att_types", f"{att_type}"
+    ])
 
-    print(f"Running command:\n{cmd_run}")
+    print(f"Running command:\n{' '.join(cmd_run)}")
 
     subprocess.run(cmd_run)

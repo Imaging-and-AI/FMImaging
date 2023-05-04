@@ -25,6 +25,9 @@ sys.path.insert(1, str(Project_DIR))
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
+Project_DIR = Path(__file__).parents[2].resolve()
+sys.path.insert(1, str(Project_DIR))
+
 from losses import *
 from imaging_attention import *
 from backbone import *
@@ -97,26 +100,52 @@ class CNNT_Unet(STCNNT_Base_Runtime):
         assert len(c.channels) == 3, f"Requires exactly 3 channel numbers"
 
         kwargs = {
-            "att_types":c.att_types[0], "C_in":c.C_in, "C_out":c.channels[0],\
-            "H":c.height[0], "W":c.width[0], "a_type":c.a_type,\
-            "is_causal":c.is_causal, "dropout_p":c.dropout_p,\
-            "n_head":c.n_head, "kernel_size":(c.kernel_size, c.kernel_size),\
-            "stride":(c.stride, c.stride), "padding":(c.padding, c.padding),\
-            "stride_t":(c.stride_t, c.stride_t), "norm_mode":c.norm_mode,\
-            "interpolate":"down", "interp_align_c":c.interp_align_c,
+            "att_types":c.att_types[0], 
+            "C_in":c.C_in, 
+            "C_out":c.channels[0],\
+            "H":c.height[0], 
+            "W":c.width[0], 
+            "a_type":c.a_type,\
+            "is_causal":c.is_causal, 
+            "dropout_p":c.dropout_p,\
+            "n_head":c.n_head, 
+            "kernel_size":(c.kernel_size, c.kernel_size),\
+            "stride":(c.stride, c.stride), 
+            "padding":(c.padding, c.padding),\
+            "stride_t":(c.stride_t, c.stride_t), 
+            "norm_mode":c.norm_mode,\
+            "interpolate":"down", 
+            "interp_align_c":c.interp_align_c,
             "cell_type": c.cell_type,
             "normalize_Q_K": c.normalize_Q_K, 
             "att_dropout_p": c.att_dropout_p,
             "att_with_output_proj": c.att_with_output_proj, 
-            "scale_ratio_in_mixer": c.scale_ratio_in_mixer 
+            "scale_ratio_in_mixer": c.scale_ratio_in_mixer,
+            "window_size": c.window_size,
+            "patch_size": c.patch_size
         }
 
+        window_sizes = []
+        patch_sizes = []
+        
+        self.num_windows_h = c.height[0]//c.window_size
+        self.num_windows_w = c.width[0]//c.window_size
+        self.num_patch = c.window_size//c.patch_size
+        
+        kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"], self.num_windows_h, self.num_patch, module_name="D1")
+        window_sizes.append(kwargs["window_size"])
+        patch_sizes.append(kwargs["patch_size"])
+        
         self.down1 = STCNNT_Block(**kwargs)
 
         kwargs["C_in"] = c.channels[0]
         kwargs["C_out"] = c.channels[1]
         kwargs["H"] = c.height[0]//2
         kwargs["W"] = c.width[0]//2
+        kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"] , window_sizes[0], patch_sizes[0], module_name="D2")
+        window_sizes.append(kwargs["window_size"])
+        patch_sizes.append(kwargs["patch_size"])
+        
         self.down2 = STCNNT_Block(**kwargs)
         
         kwargs["C_in"] = c.channels[1]
@@ -124,12 +153,20 @@ class CNNT_Unet(STCNNT_Base_Runtime):
         kwargs["H"] = c.height[0]//4
         kwargs["W"] = c.width[0]//4
         kwargs["interpolate"] = "up"
+        
+        kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"], self.num_windows_h//2, self.num_patch, module_name="U1")
+        window_sizes.append(kwargs["window_size"])
+        patch_sizes.append(kwargs["patch_size"])
+        
         self.up1 = STCNNT_Block(**kwargs)
 
         kwargs["C_in"] = c.channels[1]+c.channels[2]
         kwargs["C_out"] = c.channels[2]
         kwargs["H"] = c.height[0]//2
         kwargs["W"] = c.width[0]//2
+        
+        kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"] , window_sizes[1], patch_sizes[1], module_name="U2")
+        
         self.up2 = STCNNT_Block(**kwargs)
 
         kwargs["C_in"] = c.channels[0]+c.channels[2]
@@ -137,21 +174,14 @@ class CNNT_Unet(STCNNT_Base_Runtime):
         kwargs["H"] = c.height[0]
         kwargs["W"] = c.width[0]
         kwargs["interpolate"] = "none"
+        
+        kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"], self.num_windows_h, self.num_patch, module_name="final")
+        
         self.final = STCNNT_Block(**kwargs)
 
         self.output_proj = Conv2DExt(c.channels[1], c.C_out, kernel_size=kwargs["kernel_size"],\
                                         stride=kwargs["stride"], padding=kwargs["padding"])
-        
-        # set up remaining stuff
-        self.residual = c.residual
-
-        device = get_device(device=c.device)
-        self.set_up_loss(device=device)
-        self.set_up_optim_and_scheduling(total_steps=total_steps)
-
-        if load and c.load_path is not None:
-            self.load(device=device)
-    
+           
     def forward(self, x):
         """
         @args:
@@ -174,16 +204,7 @@ class CNNT_Unet(STCNNT_Base_Runtime):
 
         output = self.output_proj(z1)
 
-        return x-output if self.residual else output
-    
-    def computer_loss(self, outputs, targets, weights=None):
-        """
-        @args:
-            - outputs (5D torch.Tensor): the predicted model out
-            - targets (5D torch.Tenosr): the targets to map to
-            - weights (torch.Tensor): weights to apply during loss computation
-        """
-        return self.loss_f(outputs, targets, weights)
+        return output
 
 # -------------------------------------------------------------------------------------------------
 
@@ -238,6 +259,8 @@ def tests():
     schedulers = ["StepLR", "OneCycleLR", "ReduceLROnPlateau"]
     all_w_decays = [True, False]
 
+    loss = nn.MSELoss()
+
     for optim in optims:
         for scheduler in schedulers:
             for all_w_decay in all_w_decays:
@@ -247,9 +270,9 @@ def tests():
 
                 cnnt_unet = CNNT_Unet(config=config)
                 test_out = cnnt_unet(test_in)
-                loss = cnnt_unet.computer_loss(test_out, test_in)
+                res = loss(test_out, test_in)
 
-                print(loss)
+                print(res)
 
     print("Passed optimizers and schedulers")
 
@@ -264,9 +287,9 @@ def tests():
 
             cnnt_unet = CNNT_Unet(config=config)
             test_out = cnnt_unet(test_in)
-            loss = cnnt_unet.computer_loss(test_out, test_in)
+            res = loss(test_out, test_in)
 
-            print(loss)
+            print(res)
 
     print("Passed channels and residual")
 
@@ -277,9 +300,9 @@ def tests():
 
         cnnt_unet = CNNT_Unet(config=config)
         test_out = cnnt_unet(test_in)
-        loss = cnnt_unet.computer_loss(test_out, test_in)
+        res = loss(test_out, test_in)
 
-        print(loss)
+        print(res)
 
     print("Passed devices")
 
