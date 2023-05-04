@@ -236,10 +236,12 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
         """
         super().__init__(config)
 
-        C = config.C
-        num_resolution_levels = config.num_resolution_levels
-        block_str = config.block_str
-        use_interpolation = config.use_interpolation
+        self.check_class_specific_parameters(config)
+
+        C = config.backbone_hrnet.C
+        num_resolution_levels = config.backbone_hrnet.num_resolution_levels
+        block_str = config.backbone_hrnet.block_str
+        use_interpolation = config.backbone_hrnet.use_interpolation
 
         assert C >= config.C_in, "Number of channels should be larger than C_in"
         assert num_resolution_levels <= 5 and num_resolution_levels>=2, "Maximal number of resolution levels is 5"
@@ -258,7 +260,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
 
         kwargs = {
             "C_in":c.C_in,
-            "C_out":c.C,
+            "C_out":C,
             "H":c.height[0],
             "W":c.width[0],
             "a_type":c.a_type,            
@@ -588,13 +590,18 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
         self.up_3 = _UpSample(N=3, C_in=8*self.C, C_out=self.C, with_conv=True)
         self.up_4 = _UpSample(N=4, C_in=16*self.C, C_out=self.C, with_conv=True)
 
-        # set up remaining stuff
-        device = get_device(device=c.device)
-        self.set_up_loss(device=device)
-        self.set_up_optim_and_scheduling(total_steps=total_steps)
 
-        if load and c.load_path is not None:
-            self.load(device=device)
+    def check_class_specific_parameters(self, config):
+        if not "backbone_hrnet" in config:
+            raise "backbone_hrnet namespace should exist in config"
+               
+        err_str = lambda x : f"{x} should exist in config.backbone_hrnet"        
+
+        para_list = ["C", "num_resolution_levels", "block_str", "use_interpolation"]        
+        for arg_name in para_list:            
+            if not arg_name in config.backbone_hrnet:
+                raise ValueError(err_str(arg_name))
+            
 
     def forward(self, x):
         """
@@ -780,16 +787,16 @@ def tests():
 
     config.summary_depth = 4
 
-    config.C = 16
-    config.num_resolution_levels = 4
-    config.block_str = ["T0L0G1T0L0G1",
+    config.backbone_hrnet = Namespace()
+    config.backbone_hrnet.C = 16
+    config.backbone_hrnet.num_resolution_levels = 4
+    config.backbone_hrnet.block_str = ["T0L0G1T0L0G1",
                         "T0L0G1T0L0G1",
                         "T1L1G1T1L1G1T1L1G1",
                         "T1L1G1T1L1G1T1L1G1T1L1G1",
                         "T1L1G1T1L1G1T1L1G1T1L1G1"]
 
-    config.use_interpolation = True
-    config.with_conv = True
+    config.backbone_hrnet.use_interpolation = True
 
     config.cell_type = "sequential"
     config.normalize_Q_K = True 

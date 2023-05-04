@@ -8,12 +8,15 @@ from pathlib import Path
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
-from model_base.base_models import *
+from model_base.backbone import *
+from model_base.backbone.backbone_small_unet import *
+from model_base.task_base import *
+from utils.utils import get_device
 
 # -------------------------------------------------------------------------------------------------
 # Cifar model
 
-class STCNNT_Cifar(STCNNT_Base_Runtime):
+class STCNNT_Cifar(STCNNT_Task_Base):
     """
     STCNNT for Cifar 10
     Built on top of CNNT Unet with additional layers for classification
@@ -23,6 +26,9 @@ class STCNNT_Cifar(STCNNT_Base_Runtime):
         @args:
             - config (Namespace): runtime namespace for setup
             - total_steps (int): total training steps. used for OneCycleLR
+            
+        Task specific args:
+            None
         """
         super().__init__(config=config)
 
@@ -41,6 +47,8 @@ class STCNNT_Cifar(STCNNT_Base_Runtime):
                                     nn.Linear(config.C_out*32*32, final_c))
 
         device = get_device(device=config.device)
+        
+        self.set_up_loss(device=device)
         self.set_up_optim_and_scheduling(total_steps=total_steps)
 
         if config.load_path is not None:
@@ -52,3 +60,14 @@ class STCNNT_Cifar(STCNNT_Base_Runtime):
             - x (5D torch.Tensor): input image
         """
         return self.head(self.unet(x))
+    
+    def set_up_loss(self, device="cpu"):
+        """
+        Sets up the loss
+        @args:
+            - device (torch.device): device to setup the loss on
+            
+        @output:
+            self.loss_f : cross entropy loss
+        """
+        self.loss_f = nn.CrossEntropyLoss()

@@ -199,7 +199,6 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             Shared arguments used in this model
             ---------------------------------------------------------------
             - C_in (int): number of input channels
-            - C_out (int): number of output channels
 
             - height (int list): expected heights of the input
             - width (int list): expected widths of the input
@@ -233,22 +232,18 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             - weight_decay (float): parameter for regularization
             - all_w_decay (bool): whether to separate model params for regularization
 
-            - losses (list of "ssim", "ssim3D", "l1", "mse"):
-                list of losses to be combined
-            - loss_weights (list of floats)
-                weights of the losses in the combined loss
-            - complex_i (bool): whether we are dealing with complex images or not
-
             - load_path (str): path to load the weights from
         """
         super().__init__(config)
 
-        C = config.C
-        num_resolution_levels = config.num_resolution_levels
-        block_str = config.block_str
-        use_unet_attention = config.use_unet_attention
-        use_interpolation = config.use_interpolation
-        with_conv = config.with_conv
+        self.check_class_specific_parameters(config)
+
+        C = config.backbone_unet.C
+        num_resolution_levels = config.backbone_unet.num_resolution_levels
+        block_str = config.backbone_unet.block_str
+        use_unet_attention = config.backbone_unet.use_unet_attention
+        use_interpolation = config.backbone_unet.use_interpolation
+        with_conv = config.backbone_unet.with_conv
 
         assert C >= config.C_in, "Number of channels should be larger than C_in"
         assert num_resolution_levels <= 5 and num_resolution_levels>=1, "Maximal number of resolution levels is 5"
@@ -269,7 +264,7 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
 
         kwargs = {
             "C_in":c.C_in,
-            "C_out":c.C,
+            "C_out":self.C,
             "H":c.height[0],
             "W":c.width[0],
             "a_type":c.a_type,            
@@ -477,14 +472,19 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             kwargs["att_types"] = self.block_str[0]
             self.U0 = STCNNT_Block(**kwargs)
 
-        # set up remaining stuff
-        device = get_device(device=c.device)
-        self.set_up_loss(device=device)
-        self.set_up_optim_and_scheduling(total_steps=total_steps)
 
-        if load and c.load_path is not None:
-            self.load(device=device)
+    def check_class_specific_parameters(self, config):
+        if not "backbone_unet" in config:
+            raise "backbone_unet namespace should exist in config"
+               
+        err_str = lambda x : f"{x} should exist in config.backbone_unet"        
 
+        para_list = ["C", "num_resolution_levels", "block_str", "use_unet_attention", "use_interpolation", "with_conv"]        
+        for arg_name in para_list:            
+            if not arg_name in config.backbone_unet:
+                raise ValueError(err_str(arg_name))
+            
+            
     def forward(self, x):
         """
         @args:
@@ -645,17 +645,19 @@ def tests():
 
     config.summary_depth = 4
 
-    config.C = 16
-    config.num_resolution_levels = 4
-    config.block_str = ["T1L1G1",
+    # model specific parameters
+    config.backbone_unet = Namespace()
+    config.backbone_unet.C = 16
+    config.backbone_unet.num_resolution_levels = 4
+    config.backbone_unet.block_str = ["T1L1G1",
                         "T1L1G1T1L1G1",
                         "T1L1G1T1L1G1T1L1G1",
                         "T1L1G1T1L1G1T1L1G1T1L1G1",
                         "T1L1G1T1L1G1T1L1G1T1L1G1"]
 
-    config.use_unet_attention = True
-    config.use_interpolation = True
-    config.with_conv = True
+    config.backbone_unet.use_unet_attention = True
+    config.backbone_unet.use_interpolation = True
+    config.backbone_unet.with_conv = True
 
     config.cell_type = "sequential"
     config.normalize_Q_K = True 

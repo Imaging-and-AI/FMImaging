@@ -41,6 +41,12 @@ def arg_parser():
     parser.add_argument('--phase_resolution_ratio', type=float, nargs='+', default=[1.0, 0.75, 0.65, 0.55], help='phase resolution ratio')
     parser.add_argument('--readout_resolution_ratio', type=float, nargs='+', default=[1.0, 0.75, 0.65, 0.55], help='readout resolution ratio')
 
+    # loss for mri
+    parser.add_argument("--losses", nargs='+', type=str, default=["mse", "l1"], help='Any combination of "mse", "l1", "sobel", "ssim", "ssim3D"')
+    parser.add_argument('--loss_weights', nargs='+', type=float, default=[1.0, 1.0], help='to balance multiple losses, weights can be supplied')
+    parser.add_argument("--complex_i", action="store_true", help='whether we are dealing with complex images or not')
+    parser.add_argument("--residual", action="store_true", help='add long term residual connection')
+
     return parser.parse_args()
 
 def check_args(config):

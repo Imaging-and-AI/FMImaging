@@ -118,10 +118,12 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
         """
         super().__init__(config)
 
-        C = config.C
-        num_stages = config.num_stages
-        block_str = config.block_str
-        add_skip_connections = config.add_skip_connections
+        self.check_class_specific_parameters(config)
+        
+        C = config.backbone_LLM.C
+        num_stages = config.backbone_LLM.num_stages
+        block_str = config.backbone_LLM.block_str
+        add_skip_connections = config.backbone_LLM.add_skip_connections
 
         assert C >= config.C_in, "Number of channels should be larger than C_in"
         assert num_stages <= 5 and num_stages>=2, "Maximal number of stages is 5"
@@ -140,7 +142,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
 
         kwargs = {
             "C_in":c.C_in,
-            "C_out":c.C,
+            "C_out":C,
             "H":c.height[0],
             "W":c.width[0],
             "a_type":c.a_type,            
@@ -213,15 +215,19 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B4")
             kwargs["att_types"] = self.block_str[4]
             self.B4 = STCNNT_Block(**kwargs)
-
-        # set up remaining stuff
-        device = get_device(device=c.device)
-        self.set_up_loss(device=device)
-        self.set_up_optim_and_scheduling(total_steps=total_steps)
-
-        if load and c.load_path is not None:
-            self.load(device=device)
+   
     
+    def check_class_specific_parameters(self, config):
+        if not "backbone_LLM" in config:
+            raise "backbone_LLM namespace should exist in config"
+               
+        err_str = lambda x : f"{x} should exist in config.backbone_LLM"        
+
+        para_list = ["C", "num_stages", "block_str", "add_skip_connections"]        
+        for arg_name in para_list:            
+            if not arg_name in config.backbone_LLM:
+                raise ValueError(err_str(arg_name))
+                
     def forward(self, x):
         """
         @args:
@@ -276,10 +282,12 @@ def tests():
     test_in = torch.rand(B,T,C,H,W)
 
     config = Namespace()
-    config.C = 16
-    config.num_stages = 4
-    config.block_str = 'T1L1G1T1L1G1T1L1G1'
-    config.add_skip_connections = True
+    
+    config.backbone_LLM = Namespace()
+    config.backbone_LLM.C = 16
+    config.backbone_LLM.num_stages = 4
+    config.backbone_LLM.block_str = 'T1L1G1T1L1G1T1L1G1'
+    config.backbone_LLM.add_skip_connections = True
 
     # optimizer and scheduler
     config.weight_decay = 0.1
