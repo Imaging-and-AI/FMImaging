@@ -69,6 +69,10 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
     parser.add_argument("--scheduler", type=str, default="ReduceLROnPlateau", help='"ReduceLROnPlateau", "StepLR", or "OneCycleLR"')
     parser.add_argument("--weight_decay", type=float, default=0.1, help='weight decay for regularization')
     parser.add_argument("--all_w_decay", action="store_true", help='option of having all params have weight decay. By default norms and embeddings do not')
+    parser.add_argument("--use_amp", action="store_true", help='whether to train with mixed precision')
+    parser.add_argument("--ddp", action="store_true", help='whether to train with ddp')
+    
+    parser.add_argument("--iters_to_accumulate", type=int, default=1, help='Number of iterations to accumulate gradients; if >1, gradient accumulation')
 
     # misc arguments
     parser.add_argument("--seed", type=int, default=3407, help='seed for randomization')
@@ -185,7 +189,11 @@ def setup_run(config, dirs=["log_path", "results_path", "model_path", "check_pat
     # setup dp/ddp
     config.device = get_device(config.device)
     world_size = torch.cuda.device_count()
-    config.ddp = config.device == "cuda" and world_size > 1
+    
+    if config.ddp:
+        if config.device == torch.device('cpu') or world_size <= 1:
+            config.ddp = False
+        
     config.world_size = world_size if config.ddp else -1
     logging.info(f"Training on {config.device} with ddp set to {config.ddp}")
     os.environ['MASTER_ADDR'] = 'localhost'

@@ -20,17 +20,19 @@
                 "--log_path", "/export/Lab-Xue/projects/cifar10/logs", 
                 "--results_path", "/export/Lab-Xue/projects/cifar10/results", 
                 "--num_epochs", "100", 
-                "--batch_size", "128", 
+                "--batch_size", "64", 
                 "--device", "cuda", 
-                "--norm_mode", "batch2d", 
+                "--norm_mode", "instance2d", 
                 "--window_size", "8", 
                 "--patch_size", "2", 
                 "--global_lr", "1e-3", 
                 "--run_name", "T1L1G1_3_conv_inst_n", 
                 "--run_notes", "3_T1L1G1_cells_in_a_block_w_mixer_atype_conv_w_instance_n", 
                 "--a_type", "conv", 
-                "--att_types", "T1L1G1",
-                "--project", "cifar"
+                "--att_types", "T1L1G1T1L1G1T1L1G1",
+                "--project", "cifar",
+                "--use_amp",
+                "--iters_to_accumulate", "1"
             ]
         },
         {

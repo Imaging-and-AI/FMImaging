@@ -26,8 +26,8 @@ cmd.extend([
 
 # unchanging commands
 cmd.extend([
-    "--num_epochs", "100",
-    "--batch_size", "128",
+    "--num_epochs", "150",
+    "--batch_size", "512",
     "--device", "cuda",
     "--norm_mode", "instance2d",
     "--window_size", "8",
@@ -35,13 +35,16 @@ cmd.extend([
     "--global_lr", "1e-3",
     "--clip_grad_norm", "1.0",
     "--normalize_Q_K", "False",
-    "--weight_decay", "0.001",
+    "--weight_decay", "0.0",
+    "--use_amp", "--ddp", 
+    "--iters_to_accumulate", "2",
     "--project", "cifar",
-    "--num_workers", "8"
+    "--num_workers", "8",
+    "--scheduler", "OneCycleLR"
 ])
 
 # commands to iterate over
-att_types = ['T1L1G1T1L1G1T1L1G1', "T0T0T0", "T1T1T1", "L0L0L0", "L1L1L1", "G0G0G0", "G1G1G1"]
+att_types = ['T1L1G1T1L1G1T1L1G1', 'L1G1L1G1L1G1', "T1T1T1", "L1L1L1", "G1G1G1", "T0T0T0", "L0L0L0", "G0G0G0"]
 a_types = ["conv", "lin"]
 cells_in_a_block = 3
 for att_type, a_type in itertools.product(att_types, a_types):

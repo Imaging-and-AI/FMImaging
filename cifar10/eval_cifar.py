@@ -57,35 +57,41 @@ def eval_test(model, config, test_set=None, device="cpu", id=""):
 
     test_loader_iter = iter(test_loader)
     total_iters = len(test_loader) if not c.debug else 10
-    with tqdm(total=total_iters) as pbar:
+    
+    with torch.no_grad():
+        with tqdm(total=total_iters) as pbar:
 
-        for idx in  np.arange(total_iters):
+            for idx in  np.arange(total_iters):
 
-            inputs, labels = next(test_loader_iter)
+                inputs, labels = next(test_loader_iter)
 
-            inputs = inputs.to(device)
-            labels = labels.to(device)
-            total = labels.size(0)
+                inputs = inputs.to(device)
+                labels = labels.to(device)
+                total = labels.size(0)
 
-            output = model(inputs)
-            loss = loss_f(output, labels)
-            test_loss.update(loss.item(), n=total)
+                with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
+                    output = model(inputs)
+                    loss = loss_f(output, labels)
+                    
+                test_loss.update(loss.item(), n=total)
 
-            _, predicted = torch.max(output.data, 1)
-            correct = (predicted == labels).sum().item()
-            test_acc.update(correct/total, n=total)
+                _, predicted = torch.max(output.data, 1)
+                correct = (predicted == labels).sum().item()
+                test_acc.update(correct/total, n=total)
 
-            wandb.log({f"running_test_loss_{id}": loss.item(),
-                        f"running_test_acc_{id}": correct/total})
+                wandb.log({f"running_test_loss_{id}": loss.item(),
+                            f"running_test_acc_{id}": correct/total})
 
-            pbar.update(1)
-            pbar.set_description(f"Test {id} {inputs.shape}, {loss.item():.4f}, {correct/total:.4f}")
+                pbar.update(1)
+                pbar.set_description(f"Test {id} {inputs.shape}, {loss.item():.4f}, {correct/total:.4f}")
 
-        pbar.set_description(f"Test {id} results: {test_loss.avg:.4f}, {test_acc.avg:.4f}")
+            pbar.set_description(f"Test {id} results: {test_loss.avg:.4f}, {test_acc.avg:.4f}")
+            
     logging.info(f"Test {id} results: {test_loss.avg:.4f}, {test_acc.avg:.4f}")
-    wandb.log({f"test_loss_avg_{id}":test_loss.avg,
-                f"test_acc_{id}":test_acc.avg})
-
+    
+    wandb.run.summary[f"test_loss_avg_{id}"] = test_loss.avg
+    wandb.run.summary[f"test_acc_{id}"] = test_acc.avg
+    
     save_results(config, test_loss.avg, test_acc.avg, id)
 
     return test_loss.avg, test_acc.avg
