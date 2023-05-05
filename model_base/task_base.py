@@ -137,13 +137,18 @@ class STCNNT_Task_Base(nn.Module, ABC):
             raise NotImplementedError(f"Optimizer not implemented: {c.optim}")
 
         if c.scheduler == "ReduceLROnPlateau":
-            self.sched = optim.lr_scheduler.ReduceLROnPlateau(self.optim, mode="min", factor=0.75,
-                                                                    patience=5, cooldown=3, min_lr=1e-8,
+            self.sched = optim.lr_scheduler.ReduceLROnPlateau(self.optim, mode="min", factor=c.scheduler.ReduceLROnPlateau.factor,
+                                                                    patience=c.scheduler.ReduceLROnPlateau.patience, 
+                                                                    cooldown=c.scheduler.ReduceLROnPlateau.cooldown, 
+                                                                    min_lr=c.scheduler.ReduceLROnPlateau.min_lr,
                                                                     verbose=True)
             self.stype = "ReduceLROnPlateau"
         elif c.scheduler == "StepLR":
-            self.sched = optim.lr_scheduler.StepLR(self.optim, step_size=5, gamma=0.8, last_epoch=-1,
-                                                        verbose=True)
+            self.sched = optim.lr_scheduler.StepLR(self.optim, 
+                                                   step_size=c.scheduler.StepLR.step_size, 
+                                                   gamma=c.scheduler.StepLR.gamma, 
+                                                   last_epoch=-1,
+                                                   verbose=True)
             self.stype = "StepLR"
         elif c.scheduler == "OneCycleLR":
             self.sched = optim.lr_scheduler.OneCycleLR(self.optim, max_lr=c.global_lr, total_steps=total_steps,

@@ -39,7 +39,7 @@ cmd.extend([
     "--iters_to_accumulate", "1",
     "--project", "cifar",
     "--num_workers", "8",
-    "--scheduler", "OneCycleLR",
+    "--scheduler", "ReduceLROnPlateau",
     
     "--backbone", "unet",
     
