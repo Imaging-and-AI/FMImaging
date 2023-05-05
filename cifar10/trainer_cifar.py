@@ -175,7 +175,7 @@ def trainer(rank, model, config, train_set, val_set):
                         "val_acc":val_acc})
 
             if stype == "ReduceLROnPlateau":
-                sched.step(val_acc)
+                sched.step(1.0 - val_acc)
             else: # stype == "StepLR"
                 sched.step()
 
