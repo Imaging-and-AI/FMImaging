@@ -129,7 +129,8 @@ def trainer(rank, model, config, train_set, val_set):
                     optim.zero_grad(set_to_none=True)
                     scaler.update()
                 
-                if stype == "OneCycleLR": sched.step()
+                    if stype == "OneCycleLR": sched.step()
+                    
                 curr_lr = optim.param_groups[0]['lr']
 
                 total=inputs.shape[0]
@@ -174,7 +175,7 @@ def trainer(rank, model, config, train_set, val_set):
                         "val_acc":val_acc})
 
             if stype == "ReduceLROnPlateau":
-                sched.step(val_loss_avg)
+                sched.step(val_acc)
             else: # stype == "StepLR"
                 sched.step()
 

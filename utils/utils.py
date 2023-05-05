@@ -58,9 +58,6 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
 
     # dataset arguments
     parser.add_argument("--ratio", nargs='+', type=int, default=[90,5,5], help='Ratio (as a percentage) for train/val/test divide of given data. Does allow for using partial dataset')    
-    parser.add_argument("--time", type=int, default=16, help='the max time series length of the input cutout')
-    parser.add_argument("--height", nargs='+', type=int, default=[64, 128], help='list of heights of the image patch cutout')
-    parser.add_argument("--width", nargs='+', type=int, default=[64, 128], help='list of widths of the image patch cutout')
 
     # dataloader arguments
     parser.add_argument("--num_workers", type=int, default=4, help='number of workers for data loading')
@@ -78,7 +75,15 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
     parser.add_argument("--beta1", type=float, default=0.90, help='beta1 for the default optimizer')
     parser.add_argument("--beta2", type=float, default=0.95, help='beta2 for the default optimizer')
 
-    parser.add_argument("--scheduler", type=str, default="ReduceLROnPlateau", help='"ReduceLROnPlateau", "StepLR", or "OneCycleLR"')
+    parser.add_argument("--scheduler_type", type=str, default="ReduceLROnPlateau", help='"ReduceLROnPlateau", "StepLR", or "OneCycleLR"')
+    parser.add_argument('--scheduler.ReduceLROnPlateau.patience', dest='scheduler.ReduceLROnPlateau.patience', type=int, default=3, help="number of epochs to wait for further lr adjustment")
+    parser.add_argument('--scheduler.ReduceLROnPlateau.cooldown', dest='scheduler.ReduceLROnPlateau.cooldown', type=int, default=1, help="after adjusting the lr, number of epochs to wait before another adjustment")
+    parser.add_argument('--scheduler.ReduceLROnPlateau.min_lr', dest='scheduler.ReduceLROnPlateau.min_lr', type=float, default=1e-8, help="minimal lr")
+    parser.add_argument('--scheduler.ReduceLROnPlateau.factor', dest='scheduler.ReduceLROnPlateau.factor', type=float, default=0.8, help="lr reduction factor, multiplication")
+        
+    parser.add_argument('--scheduler.StepLR.step_size', dest='scheduler.StepLR.step_size', type=int, default=5, help="number of epochs to reduce lr")
+    parser.add_argument('--scheduler.StepLR.gamma', dest='scheduler.StepLR.gamma', type=float, default=0.8, help="multiplicative factor of learning rate decay")
+        
     parser.add_argument("--weight_decay", type=float, default=0.1, help='weight decay for regularization')
     parser.add_argument("--all_w_decay", action="store_true", help='option of having all params have weight decay. By default norms and embeddings do not')
     parser.add_argument("--use_amp", action="store_true", help='whether to train with mixed precision')
@@ -109,7 +114,10 @@ def add_shared_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for S
     
     parser.add_argument("--C_in", type=int, default=3, help='number of channels in the input')
     parser.add_argument("--C_out", type=int, default=16, help='number of channels in the output')
-    
+    parser.add_argument("--time", type=int, default=16, help='training time series length')
+    parser.add_argument("--height", nargs='+', type=int, default=[64, 128], help='heights of the training images')
+    parser.add_argument("--width", nargs='+', type=int, default=[64, 128], help='widths of the training images')
+        
     parser.add_argument("--a_type", type=str, default="conv", help='type of attention in the spatial attention modules')
     
     parser.add_argument("--window_size", type=int, default=64, help='size of window for spatial attention. This is the number of pixels in a window. Given image height and weight H and W, number of windows is H/windows_size * W/windows_size')

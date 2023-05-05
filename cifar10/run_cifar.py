@@ -39,10 +39,17 @@ cmd.extend([
     "--iters_to_accumulate", "1",
     "--project", "cifar",
     "--num_workers", "8",
-    "--scheduler", "OneCycleLR",
     
-    "--backbone", "unet",
+    "--scheduler_type", "ReduceLROnPlateau",
     
+    "--scheduler.ReduceLROnPlateau.patience", "3",
+    "--scheduler.ReduceLROnPlateau.cooldown", "1",
+    "--scheduler.ReduceLROnPlateau.min_lr", "1e-8",
+    "--scheduler.ReduceLROnPlateau.factor", "0.8",
+        
+    "--scheduler.StepLR.step_size", "5",
+    "--scheduler.StepLR.gamma", "0.8",
+       
     "--backbone_hrnet.C", "32",
     "--backbone_hrnet.num_resolution_levels", "2",
     "--backbone_hrnet.block_str", "T1L1G1", "T1L1G1",
@@ -68,10 +75,10 @@ cmd.extend([
 ])
 
 # test backbones
-backbone = ['unet', 'hrnet', 'LLM', 'small_unet']
+backbone = ['hrnet', 'unet', 'LLM', 'small_unet']
 block_strs = [
-                [["T1L1G1", "T1L1G1", "T1L1G1"], ["T1T1T1", "T1T1T1", "T1T1T1"], ["L1G1", "L1G1", "L1G1"], ["L1L1", "L1L1", "L1L1"], ["G1G1", "G1G1", "G1G1"] ], 
-                [["T1L1G1", "T1L1G1"], ["T1T1T1", "T1T1T1"], ["L1G1", "L1G1"] ], 
+                [["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"], ["T1L1G1", "T1L1G1", "T1L1G1"], ["T1T1T1", "T1T1T1", "T1T1T1"], ["L1G1", "L1G1", "L1G1"], ["L1L1", "L1L1", "L1L1"], ["G1G1", "G1G1", "G1G1"] ], 
+                [["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"], ["T1L1G1", "T1L1G1"], ["T1T1T1", "T1T1T1"], ["L1G1", "L1G1"] ], 
                 [["T1L1G1", "T1L1G1"], ["T1T1T1", "T1T1T1"], ["L1G1", "L1G1"] ] , 
                 [["T1L1G1", "T1L1G1", "T1L1G1"], ["T1T1T1", "T1T1T1", "T1T1T1"], ["L1G1", "L1G1", "L1G1"] ], 
             ]

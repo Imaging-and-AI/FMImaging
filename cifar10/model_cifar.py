@@ -86,7 +86,10 @@ class STCNNT_Cifar(STCNNT_Task_Base):
         """
         res_pre = self.pre(x)
         res_backbone = self.backbone(res_pre)
-        logits = self.post(res_backbone)
+        if isinstance(res_backbone, tuple):
+            logits = self.post(res_backbone[0])
+        else:
+            logits = self.post(res_backbone)
         return logits
     
     def set_up_loss(self, device="cpu"):
