@@ -47,7 +47,10 @@ def arg_parser():
     parser.add_argument("--complex_i", action="store_true", help='whether we are dealing with complex images or not')
     parser.add_argument("--residual", action="store_true", help='add long term residual connection')
 
-    return parser.parse_args()
+    ns = Nestedspace()
+    args = parser.parse_args(namespace=ns)
+    
+    return args
 
 def check_args(config):
     """

@@ -75,7 +75,7 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
     parser.add_argument("--beta1", type=float, default=0.90, help='beta1 for the default optimizer')
     parser.add_argument("--beta2", type=float, default=0.95, help='beta2 for the default optimizer')
 
-    parser.add_argument("--scheduler", type=str, default="ReduceLROnPlateau", help='"ReduceLROnPlateau", "StepLR", or "OneCycleLR"')
+    parser.add_argument("--scheduler_type", type=str, default="ReduceLROnPlateau", help='"ReduceLROnPlateau", "StepLR", or "OneCycleLR"')
     parser.add_argument('--scheduler.ReduceLROnPlateau.patience', dest='scheduler.ReduceLROnPlateau.patience', type=int, default=3, help="number of epochs to wait for further lr adjustment")
     parser.add_argument('--scheduler.ReduceLROnPlateau.cooldown', dest='scheduler.ReduceLROnPlateau.cooldown', type=int, default=1, help="after adjusting the lr, number of epochs to wait before another adjustment")
     parser.add_argument('--scheduler.ReduceLROnPlateau.min_lr', dest='scheduler.ReduceLROnPlateau.min_lr', type=float, default=1e-8, help="minimal lr")

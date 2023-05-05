@@ -77,57 +77,59 @@ def eval_test(model, config, test_set=None, device="cpu", id=""):
 
     test_loader_iter = iter(test_loader)
     total_iters = len(test_loader) if not c.debug else 5
-    with tqdm(total=total_iters) as pbar:
+    
+    with torch.no_grad():
+        with tqdm(total=total_iters) as pbar:
 
-        for idx in range(total_iters):
+            for idx in range(total_iters):
 
-            x, y, gmaps_median, noise_sigmas = next(test_loader_iter)
-            x = x.to(device)
-            y = y.to(device)
+                x, y, gmaps_median, noise_sigmas = next(test_loader_iter)
+                x = x.to(device)
+                y = y.to(device)
 
-            try:
-                _, output = running_inference(model, x, cutout=cutout, overlap=overlap, device=device)
-            except:
-                _, output = running_inference(model, x, cutout=cutout, overlap=overlap, device="cpu")
-                y = y.to("cpu")
+                try:
+                    _, output = running_inference(model, x, cutout=cutout, overlap=overlap, device=device)
+                except:
+                    _, output = running_inference(model, x, cutout=cutout, overlap=overlap, device="cpu")
+                    y = y.to("cpu")
 
-            loss = loss_f(output, y)
+                loss = loss_f(output, y)
 
-            mse_loss = mse_loss_func(output, y).item()
-            l1_loss = l1_loss_func(output, y).item()
-            ssim_loss = ssim_loss_func(output, y).item()
-            ssim3D_loss = ssim3D_loss_func(output, y).item()
-            psnr = psnr_func(output, y).item()
+                mse_loss = mse_loss_func(output, y).item()
+                l1_loss = l1_loss_func(output, y).item()
+                ssim_loss = ssim_loss_func(output, y).item()
+                ssim3D_loss = ssim3D_loss_func(output, y).item()
+                psnr = psnr_func(output, y).item()
 
-            total = x.shape[0]
+                total = x.shape[0]
 
-            test_loss_meter.update(loss.item(), n=total)
-            test_mse_meter.update(mse_loss, n=total)
-            test_l1_meter.update(l1_loss, n=total)
-            test_ssim_meter.update(ssim_loss, n=total)
-            test_ssim3D_meter.update(ssim3D_loss, n=total)
-            test_psnr_meter.update(psnr, n=total)
+                test_loss_meter.update(loss.item(), n=total)
+                test_mse_meter.update(mse_loss, n=total)
+                test_l1_meter.update(l1_loss, n=total)
+                test_ssim_meter.update(ssim_loss, n=total)
+                test_ssim3D_meter.update(ssim3D_loss, n=total)
+                test_psnr_meter.update(psnr, n=total)
 
-            wandb.log({f"running_test_loss_{id}": loss.item(),
-                        f"running_test_mse_loss_{id}": mse_loss,
-                        f"running_test_l1_loss_{id}": l1_loss,
-                        f"running_test_ssim_loss_{id}": ssim_loss,
-                        f"running_test_ssim3D_loss_{id}": ssim3D_loss,
-                        f"running_test_psnr_{id}": psnr})
+                wandb.log({f"running_test_loss_{id}": loss.item(),
+                            f"running_test_mse_loss_{id}": mse_loss,
+                            f"running_test_l1_loss_{id}": l1_loss,
+                            f"running_test_ssim_loss_{id}": ssim_loss,
+                            f"running_test_ssim3D_loss_{id}": ssim3D_loss,
+                            f"running_test_psnr_{id}": psnr})
 
-            pbar.update(1)
-            pbar.set_description(f"Test, {x.shape}, "+
-                                    f"{loss.item():.4f}, {mse_loss:.4f}, {l1_loss:.4f}, "+
-                                    f"{ssim_loss:.4f}, {ssim3D_loss:.4f}, {psnr:.4f},")
+                pbar.update(1)
+                pbar.set_description(f"Test, {x.shape}, "+
+                                        f"{loss.item():.4f}, {mse_loss:.4f}, {l1_loss:.4f}, "+
+                                        f"{ssim_loss:.4f}, {ssim3D_loss:.4f}, {psnr:.4f},")
 
-            save_image(test_results_dir, c.complex_i, idx,\
-                        x.cpu().detach().numpy(),\
-                        output.cpu().detach().numpy(),\
-                        y.cpu().detach().numpy())
+                save_image(test_results_dir, c.complex_i, idx,\
+                            x.cpu().detach().numpy(),\
+                            output.cpu().detach().numpy(),\
+                            y.cpu().detach().numpy())
 
-        pbar.set_description(f"Test, {x.shape}, {test_loss_meter.avg:.4f}, "+
-                                f"{test_mse_meter.avg:.4f}, {test_l1_meter.avg:.4f}, {test_ssim_meter.avg:.4f}, "+
-                                f"{test_ssim3D_meter.avg:.4f}, {test_psnr_meter.avg:.4f}")
+            pbar.set_description(f"Test, {x.shape}, {test_loss_meter.avg:.4f}, "+
+                                    f"{test_mse_meter.avg:.4f}, {test_l1_meter.avg:.4f}, {test_ssim_meter.avg:.4f}, "+
+                                    f"{test_ssim3D_meter.avg:.4f}, {test_psnr_meter.avg:.4f}")
 
     logging.getLogger("file_only").info(f"Test, {x.shape}, {test_loss_meter.avg:.4f}, "+
                                         f"{test_mse_meter.avg:.4f}, {test_l1_meter.avg:.4f}, {test_ssim_meter.avg:.4f}, "+
