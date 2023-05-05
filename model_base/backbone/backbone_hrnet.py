@@ -13,7 +13,7 @@ Please ref to the project page for the network design.
 
 import os
 import sys
-import logging
+import argparse
 from collections import OrderedDict
 
 import torch
@@ -163,12 +163,10 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
     This class implemented the stcnnt version of HRnet with maximal 5 levels.
     """
 
-    def __init__(self, config, total_steps=1, load=False) -> None:
+    def __init__(self, config) -> None:
         """
         @args:
             - config (Namespace): runtime namespace for setup
-            - total_steps (int): total training steps. used for OneCycleLR
-            - load (bool): whether to try loading from config.load_path or not
 
         @args (from config):
             ---------------------------------------------------------------
@@ -589,7 +587,6 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
         self.up_2 = _UpSample(N=2, C_in=4*self.C, C_out=self.C, with_conv=True)
         self.up_3 = _UpSample(N=3, C_in=8*self.C, C_out=self.C, with_conv=True)
         self.up_4 = _UpSample(N=4, C_in=16*self.C, C_out=self.C, with_conv=True)
-
 
     def check_class_specific_parameters(self, config):
         if not "backbone_hrnet" in config:

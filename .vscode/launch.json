@@ -13,26 +13,7 @@
             "justMyCode": true,
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
             "args": [
-                "--data_set", "cifar10", 
-                "--data_root", "/export/Lab-Xue/projects/cifar10/data", 
-                "--check_path", "/export/Lab-Xue/projects/cifar10/checkpoints", 
-                "--model_path", "/export/Lab-Xue/projects/cifar10/models", 
-                "--log_path", "/export/Lab-Xue/projects/cifar10/logs", 
-                "--results_path", "/export/Lab-Xue/projects/cifar10/results", 
-                "--num_epochs", "100", 
-                "--batch_size", "64", 
-                "--device", "cuda", 
-                "--norm_mode", "instance2d", 
-                "--window_size", "8", 
-                "--patch_size", "2", 
-                "--global_lr", "1e-3", 
-                "--run_name", "T1L1G1_3_conv_inst_n", 
-                "--run_notes", "3_T1L1G1_cells_in_a_block_w_mixer_atype_conv_w_instance_n", 
-                "--a_type", "conv", 
-                "--att_types", "T1L1G1T1L1G1T1L1G1",
-                "--project", "cifar",
-                "--use_amp",
-                "--iters_to_accumulate", "1"
+                "--data_set", "cifar10", "--data_root", "/export/Lab-Xue/projects/cifar10/data", "--check_path", "/export/Lab-Xue/projects/cifar10/checkpoints", "--model_path", "/export/Lab-Xue/projects/cifar10/models", "--log_path", "/export/Lab-Xue/projects/cifar10/logs", "--results_path", "/export/Lab-Xue/projects/cifar10/results", "--num_epochs", "100", "--batch_size", "128", "--device", "cuda", "--norm_mode", "instance2d", "--window_size", "8", "--patch_size", "2", "--global_lr", "1e-3", "--clip_grad_norm", "1.0", "--normalize_Q_K", "--weight_decay", "0.0", "--use_amp", "--ddp", "--iters_to_accumulate", "1", "--project", "cifar", "--num_workers", "8", "--scheduler", "OneCycleLR", "--backbone", "unet", "--backbone_hrnet.C", "32", "--backbone_hrnet.num_resolution_levels", "2", "--backbone_hrnet.block_str", "T1L1G1", "T1L1G1", "--backbone_hrnet.use_interpolation", "True", "--backbone_unet.C", "32", "--backbone_unet.num_resolution_levels", "2", "--backbone_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1", "--backbone_unet.use_unet_attention", "True", "--backbone_unet.use_interpolation", "True", "--backbone_unet.with_conv", "True", "--backbone_LLM.C", "32", "--backbone_LLM.num_stages", "3", "--backbone_LLM.block_str", "T1L1G1", "T1L1G1", "T1L1G1", "--backbone_LLM.add_skip_connections", "True", "--backbone_small_unet.channels", "16", "32", "64", "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1", "--run_name", "cifar_unet_conv_sequential_qknorm_True_block_str_T1L1G1_T1L1G1_T1L1G1", "--run_notes", "backbone_unet_conv_sequential_qknorm_True_block_str_T1L1G1_T1L1G1_T1L1G1", "--backbone", "unet", "--a_type", "conv", "--cell_type", "sequential", "--normalize_Q_K", "--backbone_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1"
             ]
         },
         {

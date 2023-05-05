@@ -45,7 +45,7 @@ class CNNT_Unet(STCNNT_Base_Runtime):
     Final layer does not interpolate
     Instead uses output projection to get desired output channels
     """
-    def __init__(self, config, total_steps=1, load=False) -> None:
+    def __init__(self, config) -> None:
         """
         @args:
             - config (Namespace): runtime namespace for setup
@@ -95,14 +95,19 @@ class CNNT_Unet(STCNNT_Base_Runtime):
 
         c = config # shortening due to numerous uses
 
+        block_str = c.backbone_small_unet.block_str
+        block_str = block_str if isinstance(block_str, list) else [block_str for n in range(3)] # with bridge
+
+        channels = c.backbone_small_unet.channels
+
         for h in c.height: assert not h % 8, f"height {h} should be divisible by 8"
         for w in c.width: assert not w % 8, f"width {w} should be divisible by 8"
-        assert len(c.channels) == 3, f"Requires exactly 3 channel numbers"
-
+        assert len(channels) == 3, f"Requires exactly 3 channel numbers"
+        
         kwargs = {
-            "att_types":c.att_types[0], 
+            "att_types":block_str[0], 
             "C_in":c.C_in, 
-            "C_out":c.channels[0],\
+            "C_out":channels[0],\
             "H":c.height[0], 
             "W":c.width[0], 
             "a_type":c.a_type,\
@@ -136,20 +141,21 @@ class CNNT_Unet(STCNNT_Base_Runtime):
         window_sizes.append(kwargs["window_size"])
         patch_sizes.append(kwargs["patch_size"])
         
+        kwargs["att_types"] = block_str[0]
         self.down1 = STCNNT_Block(**kwargs)
 
-        kwargs["C_in"] = c.channels[0]
-        kwargs["C_out"] = c.channels[1]
+        kwargs["C_in"] = channels[0]
+        kwargs["C_out"] = channels[1]
         kwargs["H"] = c.height[0]//2
         kwargs["W"] = c.width[0]//2
         kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"] , window_sizes[0], patch_sizes[0], module_name="D2")
         window_sizes.append(kwargs["window_size"])
         patch_sizes.append(kwargs["patch_size"])
-        
+        kwargs["att_types"] = block_str[1]
         self.down2 = STCNNT_Block(**kwargs)
         
-        kwargs["C_in"] = c.channels[1]
-        kwargs["C_out"] = c.channels[2]
+        kwargs["C_in"] = channels[1]
+        kwargs["C_out"] = channels[2]
         kwargs["H"] = c.height[0]//4
         kwargs["W"] = c.width[0]//4
         kwargs["interpolate"] = "up"
@@ -157,29 +163,29 @@ class CNNT_Unet(STCNNT_Base_Runtime):
         kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"], self.num_windows_h//2, self.num_patch, module_name="U1")
         window_sizes.append(kwargs["window_size"])
         patch_sizes.append(kwargs["patch_size"])
-        
+        kwargs["att_types"] = block_str[-1]
         self.up1 = STCNNT_Block(**kwargs)
 
-        kwargs["C_in"] = c.channels[1]+c.channels[2]
-        kwargs["C_out"] = c.channels[2]
+        kwargs["C_in"] = channels[1]+channels[2]
+        kwargs["C_out"] = channels[2]
         kwargs["H"] = c.height[0]//2
         kwargs["W"] = c.width[0]//2
         
         kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"] , window_sizes[1], patch_sizes[1], module_name="U2")
-        
+        kwargs["att_types"] = block_str[1]
         self.up2 = STCNNT_Block(**kwargs)
 
-        kwargs["C_in"] = c.channels[0]+c.channels[2]
-        kwargs["C_out"] = c.channels[1]
+        kwargs["C_in"] = channels[0]+channels[2]
+        kwargs["C_out"] = channels[1]
         kwargs["H"] = c.height[0]
         kwargs["W"] = c.width[0]
         kwargs["interpolate"] = "none"
         
         kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"], self.num_windows_h, self.num_patch, module_name="final")
-        
+        kwargs["att_types"] = block_str[0]
         self.final = STCNNT_Block(**kwargs)
 
-        self.output_proj = Conv2DExt(c.channels[1], c.C_out, kernel_size=kwargs["kernel_size"],\
+        self.output_proj = Conv2DExt(channels[1], c.C_out, kernel_size=kwargs["kernel_size"],\
                                         stride=kwargs["stride"], padding=kwargs["padding"])
            
     def forward(self, x):
