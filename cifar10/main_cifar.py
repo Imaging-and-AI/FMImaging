@@ -37,9 +37,13 @@ def arg_parser():
     parser.add_argument("--data_root", type=str, default=None, help='root folder for the data')
     parser.add_argument("--data_set", type=str, default="cifar10", help='choice of dataset: "cifar10", "cifar100')
     parser.add_argument("--head_channels", nargs='+', type=int, default=[8,128,10], help='number of channels for cifar head')
-    parser = add_shared_STCNNT_args(parser=parser)
+    
+    parser = add_backbone_STCNNT_args(parser=parser)
 
-    return parser.parse_args()
+    ns = Nestedspace()
+    args = parser.parse_args(namespace=ns)
+    
+    return args
 
 def check_args(config):
     """

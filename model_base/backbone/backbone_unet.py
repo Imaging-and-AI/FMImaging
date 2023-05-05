@@ -165,7 +165,7 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
     The minimal window size is 16 and minimal patch size is 4.
     """
 
-    def __init__(self, config, total_steps=1, load=False) -> None:
+    def __init__(self, config) -> None:
         """
         @args:
             - config (Namespace): runtime namespace for setup

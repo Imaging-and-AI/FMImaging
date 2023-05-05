@@ -132,15 +132,16 @@ def trainer(rank, model, config, train_set, val_set):
                 if stype == "OneCycleLR": sched.step()
                 curr_lr = optim.param_groups[0]['lr']
 
-                wandb.log({"lr": curr_lr})
-
                 total=inputs.shape[0]
                 _, predicted = torch.max(output.data, 1)
                 correct = (predicted == labels).sum().item()
                 train_acc.update(correct/total, n=total)
 
                 train_loss.update(loss.item(), n=total)
-                if rank<=0: wandb.log({"running_train_loss": loss.item()})
+                
+                if rank<=0: 
+                    wandb.log({"running_train_loss": loss.item()})
+                    wandb.log({"lr": curr_lr})
 
                 pbar.update(1)
                 pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, loss {loss.item():.4f}, lr {curr_lr:.8f}")

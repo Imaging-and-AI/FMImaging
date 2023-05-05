@@ -2,6 +2,8 @@
 Model(s) used for cifar10
 """
 import sys
+import numpy as np
+import torch
 import torch.nn as nn
 from pathlib import Path
 
@@ -34,17 +36,40 @@ class STCNNT_Cifar(STCNNT_Task_Base):
 
         final_c = 10 if config.data_set == "cifar10" else 100
 
-        self.unet = CNNT_Unet(config=config, total_steps=total_steps, load=False)
-        self.head = nn.Sequential(nn.Flatten(start_dim=1, end_dim=-1),
-                                    # nn.Conv2d(config.C_out, 128, kernel_size=3, stride=2, padding=1),
-                                    # nn.LeakyReLU(),
-                                    # nn.Conv2d(128, 64, kernel_size=3, stride=2, padding=1),
-                                    # nn.LeakyReLU(),
-                                    # nn.Flatten(start_dim=1, end_dim=-1),
-                                    # #nn.Linear(config.head_channels[0]*config.height[0]//2*config.width[0]//2, config.head_channels[1]),
-                                    # nn.Linear(64*8*8, 128),
-                                    # nn.LeakyReLU(),
-                                    nn.Linear(config.C_out*32*32, final_c))
+        if config.backbone == "small_unet":
+            self.pre = nn.Identity()
+            self.backbone = CNNT_Unet(config=config)
+            self.post = nn.Sequential(nn.Flatten(start_dim=1, end_dim=-1),
+                                        # nn.Conv2d(config.C_out, 128, kernel_size=3, stride=2, padding=1),
+                                        # nn.LeakyReLU(),
+                                        # nn.Conv2d(128, 64, kernel_size=3, stride=2, padding=1),
+                                        # nn.LeakyReLU(),
+                                        # nn.Flatten(start_dim=1, end_dim=-1),
+                                        # #nn.Linear(config.head_channels[0]*config.height[0]//2*config.width[0]//2, config.head_channels[1]),
+                                        # nn.Linear(64*8*8, 128),
+                                        # nn.LeakyReLU(),
+                                        nn.Linear(config.C_out*32*32, final_c))
+            
+        if config.backbone == "hrnet":
+            self.pre = nn.Identity()            
+            self.backbone = STCNNT_HRnet(config=config)            
+            self.post = nn.Sequential(nn.Flatten(start_dim=1, end_dim=-1),
+                                      nn.Linear(config.backbone_hrnet.C*config.backbone_hrnet.num_resolution_levels*32*32, final_c))
+            
+        if config.backbone == "unet":
+            self.pre = nn.Identity()            
+            self.backbone = STCNNT_Unet(config=config)            
+            self.post = nn.Sequential(nn.Flatten(start_dim=1, end_dim=-1),
+                                      nn.Linear(config.backbone_unet.C*32*32, final_c))
+            
+        if config.backbone == "LLM":
+            self.pre = nn.Identity()            
+            self.backbone = STCNNT_LLMnet(config=config)       
+            
+            output_C = np.power(2, config.backbone_LLM.num_stages-2) if config.backbone_LLM.num_stages>2 else config.backbone_LLM.C
+                 
+            self.post = nn.Sequential(nn.Flatten(start_dim=1, end_dim=-1),
+                                      nn.Linear(output_C*32*32, final_c))
 
         device = get_device(device=config.device)
         
@@ -59,7 +84,10 @@ class STCNNT_Cifar(STCNNT_Task_Base):
         @args:
             - x (5D torch.Tensor): input image
         """
-        return self.head(self.unet(x))
+        res_pre = self.pre(x)
+        res_backbone = self.backbone(res_pre)
+        logits = self.post(res_backbone)
+        return logits
     
     def set_up_loss(self, device="cpu"):
         """

@@ -22,6 +22,18 @@ from datetime import datetime
 from torchinfo import summary
 
 # -------------------------------------------------------------------------------------------------
+# from https://stackoverflow.com/questions/18668227/argparse-subcommands-with-nested-namespaces
+class Nestedspace(argparse.Namespace):
+    def __setattr__(self, name, value):
+        if '.' in name:
+            group,name = name.split('.',1)
+            ns = getattr(self, group, Nestedspace())
+            setattr(ns, name, value)
+            self.__dict__[group] = ns
+        else:
+            self.__dict__[name] = value
+            
+# -------------------------------------------------------------------------------------------------
 # parser for commonly shared args (subject to change over time)
 def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transformer projects")):
     """
@@ -85,7 +97,7 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
 
 def add_shared_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for STCNNT")):
     """
-    Add shared arguments between trainers
+    Add shared arguments for all STCNNT models
     @args:
         parser (argparse, optional): parser object
     @rets:
@@ -93,9 +105,6 @@ def add_shared_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for S
     """
         
     # base model arguments
-    parser.add_argument("--channels", nargs='+', type=int, default=[16,32,64], help='number of channels in each layer')
-    
-    parser.add_argument("--att_types", nargs='+', type=str, default=["T0T0T1"], help='types of attention modules and mixer. "T","G","L","V" for attention type followed by "0","1" for mixer')
     parser.add_argument("--cell_type", type=str, default="sequential", help='cell type, sequential or parallel')
     
     parser.add_argument("--C_in", type=int, default=3, help='number of channels in the input')
@@ -116,7 +125,7 @@ def add_shared_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for S
     parser.add_argument("--stride", type=int, default=1, help='stride for CNN (equal x and y)')
     parser.add_argument("--padding", type=int, default=1, help='padding for CNN (equal x and y)')
     parser.add_argument("--stride_t", type=int, default=2, help='stride for temporal attention cnn (equal x and y)')   
-    parser.add_argument("--normalize_Q_K", type=bool, default=False, help='whether to normalize Q and K before computing attention matrix')
+    parser.add_argument("--normalize_Q_K", action="store_true", help='whether to normalize Q and K before computing attention matrix')
 
     parser.add_argument("--att_dropout_p", type=float, default=0.0, help='pdrop for the attention coefficient matrix')
     parser.add_argument("--dropout_p", type=float, default=0.1, help='pdrop regulization in transformer')
@@ -133,6 +142,45 @@ def add_shared_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for S
 
     return parser
 
+def add_backbone_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for backbone models")):
+    """
+    Add backbone model specific parameters
+    """
+    
+    parser.add_argument('--backbone', type=str, default="unet", help="which backbone model to use, 'hrnet', 'unet', 'LLM', 'small_unet' ")
+    
+    # hrnet
+    parser.add_argument('--backbone_hrnet.C', dest='backbone_hrnet.C', type=int, default=16, help="number of channels in main body of hrnet")
+    parser.add_argument('--backbone_hrnet.num_resolution_levels', dest='backbone_hrnet.num_resolution_levels', type=int, default=2, help="number of resolution levels; image size reduce by x2 for every level")
+    parser.add_argument('--backbone_hrnet.block_str', dest='backbone_hrnet.block_str', nargs='+', type=str, default=['T1L1G1'], help="block string \
+        to define the attention layers in blocks; if multiple strings are given, each is for a resolution level.")    
+    parser.add_argument('--backbone_hrnet.use_interpolation', dest='backbone_hrnet.use_interpolation', type=bool, default=True, help="whether to use interpolation in downsample layer; if False, use stride convolution")
+    
+    # unet            
+    parser.add_argument('--backbone_unet.C', dest='backbone_unet.C', type=int, default=16, help="number of channels in main body of unet")
+    parser.add_argument('--backbone_unet.num_resolution_levels', dest='backbone_unet.num_resolution_levels', type=int, default=2, help="number of resolution levels for unet; image size reduce by x2 for every level")
+    parser.add_argument('--backbone_unet.block_str', dest='backbone_unet.block_str', nargs='+', type=str, default=['T1L1G1'], help="block string \
+        to define the attention layers in blocks; if multiple strings are given, each is for a resolution level.")    
+    parser.add_argument('--backbone_unet.use_unet_attention', dest='backbone_unet.use_unet_attention', type=bool, default=True, help="whether to add unet attention between resolution levels")
+    parser.add_argument('--backbone_unet.use_interpolation', dest='backbone_unet.use_interpolation', type=bool, default=True, help="whether to use interpolation in downsample layer; if False, use stride convolution")
+    parser.add_argument('--backbone_unet.with_conv', dest='backbone_unet.with_conv', type=bool, default=True, help="whether to add conv in down/upsample layers; if False, only interpolation is performed")
+    
+    # LLMs
+    parser.add_argument('--backbone_LLM.C', dest='backbone_LLM.C', type=int, default=16, help="number of channels in main body of LLM net")
+    parser.add_argument('--backbone_LLM.num_stages', dest='backbone_LLM.num_stages', type=int, default=2, help="number of stages")
+    parser.add_argument('--backbone_LLM.block_str', dest='backbone_LLM.block_str', nargs='+', type=str, default=['T1L1G1'], help="block string \
+        to define the attention layers in stages; if multiple strings are given, each is for a stage.")    
+    parser.add_argument('--backbone_LLM.add_skip_connections', dest='backbone_LLM.add_skip_connections', type=bool, default=True, help="whether to add skip connections between stages; if True, densenet type connections are added; if False, LLM type network is created.")
+                     
+    # small unet
+    parser.add_argument("--backbone_small_unet.channels", dest='backbone_small_unet.channels', nargs='+', type=int, default=[16,32,64], help='number of channels in each layer')
+    parser.add_argument('--backbone_small_unet.block_str', dest='backbone_small_unet.block_str', nargs='+', type=str, default=['T1L1G1'], help="block string \
+        to define the attention layers in stages; if multiple strings are given, each is for a stage.")   
+       
+    parser = add_shared_STCNNT_args(parser=parser)
+            
+    return parser
+    
 # -------------------------------------------------------------------------------------------------
 # setup logger
 
@@ -325,3 +373,15 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+
+if __name__=="__main__":
+    
+    parser = add_backbone_STCNNT_args()
+    
+    ns = Nestedspace()
+    args = parser.parse_args(namespace=ns)
+    
+    print(args)
+    
+    print(args.backbone_hrnet.C)
+    print(args.backbone_unet.block_str)
