@@ -3,6 +3,7 @@ Trainer for MRI denoising.
 Provides the mian function to call for training:
     - trainer
 """
+import cv2
 import copy
 import wandb
 import numpy
@@ -297,6 +298,8 @@ def eval_val(model, config, val_set, epoch, device):
     total_iters = sum([len(loader_x) for loader_x in val_loader])
     total_iters = total_iters if not c.debug else min(2, total_iters)
 
+    images_logged = 0
+
     with tqdm(total=total_iters) as pbar:
 
         for idx in range(total_iters):
@@ -316,6 +319,47 @@ def eval_val(model, config, val_set, epoch, device):
             except:
                 _, output = running_inference(model, x, cutout=cutout, overlap=overlap, device="cpu")
                 y = y.to("cpu")
+
+            try:
+                TO,CO,HO,WO = gmaps_median[0]
+                C = 2 if c.complex_i else 1
+                H = noise_sigmas[0][2]*noise_sigmas[0][6]
+                W = noise_sigmas[0][3]*noise_sigmas[0][7]
+                x = x[:,:,:C].reshape(1,*tuple(noise_sigmas[0]))
+                x = x.permute(0,1,2,5,6,3,7,4,8)
+                x = x.reshape(1,1,C,H,W)[:,:,:,:HO,:WO]
+                y = y.reshape(1,*tuple(noise_sigmas[0]))
+                y = y.permute(0,1,2,5,6,3,7,4,8)
+                y = y.reshape(1,1,C,H,W)[:,:,:,:HO,:WO]
+                output = output.reshape(1,*tuple(noise_sigmas[0]))
+                output = output.permute(0,1,2,5,6,3,7,4,8)
+                output = output.reshape(1,1,C,H,W)[:,:,:,:HO,:WO]
+            except:
+                pass
+            
+            save_x = x.cpu().detach().numpy()
+            save_p = output.cpu().detach().numpy()
+            save_y = y.cpu().detach().numpy()
+            if c.complex_i:
+                save_x = np.sqrt(np.square(save_x[0,:,0]) + np.square(save_x[0,:,1]))
+                save_p = np.sqrt(np.square(save_p[0,:,0]) + np.square(save_p[0,:,1]))
+                save_y = np.sqrt(np.square(save_y[0,:,0]) + np.square(save_y[0,:,1]))
+            else:
+                save_x = save_x[0,:,0]
+                save_p = save_p[0,:,0]
+                save_y = save_y[0,:,0]
+            T, H, W = save_x.shape
+            composed_res = np.zeros((T, H, 3*W))
+            composed_res[:,:H,0*W:1*W] = save_x
+            composed_res[:,:H,1*W:2*W] = save_p
+            composed_res[:,:H,2*W:3*W] = save_y
+
+            temp = np.zeros_like(composed_res)
+            composed_res = cv2.normalize(composed_res, temp, 0, 255, norm_type=cv2.NORM_MINMAX)
+
+            if images_logged < 8:
+                images_logged += 1
+                wandb.log({f"Nosiy_Pred_GT_image_{save_x.shape}_{idx}": wandb.Video(composed_res[:,np.newaxis,:,:].astype('uint8'), fps=8, format="gif")})
 
             loss = loss_f(output, y)
 

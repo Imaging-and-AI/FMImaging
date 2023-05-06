@@ -43,6 +43,12 @@ def arg_parser():
     parser.add_argument('--phase_resolution_ratio', type=float, nargs='+', default=[1.0, 0.75, 0.65, 0.55], help='phase resolution ratio')
     parser.add_argument('--readout_resolution_ratio', type=float, nargs='+', default=[1.0, 0.75, 0.65, 0.55], help='readout resolution ratio')
 
+    # 2d/3d arguments
+    parser.add_argument('--twoD_num_patches_cutout', type=int, default=8, help='for 2D usecase, number of patches per frame')
+    parser.add_argument("--twoD_patches_shuffle", action="store_true", help='shuffle 2D patches to break spatial consistency')
+    parser.add_argument('--threeD_cutout_jitter', nargs='+', type=float, default=[-1, 0.5, 0.75, 1.0], help='cutout jitter range, relative to the cutout_shape')
+    parser.add_argument("--threeD_cutout_shuffle_time", action="store_true", help='shuffle along time to break temporal consistency; for 2D+T, should not set this option')
+
     return parser.parse_args()
 
 def check_args(config):

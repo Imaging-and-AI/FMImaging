@@ -99,6 +99,22 @@ def eval_test(model, config, test_set=None, device="cpu", id=""):
                 _, output = running_inference(model, x, cutout=cutout, overlap=overlap, device="cpu")
                 y = y.to("cpu")
 
+            try:
+                TO,CO,HO,WO = gmaps_median[0]
+                C = 2 if c.complex_i else 1
+                H = noise_sigmas[0][2]*noise_sigmas[0][6]
+                W = noise_sigmas[0][3]*noise_sigmas[0][7]
+                x = x[:,:,:C].reshape(1,*tuple(noise_sigmas[0]))
+                x = x.permute(0,1,2,5,6,3,7,4,8)
+                x = x.reshape(1,1,C,H,W)[:,:,:,:HO,:WO]
+                y = y.reshape(1,*tuple(noise_sigmas[0]))
+                y = y.permute(0,1,2,5,6,3,7,4,8)
+                y = y.reshape(1,1,C,H,W)[:,:,:,:HO,:WO]
+                output = output.reshape(1,*tuple(noise_sigmas[0]))
+                output = output.permute(0,1,2,5,6,3,7,4,8)
+                output = output.reshape(1,1,C,H,W)[:,:,:,:HO,:WO]
+            except:
+                pass
             loss = loss_f(output, y)
 
             mse_loss = mse_loss_func(output, y).item()
