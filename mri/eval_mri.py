@@ -8,7 +8,6 @@ import json
 import wandb
 import logging
 import argparse
-import tifffile
 
 import torch
 from tqdm import tqdm
@@ -84,37 +83,36 @@ def eval_test(model, config, test_set=None, device="cpu", id=""):
         for idx in range(total_iters):
 
             loader_ind = idx % len(test_loader_iter)
-            stuff = next(test_loader_iter[loader_ind], None)
-            while stuff is None:
+            batch = next(test_loader_iter[loader_ind], None)
+            while batch is None:
                 del test_loader_iter[loader_ind]
                 loader_ind = idx % len(test_loader_iter)
-                stuff = next(test_loader_iter[loader_ind], None)
-            x, y, gmaps_median, noise_sigmas = stuff
+                batch = next(test_loader_iter[loader_ind], None)
+            x, y, gmaps_median, noise_sigmas = batch
+
+            two_D = False
+            cutout_in = cutout
+            overlap_in = overlap
+            if x.shape[1]==1:
+                xy, og_shape, pt_shape = cut_into_patches([x,y], cutout=cutout[1:])
+                x, y = xy[0], xy[1]
+                cutout_in = (c.twoD_num_patches_cutout, *cutout[1:])
+                overlap_in = (c.twoD_num_patches_cutout//4, *overlap[1:])
+                two_D = True
+
             x = x.to(device)
             y = y.to(device)
 
             try:
-                _, output = running_inference(model, x, cutout=cutout, overlap=overlap, device=device)
+                _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device=device)
             except:
-                _, output = running_inference(model, x, cutout=cutout, overlap=overlap, device="cpu")
+                _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device="cpu")
                 y = y.to("cpu")
 
-            try:
-                TO,CO,HO,WO = gmaps_median[0]
-                C = 2 if c.complex_i else 1
-                H = noise_sigmas[0][2]*noise_sigmas[0][6]
-                W = noise_sigmas[0][3]*noise_sigmas[0][7]
-                x = x[:,:,:C].reshape(1,*tuple(noise_sigmas[0]))
-                x = x.permute(0,1,2,5,6,3,7,4,8)
-                x = x.reshape(1,1,C,H,W)[:,:,:,:HO,:WO]
-                y = y.reshape(1,*tuple(noise_sigmas[0]))
-                y = y.permute(0,1,2,5,6,3,7,4,8)
-                y = y.reshape(1,1,C,H,W)[:,:,:,:HO,:WO]
-                output = output.reshape(1,*tuple(noise_sigmas[0]))
-                output = output.permute(0,1,2,5,6,3,7,4,8)
-                output = output.reshape(1,1,C,H,W)[:,:,:,:HO,:WO]
-            except:
-                pass
+            if two_D:
+                xy = repatch([x,output,y], og_shape, pt_shape)
+                x, output, y = xy[0], xy[1], xy[2]
+
             loss = loss_f(output, y)
 
             mse_loss = mse_loss_func(output, y).item()
@@ -144,10 +142,8 @@ def eval_test(model, config, test_set=None, device="cpu", id=""):
                                     f"{loss.item():.4f}, {mse_loss:.4f}, {l1_loss:.4f}, "+
                                     f"{ssim_loss:.4f}, {ssim3D_loss:.4f}, {psnr:.4f},")
 
-            save_image(test_results_dir, c.complex_i, idx,\
-                        x.cpu().detach().numpy(),\
-                        output.cpu().detach().numpy(),\
-                        y.cpu().detach().numpy())
+            save_image_local(test_results_dir, c.complex_i, idx,\
+                                x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
 
         pbar.set_description(f"Test, {x.shape}, {test_loss_meter.avg:.4f}, "+
                                 f"{test_mse_meter.avg:.4f}, {test_l1_meter.avg:.4f}, {test_ssim_meter.avg:.4f}, "+
@@ -267,34 +263,6 @@ def save_results(config, losses, id=""):
 
     with open(f"{results_file_name}.json", "w") as file:
         json.dump(result_dict, file)
-
-def save_image(path, complex_i, i, noisy, predi, clean):
-    """
-    Saves the image locally as a 4D tiff [T,C,H,W]
-    3 channels: noisy, predicted, clean
-    If complex image then save the magnitude
-    @args:
-        - path (str): the directory to save the images in
-        - complex_i (bool): complex images or not
-        - i (int): index of the image
-        - noisy (5D numpy array): the noisy image
-        - predi (5D numpy array): the predicted image
-        - clean (5D numpy array): the clean image
-    """
-
-    if complex_i:
-        save_x = np.sqrt(np.square(noisy[0,:,0]) + np.square(noisy[0,:,1]))
-        save_p = np.sqrt(np.square(predi[0,:,0]) + np.square(predi[0,:,1]))
-        save_y = np.sqrt(np.square(clean[0,:,0]) + np.square(clean[0,:,1]))
-    else:
-        save_x = noisy[0,:,0]
-        save_p = predi[0,:,0]
-        save_y = clean[0,:,0]
-
-    composed_channel_wise = np.transpose(np.array([save_x, save_p, save_y]), (1,0,2,3))
-
-    tifffile.imwrite(os.path.join(path, f"Image_{i:03d}_{save_x.shape}.tif"),\
-                        composed_channel_wise, imagej=True)
 
 # -------------------------------------------------------------------------------------------------
 # the main function for setup, eval call and saving results

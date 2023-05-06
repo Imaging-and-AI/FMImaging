@@ -50,7 +50,7 @@
             "justMyCode": true,
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
             "args": [
-                // "-D",
+                "-D",
                 "--run_name", "mri_test_run",
                 "--test_files", "train_3D_3T_retro_cine_2020_small_2D_test.h5", "train_3D_3T_retro_cine_2020_small_2DT_test.h5", "train_3D_3T_retro_cine_2020_small_3D_test.h5",
                 "--test_data_types", "2d", "2dt", "3d",

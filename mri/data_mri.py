@@ -2,8 +2,16 @@
 Data utilities for MRI data.
 Provides the torch dataset class for traind and test
 And a function to load the said classes with multiple h5files
-TODO: add doc for expected h5 file
-TODO: 2D and 3D classes
+
+Expected train h5file:
+<file> ---> <key> ---> "/image"
+                   |-> "/gmap"
+
+Expected test h5file:
+<file> ---> <key> ---> "/noisy"
+                   |-> "/clean"
+                   |-> "/gmap"
+                   |-> "/noise_sigma"
 """
 import os
 import sys
@@ -26,13 +34,14 @@ from noise_augmentation import *
 # -------------------------------------------------------------------------------------------------
 # train dataset class
 
-class MRI2DTDenoisingDatasetTrain():
+class MRIDenoisingDatasetTrain():
     """
     Dataset for MRI denoising.
     The extracted patch maintains the strict temporal consistency
     This dataset is for 2D+T training, where the temporal redundancy is strong
     """
-    def __init__(self, h5file, keys, data_type, time_cutout=30, cutout_shape=[64, 64], use_gmap=True,
+    def __init__(self, h5file, keys, data_type,
+                    time_cutout=30, cutout_shape=[64, 64], use_gmap=True,
                     use_complex=True, min_noise_level=1.0, max_noise_level=6.0,
                     matrix_size_adjust_ratio=[0.5, 0.75, 1.0, 1.25, 1.5],
                     kspace_filter_sigma=[0.8, 1.0, 1.5, 2.0, 2.25],
@@ -51,7 +60,7 @@ class MRI2DTDenoisingDatasetTrain():
         @args:
             - h5file (h5File list): list of h5files to load images from
             - keys (key list list): list of list of keys. One for each h5file
-            - data_type ("2d"|"2dt"|"3d"): type of mri data (TODO: implement this)
+            - data_type ("2d"|"2dt"|"3d"): types of mri data
             - time_cutout (int): cutout size in time dimension
             - cutout_shape (int list): 2 values for patch cutout shape
             - use_gmap (bool): whether to load and return gmap
@@ -63,7 +72,13 @@ class MRI2DTDenoisingDatasetTrain():
             - pf_filter_ratio (float list): partial fourier filter
             - phase_resolution_ratio (float list): phase resolution ratio
             - readout_resolution_ratio (float list): readout resolution ratio
+            - cutout_jitter (float list): for 3D, cutout jitter range along time dimenstion
+            - cutout_shuffle_time (bool): for 3D, shuffle time dimension to break redundancy
+            - num_patches_cutout (int): for 2D, number of patches per frame
+            - patches_shuffle (bool) for 2D, shuffle patches 
         """
+        assert data_type=="2d" or data_type=="2dt" or data_type=="3d",\
+            f"Data type not implemented: {data_type}"
         self.data_type = data_type
 
         self.time_cutout = time_cutout
@@ -83,14 +98,14 @@ class MRI2DTDenoisingDatasetTrain():
 
         self.cutout_jitter = cutout_jitter
         self.cutout_shuffle_time = cutout_shuffle_time
-
         self.num_patches_cutout = num_patches_cutout
         self.patches_shuffle = patches_shuffle
 
         self.images = []
 
         for i in range(len(h5file)):
-            self.images.extend([(np.array(h5file[i][key+"/image"]), np.array(h5file[i][key+"/gmap"])) for key in keys[i]])
+            self.images.extend([(np.array(h5file[i][key+"/image"]),\
+                                 np.array(h5file[i][key+"/gmap"])) for key in keys[i]])
 
     def load_one_sample(self, i):
         """
@@ -241,8 +256,8 @@ class MRI2DTDenoisingDatasetTrain():
         initial_s_x = np.random.randint(0, x - cx + 1)
         initial_s_y = np.random.randint(0, y - cy + 1)
         
-        cutout_jitter_used = self.cutout_jitter[np.random.randint(0, len(self.cutout_jitter))]
-        cutout_jitter_used = cutout_jitter_used if self.data_type=="3d" else -1
+        cutout_jitter_used = self.cutout_jitter[np.random.randint(0, len(self.cutout_jitter))] \
+                                if self.data_type=="3d" else -1
 
         s_t = np.zeros(ct, dtype=np.int16) + initial_s_t # no randomness along time
         s_x = np.zeros(ct, dtype=np.int16)
@@ -251,7 +266,7 @@ class MRI2DTDenoisingDatasetTrain():
         if(cutout_jitter_used<0):
             s_x += initial_s_x
             s_y += initial_s_y
-        else:
+        else: # jitter along 3D
             jitter_s_x = max(0, initial_s_x - np.floor(cutout_jitter_used*cx*0.5))
             jitter_s_y = max(0, initial_s_y - np.floor(cutout_jitter_used*cy*0.5))
 
@@ -341,12 +356,12 @@ class MRI2DTDenoisingDatasetTrain():
 # -------------------------------------------------------------------------------------------------
 # test dataset class
 
-class MRI2DTDenoisingDatasetTest():
+class MRIDenoisingDatasetTest():
     """
     Dataset for MRI denoising testing.
     Returns full images. No cutouts.
     """
-    def __init__(self, h5file, keys, data_type, cutout_shape=(64,64), use_gmap=True, use_complex=True):
+    def __init__(self, h5file, keys, use_gmap=True, use_complex=True):
         """
         Initilize the denoising dataset
         Loads and stores everything
@@ -355,12 +370,9 @@ class MRI2DTDenoisingDatasetTest():
         @args:
             - h5file (h5File list): list of h5files to load images from
             - keys (key list list): list of list of keys. One for every h5file
-            - data_type ("2d"|"2dt"|"3d"): type of mri data (TODO: implement this)
             - use_gmap (bool): whether to load and return gmap
             - use_complex (bool): whether to return complex image
         """
-        self.data_type = data_type
-        self.cutout_shape = cutout_shape
         self.use_gmap = use_gmap
         self.use_complex = use_complex
 
@@ -396,6 +408,8 @@ class MRI2DTDenoisingDatasetTest():
         gmap = self.images[i][2]
         noise_sigma = self.images[i][3]
 
+        assert gmap.ndim==2, f"gmap for testing should only be 2 dimensional"
+
         if(self.use_complex):
             noisy = np.concatenate((noisy.real, noisy.imag),axis=1)
             clean = np.concatenate((clean.real, clean.imag),axis=1)
@@ -404,32 +418,11 @@ class MRI2DTDenoisingDatasetTest():
             clean = np.abs(clean)
 
         gmap = np.repeat(gmap[None,:,:], noisy.shape[0], axis=0)[:,np.newaxis,:,:]
-
-        gmaps_median = np.median(gmap)
-
-        if self.data_type=="2d":
-            C = noisy.shape[1]
-            gmaps_median = noisy.shape
-            pad_H = (-1*clean.shape[2])%self.cutout_shape[0]
-            pad_W = (-1*clean.shape[3])%self.cutout_shape[1]
-
-            noisy = np.pad(noisy, ((0,0),(0, 0), (0,pad_H),(0,pad_W)), 'symmetric')
-            clean = np.pad(clean, ((0,0),(0, 0), (0,pad_H),(0,pad_W)), 'symmetric')
-            gmap = np.pad(gmap, ((0,0),(0, 0), (0,pad_H),(0,pad_W)), 'symmetric')
-
-            noisy = view_as_blocks(noisy, (1,C,*self.cutout_shape))
-            noise_sigma = noisy.shape
-            noisy = noisy.reshape(-1,*noisy.shape[-3:])
-            clean = view_as_blocks(clean, (1,C,*self.cutout_shape))
-            clean = clean.reshape(-1,*clean.shape[-3:])
-            gmap = view_as_blocks(gmap, (1,1,*self.cutout_shape))
-            gmap = gmap.reshape(-1,*gmap.shape[-3:])
-
         noisy = np.concatenate([noisy, gmap], axis=1)
 
         noisy_im = torch.from_numpy(noisy.astype(np.float32))
         clean_im = torch.from_numpy(clean.astype(np.float32))
-        gmaps_median = torch.tensor(gmaps_median)
+        gmaps_median = torch.tensor(np.median(gmap))
         noise_sigmas = torch.tensor(noise_sigma)
 
         return noisy_im, clean_im, gmaps_median, noise_sigmas
@@ -521,27 +514,27 @@ def load_mri_data(config):
         "readout_resolution_ratio" : c.readout_resolution_ratio,
         "cutout_jitter" : c.threeD_cutout_jitter,
         "cutout_shuffle_time" : c.threeD_cutout_shuffle_time,
-        "num_patches_cutout" : c.twoD_num_patches_cutout,
-        "patches_shuffle" : c.twoD_patches_shuffle
     }
 
     train_set = []
     for hw in zip(c.height, c.width):
-        train_set.extend([MRI2DTDenoisingDatasetTrain(h5file=[h_file], keys=[train_keys[i]],
+        train_set.extend([MRIDenoisingDatasetTrain(h5file=[h_file], keys=[train_keys[i]],
                                                         data_type=c.train_data_types[i], cutout_shape=hw,
                                                         **kwargs) for (i,h_file) in enumerate(h5files)])
 
     if c.test_files is None: # no test case given so use some from train data
-        val_set = [MRI2DTDenoisingDatasetTrain(h5file=[h_file], keys=[val_keys[i]], data_type=c.train_data_types[i],
+        val_set = [MRIDenoisingDatasetTrain(h5file=[h_file], keys=[val_keys[i]], data_type=c.train_data_types[i],
                                                 cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
                                                 for (i,h_file) in enumerate(h5files)]
 
-        test_set = [MRI2DTDenoisingDatasetTrain(h5file=[h_file], keys=[test_keys[i]], data_type=c.train_data_types[i],
+        test_set = [MRIDenoisingDatasetTrain(h5file=[h_file], keys=[test_keys[i]], data_type=c.train_data_types[i],
                                                 cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
                                                 for (i,h_file) in enumerate(h5files)]
     else: # test case is given. take part of it as val set
         test_h5files = []
         test_paths = [os.path.join(c.data_root, path_x) for path_x in c.test_files]
+
+        cutout_shape=[c.height[-1], c.width[-1]]
 
         for i, file in enumerate(test_paths):
             if not os.path.exists(file):
@@ -551,19 +544,18 @@ def load_mri_data(config):
             h5file = h5py.File(file, libver='earliest', mode='r')
             keys = list(h5file.keys())
 
-            d_type = c.test_data_types[i] if c.twoD_num_patches_cutout > 1 else "3d"
+            test_h5files.append((h5file,keys))
 
-            test_h5files.append((h5file,keys,d_type))
-
-        test_set = [MRI2DTDenoisingDatasetTest([h_file], keys=[t_keys], cutout_shape=[c.height[-1], c.width[-1]], data_type=d_type, use_complex=c.complex_i) for (h_file,t_keys,d_type) in test_h5files]
+        test_set = [MRIDenoisingDatasetTest([h_file], keys=[t_keys], use_complex=c.complex_i)\
+                        for (h_file,t_keys) in test_h5files]
 
         val_set = []
         val_len = 0
         val_len_lim = 8
         per_file = 1 if len(test_h5files)>val_len_lim else val_len_lim//len(test_h5files)
-        # take 10 samples through all files for val set
-        for h_file,t_keys,d_type in test_h5files:
-            val_set.append(MRI2DTDenoisingDatasetTest([h_file], keys=[t_keys[:per_file]], cutout_shape=[c.height[-1], c.width[-1]], data_type=d_type, use_complex=c.complex_i))
+        # take 8 samples through all files for val set
+        for h_file,t_keys in test_h5files:
+            val_set.append(MRIDenoisingDatasetTest([h_file], keys=[t_keys[:per_file]], use_complex=c.complex_i))
             val_len += per_file
             if val_len > val_len_lim:
                 break
