@@ -134,11 +134,13 @@ def add_shared_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for S
     parser.add_argument("--padding", type=int, default=1, help='padding for CNN (equal x and y)')
     parser.add_argument("--stride_t", type=int, default=2, help='stride for temporal attention cnn (equal x and y)')   
     parser.add_argument("--normalize_Q_K", action="store_true", help='whether to normalize Q and K before computing attention matrix')
-
+    parser.add_argument("--cosine_att", type=int, default=0, help='whether to use cosine attention; if True, normalize_Q_K is ignored')   
+    parser.add_argument("--att_with_relative_postion_bias", type=int, default=1, help='whether to use relative position bias')   
+            
     parser.add_argument("--att_dropout_p", type=float, default=0.0, help='pdrop for the attention coefficient matrix')
-    parser.add_argument("--dropout_p", type=float, default=0.1, help='pdrop regulization in transformer')
+    parser.add_argument("--dropout_p", type=float, default=0.1, help='pdrop regulization for stochastic residual connections')
     
-    parser.add_argument("--att_with_output_proj", type=bool, default=True, help='whether to add output projection in attention layer')
+    parser.add_argument("--att_with_output_proj", type=int, default=1, help='whether to add output projection in attention layer')
     parser.add_argument("--scale_ratio_in_mixer", type=float, default=4.0, help='the scaling ratio to increase/decrease dimensions in the mixer of an attention layer')
     
     parser.add_argument("--norm_mode", type=str, default="instance2d", help='normalization mode: "layer", "batch2d", "instance2d", "batch3d", "instance3d"')
@@ -162,23 +164,23 @@ def add_backbone_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for
     parser.add_argument('--backbone_hrnet.num_resolution_levels', dest='backbone_hrnet.num_resolution_levels', type=int, default=2, help="number of resolution levels; image size reduce by x2 for every level")
     parser.add_argument('--backbone_hrnet.block_str', dest='backbone_hrnet.block_str', nargs='+', type=str, default=['T1L1G1'], help="block string \
         to define the attention layers in blocks; if multiple strings are given, each is for a resolution level.")    
-    parser.add_argument('--backbone_hrnet.use_interpolation', dest='backbone_hrnet.use_interpolation', type=bool, default=True, help="whether to use interpolation in downsample layer; if False, use stride convolution")
+    parser.add_argument('--backbone_hrnet.use_interpolation', dest='backbone_hrnet.use_interpolation', type=int, default=1, help="whether to use interpolation in downsample layer; if False, use stride convolution")
     
     # unet            
     parser.add_argument('--backbone_unet.C', dest='backbone_unet.C', type=int, default=16, help="number of channels in main body of unet")
     parser.add_argument('--backbone_unet.num_resolution_levels', dest='backbone_unet.num_resolution_levels', type=int, default=2, help="number of resolution levels for unet; image size reduce by x2 for every level")
     parser.add_argument('--backbone_unet.block_str', dest='backbone_unet.block_str', nargs='+', type=str, default=['T1L1G1'], help="block string \
         to define the attention layers in blocks; if multiple strings are given, each is for a resolution level.")    
-    parser.add_argument('--backbone_unet.use_unet_attention', dest='backbone_unet.use_unet_attention', type=bool, default=True, help="whether to add unet attention between resolution levels")
-    parser.add_argument('--backbone_unet.use_interpolation', dest='backbone_unet.use_interpolation', type=bool, default=True, help="whether to use interpolation in downsample layer; if False, use stride convolution")
-    parser.add_argument('--backbone_unet.with_conv', dest='backbone_unet.with_conv', type=bool, default=True, help="whether to add conv in down/upsample layers; if False, only interpolation is performed")
+    parser.add_argument('--backbone_unet.use_unet_attention', dest='backbone_unet.use_unet_attention', type=int, default=1, help="whether to add unet attention between resolution levels")
+    parser.add_argument('--backbone_unet.use_interpolation', dest='backbone_unet.use_interpolation', type=int, default=1, help="whether to use interpolation in downsample layer; if False, use stride convolution")
+    parser.add_argument('--backbone_unet.with_conv', dest='backbone_unet.with_conv', type=int, default=1, help="whether to add conv in down/upsample layers; if False, only interpolation is performed")
     
     # LLMs
     parser.add_argument('--backbone_LLM.C', dest='backbone_LLM.C', type=int, default=16, help="number of channels in main body of LLM net")
     parser.add_argument('--backbone_LLM.num_stages', dest='backbone_LLM.num_stages', type=int, default=2, help="number of stages")
     parser.add_argument('--backbone_LLM.block_str', dest='backbone_LLM.block_str', nargs='+', type=str, default=['T1L1G1'], help="block string \
         to define the attention layers in stages; if multiple strings are given, each is for a stage.")    
-    parser.add_argument('--backbone_LLM.add_skip_connections', dest='backbone_LLM.add_skip_connections', type=bool, default=True, help="whether to add skip connections between stages; if True, densenet type connections are added; if False, LLM type network is created.")
+    parser.add_argument('--backbone_LLM.add_skip_connections', dest='backbone_LLM.add_skip_connections', type=int, default=1, help="whether to add skip connections between stages; if True, densenet type connections are added; if False, LLM type network is created.")
                      
     # small unet
     parser.add_argument("--backbone_small_unet.channels", dest='backbone_small_unet.channels', nargs='+', type=int, default=[16,32,64], help='number of channels in each layer')

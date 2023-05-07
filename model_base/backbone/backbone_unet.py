@@ -285,7 +285,10 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             "normalize_Q_K": c.normalize_Q_K, 
             "att_dropout_p": c.att_dropout_p,
             "att_with_output_proj": c.att_with_output_proj, 
-            "scale_ratio_in_mixer": c.scale_ratio_in_mixer 
+            "scale_ratio_in_mixer": c.scale_ratio_in_mixer,
+            
+            "cosine_att": c.cosine_att,
+            "att_with_relative_postion_bias": c.att_with_relative_postion_bias
         }
 
         window_sizes = []
@@ -404,6 +407,8 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
         # define the bridge
         kwargs["C_in"] = kwargs["C_out"]
         kwargs["att_types"] = self.block_str[-1]
+        kwargs["H"] //= 2
+        kwargs["W"] //= 2
         kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[-1], patch_sizes[-1], module_name="bridge")
         self.bridge = STCNNT_Block(**kwargs)
 
@@ -665,6 +670,9 @@ def tests():
     config.att_with_output_proj = True 
     config.scale_ratio_in_mixer  = 1.0
             
+    config.cosine_att = True
+    config.att_with_relative_postion_bias = True
+    
     config.optim = "adamw"
     config.scheduler = "ReduceLROnPlateau"
     config.all_w_decay = True
@@ -680,7 +688,7 @@ def tests():
     start_event.record()
 
     test_out = model(test_in.to(device=device))
-    loss = model.loss_f(test_out, 2*test_out)
+    loss = F.mse_loss(test_out, 2*test_out)
 
     loss.backward()
 

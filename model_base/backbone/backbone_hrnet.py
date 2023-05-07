@@ -279,7 +279,9 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             "normalize_Q_K": c.normalize_Q_K, 
             "att_dropout_p": c.att_dropout_p,
             "att_with_output_proj": c.att_with_output_proj, 
-            "scale_ratio_in_mixer": c.scale_ratio_in_mixer 
+            "scale_ratio_in_mixer": c.scale_ratio_in_mixer,
+            "cosine_att": c.cosine_att,
+            "att_with_relative_postion_bias": c.att_with_relative_postion_bias 
         }
 
         window_sizes = []
@@ -801,6 +803,9 @@ def tests():
     config.att_with_output_proj = True 
     config.scale_ratio_in_mixer  = 1.0
 
+    config.cosine_att = True
+    config.att_with_relative_postion_bias = True
+    
     config.optim = "adamw"
     config.scheduler = "ReduceLROnPlateau"
     config.all_w_decay = True
@@ -816,7 +821,7 @@ def tests():
     start_event.record()
 
     y_hat, y_hat_levels = model(test_in.to(device=device))
-    loss = model.loss_f(y_hat, 2*y_hat)
+    loss = F.mse_loss(y_hat, 2*y_hat)
 
     loss.backward()
 

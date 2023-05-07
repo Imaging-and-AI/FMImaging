@@ -163,7 +163,9 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             "normalize_Q_K": c.normalize_Q_K, 
             "att_dropout_p": c.att_dropout_p,
             "att_with_output_proj": c.att_with_output_proj, 
-            "scale_ratio_in_mixer": c.scale_ratio_in_mixer 
+            "scale_ratio_in_mixer": c.scale_ratio_in_mixer,
+            "cosine_att": c.cosine_att,
+            "att_with_relative_postion_bias": c.att_with_relative_postion_bias 
         }
 
         if num_stages >= 1:
@@ -332,6 +334,9 @@ def tests():
     config.att_dropout_p = 0.0
     config.att_with_output_proj = True 
     config.scale_ratio_in_mixer  = 1.0
+    
+    config.cosine_att = True
+    config.att_with_relative_postion_bias = True
     
     config.summary_depth = 4
 

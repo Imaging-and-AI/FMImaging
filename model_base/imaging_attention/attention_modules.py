@@ -18,6 +18,7 @@ Provides implementation of following modules (in order of increasing complexity)
 import math
 import sys
 from collections import OrderedDict
+from typing import Any, Callable, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -173,15 +174,32 @@ class InstanceNorm3DExt(nn.Module):
         norm_input = self.inst(input.permute(0,2,1,3,4))
         return norm_input.permute(0,2,1,3,4)
 
+def _get_relative_position_bias(
+    relative_position_bias_table: torch.Tensor, relative_position_index: torch.Tensor, window_size: Tuple[int]
+) -> torch.Tensor:
+    """
+    From pytorch source code
+    """
+    N = window_size[0] * window_size[1]
+    relative_position_bias = relative_position_bias_table[relative_position_index]  # type: ignore[index]
+    relative_position_bias = relative_position_bias.view(N, N, -1)
+    relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous().unsqueeze(0)
+    return relative_position_bias
+
 # -------------------------------------------------------------------------------------------------
 class CnnAttentionBase(nn.Module):
     """
     Base class for cnn attention layers
     """
-    def __init__(self, C_in, C_out=16, n_head=8, 
+    def __init__(self, C_in, C_out=16, 
+                    H=128, W=128,
+                    n_head=8, 
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), 
-                    att_dropout_p=0.0, dropout_p=0.1, 
-                    normalize_Q_K=False, att_with_output_proj=True):
+                    att_dropout_p=0.0, 
+                    cosine_att=False, 
+                    normalize_Q_K=False, 
+                    att_with_relative_postion_bias=True,
+                    att_with_output_proj=True):
         """
         Base class for the cnn attentions.
 
@@ -192,39 +210,67 @@ class CnnAttentionBase(nn.Module):
         @args:
             - C_in (int): number of input channels
             - C_out (int): number of output channels
+            - H, W (int): image height and width
             - n_head (int): number of heads in self attention
             - kernel_size, stride, padding (int, int): convolution parameters
             - att_dropout_p (float): probability of dropout for the attention matrix
-            - dropout_p (float): probability of dropout
+            - cosine_att (bool): whether to perform cosine attention; if True, normalize_Q_K will be ignored, as Q and K are already normalized
             - normalize_Q_K (bool): whether to add normalization for Q and K matrix
+            - att_with_relative_postion_bias (bool): whether to add relative positional bias
             - att_with_output_proj (bool): whether to add output projection
         """
         super().__init__()
 
         self.C_in = C_in
         self.C_out = C_out
+        self.H = H
+        self.W = W
         self.n_head = n_head
         self.kernel_size = kernel_size, 
         self.stride = stride 
         self.padding = padding
         self.att_dropout_p = att_dropout_p
-        self.dropout_p = dropout_p
+        self.cosine_att = cosine_att
         self.normalize_Q_K = normalize_Q_K
+        self.att_with_relative_postion_bias = att_with_relative_postion_bias
         self.att_with_output_proj = att_with_output_proj
 
         if att_with_output_proj:
             self.output_proj = Conv2DExt(C_out, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
+        else:
+            self.output_proj = nn.Identity()
             
         if att_dropout_p>0:
             self.attn_drop = nn.Dropout(p=att_dropout_p)
         else:
             self.attn_drop = nn.Identity()
-            
-        if dropout_p>0:
-            self.resid_drop = nn.Dropout(p=dropout_p)
-        else:
-            self.resid_drop = nn.Identity()
-            
+                        
+    def define_relative_position_bias_table(self, num_win_h=100, num_win_w=100):
+        # define a parameter table of relative position bias
+        self.relative_position_bias_table = nn.Parameter(
+            torch.zeros((2 * num_win_h - 1) * (2 * num_win_w - 1), self.n_head)
+        )  # 2*Wh-1 * 2*Ww-1, nH
+        nn.init.trunc_normal_(self.relative_position_bias_table, std=0.02)
+        
+    def define_relative_position_index(self, num_win_h=100, num_win_w=100):
+        # get pair-wise relative position index for each token inside the window
+        coords_h = torch.arange(num_win_h)
+        coords_w = torch.arange(num_win_w)
+        coords = torch.stack(torch.meshgrid(coords_h, coords_w, indexing="ij"))  # 2, Wh, Ww
+        coords_flatten = torch.flatten(coords, 1)  # 2, Wh*Ww
+        relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]  # 2, Wh*Ww, Wh*Ww
+        relative_coords = relative_coords.permute(1, 2, 0).contiguous()  # Wh*Ww, Wh*Ww, 2
+        relative_coords[:, :, 0] += num_win_h - 1  # shift to start from 0
+        relative_coords[:, :, 1] += num_win_w - 1
+        relative_coords[:, :, 0] *= 2 * num_win_w - 1
+        relative_position_index = relative_coords.sum(-1).flatten()  # Wh*Ww*Wh*Ww
+        self.register_buffer("relative_position_index", relative_position_index)
+
+    def get_relative_position_bias(self, num_win_h, num_win_w) -> torch.Tensor:
+        return _get_relative_position_bias(
+            self.relative_position_bias_table, self.relative_position_index, (num_win_h, num_win_w)  # type: ignore[arg-type]
+        )
+        
     @property
     def device(self):
         return next(self.parameters()).device

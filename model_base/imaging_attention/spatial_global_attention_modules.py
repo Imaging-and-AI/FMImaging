@@ -27,12 +27,15 @@ class SpatialGlobalAttention(CnnAttentionBase):
     Multi-head cnn attention model for the global patching. Number of pixels in a window are [wind_size, wind_size].
     Number of pixels in a patch are [patch_size, patch_size]
     """
-    def __init__(self, C_in, C_out=16, 
+    def __init__(self, C_in, C_out=16, H=128, W=128,
                  wind_size=64, patch_size=8, 
                  a_type="conv", n_head=8,
                  kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), 
-                 att_dropout_p=0.0, dropout_p=0.1, 
-                 normalize_Q_K=False, att_with_output_proj=True):
+                 att_dropout_p=0.0, 
+                 cosine_att=False, 
+                 normalize_Q_K=False, 
+                 att_with_relative_postion_bias=True,
+                 att_with_output_proj=True):
         """
         Defines the layer for a cnn attention on spatial dimension with local windows and patches.
 
@@ -47,13 +50,15 @@ class SpatialGlobalAttention(CnnAttentionBase):
         """
         super().__init__(C_in=C_in, 
                          C_out=C_out, 
+                         H=H, W=W,
                          n_head=n_head, 
                          kernel_size=kernel_size, 
                          stride=stride, 
                          padding=padding, 
                          att_dropout_p=att_dropout_p, 
-                         dropout_p=dropout_p, 
+                         cosine_att=cosine_att,
                          normalize_Q_K=normalize_Q_K, 
+                         att_with_relative_postion_bias=att_with_relative_postion_bias,
                          att_with_output_proj=att_with_output_proj)
 
         self.a_type = a_type
@@ -77,6 +82,10 @@ class SpatialGlobalAttention(CnnAttentionBase):
         else:
             raise NotImplementedError(f"Attention type not implemented: {a_type}")
 
+        if self.att_with_relative_postion_bias:
+            self.define_relative_position_bias_table(num_win_h=self.H//self.wind_size, num_win_w=self.W//self.wind_size)
+            self.define_relative_position_index(num_win_h=self.H//self.wind_size, num_win_w=self.W//self.wind_size)
+            
 
     def forward(self, x):
         """
@@ -95,6 +104,10 @@ class SpatialGlobalAttention(CnnAttentionBase):
         assert W % Ws == 0, f"Width {W} should be divisible by window size {Ws}"
         assert Ws % Ps == 0, f"Ws {Ws} should be divisible by patch size {Ps}"
 
+        if self.att_with_relative_postion_bias:
+            assert H == self.H, f"Input height {H} should equal to the preset H {self.H}"
+            assert W == self.W, f"Input height {W} should equal to the preset H {self.W}"
+            
         if self.a_type=="conv":
             k = self.key(x) # (B, T, C, H_prime, W_prime)
             q = self.query(x)
@@ -119,19 +132,24 @@ class SpatialGlobalAttention(CnnAttentionBase):
         q = q.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc)).transpose(3, 4)
         v = v.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc)).transpose(3, 4)
         
-        if self.normalize_Q_K:
-            eps = torch.finfo(k.dtype).eps
-            k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
-            q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
-            
-        # Compute attention matrix, use the matrix broadcasing 
-        # https://pytorch.org/docs/stable/notes/broadcasting.html
         # [B, T, num_patches, num_heads, num_windows, hc] x [B, T, num_patches, num_heads, hc, num_windows] -> (B, T, num_patches, num_heads, num_windows, num_windows)
-        att = q @ k.transpose(-2, -1) * torch.tensor(1.0 / math.sqrt(hc))
+        if self.cosine_att:
+            att = F.normalize(q, dim=-1) @ F.normalize(k, dim=-1).transpose(-2, -1)
+        else:
+            if self.normalize_Q_K:
+                eps = torch.finfo(k.dtype).eps
+                k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
+                q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
+                            
+            att = q @ k.transpose(-2, -1) * torch.tensor(1.0 / math.sqrt(hc))
         
-        att = F.softmax(att, dim=-1)
+        att = F.softmax(att, dim=-1)        
+        if self.att_with_relative_postion_bias:
+            relative_position_bias = self.get_relative_position_bias(num_win_h, num_win_w)
+            att = att + relative_position_bias
+            
         att = self.attn_drop(att)
-
+        
         # (B, T, num_patches, num_heads, num_windows, num_windows) * (B, T, num_patches, num_heads, num_windows, hc)
         y = att @ v # (B, T, num_patches, num_heads, num_windows, hc)
         y = y.transpose(3, 4) # (B, T, num_patches, num_windows, num_heads, hc)
@@ -139,10 +157,7 @@ class SpatialGlobalAttention(CnnAttentionBase):
         
         y = self.grid2im(y)
         
-        if self.att_with_output_proj:
-            y = y + self.resid_drop(self.output_proj(y))
-        else:
-            y = self.resid_drop(y)
+        y = self.output_proj(y)
 
         return y
 
@@ -194,7 +209,7 @@ def tests():
     test_in = t.repeat(B, T, 1, 1, 1)
     print(test_in.shape)
     
-    spacial_vit = SpatialGlobalAttention(wind_size=w, patch_size=4, a_type="conv", C_in=C, C_out=C_out)
+    spacial_vit = SpatialGlobalAttention(H=H, W=W, wind_size=w, patch_size=4, a_type="conv", C_in=C, C_out=C_out)
     
     a = spacial_vit.im2grid(test_in)  
     b = spacial_vit.grid2im(a)
@@ -230,21 +245,32 @@ def tests():
        
     a_types = ["conv", "lin"]
     normalize_Q_Ks = [True, False]
+    cosine_atts = [True, False]
+    att_with_relative_postion_biases = [True, False]
     att_with_output_projs = [True, False]
 
     for a_type in a_types:
         for normalize_Q_K in normalize_Q_Ks:
             for att_with_output_proj in att_with_output_projs:
+                for cosine_att in cosine_atts:
+                    for att_with_relative_postion_bias in att_with_relative_postion_biases:
 
-                spacial_vit = SpatialGlobalAttention(wind_size=8, patch_size=4, a_type=a_type, C_in=C, C_out=C_out, normalize_Q_K=normalize_Q_K, att_with_output_proj=att_with_output_proj)
-                test_out = spacial_vit(test_in)
+                        spacial_vit = SpatialGlobalAttention(wind_size=8, patch_size=4, 
+                                                             a_type=a_type, 
+                                                             C_in=C, C_out=C_out, 
+                                                             H=H, W=W, 
+                                                             cosine_att=cosine_att, 
+                                                             normalize_Q_K=normalize_Q_K, 
+                                                             att_with_relative_postion_bias=att_with_relative_postion_bias,
+                                                             att_with_output_proj=att_with_output_proj)
+                        test_out = spacial_vit(test_in)
 
-                Bo, To, Co, Ho, Wo = test_out.shape
-                assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
-                
-                loss = nn.MSELoss()
-                mse = loss(test_in, test_out[:,:,:C,:,:])
-                mse.backward()
+                        Bo, To, Co, Ho, Wo = test_out.shape
+                        assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
+                        
+                        loss = nn.MSELoss()
+                        mse = loss(test_in, test_out[:,:,:C,:,:])
+                        mse.backward()
                 
     print("Passed SpatialGlobalAttention tests")
     

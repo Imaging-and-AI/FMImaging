@@ -70,8 +70,7 @@ def trainer(rank, model, config, train_set, val_set):
     if rank<=0: # main or master process
         if c.ddp: setup_logger(config) # setup master process logging
 
-        wandb.init(project=c.project, entity=c.wandb_entity, config=c,
-                    name=c.run_name, notes=c.run_notes)
+        wandb.init(project=c.project, entity=c.wandb_entity, config=c, name=c.run_name, notes=c.run_notes)
         wandb.watch(model)
         wandb.run.summary["trainable_params"] = c.trainable_params
         wandb.run.summary["total_params"] = c.total_params
@@ -175,7 +174,7 @@ def trainer(rank, model, config, train_set, val_set):
                         "val_acc":val_acc})
 
             if stype == "ReduceLROnPlateau":
-                sched.step(val_acc)
+                sched.step(1.0 - val_acc)
             else: # stype == "StepLR"
                 sched.step()
 

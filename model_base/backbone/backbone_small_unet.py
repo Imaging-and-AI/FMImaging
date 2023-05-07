@@ -52,13 +52,19 @@ class CNNT_Unet(STCNNT_Base_Runtime):
             - total_steps (int): total training steps. used for OneCycleLR
             - load (bool): whether to try loading from config.load_path or not
         @args (from config):
+        
+            Model specific arguments
+            
             - channels (int list): number of channels in each of the 3 layers
-            - att_types (str list): order of attention types and their following mlps
+            - block_str (str list): order of attention types and their following mlps
                 format is list of XYXYXYXY...
                 - X is "L", "G" or "T" for attention type
                 - Y is "0" or "1" for with or without mixer
                 - only first one is used for this model to create consistent blocks
                 - requires len(att_types[0]) to be even
+                
+            Common shared arguments
+            
             - C_in (int): number of input channels
             - C_out (int): number of output channels
             - height (int list): expected heights of the input
@@ -75,8 +81,6 @@ class CNNT_Unet(STCNNT_Base_Runtime):
                 layer - norm along C, H, W; batch - norm along B*T; or instance
             - interp_align_c (bool):
                 whether to align corner or not when interpolating
-            - residual (bool):
-                whether to add long skip residual connection or not
             - losses (list of "ssim", "ssim3D", "l1", "mse"):
                 list of losses to be combined
             - loss_weights (list of floats)
@@ -127,7 +131,9 @@ class CNNT_Unet(STCNNT_Base_Runtime):
             "att_with_output_proj": c.att_with_output_proj, 
             "scale_ratio_in_mixer": c.scale_ratio_in_mixer,
             "window_size": c.window_size,
-            "patch_size": c.patch_size
+            "patch_size": c.patch_size,
+            "cosine_att": c.cosine_att,
+            "att_with_relative_postion_bias": c.att_with_relative_postion_bias
         }
 
         window_sizes = []
@@ -236,7 +242,6 @@ def tests():
     config.height = [H]
     config.width = [W]
     config.norm_mode = "instance3d"
-    config.att_types = ["T0T1T0T1"]
     config.a_type = "conv"
     config.is_causal = False
     config.n_head = 8
@@ -247,17 +252,25 @@ def tests():
     config.att_with_output_proj = True 
     config.scale_ratio_in_mixer = 4.0
             
+    config.window_size = H//8
+    config.patch_size = H//16
+    config.cosine_att = True
+    config.att_with_relative_postion_bias = True
+            
     # losses
     config.losses = ["mse"]
     config.loss_weights = [1.0]
     config.load_path = None
     # to be tested
-    config.residual = True
     config.device = None
     config.channels = [16,32,64]
     config.all_w_decay = True
     config.optim = "adamw"
     config.scheduler = "StepLR"
+
+    config.backbone_small_unet = Namespace()
+    config.backbone_small_unet.block_str = "T1L1G1"
+    config.backbone_small_unet.channels = [16,32,64]
 
     config.complex_i = False
 
@@ -270,6 +283,9 @@ def tests():
     for optim in optims:
         for scheduler in schedulers:
             for all_w_decay in all_w_decays:
+                
+                print(optim, scheduler, all_w_decay)
+                
                 config.optim = optim    
                 config.scheduler = scheduler
                 config.all_w_decay = all_w_decay
@@ -283,21 +299,18 @@ def tests():
     print("Passed optimizers and schedulers")
 
     heads_and_channelss = [(8,[16,32,64]),(5,[5,50,15]),(13,[13,13,13])]
-    residuals = [True, False]
 
     for n_head, channels in heads_and_channelss:
-        for residual in residuals:
-            config.n_head = n_head
-            config.channels = channels
-            config. residual = residual
+        config.n_head = n_head
+        config.backbone_small_unet.channels = channels
+        
+        cnnt_unet = CNNT_Unet(config=config)
+        test_out = cnnt_unet(test_in)
+        res = loss(test_out, test_in)
 
-            cnnt_unet = CNNT_Unet(config=config)
-            test_out = cnnt_unet(test_in)
-            res = loss(test_out, test_in)
+        print(res)
 
-            print(res)
-
-    print("Passed channels and residual")
+    print("Passed channels")
 
     devices = ["cuda", "cpu", "cuda:0"]
 
