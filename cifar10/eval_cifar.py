@@ -11,6 +11,7 @@ import argparse
 
 import torch
 import torchvision as tv
+from torchvision import transforms
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
@@ -155,7 +156,7 @@ def transform_f(x):
     @rets:
         - x (torch.Tensor): 4D torch tensor [T,C,H,W], T=1
     """
-    return tv.transforms.ToTensor()(x).unsqueeze(0)
+    return x.unsqueeze(0)
 
 def create_base_test_set(config):
     """
@@ -172,12 +173,18 @@ def create_base_test_set(config):
     assert config.time==1 and config.height[0]==32 and config.width[0]==32,\
         f"For Cifar10, time height width should 1 32 32"
     
+    transform = transforms.Compose([transforms.Resize((32,32)),
+                            transforms.ToTensor(),
+                            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                            transform_f
+                            ])
+        
     if config.data_set == "cifar10":
         test_set = tv.datasets.CIFAR10(root=config.data_root, train=False,
-                                    download=True, transform=transform_f)
+                                    download=True, transform=transform)
     elif config.data_set == "cifar100":
         test_set = tv.datasets.CIFAR100(root=config.data_root, train=False,
-                                    download=True, transform=transform_f)
+                                    download=True, transform=transform)
     else:
         raise NotImplementedError(f"Data set not implemented:{config.data_set}")
 

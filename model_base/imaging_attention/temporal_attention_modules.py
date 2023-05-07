@@ -23,10 +23,10 @@ class TemporalCnnAttention(CnnAttentionBase):
     """
     Multi-head cnn attention model for complete temporal attention
     """
-    def __init__(self, C_in, C_out=16, is_causal=False, n_head=8, \
+    def __init__(self, C_in, C_out=16, H=128, W=128, is_causal=False, n_head=8, \
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), \
-                    stride_t=(2,2), att_dropout_p=0.0, dropout_p=0.1, 
-                    normalize_Q_K=False, att_with_output_proj=True):
+                    stride_t=(2,2), att_dropout_p=0.0, 
+                    cosine_att=False, normalize_Q_K=False, att_with_output_proj=True):
         """
         Defines the layer for a cnn self-attention on temporal axis
 
@@ -42,12 +42,13 @@ class TemporalCnnAttention(CnnAttentionBase):
         """
         super().__init__(C_in=C_in, 
                          C_out=C_out, 
+                         H=H, W=W,
                          n_head=n_head, 
                          kernel_size=kernel_size, 
                          stride=stride, 
                          padding=padding, 
                          att_dropout_p=att_dropout_p, 
-                         dropout_p=dropout_p, 
+                         cosine_att=cosine_att,
                          normalize_Q_K=normalize_Q_K, 
                          att_with_output_proj=att_with_output_proj)
 
@@ -97,11 +98,12 @@ class TemporalCnnAttention(CnnAttentionBase):
 
         B, nh, T, hc, H_prime, W_prime = k.shape
 
-        # Compute attention matrix, use the matrix broadcasting 
-        # https://pytorch.org/docs/stable/notes/broadcasting.html
         # (B, nh, T, hc, H', W') x (B, nh, hc, H', W', T) -> (B, nh, T, T)
-        att = (q.view(B, nh, T, hc*H_prime*W_prime) @ k.view(B, nh, T, hc*H_prime*W_prime).transpose(-2, -1))\
-                * torch.tensor(1.0 / math.sqrt(hc*H_prime*W_prime))
+        if self.cosine_att:
+            att = F.normalize(q.view(B, nh, T, hc*H_prime*W_prime), dim=-1) @ F.normalize(k.view(B, nh, T, hc*H_prime*W_prime), dim=-1).transpose(-2, -1)
+        else:       
+            att = (q.view(B, nh, T, hc*H_prime*W_prime) @ k.view(B, nh, T, hc*H_prime*W_prime).transpose(-2, -1))\
+                    * torch.tensor(1.0 / math.sqrt(hc*H_prime*W_prime))
 
         # if causality is needed, apply the mask
         if(self.is_causal):
@@ -114,10 +116,7 @@ class TemporalCnnAttention(CnnAttentionBase):
         y = att @ v.view(B, nh, T, hc*H_prime*W_prime*self.stride_f*self.stride_f)
         y = y.transpose(1, 2).contiguous().view(B, T, self.C_out, H_prime*self.stride_f, W_prime*self.stride_f)
         
-        if self.att_with_output_proj:
-            y = y + self.resid_drop(self.output_proj(y))
-        else:
-            y = self.resid_drop(y)
+        y = self.output_proj(y)
 
         return y
     

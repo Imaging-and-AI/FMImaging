@@ -8,6 +8,8 @@ import os
 import json
 import torch
 import logging
+import pickle
+import onnx
 
 # -------------------------------------------------------------------------------------------------
 # basic file name generator using the config
@@ -48,6 +50,8 @@ def save_final_model(model, config, best_model_wts):
     """
     c = config # shortening due to numerous uses
 
+    model.eval()
+    
     model_input = torch.randn(1, c.time, c.C_in, c.height[0], c.width[0], requires_grad=True)
     model_input = model_input.to('cpu')
     model.to('cpu')
@@ -56,20 +60,24 @@ def save_final_model(model, config, best_model_wts):
 
     def save_model_instance(model, name):
         # save an instance of the model using the given name
-        logging.info(f"Saving model weights at: {name}.pt")
-        torch.save(model.state_dict(), f"{name}.pt")
+        logging.info(f"Saving model weights and config at: {name}.pt")
+        torch.save({"model":model.state_dict(), "config":config}, f"{name}.pt")
 
         logging.info(f"Saving torchscript model at: {name}.pts")
         model_scripted = torch.jit.trace(model, model_input, strict=False)
         model_scripted.save(f"{name}.pts")
 
-        logging.info(f"Saving config at {name}.json")
-        with open(f"{name}.json", "w") as file:
-            try:
-                config_dict = dict(config)
-            except TypeError:
-                config_dict = vars(config)
-            json.dump(config_dict, file)
+        # torch.onnx.export(model, model_input, f"{name}.onnx", 
+        #                     export_params=True, 
+        #                     opset_version=16, 
+        #                     training =torch.onnx.TrainingMode.TRAINING,
+        #                     do_constant_folding=False,
+        #                     input_names = ['input'], 
+        #                     output_names = ['output'], 
+        #                     dynamic_axes={'input' : {0:'batch_size', 1: 'time', 3: 'H', 4: 'W'}, 
+        #                                     'input' : {0:'batch_size', 1: 'time', 3: 'H', 4: 'W'}
+        #                                     }
+        #                     )
 
     last_model_name = f"{model_file_name}_last"
     save_model_instance(model, name=last_model_name)

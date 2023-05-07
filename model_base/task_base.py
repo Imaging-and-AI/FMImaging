@@ -66,7 +66,7 @@ class STCNNT_Task_Base(nn.Module, ABC):
         decay = set()
         no_decay = set()
         whitelist_weight_modules = (nn.Linear, nn.Conv2d, nn.Conv3d)
-        blacklist_weight_modules = (nn.LayerNorm, nn.BatchNorm2d, nn.BatchNorm3d, nn.InstanceNorm2d, nn.InstanceNorm3d)
+        blacklist_weight_modules = (nn.LayerNorm, nn.BatchNorm2d, nn.BatchNorm3d, nn.InstanceNorm2d, nn.InstanceNorm3d, nn.parameter.Parameter)
         for mn, m in self.named_modules():
             for pn, p in m.named_parameters():
                 fpn = '%s.%s' % (mn, pn) if mn else pn # full param name
@@ -76,13 +76,13 @@ class STCNNT_Task_Base(nn.Module, ABC):
                 if pn.endswith('bias'):
                     # all biases will not be decayed
                     no_decay.add(fpn)
-                elif pn.endswith('weight') and isinstance(m, whitelist_weight_modules):
+                elif pn.endswith('weight') and isinstance(p, whitelist_weight_modules):
                     # weights of whitelist modules will be weight decayed
                     decay.add(fpn)
-                elif pn.endswith('weight') and isinstance(m, blacklist_weight_modules):
+                elif (pn.endswith('weight') or pn.endswith('relative_position_bias_table')) and isinstance(p, blacklist_weight_modules):
                     # weights of blacklist modules will NOT be weight decayed
                     no_decay.add(fpn)
-
+                
         # validate that we considered every parameter
         param_dict = {pn: p for pn, p in self.named_parameters()}
         inter_params = decay & no_decay

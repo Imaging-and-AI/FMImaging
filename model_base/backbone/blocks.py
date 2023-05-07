@@ -46,8 +46,11 @@ class STCNNT_Block(nn.Module):
                     a_type="conv", cell_type="sequential",
                     window_size=64, patch_size=16, 
                     is_causal=False, n_head=8,
-                    kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), stride_t=(2,2), 
-                    normalize_Q_K=False, att_dropout_p=0.0, dropout_p=0.1, 
+                    kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), stride_t=(2,2),
+                    cosine_att=True,  
+                    normalize_Q_K=False, 
+                    att_dropout_p=0.0, dropout_p=0.1, 
+                    att_with_relative_postion_bias=True,
                     att_with_output_proj=True, scale_ratio_in_mixer=4.0, 
                     norm_mode="layer",\
                     interpolate="none", interp_align_c=False):
@@ -108,6 +111,8 @@ class STCNNT_Block(nn.Module):
         self.stride_t = stride_t
         self.padding = padding
         self.normalize_Q_K = normalize_Q_K
+        self.cosine_att = cosine_att
+        self.att_with_relative_postion_bias = att_with_relative_postion_bias
         self.att_dropout_p = att_dropout_p
         self.dropout_p = dropout_p
         self.att_with_output_proj = att_with_output_proj
@@ -147,7 +152,8 @@ class STCNNT_Block(nn.Module):
                                                                   window_size=window_size, patch_size=patch_size, 
                                                                   is_causal=is_causal, n_head=n_head,
                                                                   kernel_size=kernel_size, stride=stride, padding=padding, stride_t=stride_t,
-                                                                  normalize_Q_K=normalize_Q_K, att_dropout_p=att_dropout_p, dropout_p=dropout_p, 
+                                                                  normalize_Q_K=normalize_Q_K, att_dropout_p=att_dropout_p, dropout_p=dropout_p,
+                                                                  cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias, 
                                                                   att_with_output_proj=att_with_output_proj, scale_ratio_in_mixer=scale_ratio_in_mixer, 
                                                                   with_mixer=(mixer=='1'), norm_mode=norm_mode)))
             else:
@@ -156,7 +162,8 @@ class STCNNT_Block(nn.Module):
                                                                            window_size=window_size, patch_size=patch_size, is_causal=is_causal, n_head=n_head,
                                                                            kernel_size=kernel_size, stride=stride, padding=padding, stride_t=stride_t,
                                                                            normalize_Q_K=normalize_Q_K, att_dropout_p=att_dropout_p, dropout_p=dropout_p, 
-                                                                           att_with_output_proj=att_with_output_proj, scale_ratio_in_mixer=scale_ratio_in_mixer, 
+                                                                           cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias, 
+                                                                           att_with_output_proj=att_with_output_proj, scale_ratio_in_mixer=scale_ratio_in_mixer,                                                                            
                                                                            with_mixer=(mixer=='1'), norm_mode=norm_mode)))
 
                 
