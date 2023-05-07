@@ -27,11 +27,18 @@ sys.path.insert(1, str(Project_DIR))
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
+Project_DIR = Path(__file__).parents[2].resolve()
+sys.path.insert(1, str(Project_DIR))
+
 from losses import *
-from attention_modules import *
+from imaging_attention import *
+from cells import *
+from blocks import *
 from utils.utils import get_device, model_info
 
-from base_models import STCNNT_Base_Runtime
+from backbone_base import STCNNT_Base_Runtime
+
+__all__ = ['STCNNT_Unet']
 
 # -------------------------------------------------------------------------------------------------
 # building blocks
@@ -151,9 +158,14 @@ class _unet_attention(nn.Module):
 class STCNNT_Unet(STCNNT_Base_Runtime):
     """
     This class implemented the stcnnt version of Unet with maximal 5 down/upsample levels.
+    
+    The attention window_size and patch_size are in the unit of pixels and set for the top level resolution. For every downsample level,
+    they are reduced by x2 to keep the number of windows roughly the same.
+    
+    The minimal window size is 16 and minimal patch size is 4.
     """
 
-    def __init__(self, config, total_steps=1, load=False) -> None:
+    def __init__(self, config) -> None:
         """
         @args:
             - config (Namespace): runtime namespace for setup
@@ -171,7 +183,7 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
 
             - block_str (str | list of strings): order of attention types and mixer
                 format is list of XYXYXYXY...
-                - X is "L", "G" or "T" for attention type
+                - X is "L", "G" or "T" or "V" for attention type
                 - Y is "0" or "1" for with or without mixer
                 - requires len(att_types[i]) to be even
 
@@ -187,19 +199,24 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             Shared arguments used in this model
             ---------------------------------------------------------------
             - C_in (int): number of input channels
-            - C_out (int): number of output channels
 
             - height (int list): expected heights of the input
             - width (int list): expected widths of the input
 
-            - a_type ("conv", "lin"):
-                type of attention in spatial heads
+            - a_type ("conv", "lin"): type of attention in spatial heads
+            - cell_type ("sequential", "parallel"): type of attention cell
             - window_size (int): size of window for local and global att
+            - patch_size (int): size of patch for local and global att
+            - window_sizing_method (str): "mixed", "keep_window_size", "keep_num_window"
             - is_causal (bool): whether to mask attention to imply causality
             - n_head (int): number of heads in self attention
             - kernel_size, stride, padding (int, int): convolution parameters
             - stride_t (int): special stride for temporal attention k,q matrices
+            - normalize_Q_K (bool): whether to use layernorm to normalize Q and K, as in 22B ViT paper
+            - att_dropout_p (float): probability of dropout for attention coefficients
             - dropout (float): probability of dropout
+            - att_with_output_proj (bool): whether to add output projection in the attention layer
+            - scale_ratio_in_mixer (float): channel scaling ratio in the mixer
             - norm_mode ("layer", "batch", "instance"):
                 layer - norm along C, H, W; batch - norm along B*T; or instance norm along H, W for C
             - interp_align_c (bool):
@@ -215,22 +232,18 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             - weight_decay (float): parameter for regularization
             - all_w_decay (bool): whether to separate model params for regularization
 
-            - losses (list of "ssim", "ssim3D", "l1", "mse"):
-                list of losses to be combined
-            - loss_weights (list of floats)
-                weights of the losses in the combined loss
-            - complex_i (bool): whether we are dealing with complex images or not
-
             - load_path (str): path to load the weights from
         """
         super().__init__(config)
 
-        C = config.C
-        num_resolution_levels = config.num_resolution_levels
-        block_str = config.block_str
-        use_unet_attention = config.use_unet_attention
-        use_interpolation = config.use_interpolation
-        with_conv = config.with_conv
+        self.check_class_specific_parameters(config)
+
+        C = config.backbone_unet.C
+        num_resolution_levels = config.backbone_unet.num_resolution_levels
+        block_str = config.backbone_unet.block_str
+        use_unet_attention = config.backbone_unet.use_unet_attention
+        use_interpolation = config.backbone_unet.use_interpolation
+        with_conv = config.backbone_unet.with_conv
 
         assert C >= config.C_in, "Number of channels should be larger than C_in"
         assert num_resolution_levels <= 5 and num_resolution_levels>=1, "Maximal number of resolution levels is 5"
@@ -243,13 +256,20 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
         self.with_conv = with_conv
 
         c = config
+        
+        # compute number of windows and patches
+        self.num_windows_h = c.height[0]//c.window_size
+        self.num_windows_w = c.width[0]//c.window_size
+        self.num_patch = c.window_size//c.patch_size
+
         kwargs = {
             "C_in":c.C_in,
-            "C_out":c.C,
+            "C_out":self.C,
             "H":c.height[0],
             "W":c.width[0],
-            "a_type":c.a_type,
+            "a_type":c.a_type,            
             "window_size": c.window_size,
+            "patch_size": c.patch_size,
             "is_causal":c.is_causal,
             "dropout_p":c.dropout_p,
             "n_head":c.n_head,
@@ -259,8 +279,17 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             "stride_t":(c.stride_t, c.stride_t),
             "norm_mode":c.norm_mode,
             "interpolate":"none",
-            "interp_align_c":c.interp_align_c
+            "interp_align_c":c.interp_align_c,
+            
+            "cell_type": c.cell_type,
+            "normalize_Q_K": c.normalize_Q_K, 
+            "att_dropout_p": c.att_dropout_p,
+            "att_with_output_proj": c.att_with_output_proj, 
+            "scale_ratio_in_mixer": c.scale_ratio_in_mixer 
         }
+
+        window_sizes = []
+        patch_sizes = []
 
         if num_resolution_levels >= 1:
             # define D0
@@ -268,6 +297,17 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
+            
+            if c.window_sizing_method == "keep_num_window":
+                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="D0")
+            elif c.window_sizing_method == "keep_window_size":
+                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], c.window_size, c.patch_size, module_name="D0")
+            else: # mixed
+                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="D0")
+                
+            window_sizes.append(kwargs["window_size"])
+            patch_sizes.append(kwargs["patch_size"])
+            
             kwargs["att_types"] = self.block_str[0]
             self.D0 = STCNNT_Block(**kwargs)
 
@@ -279,6 +319,17 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 2*self.C
             kwargs["H"] = c.height[0] // 2
             kwargs["W"] = c.width[0] // 2
+            
+            if c.window_sizing_method == "keep_num_window":
+                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="D1")
+            elif c.window_sizing_method == "keep_window_size":
+                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[0], patch_sizes[0], module_name="D1")
+            else: # mixed
+                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"] , window_sizes[0], patch_sizes[0], module_name="D1")
+                
+            window_sizes.append(kwargs["window_size"])
+            patch_sizes.append(kwargs["patch_size"])
+            
             kwargs["att_types"] = self.block_str[1]
             self.D1 = STCNNT_Block(**kwargs)
 
@@ -290,6 +341,17 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 4*self.C
             kwargs["H"] = c.height[0] // 4
             kwargs["W"] = c.width[0] // 4
+            
+            if c.window_sizing_method == "keep_num_window":
+                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="D2")
+            elif c.window_sizing_method == "keep_window_size":
+                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[1], patch_sizes[1], module_name="D2")
+            else: # mixed
+                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h//2, self.num_patch, module_name="D2")
+                
+            window_sizes.append(kwargs["window_size"])
+            patch_sizes.append(kwargs["patch_size"])
+            
             kwargs["att_types"] = self.block_str[2]
             self.D2 = STCNNT_Block(**kwargs)
 
@@ -301,6 +363,17 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 8*self.C
             kwargs["H"] = c.height[0] // 8
             kwargs["W"] = c.width[0] // 8
+            
+            if c.window_sizing_method == "keep_num_window":
+                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="D3")
+            elif c.window_sizing_method == "keep_window_size":
+                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[2], patch_sizes[2], module_name="D3")
+            else: # mixed
+                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[2], patch_sizes[2], module_name="D3")
+                
+            window_sizes.append(kwargs["window_size"])
+            patch_sizes.append(kwargs["patch_size"])
+            
             kwargs["att_types"] = self.block_str[3]
             self.D3 = STCNNT_Block(**kwargs)
 
@@ -312,6 +385,17 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 16*self.C
             kwargs["H"] = c.height[0] // 16
             kwargs["W"] = c.width[0] // 16
+            
+            if c.window_sizing_method == "keep_num_window":
+                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="D4")
+            elif c.window_sizing_method == "keep_window_size":
+                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[3], patch_sizes[3], module_name="D4")
+            else: # mixed
+                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h//4, self.num_patch, module_name="D4")
+                
+            window_sizes.append(kwargs["window_size"])
+            patch_sizes.append(kwargs["patch_size"])
+            
             kwargs["att_types"] = self.block_str[4]
             self.D4 = STCNNT_Block(**kwargs)
 
@@ -320,6 +404,7 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
         # define the bridge
         kwargs["C_in"] = kwargs["C_out"]
         kwargs["att_types"] = self.block_str[-1]
+        kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[-1], patch_sizes[-1], module_name="bridge")
         self.bridge = STCNNT_Block(**kwargs)
 
         if num_resolution_levels >= 5:
@@ -331,6 +416,7 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 8*self.C
             kwargs["H"] = c.height[0] // 16
             kwargs["W"] = c.width[0] // 16
+            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[4], patch_sizes[4], module_name="U4")
             kwargs["att_types"] = self.block_str[4]
             self.U4 = STCNNT_Block(**kwargs)
 
@@ -343,6 +429,7 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 4*self.C
             kwargs["H"] = c.height[0] // 8
             kwargs["W"] = c.width[0] // 8
+            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[3], patch_sizes[3], module_name="U3")
             kwargs["att_types"] = self.block_str[3]
             self.U3 = STCNNT_Block(**kwargs)
 
@@ -355,6 +442,7 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 2*self.C
             kwargs["H"] = c.height[0] // 4
             kwargs["W"] = c.width[0] // 4
+            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[2], patch_sizes[2], module_name="U2")
             kwargs["att_types"] = self.block_str[2]
             self.U2 = STCNNT_Block(**kwargs)
 
@@ -367,6 +455,7 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0] // 2
             kwargs["W"] = c.width[0] // 2
+            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[1], patch_sizes[1], module_name="U1")
             kwargs["att_types"] = self.block_str[1]
             self.U1 = STCNNT_Block(**kwargs)
 
@@ -379,17 +468,23 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
+            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[0], patch_sizes[0], module_name="U0")
             kwargs["att_types"] = self.block_str[0]
             self.U0 = STCNNT_Block(**kwargs)
 
-        # set up remaining stuff
-        device = get_device(device=c.device)
-        self.set_up_loss(device=device)
-        self.set_up_optim_and_scheduling(total_steps=total_steps)
 
-        if load and c.load_path is not None:
-            self.load(device=device)
+    def check_class_specific_parameters(self, config):
+        if not "backbone_unet" in config:
+            raise "backbone_unet namespace should exist in config"
+               
+        err_str = lambda x : f"{x} should exist in config.backbone_unet"        
 
+        para_list = ["C", "num_resolution_levels", "block_str", "use_unet_attention", "use_interpolation", "with_conv"]        
+        for arg_name in para_list:            
+            if not arg_name in config.backbone_unet:
+                raise ValueError(err_str(arg_name))
+            
+            
     def forward(self, x):
         """
         @args:
@@ -502,7 +597,7 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
 
 def tests():
 
-    B,T,C,H,W = 8, 8, 1, 256, 256
+    B,T,C,H,W = 2, 8, 1, 256, 256
     test_in = torch.rand(B,T,C,H,W, dtype=torch.float32)
 
     config = Namespace()
@@ -528,11 +623,16 @@ def tests():
     config.is_causal = False
     config.n_head = 8
     config.interp_align_c = True
-    config.window_size = 16
+
+    config.window_size = H//8
+    config.patch_size = H//32
+    config.window_sizing_method = "mixed"
+    
     # losses
     config.losses = ["mse"]
     config.loss_weights = [1.0]
     config.load_path = None
+
     # to be tested
     config.residual = True
     config.device = None
@@ -545,18 +645,26 @@ def tests():
 
     config.summary_depth = 4
 
-    config.C = 16
-    config.num_resolution_levels = 4
-    config.block_str = ["T1L1G1",
+    # model specific parameters
+    config.backbone_unet = Namespace()
+    config.backbone_unet.C = 16
+    config.backbone_unet.num_resolution_levels = 4
+    config.backbone_unet.block_str = ["T1L1G1",
                         "T1L1G1T1L1G1",
                         "T1L1G1T1L1G1T1L1G1",
                         "T1L1G1T1L1G1T1L1G1T1L1G1",
                         "T1L1G1T1L1G1T1L1G1T1L1G1"]
 
-    config.use_unet_attention = True
-    config.use_interpolation = True
-    config.with_conv = True
+    config.backbone_unet.use_unet_attention = True
+    config.backbone_unet.use_interpolation = True
+    config.backbone_unet.with_conv = True
 
+    config.cell_type = "sequential"
+    config.normalize_Q_K = True 
+    config.att_dropout_p = 0.0
+    config.att_with_output_proj = True 
+    config.scale_ratio_in_mixer  = 1.0
+            
     config.optim = "adamw"
     config.scheduler = "ReduceLROnPlateau"
     config.all_w_decay = True

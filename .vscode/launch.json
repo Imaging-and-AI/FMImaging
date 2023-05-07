@@ -18,27 +18,12 @@
             "name": "Cifar10_main",
             "type": "python",
             "request": "launch",
-            "program": "~/projects/STCNNT_2/STCNNT/cifar10/main_cifar.py",
+            "program": "./cifar10/main_cifar.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
             "args": [
-                "--run_name", "test_run",
-                "--num_workers", "0",
-                "--time", "1",
-                "--height", "32",
-                "--width", "32",
-                "--num_epoch", "5",
-                "--save_cycle", "2",
-                "--device", "cuda",
-                "-D",
-                "--check_path", "~/projects/STCNNT_2/checkpoints/",
-                "--log_path", "~/projects/STCNNT_2/logs/",
-                "--data_root", "~/projects/STCNNT_2/cifar10/",
-                "--results_path", "~/projects/STCNNT_2/results/",
-                "--model_path", "~/projects/STCNNT_2/models/",
-                "--norm_mode", "batch2d",
-                "--att_types", "T0T0T1"
+                "--data_set", "cifar10", "--data_root", "/export/Lab-Xue/projects/cifar10/data", "--check_path", "/export/Lab-Xue/projects/cifar10/checkpoints", "--model_path", "/export/Lab-Xue/projects/cifar10/models", "--log_path", "/export/Lab-Xue/projects/cifar10/logs", "--results_path", "/export/Lab-Xue/projects/cifar10/results", "--num_epochs", "100", "--batch_size", "128", "--device", "cuda", "--norm_mode", "instance2d", "--window_size", "8", "--patch_size", "2", "--global_lr", "1e-3", "--clip_grad_norm", "1.0", "--normalize_Q_K", "--weight_decay", "0.0", "--use_amp", "--ddp", "--iters_to_accumulate", "1", "--project", "cifar", "--num_workers", "8", "--scheduler_type", "OneCycleLR", "--backbone", "hrnet", "--backbone_hrnet.C", "32", "--backbone_hrnet.num_resolution_levels", "2", "--backbone_hrnet.block_str", "T1L1G1", "T1L1G1", "--backbone_hrnet.use_interpolation", "True", "--backbone_unet.C", "32", "--backbone_unet.num_resolution_levels", "2", "--backbone_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1", "--backbone_unet.use_unet_attention", "True", "--backbone_unet.use_interpolation", "True", "--backbone_unet.with_conv", "True", "--backbone_LLM.C", "32", "--backbone_LLM.num_stages", "3", "--backbone_LLM.block_str", "T1L1G1", "T1L1G1", "T1L1G1", "--backbone_LLM.add_skip_connections", "True", "--backbone_small_unet.channels", "16", "32", "64", "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1", "--run_name", "cifar_unet_conv_sequential_qknorm_True_block_str_T1L1G1_T1L1G1_T1L1G1", "--run_notes", "backbone_unet_conv_sequential_qknorm_True_block_str_T1L1G1_T1L1G1_T1L1G1", "--a_type", "conv", "--cell_type", "sequential", "--normalize_Q_K", "--backbone_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1"
             ]
         },
         {
@@ -80,5 +65,40 @@
                 "--loss_weights","1.0","1.0","1.0","1.0"
             ]
         },
+        {
+            "name": "membrane potential",
+            "type": "python",
+            "request": "launch",
+            "program": "./membrane_potential/main.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
+            "args": [
+                "--run_name", "membrane_potential_prediction",
+                "--batch_size", "32",
+                "--num_starts", "40",
+                "--num_epoch", "20",
+                "--save_cycle", "2",
+                "--weight_decay", "0.1",
+                "--global_lr", "0.001",
+                "--n_embd", "512",
+                "--device", "cuda",
+                "--check_path", "~/projects/membrane_potential/checkpoints/",
+                "--log_path", "~/projects/membrane_potential/logs/",
+                "--results_path", "~/projects/membrane_potential/results/",
+                "--model_path", "~/projects/membrane_potential/models/",
+                "--data_root", "/export/Lab-Xue/MembranePotential/experiments"
+            ]
+        },
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "20", "PYDEVD_DISABLE_FILE_VALIDATION": "1"},
+            "args": []
+        }
     ]
 }

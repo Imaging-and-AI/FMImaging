@@ -32,7 +32,7 @@ def arg_parser():
     parser.add_argument("--test_files", type=str, nargs='+', default=["train_3D_3T_retro_cine_2020_small_2DT_test.h5"], help='list of test h5files')
     parser.add_argument("--train_data_types", type=str, nargs='+', default=["2dt"], help='the type of each train file: "2d", "2dt", "3d"')
     parser.add_argument("--test_data_types", type=str, nargs='+', default=["2dt"], help='the type of each test file: "2d", "2dt", "3d"')
-    parser = add_shared_args(parser=parser)
+    parser = add_shared_STCNNT_args(parser=parser)
 
     # Noise Augmentation arguments
     parser.add_argument("--min_noise_level", type=float, default=3.0, help='minimum noise sigma to add')
@@ -49,7 +49,16 @@ def arg_parser():
     parser.add_argument('--threeD_cutout_jitter', nargs='+', type=float, default=[-1, 0.5, 0.75, 1.0], help='cutout jitter range, relative to the cutout_shape')
     parser.add_argument("--threeD_cutout_shuffle_time", action="store_true", help='shuffle along time to break temporal consistency; for 2D+T, should not set this option')
 
-    return parser.parse_args()
+    # loss for mri
+    parser.add_argument("--losses", nargs='+', type=str, default=["mse", "l1"], help='Any combination of "mse", "l1", "sobel", "ssim", "ssim3D"')
+    parser.add_argument('--loss_weights', nargs='+', type=float, default=[1.0, 1.0], help='to balance multiple losses, weights can be supplied')
+    parser.add_argument("--complex_i", action="store_true", help='whether we are dealing with complex images or not')
+    parser.add_argument("--residual", action="store_true", help='add long term residual connection')
+
+    ns = Nestedspace()
+    args = parser.parse_args(namespace=ns)
+    
+    return args
 
 def check_args(config):
     """

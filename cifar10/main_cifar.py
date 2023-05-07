@@ -5,6 +5,8 @@ import wandb
 import logging
 import argparse
 import torchvision as tv
+from torchvision import transforms
+import torchvision.transforms as T
 import torch.multiprocessing as mp
 
 import sys
@@ -35,9 +37,13 @@ def arg_parser():
     parser.add_argument("--data_root", type=str, default=None, help='root folder for the data')
     parser.add_argument("--data_set", type=str, default="cifar10", help='choice of dataset: "cifar10", "cifar100')
     parser.add_argument("--head_channels", nargs='+', type=int, default=[8,128,10], help='number of channels for cifar head')
-    parser = add_shared_args(parser=parser)
+    
+    parser = add_backbone_STCNNT_args(parser=parser)
 
-    return parser.parse_args()
+    ns = Nestedspace()
+    args = parser.parse_args(namespace=ns)
+    
+    return args
 
 def check_args(config):
     """
@@ -71,7 +77,7 @@ def transform_f(x):
     @rets:
         - x (torch.Tensor): 4D torch tensor [T,C,H,W], T=1
     """
-    return tv.transforms.ToTensor()(x).unsqueeze(0)
+    return x.unsqueeze(0)
 
 def create_dataset(config):
     """
@@ -89,18 +95,35 @@ def create_dataset(config):
     assert config.time==1 and config.height[0]==32 and config.width[0]==32,\
         f"For Cifar10, time height width should 1 32 32"
     
+    transform_train = transforms.Compose([transforms.Resize((32,32)),  #resises the image so it can be perfect for our model.
+                                            transforms.AutoAugment(T.AutoAugmentPolicy.CIFAR10),
+                                            transforms.RandomHorizontalFlip(), # FLips the image w.r.t horizontal axis
+                                            transforms.RandomRotation(10),     #Rotates the image to a specified angel
+                                            transforms.RandomAffine(0, shear=10, scale=(0.8,1.2)), #Performs actions like zooms, change shear angles.
+                                            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2), # Set the color params
+                                            transforms.ToTensor(), # comvert the image to tensor so that it can work with torch
+                                            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)), #Normalize all the images
+                                            transform_f
+                               ])
+    
+    transform = transforms.Compose([transforms.Resize((32,32)),
+                               transforms.ToTensor(),
+                               transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                               transform_f
+                               ])
+    
     if config.data_set == "cifar10":
         train_set = tv.datasets.CIFAR10(root=config.data_root, train=True,
-                                        download=True, transform=transform_f)
+                                        download=True, transform=transform_train)
 
         val_set = tv.datasets.CIFAR10(root=config.data_root, train=False,
-                                        download=True, transform=transform_f)
+                                        download=True, transform=transform)
     elif config.data_set == "cifar100":
         train_set = tv.datasets.CIFAR100(root=config.data_root, train=True,
-                                        download=True, transform=transform_f)
+                                        download=True, transform=transform_train)
 
         val_set = tv.datasets.CIFAR100(root=config.data_root, train=False,
-                                        download=True, transform=transform_f)
+                                        download=True, transform=transform)
     else:
         raise NotImplementedError(f"Data set not implemented:{config.data_set}")
 
@@ -117,6 +140,8 @@ def main():
     train_set, val_set = create_dataset(config=config)
 
     total_steps = len(train_set)//config.batch_size*config.num_epochs
+    if config.ddp: total_steps //= torch.cuda.device_count()
+    
     model = STCNNT_Cifar(config=config, total_steps=total_steps)
 
     # model summary

@@ -300,70 +300,71 @@ def eval_val(model, config, val_set, epoch, device):
 
     images_logged = 0
 
-    with tqdm(total=total_iters) as pbar:
+    with torch.no_grad():
+        with tqdm(total=total_iters) as pbar:
 
-        for idx in range(total_iters):
+            for idx in range(total_iters):
 
-            loader_ind = idx % len(val_loader_iter)
-            batch = next(val_loader_iter[loader_ind], None)
-            while batch is None:
-                del val_loader_iter[loader_ind]
                 loader_ind = idx % len(val_loader_iter)
                 batch = next(val_loader_iter[loader_ind], None)
-            x, y, gmaps_median, noise_sigmas = batch
+                while batch is None:
+                    del val_loader_iter[loader_ind]
+                    loader_ind = idx % len(val_loader_iter)
+                    batch = next(val_loader_iter[loader_ind], None)
+                x, y, gmaps_median, noise_sigmas = batch
 
-            two_D = False
-            cutout_in = cutout
-            overlap_in = overlap
-            if x.shape[1]==1:
-                xy, og_shape, pt_shape = cut_into_patches([x,y], cutout=cutout[1:])
-                x, y = xy[0], xy[1]
-                cutout_in = (c.twoD_num_patches_cutout, *cutout[1:])
-                overlap_in = (c.twoD_num_patches_cutout//4, *overlap[1:])
-                two_D = True
+                two_D = False
+                cutout_in = cutout
+                overlap_in = overlap
+                if x.shape[1]==1:
+                    xy, og_shape, pt_shape = cut_into_patches([x,y], cutout=cutout[1:])
+                    x, y = xy[0], xy[1]
+                    cutout_in = (c.twoD_num_patches_cutout, *cutout[1:])
+                    overlap_in = (c.twoD_num_patches_cutout//4, *overlap[1:])
+                    two_D = True
 
-            x = x.to(device)
-            y = y.to(device)
+                x = x.to(device)
+                y = y.to(device)
 
-            try:
-                _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device=device)
-            except:
-                _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device="cpu")
-                y = y.to("cpu")
+                try:
+                    _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device=device)
+                except:
+                    _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device="cpu")
+                    y = y.to("cpu")
 
-            if two_D:
-                xy = repatch([x,output,y], og_shape, pt_shape)
-                x, output, y = xy[0], xy[1], xy[2]
+                if two_D:
+                    xy = repatch([x,output,y], og_shape, pt_shape)
+                    x, output, y = xy[0], xy[1], xy[2]
 
-            if images_logged < 8:
-                images_logged += 1
-                title = f"Val_image_{idx}_Noisy_Pred_GT_{x.shape}"
-                save_image_wandb(title, c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
+                if images_logged < 8:
+                    images_logged += 1
+                    title = f"Val_image_{idx}_Noisy_Pred_GT_{x.shape}"
+                    save_image_wandb(title, c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
 
-            loss = loss_f(output, y)
+                loss = loss_f(output, y)
 
-            mse_loss = mse_loss_func(output, y).item()
-            l1_loss = l1_loss_func(output, y).item()
-            ssim_loss = ssim_loss_func(output, y).item()
-            ssim3D_loss = ssim3D_loss_func(output, y).item()
-            psnr = psnr_func(output, y).item()
+                mse_loss = mse_loss_func(output, y).item()
+                l1_loss = l1_loss_func(output, y).item()
+                ssim_loss = ssim_loss_func(output, y).item()
+                ssim3D_loss = ssim3D_loss_func(output, y).item()
+                psnr = psnr_func(output, y).item()
 
-            total = x.shape[0]
+                total = x.shape[0]
 
-            val_loss_meter.update(loss.item(), n=total)
-            val_mse_meter.update(mse_loss, n=total)
-            val_l1_meter.update(l1_loss, n=total)
-            val_ssim_meter.update(ssim_loss, n=total)
-            val_ssim3D_meter.update(ssim3D_loss, n=total)
-            val_psnr_meter.update(psnr, n=total)
+                val_loss_meter.update(loss.item(), n=total)
+                val_mse_meter.update(mse_loss, n=total)
+                val_l1_meter.update(l1_loss, n=total)
+                val_ssim_meter.update(ssim_loss, n=total)
+                val_ssim3D_meter.update(ssim3D_loss, n=total)
+                val_psnr_meter.update(psnr, n=total)
 
-            pbar.update(1)
-            pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {x.shape}, "+
-                                    f"{loss.item():.4f}, {mse_loss:.4f}, {l1_loss:.4f}, "+
-                                    f"{ssim_loss:.4f}, {ssim3D_loss:.4f}, {psnr:.4f},")
+                pbar.update(1)
+                pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {x.shape}, "+
+                                        f"{loss.item():.4f}, {mse_loss:.4f}, {l1_loss:.4f}, "+
+                                        f"{ssim_loss:.4f}, {ssim3D_loss:.4f}, {psnr:.4f},")
 
-        pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {x.shape}, {val_loss_meter.avg:.4f}, "+
-                                f"{val_mse_meter.avg:.4f}, {val_l1_meter.avg:.4f}, {val_ssim_meter.avg:.4f}, "+
-                                f"{val_ssim3D_meter.avg:.4f}, {val_psnr_meter.avg:.4f}")
+            pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {x.shape}, {val_loss_meter.avg:.4f}, "+
+                                    f"{val_mse_meter.avg:.4f}, {val_l1_meter.avg:.4f}, {val_ssim_meter.avg:.4f}, "+
+                                    f"{val_ssim3D_meter.avg:.4f}, {val_psnr_meter.avg:.4f}")
 
     return val_loss_meter.avg, val_mse_meter.avg, val_l1_meter.avg, val_ssim_meter.avg, val_ssim3D_meter.avg, val_psnr_meter.avg

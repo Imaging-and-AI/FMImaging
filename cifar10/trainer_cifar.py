@@ -49,6 +49,7 @@ def trainer(rank, model, config, train_set, val_set):
         optim = model.module.optim
         sched = model.module.sched
         stype = model.module.stype
+        loss_f = model.module.loss_f
         sampler = DistributedSampler(train_set)
         shuffle = False
     else:
@@ -58,6 +59,7 @@ def trainer(rank, model, config, train_set, val_set):
         optim = model.optim
         sched = model.sched
         stype = model.stype
+        loss_f = model.loss_f
         sampler = None
         shuffle = True
 
@@ -71,18 +73,28 @@ def trainer(rank, model, config, train_set, val_set):
         wandb.init(project=c.project, entity=c.wandb_entity, config=c,
                     name=c.run_name, notes=c.run_notes)
         wandb.watch(model)
-        wandb.log({"trainable_params":c.trainable_params,
-                    "total_params":c.total_params})
+        wandb.run.summary["trainable_params"] = c.trainable_params
+        wandb.run.summary["total_params"] = c.total_params
 
         # save best model to be saved at the end
         best_val_loss = numpy.inf
         best_val_acc = 0
         best_model_wts = copy.deepcopy(model.module.state_dict() if c.ddp else model.state_dict())
 
-    # general cross entropy loss
-    loss_f = nn.CrossEntropyLoss()
+        wandb.define_metric("epoch")    
+        wandb.define_metric("train_loss", step_metric='epoch')
+        wandb.define_metric("train_acc", step_metric='epoch')
+        wandb.define_metric("val_loss", step_metric='epoch')
+        wandb.define_metric("val_acc", step_metric='epoch')
+            
+    # general cross entropy loss    
     train_loss = AverageMeter()
     train_acc = AverageMeter()
+
+    # mix precision training
+    scaler = torch.cuda.amp.GradScaler(enabled=c.use_amp)
+
+    optim.zero_grad(set_to_none=True)
 
     for epoch in range(c.num_epochs):
         if rank<=0: logging.info(f"{'-'*20}Epoch:{epoch}/{c.num_epochs}{'-'*20}")
@@ -96,22 +108,29 @@ def trainer(rank, model, config, train_set, val_set):
         with tqdm(total=total_iters, disable=rank>0) as pbar:
 
             for idx in range(total_iters):
-
-                optim.zero_grad()
-
+                
                 inputs, labels = next(train_loader_iter)
                 inputs = inputs.to(device)
                 labels = labels.to(device)
 
-                output = model(inputs)
-                loss = loss_f(output, labels)
-                loss.backward()
+                with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
+                    output = model(inputs)
+                    loss = loss_f(output, labels)
+                    loss = loss / c.iters_to_accumulate
+                    
+                scaler.scale(loss).backward()
 
-                if(c.clip_grad_norm>0):
-                    nn.utils.clip_grad_norm_(model.parameters(), c.clip_grad_norm)
-                optim.step()
-
-                if stype == "OneCycleLR": sched.step()
+                if (idx + 1) % c.iters_to_accumulate == 0 or (idx + 1 == total_iters):
+                    if(c.clip_grad_norm>0):
+                        scaler.unscale_(optim)
+                        nn.utils.clip_grad_norm_(model.parameters(), c.clip_grad_norm)
+                    
+                    scaler.step(optim)                    
+                    optim.zero_grad(set_to_none=True)
+                    scaler.update()
+                
+                    if stype == "OneCycleLR": sched.step()
+                    
                 curr_lr = optim.param_groups[0]['lr']
 
                 total=inputs.shape[0]
@@ -120,12 +139,15 @@ def trainer(rank, model, config, train_set, val_set):
                 train_acc.update(correct/total, n=total)
 
                 train_loss.update(loss.item(), n=total)
-                if rank<=0: wandb.log({"running_train_loss": loss.item()})
+                
+                if rank<=0: 
+                    wandb.log({"running_train_loss": loss.item()})
+                    wandb.log({"lr": curr_lr})
 
                 pbar.update(1)
-                pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {loss.item():.4f}, lr {curr_lr:.8f}")
+                pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, loss {loss.item():.4f}, lr {curr_lr:.8f}")
 
-            pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {train_loss.avg:.4f}, {train_acc.avg:.4f}, lr {curr_lr:.8f}")
+            pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, loss {train_loss.avg:.4f}, acc {train_acc.avg:.4f}, lr {curr_lr:.8f}")
 
         if rank<=0: # main or master process
             # run eval, save and log in this process
@@ -136,23 +158,24 @@ def trainer(rank, model, config, train_set, val_set):
                 best_model_wts = copy.deepcopy(model_e.state_dict())
             if val_acc > best_val_acc:
                 best_val_acc = val_acc
+                model_e.save(epoch)
 
             # silently log to only the file as well
-            logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, {train_loss.avg:.4f}, {train_acc.avg:.4f}, lr {curr_lr:.8f}")
-            logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, val, {val_loss_avg:.4f}, {val_acc:.4f}")
+            logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, loss {train_loss.avg:.4f}, acc {train_acc.avg:.4f}, lr {curr_lr:.8f}")
+            logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, val, loss {val_loss_avg:.4f}, acc {val_acc:.4f}")
 
             # save the model weights every save_cycle
             if epoch % c.save_cycle == 0:
                 model_e.save(epoch)
 
             wandb.log({"epoch": epoch,
-                        "train_loss_avg": train_loss.avg,
+                        "train_loss": train_loss.avg,
                         "train_acc": train_acc.avg,
-                        "val_loss_avg":val_loss_avg,
+                        "val_loss":val_loss_avg,
                         "val_acc":val_acc})
 
             if stype == "ReduceLROnPlateau":
-                sched.step(val_loss_avg)
+                sched.step(1.0 - val_acc)
             else: # stype == "StepLR"
                 sched.step()
 
@@ -177,8 +200,8 @@ def trainer(rank, model, config, train_set, val_set):
 
     if rank<=0: # main or master process
         # test and save model
-        wandb.log({"best_val_loss": best_val_loss,
-                    "best_val_acc": best_val_acc})
+        wandb.run.summary["best_val_loss"] = best_val_loss
+        wandb.run.summary["best_val_acc"] = best_val_acc
 
         model = model.module if c.ddp else model
         model.save(epoch) # save the final weights
@@ -215,7 +238,7 @@ def eval_val(model, config, val_set, epoch, device):
                                 num_workers=c.num_workers, prefetch_factor=c.prefetch_factor,
                                 persistent_workers=c.num_workers>0)
 
-    loss_f = nn.CrossEntropyLoss()
+    loss_f = model.loss_f
     val_loss = AverageMeter()
     val_acc = AverageMeter()
 
@@ -224,27 +247,31 @@ def eval_val(model, config, val_set, epoch, device):
 
     val_loader_iter = iter(val_loader)
     total_iters = len(val_loader) if not c.debug else 10
-    with tqdm(total=total_iters) as pbar:
+    
+    with torch.no_grad():
+        with tqdm(total=total_iters) as pbar:
 
-        for idx in range(total_iters):
+            for idx in range(total_iters):
 
-            inputs, labels = next(val_loader_iter)
+                inputs, labels = next(val_loader_iter)
 
-            inputs = inputs.to(device)
-            labels = labels.to(device)
-            total = labels.size(0)
+                inputs = inputs.to(device)
+                labels = labels.to(device)
+                total = labels.size(0)
 
-            output = model(inputs)
-            loss = loss_f(output, labels)
-            val_loss.update(loss.item(), n=total)
+                with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=c.use_amp):
+                    output = model(inputs)
+                    loss = loss_f(output, labels)
+                    
+                val_loss.update(loss.item(), n=total)
 
-            _, predicted = torch.max(output.data, 1)
-            correct = (predicted == labels).sum().item()
-            val_acc.update(correct/total, n=total)
+                _, predicted = torch.max(output.data, 1)
+                correct = (predicted == labels).sum().item()
+                val_acc.update(correct/total, n=total)
 
-            pbar.update(1)
-            pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {loss.item():.4f}, {correct/total:.4f}")
+                pbar.update(1)
+                pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, loss {loss.item():.4f}, acc {correct/total:.4f}")
 
-        pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, {val_loss.avg:.4f}, {val_acc.avg:.4f}")
+            pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {inputs.shape}, loss {val_loss.avg:.4f}, acc {val_acc.avg:.4f}")
 
     return val_loss.avg, val_acc.avg
