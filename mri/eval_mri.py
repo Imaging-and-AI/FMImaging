@@ -8,7 +8,6 @@ import json
 import wandb
 import logging
 import argparse
-import tifffile
 
 import torch
 from tqdm import tqdm
@@ -34,7 +33,7 @@ def eval_test(model, config, test_set=None, device="cpu", id=""):
     @args:
         - model (torch model): model to be tested
         - config (Namespace): runtime namespace for setup
-        - test_set (torch Dataset): the data to test on
+        - test_set (torch Dataset list): the data to test on
         - device (torch.device): the device to run the test on
         - id (str): unique id to log and save results with
     @rets:
@@ -47,9 +46,9 @@ def eval_test(model, config, test_set=None, device="cpu", id=""):
     """
     c = config # shortening due to numerous uses
 
-    test_loader = DataLoader(dataset=test_set, batch_size=1, shuffle=False, sampler=None,
+    test_loader = [DataLoader(dataset=test_set_x, batch_size=1, shuffle=False, sampler=None,
                                 num_workers=c.num_workers, prefetch_factor=c.prefetch_factor,
-                                persistent_workers=c.num_workers>0)
+                                persistent_workers=c.num_workers>0) for test_set_x in test_set]
 
     loss_f = model.loss_f
 
@@ -75,61 +74,80 @@ def eval_test(model, config, test_set=None, device="cpu", id=""):
     cutout = (c.time, c.height[-1], c.width[-1])
     overlap = (c.time//4, c.height[-1]//4, c.width[-1]//4)
 
-    test_loader_iter = iter(test_loader)
-    total_iters = len(test_loader) if not c.debug else 5
-    
-    with torch.no_grad():
-        with tqdm(total=total_iters) as pbar:
+    test_loader_iter = [iter(test_loader_x) for test_loader_x in test_loader]
+    total_iters = sum([len(loader_x) for loader_x in test_loader])
+    total_iters = total_iters if not c.debug else min(5, total_iters)
 
-            for idx in range(total_iters):
+    with tqdm(total=total_iters) as pbar:
 
-                x, y, gmaps_median, noise_sigmas = next(test_loader_iter)
-                x = x.to(device)
-                y = y.to(device)
+        for idx in range(total_iters):
 
-                try:
-                    _, output = running_inference(model, x, cutout=cutout, overlap=overlap, device=device)
-                except:
-                    _, output = running_inference(model, x, cutout=cutout, overlap=overlap, device="cpu")
-                    y = y.to("cpu")
+            loader_ind = idx % len(test_loader_iter)
+            batch = next(test_loader_iter[loader_ind], None)
+            while batch is None:
+                del test_loader_iter[loader_ind]
+                loader_ind = idx % len(test_loader_iter)
+                batch = next(test_loader_iter[loader_ind], None)
+            x, y, gmaps_median, noise_sigmas = batch
 
-                loss = loss_f(output, y)
+            two_D = False
+            cutout_in = cutout
+            overlap_in = overlap
+            if x.shape[1]==1:
+                xy, og_shape, pt_shape = cut_into_patches([x,y], cutout=cutout[1:])
+                x, y = xy[0], xy[1]
+                cutout_in = (c.twoD_num_patches_cutout, *cutout[1:])
+                overlap_in = (c.twoD_num_patches_cutout//4, *overlap[1:])
+                two_D = True
 
-                mse_loss = mse_loss_func(output, y).item()
-                l1_loss = l1_loss_func(output, y).item()
-                ssim_loss = ssim_loss_func(output, y).item()
-                ssim3D_loss = ssim3D_loss_func(output, y).item()
-                psnr = psnr_func(output, y).item()
+            x = x.to(device)
+            y = y.to(device)
 
-                total = x.shape[0]
+            try:
+                _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device=device)
+            except:
+                _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device="cpu")
+                y = y.to("cpu")
 
-                test_loss_meter.update(loss.item(), n=total)
-                test_mse_meter.update(mse_loss, n=total)
-                test_l1_meter.update(l1_loss, n=total)
-                test_ssim_meter.update(ssim_loss, n=total)
-                test_ssim3D_meter.update(ssim3D_loss, n=total)
-                test_psnr_meter.update(psnr, n=total)
+            if two_D:
+                xy = repatch([x,output,y], og_shape, pt_shape)
+                x, output, y = xy[0], xy[1], xy[2]
 
-                wandb.log({f"running_test_loss_{id}": loss.item(),
-                            f"running_test_mse_loss_{id}": mse_loss,
-                            f"running_test_l1_loss_{id}": l1_loss,
-                            f"running_test_ssim_loss_{id}": ssim_loss,
-                            f"running_test_ssim3D_loss_{id}": ssim3D_loss,
-                            f"running_test_psnr_{id}": psnr})
+            loss = loss_f(output, y)
 
-                pbar.update(1)
-                pbar.set_description(f"Test, {x.shape}, "+
-                                        f"{loss.item():.4f}, {mse_loss:.4f}, {l1_loss:.4f}, "+
-                                        f"{ssim_loss:.4f}, {ssim3D_loss:.4f}, {psnr:.4f},")
+            mse_loss = mse_loss_func(output, y).item()
+            l1_loss = l1_loss_func(output, y).item()
+            ssim_loss = ssim_loss_func(output, y).item()
+            ssim3D_loss = ssim3D_loss_func(output, y).item()
+            psnr = psnr_func(output, y).item()
 
-                save_image(test_results_dir, c.complex_i, idx,\
-                            x.cpu().detach().numpy(),\
-                            output.cpu().detach().numpy(),\
-                            y.cpu().detach().numpy())
+            total = x.shape[0]
 
-            pbar.set_description(f"Test, {x.shape}, {test_loss_meter.avg:.4f}, "+
-                                    f"{test_mse_meter.avg:.4f}, {test_l1_meter.avg:.4f}, {test_ssim_meter.avg:.4f}, "+
-                                    f"{test_ssim3D_meter.avg:.4f}, {test_psnr_meter.avg:.4f}")
+            test_loss_meter.update(loss.item(), n=total)
+            test_mse_meter.update(mse_loss, n=total)
+            test_l1_meter.update(l1_loss, n=total)
+            test_ssim_meter.update(ssim_loss, n=total)
+            test_ssim3D_meter.update(ssim3D_loss, n=total)
+            test_psnr_meter.update(psnr, n=total)
+
+            wandb.log({f"running_test_loss_{id}": loss.item(),
+                        f"running_test_mse_loss_{id}": mse_loss,
+                        f"running_test_l1_loss_{id}": l1_loss,
+                        f"running_test_ssim_loss_{id}": ssim_loss,
+                        f"running_test_ssim3D_loss_{id}": ssim3D_loss,
+                        f"running_test_psnr_{id}": psnr})
+
+            pbar.update(1)
+            pbar.set_description(f"Test, {x.shape}, "+
+                                    f"{loss.item():.4f}, {mse_loss:.4f}, {l1_loss:.4f}, "+
+                                    f"{ssim_loss:.4f}, {ssim3D_loss:.4f}, {psnr:.4f},")
+
+            save_image_local(test_results_dir, c.complex_i, idx,\
+                                x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
+
+        pbar.set_description(f"Test, {x.shape}, {test_loss_meter.avg:.4f}, "+
+                                f"{test_mse_meter.avg:.4f}, {test_l1_meter.avg:.4f}, {test_ssim_meter.avg:.4f}, "+
+                                f"{test_ssim3D_meter.avg:.4f}, {test_psnr_meter.avg:.4f}")
 
     logging.getLogger("file_only").info(f"Test, {x.shape}, {test_loss_meter.avg:.4f}, "+
                                         f"{test_mse_meter.avg:.4f}, {test_l1_meter.avg:.4f}, {test_ssim_meter.avg:.4f}, "+
@@ -245,34 +263,6 @@ def save_results(config, losses, id=""):
 
     with open(f"{results_file_name}.json", "w") as file:
         json.dump(result_dict, file)
-
-def save_image(path, complex_i, i, noisy, predi, clean):
-    """
-    Saves the image locally as a 4D tiff [T,C,H,W]
-    3 channels: noisy, predicted, clean
-    If complex image then save the magnitude
-    @args:
-        - path (str): the directory to save the images in
-        - complex_i (bool): complex images or not
-        - i (int): index of the image
-        - noisy (5D numpy array): the noisy image
-        - predi (5D numpy array): the predicted image
-        - clean (5D numpy array): the clean image
-    """
-
-    if complex_i:
-        save_x = np.sqrt(np.square(noisy[0,:,0]) + np.square(noisy[0,:,1]))
-        save_p = np.sqrt(np.square(predi[0,:,0]) + np.square(predi[0,:,1]))
-        save_y = np.sqrt(np.square(clean[0,:,0]) + np.square(clean[0,:,1]))
-    else:
-        save_x = noisy[0,:,0]
-        save_p = predi[0,:,0]
-        save_y = clean[0,:,0]
-
-    composed_channel_wise = np.transpose(np.array([save_x, save_p, save_y]), (1,0,2,3))
-
-    tifffile.imwrite(os.path.join(path, f"Image_{i:03d}_{save_x.shape}.tif"),\
-                        composed_channel_wise, imagej=True)
 
 # -------------------------------------------------------------------------------------------------
 # the main function for setup, eval call and saving results

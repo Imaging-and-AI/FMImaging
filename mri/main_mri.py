@@ -29,7 +29,9 @@ def arg_parser():
     parser = argparse.ArgumentParser("Argument parser for STCNNT MRI")
     parser.add_argument("--data_root", type=str, default=None, help='root folder for the data')
     parser.add_argument("--train_files", type=str, nargs='+', default=["train_3D_3T_retro_cine_2020_small.h5"], help='list of train h5files')
-    parser.add_argument("--test_files", type=str, nargs='+', default=["train_3D_3T_retro_cine_2020_small_test.h5"], help='list of test h5files')
+    parser.add_argument("--test_files", type=str, nargs='+', default=["train_3D_3T_retro_cine_2020_small_2DT_test.h5"], help='list of test h5files')
+    parser.add_argument("--train_data_types", type=str, nargs='+', default=["2dt"], help='the type of each train file: "2d", "2dt", "3d"')
+    parser.add_argument("--test_data_types", type=str, nargs='+', default=["2dt"], help='the type of each test file: "2d", "2dt", "3d"')
     parser = add_shared_STCNNT_args(parser=parser)
 
     # Noise Augmentation arguments
@@ -40,6 +42,12 @@ def arg_parser():
     parser.add_argument('--pf_filter_ratio', type=float, nargs='+', default=[1.0, 0.875, 0.75, 0.625], help='pf filter ratio')
     parser.add_argument('--phase_resolution_ratio', type=float, nargs='+', default=[1.0, 0.75, 0.65, 0.55], help='phase resolution ratio')
     parser.add_argument('--readout_resolution_ratio', type=float, nargs='+', default=[1.0, 0.75, 0.65, 0.55], help='readout resolution ratio')
+
+    # 2d/3d dataset arguments
+    parser.add_argument('--twoD_num_patches_cutout', type=int, default=1, help='for 2D usecase, number of patches per frame')
+    parser.add_argument("--twoD_patches_shuffle", action="store_true", help='shuffle 2D patches to break spatial consistency')
+    parser.add_argument('--threeD_cutout_jitter', nargs='+', type=float, default=[-1, 0.5, 0.75, 1.0], help='cutout jitter range, relative to the cutout_shape')
+    parser.add_argument("--threeD_cutout_shuffle_time", action="store_true", help='shuffle along time to break temporal consistency; for 2D+T, should not set this option')
 
     # loss for mri
     parser.add_argument("--losses", nargs='+', type=str, default=["mse", "l1"], help='Any combination of "mse", "l1", "sobel", "ssim", "ssim3D"')

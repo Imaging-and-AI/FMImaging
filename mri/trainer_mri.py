@@ -3,6 +3,7 @@ Trainer for MRI denoising.
 Provides the mian function to call for training:
     - trainer
 """
+import cv2
 import copy
 import wandb
 import numpy
@@ -38,9 +39,9 @@ def trainer(rank, model, config, train_set, val_set, test_set):
             -1 if running on cpu or only one gpu
         - model (torch model): model to be trained
         - config (Namespace): runtime namespace for setup
-        - train_set (torch Dataset): the data to train on
-        - val_set (torch Dataset): the data to validate each epoch
-        - test_set (torch Dataset): the data to test model at the end
+        - train_set (torch Dataset list): the data to train on
+        - val_set (torch Dataset list): the data to validate each epoch
+        - test_set (torch Dataset list): the data to test model at the end
     """
     c = config # shortening due to numerous uses
 
@@ -97,6 +98,9 @@ def trainer(rank, model, config, train_set, val_set, test_set):
         ssim3D_loss_func = SSIM3D_Loss(complex_i=c.complex_i, device=device)
         psnr_func = PSNR()
 
+    total_iters = sum([len(loader_x) for loader_x in train_loader])
+    total_iters = total_iters if not c.debug else min(10, total_iters)
+
     for epoch in range(c.num_epochs):
         if rank<=0:
             logging.info(f"{'-'*20}Epoch:{epoch}/{c.num_epochs}{'-'*20}")
@@ -112,15 +116,19 @@ def trainer(rank, model, config, train_set, val_set, test_set):
         if c.ddp: [loader_x.sampler.set_epoch(epoch) for loader_x in train_loader]
 
         train_loader_iter = [iter(loader_x) for loader_x in train_loader]
-        total_iters = len(c.height) * len(train_loader[0]) if not c.debug else 10
         with tqdm(total=total_iters, disable=rank>0) as pbar:
 
             for idx in range(total_iters):
 
                 optim.zero_grad()
 
-                loader_ind = idx % len(c.height)
-                x, y, gmaps_median, noise_sigmas = next(train_loader_iter[loader_ind])
+                loader_ind = idx % len(train_loader_iter)
+                stuff = next(train_loader_iter[loader_ind], None)
+                while stuff is None:
+                    del train_loader_iter[loader_ind]
+                    loader_ind = idx % len(train_loader_iter)
+                    stuff = next(train_loader_iter[loader_ind], None)
+                x, y, gmaps_median, noise_sigmas = stuff
 
                 x = x.to(device)
                 y = y.to(device)
@@ -248,7 +256,7 @@ def eval_val(model, config, val_set, epoch, device):
     @args:
         - model (torch model): model to be validated
         - config (Namespace): runtime namespace for setup
-        - val_set (torch Dataset): the data to validate on
+        - val_set (torch Dataset list): the data to validate on
         - epoch (int): the current epoch
         - device (torch.device): the device to run eval on
     @rets:
@@ -261,9 +269,9 @@ def eval_val(model, config, val_set, epoch, device):
     """
     c = config # shortening due to numerous uses
 
-    val_loader = DataLoader(dataset=val_set, batch_size=1, shuffle=False, sampler=None,
+    val_loader = [DataLoader(dataset=val_set_x, batch_size=1, shuffle=False, sampler=None,
                                 num_workers=c.num_workers, prefetch_factor=c.prefetch_factor,
-                                persistent_workers=c.num_workers>0)
+                                persistent_workers=c.num_workers>0) for val_set_x in val_set]
 
     loss_f = model.loss_f
 
@@ -286,23 +294,52 @@ def eval_val(model, config, val_set, epoch, device):
     cutout = (c.time, c.height[-1], c.width[-1])
     overlap = (c.time//4, c.height[-1]//4, c.width[-1]//4)
 
-    val_loader_iter = iter(val_loader)
-    total_iters = len(val_loader) if not c.debug else 2
-    
+    val_loader_iter = [iter(val_loader_x) for val_loader_x in val_loader]
+    total_iters = sum([len(loader_x) for loader_x in val_loader])
+    total_iters = total_iters if not c.debug else min(2, total_iters)
+
+    images_logged = 0
+
     with torch.no_grad():
         with tqdm(total=total_iters) as pbar:
 
             for idx in range(total_iters):
 
-                x, y, gmaps_median, noise_sigmas = next(val_loader_iter)
+                loader_ind = idx % len(val_loader_iter)
+                batch = next(val_loader_iter[loader_ind], None)
+                while batch is None:
+                    del val_loader_iter[loader_ind]
+                    loader_ind = idx % len(val_loader_iter)
+                    batch = next(val_loader_iter[loader_ind], None)
+                x, y, gmaps_median, noise_sigmas = batch
+
+                two_D = False
+                cutout_in = cutout
+                overlap_in = overlap
+                if x.shape[1]==1:
+                    xy, og_shape, pt_shape = cut_into_patches([x,y], cutout=cutout[1:])
+                    x, y = xy[0], xy[1]
+                    cutout_in = (c.twoD_num_patches_cutout, *cutout[1:])
+                    overlap_in = (c.twoD_num_patches_cutout//4, *overlap[1:])
+                    two_D = True
+
                 x = x.to(device)
                 y = y.to(device)
 
                 try:
-                    _, output = running_inference(model, x, cutout=cutout, overlap=overlap, device=device)
+                    _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device=device)
                 except:
-                    _, output = running_inference(model, x, cutout=cutout, overlap=overlap, device="cpu")
+                    _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device="cpu")
                     y = y.to("cpu")
+
+                if two_D:
+                    xy = repatch([x,output,y], og_shape, pt_shape)
+                    x, output, y = xy[0], xy[1], xy[2]
+
+                if images_logged < 8:
+                    images_logged += 1
+                    title = f"Val_image_{idx}_Noisy_Pred_GT_{x.shape}"
+                    save_image_wandb(title, c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
 
                 loss = loss_f(output, y)
 
