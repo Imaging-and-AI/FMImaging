@@ -32,7 +32,7 @@ cmd.extend([
     "--norm_mode", "instance2d",
     "--window_size", "8",
     "--patch_size", "2",
-    "--global_lr", "2e-3",
+    "--global_lr", "1e-3",
     "--clip_grad_norm", "1.0",
     "--weight_decay", "0.0",
     "--use_amp", "--ddp", 
@@ -42,8 +42,8 @@ cmd.extend([
        
     "--scheduler_type", "ReduceLROnPlateau",
     
-    "--scheduler.ReduceLROnPlateau.patience", "2",
-    "--scheduler.ReduceLROnPlateau.cooldown", "1",
+    "--scheduler.ReduceLROnPlateau.patience", "1",
+    "--scheduler.ReduceLROnPlateau.cooldown", "2",
     "--scheduler.ReduceLROnPlateau.min_lr", "1e-8",
     "--scheduler.ReduceLROnPlateau.factor", "0.8",
         
