@@ -2,19 +2,25 @@
 Python script to run bash scripts in batches
 """
 
+import os
 import itertools
 import subprocess
 
 # base command to run a file
-cmd = ["python3", "main_mri.py"]
+cmd = ["python3", "mri/main_mri.py"]
+
+if "FMIMAGING_PROJECT_BASE" in os.environ:
+    project_base_dir = os.environ['FMIMAGING_PROJECT_BASE']
+else:
+    project_base_dir = '/export/Lab-Xue/projects'
 
 # unchanging paths
 cmd.extend([
-    "--data_root", "/home/rehmana2/projects/STCNNT_2/mri/",
-    "--check_path", "/home/rehmana2/projects/STCNNT_2/checkpoints",
-    "--model_path", "/home/rehmana2/projects/STCNNT_2/models",
-    "--log_path", "/home/rehmana2/projects/STCNNT_2/logs",
-    "--results_path", "/home/rehmana2/projects/STCNNT_2/results",
+    "--data_root", os.path.join(project_base_dir, "mri", "data"),
+    "--check_path", os.path.join(project_base_dir, "mri", "checkpoints"),
+    "--model_path", os.path.join(project_base_dir, "mri", "models"),
+    "--log_path", os.path.join(project_base_dir, "mri", "logs"),
+    "--results_path", os.path.join(project_base_dir, "mri", "results"),
     "--train_files", "train_3D_3T_retro_cine_2020_small.h5", "train_3D_3T_retro_cine_2020_small.h5", "train_3D_3T_retro_cine_2020_small.h5",
     "--train_data_types", "2d", "2dt", "3d",
     "--test_files", "train_3D_3T_retro_cine_2020_small_2D_test.h5", "train_3D_3T_retro_cine_2020_small_2DT_test.h5", "train_3D_3T_retro_cine_2020_small_3D_test.h5",
