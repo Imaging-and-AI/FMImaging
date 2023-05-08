@@ -174,6 +174,19 @@ class InstanceNorm3DExt(nn.Module):
         norm_input = self.inst(input.permute(0,2,1,3,4))
         return norm_input.permute(0,2,1,3,4)
 
+class AvgPool2DExt(nn.Module):
+    # Extends torch 2D averaging pooling to support 5D inputs
+
+    def __init__(self,*args,**kwargs):
+        super().__init__()
+        self.avg_pool_2d = nn.AvgPool2d(*args,**kwargs)
+
+    def forward(self, input):
+        # requires input to have 5 dimensions
+        B, T, C, H, W = input.shape
+        y = self.avg_pool_2d(input.reshape((B*T, C, H, W)))
+        return torch.reshape(y, [B, T, *y.shape[1:]])
+    
 def _get_relative_position_bias(
     relative_position_bias_table: torch.Tensor, relative_position_index: torch.Tensor, window_size: Tuple[int]
 ) -> torch.Tensor:

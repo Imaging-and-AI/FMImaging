@@ -121,6 +121,8 @@ def add_shared_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for S
     parser.add_argument("--time", type=int, default=16, help='training time series length')
     parser.add_argument("--height", nargs='+', type=int, default=[64, 128], help='heights of the training images')
     parser.add_argument("--width", nargs='+', type=int, default=[64, 128], help='widths of the training images')
+    
+    parser.add_argument("--block_dense_connection", type=int, default=1, help='whether to add dense connections between cells in a block')
         
     parser.add_argument("--a_type", type=str, default="conv", help='type of attention in the spatial attention modules')
     

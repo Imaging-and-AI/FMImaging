@@ -165,7 +165,8 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             "att_with_output_proj": c.att_with_output_proj, 
             "scale_ratio_in_mixer": c.scale_ratio_in_mixer,
             "cosine_att": c.cosine_att,
-            "att_with_relative_postion_bias": c.att_with_relative_postion_bias 
+            "att_with_relative_postion_bias": c.att_with_relative_postion_bias,
+            "block_dense_connection": c.block_dense_connection
         }
 
         if num_stages >= 1:
@@ -337,6 +338,8 @@ def tests():
     
     config.cosine_att = True
     config.att_with_relative_postion_bias = True
+    
+    config.block_dense_connection = True
     
     config.summary_depth = 4
 
