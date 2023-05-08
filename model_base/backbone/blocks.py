@@ -52,8 +52,10 @@ class STCNNT_Block(nn.Module):
                     att_dropout_p=0.0, dropout_p=0.1, 
                     att_with_relative_postion_bias=True,
                     att_with_output_proj=True, scale_ratio_in_mixer=4.0, 
-                    norm_mode="layer",\
-                    interpolate="none", interp_align_c=False):
+                    norm_mode="layer",
+                    interpolate="none", 
+                    interp_align_c=False,
+                    block_dense_connection=True):
         """
         Transformer block
 
@@ -86,6 +88,7 @@ class STCNNT_Block(nn.Module):
                 whether to interpolate and scale the image up or down by 2
             - interp_align_c (bool):
                 whether to align corner or not when interpolating
+            - block_dense_connection (bool): whether to add dense connection between cells
         """
         super().__init__()
 
@@ -120,6 +123,7 @@ class STCNNT_Block(nn.Module):
         self.norm_mode = norm_mode
         self.interpolate = interpolate
         self.interp_align_c = interp_align_c
+        self.block_dense_connection = block_dense_connection
                     
         self.cells = []
 
@@ -147,7 +151,7 @@ class STCNNT_Block(nn.Module):
             C = C_in if i==0 else C_out
 
             if self.cell_type.lower() == "sequential":
-                self.cells.append((f"{att_type}_{i}", STCNNT_Cell(C_in=C, C_out=C_out, H=H, W=W, 
+                self.cells.append((f"cell_{i}", STCNNT_Cell(C_in=C, C_out=C_out, H=H, W=W, 
                                                                   att_mode=att_type, a_type=a_type,
                                                                   window_size=window_size, patch_size=patch_size, 
                                                                   is_causal=is_causal, n_head=n_head,
@@ -157,7 +161,7 @@ class STCNNT_Block(nn.Module):
                                                                   att_with_output_proj=att_with_output_proj, scale_ratio_in_mixer=scale_ratio_in_mixer, 
                                                                   with_mixer=(mixer=='1'), norm_mode=norm_mode)))
             else:
-                self.cells.append((f"{att_type}_{i}", STCNNT_Parallel_Cell(C_in=C, C_out=C_out, H=H, W=W, 
+                self.cells.append((f"cell_{i}", STCNNT_Parallel_Cell(C_in=C, C_out=C_out, H=H, W=W, 
                                                                            att_mode=att_type, a_type=a_type,
                                                                            window_size=window_size, patch_size=patch_size, is_causal=is_causal, n_head=n_head,
                                                                            kernel_size=kernel_size, stride=stride, padding=padding, stride_t=stride_t,
@@ -177,11 +181,28 @@ class STCNNT_Block(nn.Module):
         return next(self.parameters()).device
 
     def make_block(self):
-        self.block = nn.Sequential(OrderedDict(self.cells))
+        self.block = nn.ModuleDict(OrderedDict(self.cells))
 
     def forward(self, x):
 
-        x = self.block(x)
+        num_cells = len(self.block)
+        
+        if self.block_dense_connection:
+            block_res = []
+            
+            for c in range(num_cells):
+                if c ==0:
+                    block_res.append(self.block[f"cell_{c}"](x))
+                else:
+                    input = 0
+                    for k in block_res:
+                        input = input + k
+                    block_res.append(self.block[f"cell_{c}"](input))
+                    
+            x = block_res[-1]
+        else:
+            for c in range(num_cells):
+                x = self.block[f"cell_{c}"](x)
 
         B, T, C, H, W = x.shape
         interp = None

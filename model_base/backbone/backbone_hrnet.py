@@ -37,7 +37,7 @@ from utils.utils import get_device, model_info
 
 from backbone_base import STCNNT_Base_Runtime
 
-__all__ = ['STCNNT_HRnet']
+__all__ = ['STCNNT_HRnet', 'DownSample', 'UpSample']
 
 # -------------------------------------------------------------------------------------------------
 # building blocks
@@ -83,7 +83,7 @@ class _D2(nn.Module):
 
         return y
 
-class _DownSample(nn.Module):
+class DownSample(nn.Module):
     """
     Downsample by x(2^N), by using N D2 layers
     """
@@ -136,7 +136,7 @@ class _U2(nn.Module):
 
         return y
 
-class _UpSample(nn.Module):
+class UpSample(nn.Module):
     """
     Upsample by x(2^N), by using N U2 layers
     """
@@ -281,7 +281,8 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             "att_with_output_proj": c.att_with_output_proj, 
             "scale_ratio_in_mixer": c.scale_ratio_in_mixer,
             "cosine_att": c.cosine_att,
-            "att_with_relative_postion_bias": c.att_with_relative_postion_bias 
+            "att_with_relative_postion_bias": c.att_with_relative_postion_bias,
+            "block_dense_connection": c.block_dense_connection
         }
 
         window_sizes = []
@@ -348,7 +349,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             self.B11 = STCNNT_Block(**kwargs)
 
             # define down sample
-            self.down_00_11 = _DownSample(N=1, C_in=self.C, C_out=2*self.C, use_interpolation=use_interpolation, with_conv=True)
+            self.down_00_11 = DownSample(N=1, C_in=self.C, C_out=2*self.C, use_interpolation=use_interpolation, with_conv=True)
 
             # define output B1
             kwargs["C_in"] = 2*self.C
@@ -397,9 +398,9 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             self.B22 = STCNNT_Block(**kwargs)
 
             # define down sample
-            self.down_01_12 = _DownSample(N=1, C_in=self.C, C_out=2*self.C, use_interpolation=use_interpolation, with_conv=True)
-            self.down_01_22 = _DownSample(N=2, C_in=self.C, C_out=4*self.C, use_interpolation=use_interpolation, with_conv=True)
-            self.down_11_22 = _DownSample(N=1, C_in=2*self.C, C_out=4*self.C, use_interpolation=use_interpolation, with_conv=True)
+            self.down_01_12 = DownSample(N=1, C_in=self.C, C_out=2*self.C, use_interpolation=use_interpolation, with_conv=True)
+            self.down_01_22 = DownSample(N=2, C_in=self.C, C_out=4*self.C, use_interpolation=use_interpolation, with_conv=True)
+            self.down_11_22 = DownSample(N=1, C_in=2*self.C, C_out=4*self.C, use_interpolation=use_interpolation, with_conv=True)
 
             # define output B2
             kwargs["C_in"] = 4*self.C
@@ -458,12 +459,12 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             self.B33 = STCNNT_Block(**kwargs)
 
             # define down sample
-            self.down_02_13 = _DownSample(N=1, C_in=self.C, C_out=2*self.C, use_interpolation=use_interpolation, with_conv=True)
-            self.down_02_23 = _DownSample(N=2, C_in=self.C, C_out=4*self.C, use_interpolation=use_interpolation, with_conv=True)
-            self.down_02_33 = _DownSample(N=3, C_in=self.C, C_out=8*self.C, use_interpolation=use_interpolation, with_conv=True)
-            self.down_12_23 = _DownSample(N=1, C_in=2*self.C, C_out=4*self.C, use_interpolation=use_interpolation, with_conv=True)
-            self.down_12_33 = _DownSample(N=2, C_in=2*self.C, C_out=8*self.C, use_interpolation=use_interpolation, with_conv=True)
-            self.down_22_33 = _DownSample(N=1, C_in=4*self.C, C_out=8*self.C, use_interpolation=use_interpolation, with_conv=True)
+            self.down_02_13 = DownSample(N=1, C_in=self.C, C_out=2*self.C, use_interpolation=use_interpolation, with_conv=True)
+            self.down_02_23 = DownSample(N=2, C_in=self.C, C_out=4*self.C, use_interpolation=use_interpolation, with_conv=True)
+            self.down_02_33 = DownSample(N=3, C_in=self.C, C_out=8*self.C, use_interpolation=use_interpolation, with_conv=True)
+            self.down_12_23 = DownSample(N=1, C_in=2*self.C, C_out=4*self.C, use_interpolation=use_interpolation, with_conv=True)
+            self.down_12_33 = DownSample(N=2, C_in=2*self.C, C_out=8*self.C, use_interpolation=use_interpolation, with_conv=True)
+            self.down_22_33 = DownSample(N=1, C_in=4*self.C, C_out=8*self.C, use_interpolation=use_interpolation, with_conv=True)
 
             # define output B3
             kwargs["C_in"] = 8*self.C
@@ -533,19 +534,19 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             self.B44 = STCNNT_Block(**kwargs)
 
             # define down sample
-            self.down_03_14 = _DownSample(N=1, C_in=self.C, C_out=2*self.C, use_interpolation=use_interpolation, with_conv=True)
-            self.down_03_24 = _DownSample(N=2, C_in=self.C, C_out=4*self.C, use_interpolation=use_interpolation, with_conv=True)
-            self.down_03_34 = _DownSample(N=3, C_in=self.C, C_out=8*self.C, use_interpolation=use_interpolation, with_conv=True)
-            self.down_03_44 = _DownSample(N=4, C_in=self.C, C_out=16*self.C, use_interpolation=use_interpolation, with_conv=True)
+            self.down_03_14 = DownSample(N=1, C_in=self.C, C_out=2*self.C, use_interpolation=use_interpolation, with_conv=True)
+            self.down_03_24 = DownSample(N=2, C_in=self.C, C_out=4*self.C, use_interpolation=use_interpolation, with_conv=True)
+            self.down_03_34 = DownSample(N=3, C_in=self.C, C_out=8*self.C, use_interpolation=use_interpolation, with_conv=True)
+            self.down_03_44 = DownSample(N=4, C_in=self.C, C_out=16*self.C, use_interpolation=use_interpolation, with_conv=True)
 
-            self.down_13_24 = _DownSample(N=1, C_in=2*self.C, C_out=4*self.C, use_interpolation=use_interpolation, with_conv=True)
-            self.down_13_34 = _DownSample(N=2, C_in=2*self.C, C_out=8*self.C, use_interpolation=use_interpolation, with_conv=True)
-            self.down_13_44 = _DownSample(N=3, C_in=2*self.C, C_out=16*self.C, use_interpolation=use_interpolation, with_conv=True)
+            self.down_13_24 = DownSample(N=1, C_in=2*self.C, C_out=4*self.C, use_interpolation=use_interpolation, with_conv=True)
+            self.down_13_34 = DownSample(N=2, C_in=2*self.C, C_out=8*self.C, use_interpolation=use_interpolation, with_conv=True)
+            self.down_13_44 = DownSample(N=3, C_in=2*self.C, C_out=16*self.C, use_interpolation=use_interpolation, with_conv=True)
 
-            self.down_23_34 = _DownSample(N=1, C_in=4*self.C, C_out=8*self.C, use_interpolation=use_interpolation, with_conv=True)
-            self.down_23_44 = _DownSample(N=2, C_in=4*self.C, C_out=16*self.C, use_interpolation=use_interpolation, with_conv=True)
+            self.down_23_34 = DownSample(N=1, C_in=4*self.C, C_out=8*self.C, use_interpolation=use_interpolation, with_conv=True)
+            self.down_23_44 = DownSample(N=2, C_in=4*self.C, C_out=16*self.C, use_interpolation=use_interpolation, with_conv=True)
 
-            self.down_33_44 = _DownSample(N=1, C_in=8*self.C, C_out=16*self.C, use_interpolation=use_interpolation, with_conv=True)
+            self.down_33_44 = DownSample(N=1, C_in=8*self.C, C_out=16*self.C, use_interpolation=use_interpolation, with_conv=True)
 
             # define output B4
             kwargs["C_in"] = 16*self.C
@@ -557,38 +558,38 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             self.output_B4 = STCNNT_Block(**kwargs)
 
         # fusion stage
-        self.down_0_1 = _DownSample(N=1, C_in=self.C, C_out=2*self.C, use_interpolation=use_interpolation, with_conv=True)
-        self.down_0_2 = _DownSample(N=2, C_in=self.C, C_out=4*self.C, use_interpolation=use_interpolation, with_conv=True)
-        self.down_0_3 = _DownSample(N=3, C_in=self.C, C_out=8*self.C, use_interpolation=use_interpolation, with_conv=True)
-        self.down_0_4 = _DownSample(N=4, C_in=self.C, C_out=16*self.C, use_interpolation=use_interpolation, with_conv=True)
+        self.down_0_1 = DownSample(N=1, C_in=self.C, C_out=2*self.C, use_interpolation=use_interpolation, with_conv=True)
+        self.down_0_2 = DownSample(N=2, C_in=self.C, C_out=4*self.C, use_interpolation=use_interpolation, with_conv=True)
+        self.down_0_3 = DownSample(N=3, C_in=self.C, C_out=8*self.C, use_interpolation=use_interpolation, with_conv=True)
+        self.down_0_4 = DownSample(N=4, C_in=self.C, C_out=16*self.C, use_interpolation=use_interpolation, with_conv=True)
 
-        self.down_1_2 = _DownSample(N=1, C_in=2*self.C, C_out=4*self.C, use_interpolation=use_interpolation, with_conv=True)
-        self.down_1_3 = _DownSample(N=2, C_in=2*self.C, C_out=8*self.C, use_interpolation=use_interpolation, with_conv=True)
-        self.down_1_4 = _DownSample(N=3, C_in=2*self.C, C_out=16*self.C, use_interpolation=use_interpolation, with_conv=True)
+        self.down_1_2 = DownSample(N=1, C_in=2*self.C, C_out=4*self.C, use_interpolation=use_interpolation, with_conv=True)
+        self.down_1_3 = DownSample(N=2, C_in=2*self.C, C_out=8*self.C, use_interpolation=use_interpolation, with_conv=True)
+        self.down_1_4 = DownSample(N=3, C_in=2*self.C, C_out=16*self.C, use_interpolation=use_interpolation, with_conv=True)
 
-        self.down_2_3 = _DownSample(N=1, C_in=4*self.C, C_out=8*self.C, use_interpolation=use_interpolation, with_conv=True)
-        self.down_2_4 = _DownSample(N=2, C_in=4*self.C, C_out=16*self.C, use_interpolation=use_interpolation, with_conv=True)
+        self.down_2_3 = DownSample(N=1, C_in=4*self.C, C_out=8*self.C, use_interpolation=use_interpolation, with_conv=True)
+        self.down_2_4 = DownSample(N=2, C_in=4*self.C, C_out=16*self.C, use_interpolation=use_interpolation, with_conv=True)
 
-        self.down_3_4 = _DownSample(N=1, C_in=8*self.C, C_out=16*self.C, use_interpolation=use_interpolation, with_conv=True)
+        self.down_3_4 = DownSample(N=1, C_in=8*self.C, C_out=16*self.C, use_interpolation=use_interpolation, with_conv=True)
 
-        self.up_1_0 = _UpSample(N=1, C_in=2*self.C, C_out=self.C, with_conv=True)
-        self.up_2_0 = _UpSample(N=2, C_in=4*self.C, C_out=self.C, with_conv=True)
-        self.up_3_0 = _UpSample(N=3, C_in=8*self.C, C_out=self.C, with_conv=True)
-        self.up_4_0 = _UpSample(N=4, C_in=16*self.C, C_out=self.C, with_conv=True)
+        self.up_1_0 = UpSample(N=1, C_in=2*self.C, C_out=self.C, with_conv=True)
+        self.up_2_0 = UpSample(N=2, C_in=4*self.C, C_out=self.C, with_conv=True)
+        self.up_3_0 = UpSample(N=3, C_in=8*self.C, C_out=self.C, with_conv=True)
+        self.up_4_0 = UpSample(N=4, C_in=16*self.C, C_out=self.C, with_conv=True)
 
-        self.up_2_1 = _UpSample(N=1, C_in=4*self.C, C_out=2*self.C, with_conv=True)
-        self.up_3_1 = _UpSample(N=2, C_in=8*self.C, C_out=2*self.C, with_conv=True)
-        self.up_4_1 = _UpSample(N=3, C_in=16*self.C, C_out=2*self.C, with_conv=True)
+        self.up_2_1 = UpSample(N=1, C_in=4*self.C, C_out=2*self.C, with_conv=True)
+        self.up_3_1 = UpSample(N=2, C_in=8*self.C, C_out=2*self.C, with_conv=True)
+        self.up_4_1 = UpSample(N=3, C_in=16*self.C, C_out=2*self.C, with_conv=True)
 
-        self.up_3_2 = _UpSample(N=1, C_in=8*self.C, C_out=4*self.C, with_conv=True)
-        self.up_4_2 = _UpSample(N=2, C_in=16*self.C, C_out=4*self.C, with_conv=True)
+        self.up_3_2 = UpSample(N=1, C_in=8*self.C, C_out=4*self.C, with_conv=True)
+        self.up_4_2 = UpSample(N=2, C_in=16*self.C, C_out=4*self.C, with_conv=True)
 
-        self.up_4_3 = _UpSample(N=1, C_in=16*self.C, C_out=8*self.C, with_conv=True)
+        self.up_4_3 = UpSample(N=1, C_in=16*self.C, C_out=8*self.C, with_conv=True)
 
-        self.up_1 = _UpSample(N=1, C_in=2*self.C, C_out=self.C, with_conv=True)
-        self.up_2 = _UpSample(N=2, C_in=4*self.C, C_out=self.C, with_conv=True)
-        self.up_3 = _UpSample(N=3, C_in=8*self.C, C_out=self.C, with_conv=True)
-        self.up_4 = _UpSample(N=4, C_in=16*self.C, C_out=self.C, with_conv=True)
+        self.up_1 = UpSample(N=1, C_in=2*self.C, C_out=2*self.C, with_conv=True)
+        self.up_2 = UpSample(N=2, C_in=4*self.C, C_out=4*self.C, with_conv=True)
+        self.up_3 = UpSample(N=3, C_in=8*self.C, C_out=8*self.C, with_conv=True)
+        self.up_4 = UpSample(N=4, C_in=16*self.C, C_out=16*self.C, with_conv=True)
 
     def check_class_specific_parameters(self, config):
         if not "backbone_hrnet" in config:
@@ -732,7 +733,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
         return y_hat, y_level_outputs
 
     def __str__(self):
-        return create_generic_class_str(obj=self, exclusion_list=[nn.Module, OrderedDict, STCNNT_Block, _DownSample, _UpSample])
+        return create_generic_class_str(obj=self, exclusion_list=[nn.Module, OrderedDict, STCNNT_Block, DownSample, UpSample])
 
 # -------------------------------------------------------------------------------------------------
 
@@ -805,6 +806,8 @@ def tests():
 
     config.cosine_att = True
     config.att_with_relative_postion_bias = True
+
+    config.block_dense_connection = True
     
     config.optim = "adamw"
     config.scheduler = "ReduceLROnPlateau"

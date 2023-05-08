@@ -288,7 +288,8 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             "scale_ratio_in_mixer": c.scale_ratio_in_mixer,
             
             "cosine_att": c.cosine_att,
-            "att_with_relative_postion_bias": c.att_with_relative_postion_bias
+            "att_with_relative_postion_bias": c.att_with_relative_postion_bias,
+            "block_dense_connection": c.block_dense_connection
         }
 
         window_sizes = []
@@ -672,6 +673,8 @@ def tests():
             
     config.cosine_att = True
     config.att_with_relative_postion_bias = True
+    
+    config.block_dense_connection = False
     
     config.optim = "adamw"
     config.scheduler = "ReduceLROnPlateau"

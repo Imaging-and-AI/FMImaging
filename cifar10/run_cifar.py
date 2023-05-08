@@ -29,9 +29,8 @@ cmd.extend([
     "--num_epochs", "150",
     "--batch_size", "128",
     "--device", "cuda",
-    "--norm_mode", "instance2d",
     "--window_size", "8",
-    "--patch_size", "2",
+    "--patch_size", "4",
     "--global_lr", "1e-3",
     "--clip_grad_norm", "1.0",
     "--weight_decay", "0.0",
@@ -40,11 +39,11 @@ cmd.extend([
     "--project", "cifar",
     "--num_workers", "8",
        
-    "--scheduler_type", "ReduceLROnPlateau",
+    "--scheduler_type", "OneCycleLR",
     
     "--scheduler.ReduceLROnPlateau.patience", "1",
     "--scheduler.ReduceLROnPlateau.cooldown", "2",
-    "--scheduler.ReduceLROnPlateau.min_lr", "1e-8",
+    "--scheduler.ReduceLROnPlateau.min_lr", "1e-6",
     "--scheduler.ReduceLROnPlateau.factor", "0.8",
         
     "--scheduler.StepLR.step_size", "5",
@@ -68,6 +67,36 @@ cmd.extend([
     "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1"    
 ])
 
+def create_cmd_run(cmd_run, bk='hrnet', a_type='conv', cell_type='sequential', norm_mode='batch2d', block_dense_connection=True, c=32, q_k_norm=True, cosine_att=1, att_with_relative_postion_bias=1, bs=['T1G1L1', 'T1G1L1', 'T1G1L1', 'T1G1L1']):
+    
+    run_str = f"{a_type}-{cell_type}-{norm_mode}-C-{c}-block_dense-{block_dense_connection}-qknorm-{q_k_norm}-cosine_att-{cosine_att}-att_with_relative_postion_bias-{att_with_relative_postion_bias}-block_str-{'_'.join(bs)}"
+                                        
+    cmd_run = cmd.copy()
+    cmd_run.extend([
+        "--run_name", f"cifar-{bk}-{run_str}",
+        "--run_notes", f"cifar-{bk}-{run_str}",
+        "--backbone", f"{bk}",
+        "--a_type", f"{a_type}",
+        "--cell_type", f"{cell_type}",
+        "--cosine_att", f"{cosine_att}",
+        "--att_with_relative_postion_bias", f"{att_with_relative_postion_bias}",
+        "--backbone_hrnet.C", f"{c}",
+        "--backbone_unet.C", f"{c}",
+        "--backbone_LLM.C", f"{c}",
+        "--block_dense_connection", f"{block_dense_connection}",
+        "--norm_mode", f"{norm_mode}"
+    ])
+
+    if q_k_norm:
+        cmd_run.extend(["--normalize_Q_K"])
+        
+    cmd_run.extend([f"--backbone_{bk}.block_str", *bs])
+        
+    print(f"Running command:\n{' '.join(cmd_run)}")
+
+    return cmd_run
+
+
 # test backbones
 backbone = ['hrnet', 'unet', 'LLM', 'small_unet']
 block_strs = [
@@ -83,6 +112,13 @@ Q_K_norm = [True, False]
 cosine_atts = ["1", "0"]
 att_with_relative_postion_biases = ["1", "0"]
 C = [32, 64]
+block_dense_connections = ["1", "0"]
+norm_modes = ["batch2d", "layer", "instance2d"]
+
+Q_K_norm = [True]
+cosine_atts = ["1"]
+att_with_relative_postion_biases = ["1"]
+a_types = ["conv"]
 
 for k, bk in enumerate(backbone):    
         block_str = block_strs[k]
@@ -93,27 +129,19 @@ for k, bk in enumerate(backbone):
                     for cosine_att in cosine_atts:
                         for att_with_relative_postion_bias in att_with_relative_postion_biases:
                             for c in C:
-                                run_str = f"{a_type}-{cell_type}-C-{c}-qknorm-{q_k_norm}-cosine_att-{cosine_att}-att_with_relative_postion_bias-{att_with_relative_postion_bias}-block_str-{'_'.join(bs)}"
-                                
-                                cmd_run = cmd.copy()
-                                cmd_run.extend([
-                                    "--run_name", f"cifar-{bk}-{run_str}",
-                                    "--run_notes", f"cifar-{bk}-{run_str}",
-                                    "--backbone", f"{bk}",
-                                    "--a_type", f"{a_type}",
-                                    "--cell_type", f"{cell_type}",
-                                    "--cosine_att", f"{cosine_att}",
-                                    "--att_with_relative_postion_bias", f"{att_with_relative_postion_bias}",
-                                    "--backbone_hrnet.C", f"{c}",
-                                    "--backbone_unet.C", f"{c}",
-                                    "--backbone_LLM.C", f"{c}"
-                                ])
+                                for block_dense_connection in block_dense_connections:
+                                    for norm_mode in norm_modes:
+                                        
+                                        cmd_run = create_cmd_run(cmd.copy(), 
+                                                        bk=bk, 
+                                                        a_type=a_type, 
+                                                        cell_type=cell_type,
+                                                        norm_mode=norm_mode, 
+                                                        block_dense_connection=block_dense_connection,
+                                                        c=c,
+                                                        q_k_norm=q_k_norm, 
+                                                        cosine_att=cosine_att, 
+                                                        att_with_relative_postion_bias=att_with_relative_postion_bias, 
+                                                        bs=bs)
 
-                                if q_k_norm:
-                                    cmd_run.extend(["--normalize_Q_K"])
-                                    
-                                cmd_run.extend([f"--backbone_{bk}.block_str", *bs])
-                                    
-                                print(f"Running command:\n{' '.join(cmd_run)}")
-
-                                subprocess.run(cmd_run)
+                                        subprocess.run(cmd_run)

@@ -7,9 +7,16 @@ import torch
 import torch.nn as nn
 from pathlib import Path
 
+Project_DIR = Path(__file__).parents[0].resolve()
+sys.path.insert(0, str(Project_DIR))
+
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
+Project_DIR = Path(__file__).parents[2].resolve()
+sys.path.insert(2, str(Project_DIR))
+
+from model_base.imaging_attention.attention_modules import Conv2DExt, AvgPool2DExt
 from model_base.backbone import *
 from model_base.backbone.backbone_small_unet import *
 from model_base.task_base import *
@@ -36,6 +43,9 @@ class STCNNT_Cifar(STCNNT_Task_Base):
 
         final_c = 10 if config.data_set == "cifar10" else 100
 
+        H = config.height[0]
+        W = config.width[0]
+
         if config.backbone == "small_unet":
             self.pre = nn.Identity()
             self.backbone = CNNT_Unet(config=config)
@@ -51,10 +61,15 @@ class STCNNT_Cifar(STCNNT_Task_Base):
                                         nn.Linear(config.C_out*32*32, final_c))
             
         if config.backbone == "hrnet":
+            
+            hrnet_C_out = config.backbone_hrnet.C * sum([np.power(2, k) for k in range(config.backbone_hrnet.num_resolution_levels)])
+            
             self.pre = nn.Identity()            
             self.backbone = STCNNT_HRnet(config=config)            
-            self.post = nn.Sequential(nn.Flatten(start_dim=1, end_dim=-1),
-                                      nn.Linear(config.backbone_hrnet.C*config.backbone_hrnet.num_resolution_levels*32*32, final_c))
+            self.post = nn.Sequential(Conv2DExt(in_channels=hrnet_C_out, out_channels=1024, kernel_size=[1,1], padding=[0, 0], stride=[1,1]),
+                                      AvgPool2DExt(kernel_size=[H, W]),
+                                      nn.Flatten(start_dim=1, end_dim=-1),
+                                      nn.Linear(1024, final_c))
             
         if config.backbone == "unet":
             self.pre = nn.Identity()            
@@ -68,8 +83,9 @@ class STCNNT_Cifar(STCNNT_Task_Base):
             
             output_C = np.power(2, config.backbone_LLM.num_stages-2) if config.backbone_LLM.num_stages>2 else config.backbone_LLM.C
                  
-            self.post = nn.Sequential(nn.Flatten(start_dim=1, end_dim=-1),
-                                      nn.Linear(output_C*32*32, final_c))
+            self.post = nn.Sequential(AvgPool2DExt(kernel_size=[H, W]), 
+                                      nn.Flatten(start_dim=1, end_dim=-1),
+                                      nn.Linear(output_C, final_c))
 
         device = get_device(device=config.device)
         

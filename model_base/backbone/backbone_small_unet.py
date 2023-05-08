@@ -133,7 +133,8 @@ class CNNT_Unet(STCNNT_Base_Runtime):
             "window_size": c.window_size,
             "patch_size": c.patch_size,
             "cosine_att": c.cosine_att,
-            "att_with_relative_postion_bias": c.att_with_relative_postion_bias
+            "att_with_relative_postion_bias": c.att_with_relative_postion_bias,
+            "block_dense_connection": c.block_dense_connection
         }
 
         window_sizes = []
