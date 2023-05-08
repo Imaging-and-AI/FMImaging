@@ -127,7 +127,7 @@ class STCNNT_Base_Runtime(nn.Module):
         
         status = torch.load(self.config.load_path, map_location=device)
         
-        self.load_state_dict(status['model_state'])
+        self.load_state_dict(status['model'])
         self.config = status['config']
         
 # -------------------------------------------------------------------------------------------------

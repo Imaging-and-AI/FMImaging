@@ -32,7 +32,7 @@ def arg_parser():
     parser.add_argument("--test_files", type=str, nargs='+', default=["train_3D_3T_retro_cine_2020_small_2DT_test.h5"], help='list of test h5files')
     parser.add_argument("--train_data_types", type=str, nargs='+', default=["2dt"], help='the type of each train file: "2d", "2dt", "3d"')
     parser.add_argument("--test_data_types", type=str, nargs='+', default=["2dt"], help='the type of each test file: "2d", "2dt", "3d"')
-    parser = add_shared_STCNNT_args(parser=parser)
+    parser = add_backbone_STCNNT_args(parser=parser)
 
     # Noise Augmentation arguments
     parser.add_argument("--min_noise_level", type=float, default=3.0, help='minimum noise sigma to add')

@@ -100,7 +100,7 @@ class CNNT_Unet(STCNNT_Base_Runtime):
         c = config # shortening due to numerous uses
 
         block_str = c.backbone_small_unet.block_str
-        block_str = block_str if isinstance(block_str, list) else [block_str for n in range(3)] # with bridge
+        block_str = block_str if len(block_str)>1 else [block_str[0] for n in range(3)] # with bridge
 
         channels = c.backbone_small_unet.channels
 

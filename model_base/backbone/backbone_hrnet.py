@@ -246,7 +246,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
 
         self.C = C
         self.num_resolution_levels = num_resolution_levels
-        self.block_str = block_str if isinstance(block_str, list) else [block_str for n in range(self.num_resolution_levels)]
+        self.block_str = block_str if len(block_str)>1 else [block_str[0] for n in range(self.num_resolution_levels)]
         self.use_interpolation = use_interpolation
 
         c = config
