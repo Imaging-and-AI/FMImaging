@@ -50,16 +50,22 @@ class STCNNT_MRI(STCNNT_Task_Base):
             self.pre = nn.Identity()
             self.backbone = CNNT_Unet(config=config)
             self.post = nn.Identity()
+            
         if config.backbone == "hrnet":
+            
+            hrnet_C_out = config.backbone_hrnet.C * sum([np.power(2, k) for k in range(config.backbone_hrnet.num_resolution_levels)])
+            
             self.pre = nn.Identity()
             self.backbone = STCNNT_HRnet(config=config)
-            self.post = Conv2DExt(config.backbone_hrnet.C*config.backbone_hrnet.num_resolution_levels,config.C_out, \
+            self.post = Conv2DExt(hrnet_C_out, config.C_out, \
                                  kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
+            
         if config.backbone == "unet":
             self.pre = nn.Identity()
             self.backbone = STCNNT_Unet(config=config)
             self.post = Conv2DExt(config.backbone_unet.C,config.C_out, \
                                  kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
+            
         if config.backbone == "LLM":
             output_C = np.power(2, config.backbone_LLM.num_stages-2) if config.backbone_LLM.num_stages>2 else config.backbone_LLM.C
             self.pre = nn.Identity()

@@ -80,6 +80,20 @@ def trainer(rank, model, config, train_set, val_set, test_set):
         wandb.log({"trainable_params":c.trainable_params,
                     "total_params":c.total_params})
 
+        wandb.define_metric("epoch")    
+        wandb.define_metric("train_loss_avg", step_metric='epoch')
+        wandb.define_metric("train_mse_loss", step_metric='epoch')
+        wandb.define_metric("train_l1_loss", step_metric='epoch')
+        wandb.define_metric("train_ssim_loss", step_metric='epoch')
+        wandb.define_metric("train_ssim3D_loss", step_metric='epoch')
+        wandb.define_metric("train_psnr", step_metric='epoch')
+        wandb.define_metric("val_loss_avg", step_metric='epoch')
+        wandb.define_metric("val_mse_loss", step_metric='epoch')
+        wandb.define_metric("val_l1_loss", step_metric='epoch')
+        wandb.define_metric("val_ssim_loss", step_metric='epoch')
+        wandb.define_metric("val_ssim3D_loss", step_metric='epoch')
+        wandb.define_metric("val_psnr", step_metric='epoch')
+                            
         # save best model to be saved at the end
         best_val_loss = numpy.inf
         best_model_wts = copy.deepcopy(model.module.state_dict() if c.ddp else model.state_dict())
@@ -97,10 +111,14 @@ def trainer(rank, model, config, train_set, val_set, test_set):
         ssim_loss_func = SSIM_Loss(complex_i=c.complex_i, device=device)
         ssim3D_loss_func = SSIM3D_Loss(complex_i=c.complex_i, device=device)
         psnr_func = PSNR()
+        
 
     total_iters = sum([len(loader_x) for loader_x in train_loader])
     total_iters = total_iters if not c.debug else min(10, total_iters)
 
+    # mix precision training
+    scaler = torch.cuda.amp.GradScaler(enabled=c.use_amp)
+    
     for epoch in range(c.num_epochs):
         if rank<=0:
             logging.info(f"{'-'*20}Epoch:{epoch}/{c.num_epochs}{'-'*20}")
@@ -120,8 +138,6 @@ def trainer(rank, model, config, train_set, val_set, test_set):
 
             for idx in range(total_iters):
 
-                optim.zero_grad()
-
                 loader_ind = idx % len(train_loader_iter)
                 stuff = next(train_loader_iter[loader_ind], None)
                 while stuff is None:
@@ -133,17 +149,26 @@ def trainer(rank, model, config, train_set, val_set, test_set):
                 x = x.to(device)
                 y = y.to(device)
 
-                output = model(x)
-                loss = loss_f(output, y)
-                loss.backward()
+                with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
+                    output = model(x)
+                    loss = loss_f(output, y)
+                    loss = loss / c.iters_to_accumulate
+                    
+                scaler.scale(loss).backward()
 
-                if(c.clip_grad_norm>0):
-                    nn.utils.clip_grad_norm_(model.parameters(), c.clip_grad_norm)
-                optim.step()
-
-                if stype == "OneCycleLR": sched.step()
+                if (idx + 1) % c.iters_to_accumulate == 0 or (idx + 1 == total_iters):
+                    if(c.clip_grad_norm>0):
+                        scaler.unscale_(optim)
+                        nn.utils.clip_grad_norm_(model.parameters(), c.clip_grad_norm)
+                    
+                    scaler.step(optim)                    
+                    optim.zero_grad(set_to_none=True)
+                    scaler.update()
+                
+                    if stype == "OneCycleLR": sched.step()
+                    
                 curr_lr = optim.param_groups[0]['lr']
-
+                
                 if rank<=0:
                     wandb.log({"running_train_loss": loss.item()})
                     total=x.shape[0]
@@ -179,7 +204,11 @@ def trainer(rank, model, config, train_set, val_set, test_set):
             if val_losses[0] < best_val_loss:
                 best_val_loss = val_losses[0]
                 best_model_wts = copy.deepcopy(model_e.state_dict())
-
+                model_e.save(epoch)
+            else:
+                if epoch % c.save_cycle == 0:
+                    model_e.save(epoch)
+                
             # silently log to only the file as well
             logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, tra, {x.shape}, {train_loss.avg:.4f}, "+
                                                 f"{train_mse_meter.avg:.4f}, {train_l1_meter.avg:.4f}, {train_ssim_meter.avg:.4f}, "+
@@ -187,11 +216,7 @@ def trainer(rank, model, config, train_set, val_set, test_set):
             logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, val, {x.shape}, {val_losses[0]:.4f}, "+
                                                 f"{val_losses[1]:.4f}, {val_losses[2]:.4f}, {val_losses[3]:.4f}, "+
                                                 f"{val_losses[4]:.4f}, {val_losses[5]:.4f}, lr {curr_lr:.8f}")
-
-            # save the model weights every save_cycle
-            if epoch % c.save_cycle == 0:
-                model_e.save(epoch)
-
+        
             wandb.log({"epoch": epoch,
                         "train_loss_avg": train_loss.avg,
                         "train_mse_loss": train_mse_meter.avg,
@@ -232,7 +257,7 @@ def trainer(rank, model, config, train_set, val_set, test_set):
 
     if rank<=0: # main or master process
         # test and save model
-        wandb.log({"best_val_loss": best_val_loss})
+        wandb.run.summary["best_val_loss"] = best_val_loss
 
         model = model.module if c.ddp else model
         model.save(epoch) # save the final weights

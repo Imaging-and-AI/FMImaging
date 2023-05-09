@@ -19,6 +19,7 @@ import cv2
 import h5py
 import torch
 import logging
+from tqdm import tqdm
 import numpy as np
 from pathlib import Path
 from skimage.util import view_as_blocks

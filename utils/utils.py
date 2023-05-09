@@ -502,6 +502,8 @@ def save_image_wandb(title, complex_i, noisy, predi, clean):
     composed_res[:,:H,1*W:2*W] = save_p
     composed_res[:,:H,2*W:3*W] = save_y
 
+    composed_res = np.clip(composed_res, a_min=0.5*np.mean(composed_res), a_max=0.85*np.mean(composed_res))
+
     temp = np.zeros_like(composed_res)
     composed_res = cv2.normalize(composed_res, temp, 0, 255, norm_type=cv2.NORM_MINMAX)
 
