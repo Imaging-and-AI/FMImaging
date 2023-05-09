@@ -94,8 +94,10 @@ def main():
     num_samples = sum([len(tset) for tset in train_set])
     
     config.batch_size = num_samples if config.batch_size>=num_samples else config.batch_size
-    total_steps = (num_samples//config.batch_size) * config.num_epochs
-    if config.ddp: total_steps //= torch.cuda.device_count()
+    total_steps = (num_samples//config.batch_size + 1) * config.num_epochs
+    if config.ddp: 
+        total_steps //= torch.cuda.device_count()
+        total_steps += 1
     
     model = STCNNT_MRI(config=config, total_steps=total_steps)
 
