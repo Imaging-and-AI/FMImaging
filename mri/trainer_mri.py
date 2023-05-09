@@ -112,6 +112,19 @@ def trainer(rank, model, config, train_set, val_set, test_set):
         ssim3D_loss_func = SSIM3D_Loss(complex_i=c.complex_i, device=device)
         psnr_func = PSNR()
         
+        # log a few training examples
+        for i, train_set_x in enumerate(train_set):            
+            ind = np.random.randint(0, len(train_set_x), 8)
+            x, y, gmaps_median, noise_sigmas = train_set_x[ind[0]]
+            x = np.expand_dims(x, axis=0)
+            y = np.expand_dims(y, axis=0)
+            for ii in range(1, len(ind)):                
+                a_x, a_y, gmaps_median, noise_sigmas = train_set_x[ii]
+                x = np.concatenate((x, np.expand_dims(a_x, axis=0)), axis=0)
+                y = np.concatenate((y, np.expand_dims(a_y, axis=0)), axis=0)
+                
+            title = f"Tra_samples_{i}_Noisy_Noisy_GT_{x.shape}"
+            save_image_batch_wandb(title, c.complex_i, x, np.copy(x), y)
 
     total_iters = sum([len(loader_x) for loader_x in train_loader])
     total_iters = total_iters if not c.debug else min(10, total_iters)
@@ -364,7 +377,7 @@ def eval_val(model, config, val_set, epoch, device):
                 if images_logged < 8:
                     images_logged += 1
                     title = f"Val_image_{idx}_Noisy_Pred_GT_{x.shape}"
-                    save_image_wandb(title, c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
+                    save_image_batch_wandb(title, c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
 
                 loss = loss_f(output, y)
 

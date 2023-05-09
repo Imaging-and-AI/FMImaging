@@ -31,7 +31,7 @@ cmd.extend([
 
 cmd.extend([
     "--num_epochs", "60",
-    "--batch_size", "128",
+    "--batch_size", "32",
     "--device", "cuda",
     "--window_size", "8",
     "--patch_size", "4",
@@ -40,11 +40,10 @@ cmd.extend([
     "--weight_decay", "0.0",
     "--use_amp", "--ddp", 
     "--iters_to_accumulate", "1",
-    "--project", "mri",
-    "--num_workers", "8",
-       
-    "--scheduler_type", "OneCycleLR",
     
+    "--project", "mri",
+    "--num_workers", "8",      
+   
     "--scheduler.ReduceLROnPlateau.patience", "1",
     "--scheduler.ReduceLROnPlateau.cooldown", "2",
     "--scheduler.ReduceLROnPlateau.min_lr", "1e-6",
@@ -68,7 +67,7 @@ cmd.extend([
                      
     # small unet
     "--backbone_small_unet.channels", "16", "32", "64",   
-    "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1"    
+    "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1",   
     
     "--complex_i",
     "--residual",
