@@ -31,7 +31,7 @@ from losses import *
 from imaging_attention import *
 from cells import *
 from blocks import *
-from utils.utils import get_device, model_info
+from utils.utils import get_device, model_info, add_backbone_STCNNT_args, Nestedspace
 
 from backbone_base import STCNNT_Base_Runtime
 
@@ -130,15 +130,19 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
 
         self.C = C
         self.num_stages = num_stages
-        self.block_str = block_str if len(block_str)>1 else [block_str[0] for n in range(self.num_stages)]
+        
+        if isinstance(block_str, list):
+            self.block_str = block_str if len(block_str)>=self.num_stages else [block_str[0] for n in range(self.num_stages)] # with bridge
+        else:
+            self.block_str = [block_str for n in range(self.num_stages)]
+            
         self.add_skip_connections = add_skip_connections
 
         c = config
 
         # compute number of windows and patches
-        self.num_windows_h = c.height[0]//c.window_size
-        self.num_windows_w = c.width[0]//c.window_size
-        self.num_patch = c.window_size//c.patch_size
+        self.num_wind = [c.height[0]//c.window_size[0], c.width[0]//c.window_size[1]]
+        self.num_patch = [c.window_size[0]//c.patch_size[0], c.window_size[1]//c.patch_size[1]]
 
         kwargs = {
             "C_in":c.C_in,
@@ -151,10 +155,17 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             "is_causal":c.is_causal,
             "dropout_p":c.dropout_p,
             "n_head":c.n_head,
+            
             "kernel_size":(c.kernel_size, c.kernel_size),
             "stride":(c.stride, c.stride),
             "padding":(c.padding, c.padding),
+            
             "stride_t":(c.stride_t, c.stride_t),
+            
+            "mixer_kernel_size":(c.mixer_kernel_size, c.mixer_kernel_size),
+            "mixer_stride":(c.mixer_stride, c.mixer_stride),
+            "mixer_padding":(c.mixer_padding, c.mixer_padding),
+            
             "norm_mode":c.norm_mode,
             "interpolate":"none",
             "interp_align_c":c.interp_align_c,
@@ -166,7 +177,13 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             "scale_ratio_in_mixer": c.scale_ratio_in_mixer,
             "cosine_att": c.cosine_att,
             "att_with_relative_postion_bias": c.att_with_relative_postion_bias,
-            "block_dense_connection": c.block_dense_connection
+            "block_dense_connection": c.block_dense_connection,
+            
+            "num_wind": self.num_wind,
+            "num_patch": self.num_patch,
+            
+            "mixer_type": c.mixer_type,
+            "shuffle_in_window": c.shuffle_in_window
         }
 
         if num_stages >= 1:
@@ -175,7 +192,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B0")
+            kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]] , self.num_wind, self.num_patch, module_name="B0")
             kwargs["att_types"] = self.block_str[0]
             self.B0 = STCNNT_Block(**kwargs)
 
@@ -185,7 +202,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B1")
+            kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]] , self.num_wind, self.num_patch, module_name="B1")
             kwargs["att_types"] = self.block_str[1]
             self.B1 = STCNNT_Block(**kwargs)
 
@@ -195,7 +212,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 2*self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B2")
+            kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]] , self.num_wind, self.num_patch, module_name="B2")
             kwargs["att_types"] = self.block_str[2]
             self.B2 = STCNNT_Block(**kwargs)
 
@@ -205,7 +222,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 4*self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B3")
+            kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]] , self.num_wind, self.num_patch, module_name="B3")
             kwargs["att_types"] = self.block_str[3]
             self.B3 = STCNNT_Block(**kwargs)
 
@@ -215,7 +232,7 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 8*self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B4")
+            kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]] , self.num_wind, self.num_patch, module_name="B4")
             kwargs["att_types"] = self.block_str[4]
             self.B4 = STCNNT_Block(**kwargs)
    
@@ -281,22 +298,18 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
 
 def tests():
 
-    B,T,C,H,W = 2,8,1,256,256
+    B,T,C,H,W = 2,4,1,256,256
     test_in = torch.rand(B,T,C,H,W)
 
-    config = Namespace()
+    parser = add_backbone_STCNNT_args()
+    ns = Nestedspace()
+    config = parser.parse_args(namespace=ns)
     
-    config.backbone_LLM = Namespace()
     config.backbone_LLM.C = 16
     config.backbone_LLM.num_stages = 4
     config.backbone_LLM.block_str = 'T1L1G1T1L1G1T1L1G1'
     config.backbone_LLM.add_skip_connections = True
 
-    # optimizer and scheduler
-    config.weight_decay = 0.1
-    config.global_lr = 0.001
-    config.beta1 = 0.9
-    config.beta2 = 0.99
     # attention modules
     config.kernel_size = 3
     config.stride = 1
@@ -315,8 +328,11 @@ def tests():
     config.n_head = 8
     config.interp_align_c = True
     
-    config.window_size = H//8
-    config.patch_size = H//32
+    config.window_size = [H//8, W//8]
+    config.patch_size = [H//32, W//32]
+    
+    config.num_wind =[8, 8]
+    config.num_patch =[4, 4]
     
     # losses
     config.losses = ["mse"]
@@ -368,6 +384,10 @@ def tests():
 
     print(f"forward time: {elapsed_time_ms:.3f}ms")
     print(get_gpu_ram_usage(device=device))
+
+    B,T,C,H,W = 2,8,1,128,128
+    test_in2 = torch.rand(B,T,C,H,W)
+    test_out2 = model(test_in2.to(device=device))
 
     del model, test_out
     torch.cuda.empty_cache()

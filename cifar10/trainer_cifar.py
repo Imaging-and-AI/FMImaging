@@ -64,7 +64,7 @@ def trainer(rank, model, config, train_set, val_set):
         shuffle = True
 
     train_loader = DataLoader(dataset=train_set, batch_size=c.batch_size, shuffle=shuffle, sampler=sampler,
-                                num_workers=c.num_workers, prefetch_factor=c.prefetch_factor,
+                                num_workers=c.num_workers, prefetch_factor=c.prefetch_factor, drop_last=True,
                                 persistent_workers=c.num_workers>0)
 
     if rank<=0: # main or master process

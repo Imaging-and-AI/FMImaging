@@ -288,6 +288,33 @@ class CnnAttentionBase(nn.Module):
     def device(self):
         return next(self.parameters()).device
 
+    def set_and_check_wind(self):
+        if self.num_wind is not None:
+            self.window_size = [self.H//self.num_wind[0], self.W//self.num_wind[1]]
+        else:
+            self.num_wind = [self.H//self.window_size[0], self.W//self.window_size[1]]
+            
+        assert self.num_wind[0]*self.window_size[0] == self.H, \
+            f"self.num_wind[0]*self.window_size[0] == self.H, num_wind {self.num_wind}, window_size {self.window_size}, H {self.H}"
+            
+        assert self.num_wind[1]*self.window_size[1] == self.W, \
+            f"self.num_wind[1]*self.window_size[1] == self.W, num_wind {self.num_wind}, window_size {self.window_size}, W {self.W}"
+
+    def set_and_check_patch(self):
+        if self.num_patch is not None:
+            self.patch_size = [self.window_size[0]//self.num_patch[0], self.window_size[1]//self.num_patch[1]]
+        else:
+            self.num_patch = [self.window_size[0]//self.patch_size[0], self.window_size[1]//self.patch_size[1]]
+            
+        assert (self.patch_size[0]*self.num_patch[0] == self.window_size[0]) and (self.patch_size[1]*self.num_patch[1] == self.window_size[1]), \
+            f"self.patch_size*self.num_patch == self.window_size, patch_size {self.patch_size}, num_patch {self.num_patch}, window_size {self.window_size}"
+            
+    def validate_window_patch(self):
+        assert self.window_size[0]*self.num_wind[0] == self.H, f"self.window_size[0]*self.num_wind[0] == self.H"
+        assert self.window_size[1]*self.num_wind[1] == self.W, f"self.window_size[1]*self.num_wind[1] == self.W"
+        assert self.patch_size[0]*self.num_patch[0] == self.window_size[0], f"self.patch_size[0]*self.num_patch[0] == self.window_size[0]"
+        assert self.patch_size[0]*self.num_patch[1] == self.window_size[1], f"self.patch_size[1]*self.num_patch[1] == self.window_size[1]"
+        
     def __str__(self):
         res = create_generic_class_str(self)
         return res

@@ -33,7 +33,7 @@ from losses import *
 from imaging_attention import *
 from cells import *
 from blocks import *
-from utils.utils import get_device, model_info
+from utils.utils import get_device, model_info, add_backbone_STCNNT_args, Nestedspace
 
 from backbone_base import STCNNT_Base_Runtime
 
@@ -246,15 +246,19 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
 
         self.C = C
         self.num_resolution_levels = num_resolution_levels
-        self.block_str = block_str if len(block_str)>1 else [block_str[0] for n in range(self.num_resolution_levels)]
+               
+        if isinstance(block_str, list):
+            self.block_str = block_str if len(block_str)>=self.num_resolution_levels else [block_str[0] for n in range(self.num_resolution_levels)] # with bridge
+        else:
+            self.block_str = [block_str for n in range(self.num_resolution_levels)]
+            
         self.use_interpolation = use_interpolation
 
         c = config
         
         # compute number of windows and patches
-        self.num_windows_h = c.height[0]//c.window_size
-        self.num_windows_w = c.width[0]//c.window_size
-        self.num_patch = c.window_size//c.patch_size
+        self.num_wind = [c.height[0]//c.window_size[0], c.width[0]//c.window_size[1]]
+        self.num_patch = [c.window_size[0]//c.patch_size[0], c.window_size[1]//c.patch_size[1]]
 
         kwargs = {
             "C_in":c.C_in,
@@ -267,10 +271,17 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             "is_causal":c.is_causal,
             "dropout_p":c.dropout_p,
             "n_head":c.n_head,
+            
             "kernel_size":(c.kernel_size, c.kernel_size),
             "stride":(c.stride, c.stride),
             "padding":(c.padding, c.padding),
+            
             "stride_t":(c.stride_t, c.stride_t),
+            
+            "mixer_kernel_size":(c.mixer_kernel_size, c.mixer_kernel_size),
+            "mixer_stride":(c.mixer_stride, c.mixer_stride),
+            "mixer_padding":(c.mixer_padding, c.mixer_padding),
+            
             "norm_mode":c.norm_mode,
             "interpolate":"none",
             "interp_align_c":c.interp_align_c,
@@ -282,7 +293,13 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             "scale_ratio_in_mixer": c.scale_ratio_in_mixer,
             "cosine_att": c.cosine_att,
             "att_with_relative_postion_bias": c.att_with_relative_postion_bias,
-            "block_dense_connection": c.block_dense_connection
+            "block_dense_connection": c.block_dense_connection,
+            
+            "num_wind": self.num_wind,
+            "num_patch": self.num_patch,
+            
+            "mixer_type": c.mixer_type,
+            "shuffle_in_window": c.shuffle_in_window
         }
 
         window_sizes = []
@@ -296,11 +313,11 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["W"] = c.width[0]
                        
             if c.window_sizing_method == "keep_num_window":
-                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B00")
+                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]] , self.num_wind, self.num_patch, module_name="B00")
             elif c.window_sizing_method == "keep_window_size":
-                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], c.window_size, c.patch_size, module_name="B00")
+                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], c.window_size, c.patch_size, module_name="B00")
             else: # mixed
-                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B00")
+                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]] , self.num_wind, self.num_patch, module_name="B00")
                 
             window_sizes.append(kwargs["window_size"])
             patch_sizes.append(kwargs["patch_size"])
@@ -314,7 +331,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
             
-            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[-1], patch_sizes[-1], module_name="output_0")
+            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[-1], patch_sizes[-1], module_name="output_0")
                 
             kwargs["att_types"] = self.block_str[0]
             self.output_B0 = STCNNT_Block(**kwargs)
@@ -325,7 +342,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[0], patch_sizes[0], module_name="B01")
+            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[0], patch_sizes[0], module_name="B01")
             kwargs["att_types"] = self.block_str[0]
             self.B01 = STCNNT_Block(**kwargs)
 
@@ -336,11 +353,11 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["W"] = c.width[0] // 2
             
             if c.window_sizing_method == "keep_num_window":
-                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B11")
+                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], self.num_wind, self.num_patch, module_name="B11")
             elif c.window_sizing_method == "keep_window_size":
-                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[0], patch_sizes[0], module_name="B11")
+                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[0], patch_sizes[0], module_name="B11")
             else: # mixed
-                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"] , window_sizes[0], patch_sizes[0], module_name="B11")
+                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[0], patch_sizes[0], module_name="B11")
                 
             window_sizes.append(kwargs["window_size"])
             patch_sizes.append(kwargs["patch_size"])
@@ -356,7 +373,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 2*self.C
             kwargs["H"] = c.height[0] // 2
             kwargs["W"] = c.width[0] // 2
-            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"] , window_sizes[-1], patch_sizes[-1], module_name="output_1")           
+            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[-1], patch_sizes[-1], module_name="output_1")           
             kwargs["att_types"] = self.block_str[1]
             self.output_B1 = STCNNT_Block(**kwargs)
 
@@ -366,7 +383,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[0], patch_sizes[0], module_name="B02")
+            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[0], patch_sizes[0], module_name="B02")
             kwargs["att_types"] = self.block_str[0]
             self.B02 = STCNNT_Block(**kwargs)
 
@@ -375,7 +392,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 2*self.C
             kwargs["H"] = c.height[0] // 2
             kwargs["W"] = c.width[0] // 2
-            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[1], patch_sizes[1], module_name="B12")
+            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[1], patch_sizes[1], module_name="B12")
             kwargs["att_types"] = self.block_str[1]
             self.B12 = STCNNT_Block(**kwargs)
 
@@ -385,11 +402,11 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["H"] = c.height[0] // 4
             kwargs["W"] = c.width[0] // 4
             if c.window_sizing_method == "keep_num_window":
-                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B22")
+                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], self.num_wind, self.num_patch, module_name="B22")
             elif c.window_sizing_method == "keep_window_size":
-                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[1], patch_sizes[1], module_name="B22")
+                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[1], patch_sizes[1], module_name="B22")
             else: # mixed
-                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h//2, self.num_patch, module_name="B22")
+                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], [v//2 for v in self.num_wind], self.num_patch, module_name="B22")
                 
             window_sizes.append(kwargs["window_size"])
             patch_sizes.append(kwargs["patch_size"])
@@ -407,7 +424,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 4*self.C
             kwargs["H"] = c.height[0] // 4
             kwargs["W"] = c.width[0] // 4
-            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[-1], patch_sizes[-1], module_name="output_B2")
+            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[-1], patch_sizes[-1], module_name="output_B2")
             kwargs["att_types"] = self.block_str[2]
             self.output_B2 = STCNNT_Block(**kwargs)
 
@@ -417,7 +434,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[0], patch_sizes[0], module_name="B03")
+            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[0], patch_sizes[0], module_name="B03")
             kwargs["att_types"] = self.block_str[0]
             self.B03 = STCNNT_Block(**kwargs)
 
@@ -426,7 +443,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 2*self.C
             kwargs["H"] = c.height[0] // 2
             kwargs["W"] = c.width[0] // 2
-            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[1], patch_sizes[1], module_name="B13")
+            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[1], patch_sizes[1], module_name="B13")
             kwargs["att_types"] = self.block_str[1]
             self.B13 = STCNNT_Block(**kwargs)
 
@@ -435,7 +452,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 4*self.C
             kwargs["H"] = c.height[0] // 4
             kwargs["W"] = c.width[0] // 4
-            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[2], patch_sizes[2], module_name="B23")
+            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[2], patch_sizes[2], module_name="B23")
             kwargs["att_types"] = self.block_str[2]
             self.B23 = STCNNT_Block(**kwargs)
 
@@ -446,11 +463,11 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["W"] = c.width[0] // 8
             
             if c.window_sizing_method == "keep_num_window":
-                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B33")
+                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], self.num_wind, self.num_patch, module_name="B33")
             elif c.window_sizing_method == "keep_window_size":
-                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[2], patch_sizes[2], module_name="B33")
+                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[2], patch_sizes[2], module_name="B33")
             else: # mixed
-                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"] , window_sizes[2], patch_sizes[2], module_name="B33")
+                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[2], patch_sizes[2], module_name="B33")
                 
             window_sizes.append(kwargs["window_size"])
             patch_sizes.append(kwargs["patch_size"])
@@ -471,7 +488,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 8*self.C
             kwargs["H"] = c.height[0] // 8
             kwargs["W"] = c.width[0] // 8
-            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[-1], patch_sizes[-1], module_name="output_B3")
+            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[-1], patch_sizes[-1], module_name="output_B3")
             kwargs["att_types"] = self.block_str[3]
             self.output_B3 = STCNNT_Block(**kwargs)
 
@@ -481,7 +498,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[0], patch_sizes[0], module_name="B04")
+            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[0], patch_sizes[0], module_name="B04")
             kwargs["att_types"] = self.block_str[0]
             self.B04 = STCNNT_Block(**kwargs)
 
@@ -490,7 +507,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 2*self.C
             kwargs["H"] = c.height[0] // 2
             kwargs["W"] = c.width[0] // 2
-            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[1], patch_sizes[1], module_name="B14")
+            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[1], patch_sizes[1], module_name="B14")
             kwargs["att_types"] = self.block_str[1]
             self.B14 = STCNNT_Block(**kwargs)
 
@@ -499,7 +516,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 4*self.C
             kwargs["H"] = c.height[0] // 4
             kwargs["W"] = c.width[0] // 4
-            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[2], patch_sizes[2], module_name="B24")
+            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[2], patch_sizes[2], module_name="B24")
             kwargs["att_types"] = self.block_str[2]
             self.B24 = STCNNT_Block(**kwargs)
 
@@ -508,7 +525,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 8*self.C
             kwargs["H"] = c.height[0] // 8
             kwargs["W"] = c.width[0] // 8
-            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[3], patch_sizes[3], module_name="B34")
+            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[3], patch_sizes[3], module_name="B34")
             kwargs["att_types"] = self.block_str[3]
             self.B34 = STCNNT_Block(**kwargs)
 
@@ -518,14 +535,14 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["H"] = c.height[0] // 16
             kwargs["W"] = c.width[0] // 16
             
-            kwargs = self.set_window_patch_sizes(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B44")
+            kwargs = self.set_window_patch_sizes(kwargs, [kwargs["H"],kwargs["W"]], self.num_wind, self.num_patch, module_name="B44")
             
             if c.window_sizing_method == "keep_num_window":
-                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h, self.num_patch, module_name="B44")
+                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], self.num_wind, self.num_patch, module_name="B44")
             elif c.window_sizing_method == "keep_window_size":
-                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[2], patch_sizes[2], module_name="B44")
+                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[2], patch_sizes[2], module_name="B44")
             else: # mixed
-                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"] , self.num_windows_h//4, self.num_patch, module_name="B44")
+                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], [v//4 for v in self.num_wind], self.num_patch, module_name="B44")
                 
             window_sizes.append(kwargs["window_size"])
             patch_sizes.append(kwargs["patch_size"])
@@ -553,7 +570,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = 16*self.C
             kwargs["H"] = c.height[0] // 16
             kwargs["W"] = c.width[0] // 16
-            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"], window_sizes[-1], patch_sizes[-1], module_name="output_B4")
+            kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[-1], patch_sizes[-1], module_name="output_B4")
             kwargs["att_types"] = self.block_str[4]
             self.output_B4 = STCNNT_Block(**kwargs)
 
@@ -742,12 +759,10 @@ def tests():
     B,T,C,H,W = 2, 12, 1, 256, 256
     test_in = torch.rand(B,T,C,H,W, dtype=torch.float32)
 
-    config = Namespace()
-    # optimizer and scheduler
-    config.weight_decay = 0.1
-    config.global_lr = 0.001
-    config.beta1 = 0.9
-    config.beta2 = 0.99
+    parser = add_backbone_STCNNT_args()
+    ns = Nestedspace()
+    config = parser.parse_args(namespace=ns)
+    
     # attention modules
     config.kernel_size = 3
     config.stride = 1
@@ -765,9 +780,13 @@ def tests():
     config.is_causal = False
     config.n_head = 8
     config.interp_align_c = True
-
-    config.window_size = H//8
-    config.patch_size = H//32
+   
+    config.window_size = [H//8, W//8]
+    config.patch_size = [H//32, W//32]
+    
+    config.num_wind =[8, 8]
+    config.num_patch =[4, 4]
+    
     config.window_sizing_method = "mixed"
     
     # losses
@@ -835,6 +854,10 @@ def tests():
     print(f"forward time: {elapsed_time_ms:.3f}ms")
     print(get_gpu_ram_usage(device=device))
 
+    B,T,C,H,W = 2, 12, 1, 128, 128
+    test_in2 = torch.rand(B,T,C,H,W, dtype=torch.float32)
+    y_hat2, y_hat_levels2 = model(test_in2.to(device=device))
+    
     del model, y_hat, y_hat_levels
     torch.cuda.empty_cache()
 

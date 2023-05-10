@@ -31,7 +31,7 @@ sys.path.insert(1, str(Project_DIR))
 from losses import *
 from imaging_attention import *
 from backbone import *
-from utils.utils import get_device, create_generic_class_str
+from utils.utils import get_device, create_generic_class_str, add_backbone_STCNNT_args, Nestedspace
 
 __all__ = ['CNNT_Unet']
 
@@ -100,7 +100,11 @@ class CNNT_Unet(STCNNT_Base_Runtime):
         c = config # shortening due to numerous uses
 
         block_str = c.backbone_small_unet.block_str
-        block_str = block_str if len(block_str)>1 else [block_str[0] for n in range(3)] # with bridge
+        
+        if isinstance(block_str, list):
+            block_str = block_str if len(block_str)>=3 else [block_str[0] for n in range(3)] # with bridge
+        else:
+            block_str = [block_str for n in range(3)]
 
         channels = c.backbone_small_unet.channels
 
@@ -108,21 +112,29 @@ class CNNT_Unet(STCNNT_Base_Runtime):
         for w in c.width: assert not w % 8, f"width {w} should be divisible by 8"
         assert len(channels) == 3, f"Requires exactly 3 channel numbers"
         
+        self.num_wind = [c.height[0]//c.window_size[0], c.width[0]//c.window_size[1]]
+        self.num_patch = [c.window_size[0]//c.patch_size[0], c.window_size[1]//c.patch_size[1]]
+        
         kwargs = {
             "att_types":block_str[0], 
             "C_in":c.C_in, 
-            "C_out":channels[0],\
+            "C_out":channels[0],
             "H":c.height[0], 
             "W":c.width[0], 
-            "a_type":c.a_type,\
+            "a_type":c.a_type,
             "is_causal":c.is_causal, 
-            "dropout_p":c.dropout_p,\
+            "dropout_p":c.dropout_p,
             "n_head":c.n_head, 
-            "kernel_size":(c.kernel_size, c.kernel_size),\
+            "kernel_size":(c.kernel_size, c.kernel_size),
             "stride":(c.stride, c.stride), 
-            "padding":(c.padding, c.padding),\
+            "padding":(c.padding, c.padding),
             "stride_t":(c.stride_t, c.stride_t), 
-            "norm_mode":c.norm_mode,\
+            
+            "mixer_kernel_size":(c.mixer_kernel_size, c.mixer_kernel_size),
+            "mixer_stride":(c.mixer_stride, c.mixer_stride),
+            "mixer_padding":(c.mixer_padding, c.mixer_padding),
+            
+            "norm_mode":c.norm_mode,
             "interpolate":"down", 
             "interp_align_c":c.interp_align_c,
             "cell_type": c.cell_type,
@@ -134,17 +146,19 @@ class CNNT_Unet(STCNNT_Base_Runtime):
             "patch_size": c.patch_size,
             "cosine_att": c.cosine_att,
             "att_with_relative_postion_bias": c.att_with_relative_postion_bias,
-            "block_dense_connection": c.block_dense_connection
+            "block_dense_connection": c.block_dense_connection,
+            
+            "num_wind": self.num_wind,
+            "num_patch": self.num_patch,
+            
+            "mixer_type": c.mixer_type,
+            "shuffle_in_window": c.shuffle_in_window
         }
 
         window_sizes = []
         patch_sizes = []
-        
-        self.num_windows_h = c.height[0]//c.window_size
-        self.num_windows_w = c.width[0]//c.window_size
-        self.num_patch = c.window_size//c.patch_size
-        
-        kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"], self.num_windows_h, self.num_patch, module_name="D1")
+               
+        kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]] , self.num_wind, self.num_patch, module_name="D1")
         window_sizes.append(kwargs["window_size"])
         patch_sizes.append(kwargs["patch_size"])
         
@@ -155,7 +169,7 @@ class CNNT_Unet(STCNNT_Base_Runtime):
         kwargs["C_out"] = channels[1]
         kwargs["H"] = c.height[0]//2
         kwargs["W"] = c.width[0]//2
-        kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"] , window_sizes[0], patch_sizes[0], module_name="D2")
+        kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[0], patch_sizes[0], module_name="D2")
         window_sizes.append(kwargs["window_size"])
         patch_sizes.append(kwargs["patch_size"])
         kwargs["att_types"] = block_str[1]
@@ -167,7 +181,7 @@ class CNNT_Unet(STCNNT_Base_Runtime):
         kwargs["W"] = c.width[0]//4
         kwargs["interpolate"] = "up"
         
-        kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"], self.num_windows_h//2, self.num_patch, module_name="U1")
+        kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], [v//2 for v in self.num_wind], self.num_patch, module_name="U1")
         window_sizes.append(kwargs["window_size"])
         patch_sizes.append(kwargs["patch_size"])
         kwargs["att_types"] = block_str[-1]
@@ -178,7 +192,7 @@ class CNNT_Unet(STCNNT_Base_Runtime):
         kwargs["H"] = c.height[0]//2
         kwargs["W"] = c.width[0]//2
         
-        kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, kwargs["H"] , window_sizes[1], patch_sizes[1], module_name="U2")
+        kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]] , window_sizes[1], patch_sizes[1], module_name="U2")
         kwargs["att_types"] = block_str[1]
         self.up2 = STCNNT_Block(**kwargs)
 
@@ -188,7 +202,7 @@ class CNNT_Unet(STCNNT_Base_Runtime):
         kwargs["W"] = c.width[0]
         kwargs["interpolate"] = "none"
         
-        kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, kwargs["H"], self.num_windows_h, self.num_patch, module_name="final")
+        kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], self.num_wind, self.num_patch, module_name="final")
         kwargs["att_types"] = block_str[0]
         self.final = STCNNT_Block(**kwargs)
 
@@ -226,12 +240,10 @@ def tests():
     B,T,C,H,W = 2,4,1,64,64
     test_in = torch.rand(B,T,C,H,W)
 
-    config = Namespace()
-    # optimizer and scheduler
-    config.weight_decay = 0.1
-    config.global_lr = 0.001
-    config.beta1 = 0.9
-    config.beta2 = 0.99
+    parser = add_backbone_STCNNT_args()
+    ns = Nestedspace()
+    config = parser.parse_args(namespace=ns)
+    
     # attention modules
     config.kernel_size = 3
     config.stride = 1
@@ -252,9 +264,13 @@ def tests():
     config.att_dropout_p = 0.0
     config.att_with_output_proj = True 
     config.scale_ratio_in_mixer = 4.0
-            
-    config.window_size = H//8
-    config.patch_size = H//16
+               
+    config.window_size = [H//8, W//8]
+    config.patch_size = [H//16, W//16]
+    
+    config.num_wind =[8, 8]
+    config.num_patch =[2, 2]
+    
     config.cosine_att = True
     config.att_with_relative_postion_bias = True
             
@@ -270,9 +286,11 @@ def tests():
     config.scheduler = "StepLR"
 
     config.backbone_small_unet = Namespace()
-    config.backbone_small_unet.block_str = "T1L1G1"
+    config.backbone_small_unet.block_str = ["T1L1G1","T1L1G1","T1L1G1"]
     config.backbone_small_unet.channels = [16,32,64]
 
+    config.block_dense_connection = True
+    
     config.complex_i = False
 
     optims = ["adamw", "sgd", "nadam"]
@@ -299,6 +317,12 @@ def tests():
 
     print("Passed optimizers and schedulers")
 
+    B,T,C,H,W = 2,4,1,128,128
+    test_in2 = torch.rand(B,T,C,H,W)
+    test_out2 = cnnt_unet(test_in2)
+    
+    print("Passed different image size")
+    
     heads_and_channelss = [(8,[16,32,64]),(5,[5,50,15]),(13,[13,13,13])]
 
     for n_head, channels in heads_and_channelss:

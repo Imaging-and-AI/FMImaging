@@ -24,25 +24,33 @@ from attention_modules import *
 class SpatialViTAttention(CnnAttentionBase):
     """
     Multi-head cnn attention model for ViT style. An image is spatially splited into windows. 
-    Attention matrix is computed between all windows. Number of pixels in a window are [wind_size, wind_size].
+    Attention matrix is computed between all windows. Number of pixels in a window are [window_size, window_size].
     """
-    def __init__(self, C_in, C_out=16, H=128, W=128, wind_size=32, a_type="conv", n_head=8,\
-                    kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), 
-                    att_dropout_p=0.0, 
-                    cosine_att=False, 
-                    normalize_Q_K=False, 
-                    att_with_relative_postion_bias=True,
-                    att_with_output_proj=True):
+    def __init__(self, C_in, C_out=16, H=128, W=128, 
+                 window_size=[32, 32], num_wind=None,
+                 a_type="conv", 
+                 n_head=8,
+                 kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), 
+                 att_dropout_p=0.0, 
+                 cosine_att=False, 
+                 normalize_Q_K=False, 
+                 att_with_relative_postion_bias=True,
+                 att_with_output_proj=True):
         """
         Defines the layer for a cnn attention on spatial dimension with local windows
 
         Input to the attention layer has the size [B, T, C, H, W]
         Output has the size [B, T, output_channels, H, W]
 
+        Either window_size or num_wind should be supplied. 
+        window_size is the number of pixels per window, along H and W.
+        num_wind is the number of windows along H and W.
+        if both are supplied, num_wind taks priority.
+
         Shared parameters are defined in base class.
 
         @args:
-            - wind_size (int): number of pixels in a window
+            - window_size (int): number of pixels in a window
         """
         super().__init__(C_in=C_in, 
                          C_out=C_out, 
@@ -58,10 +66,10 @@ class SpatialViTAttention(CnnAttentionBase):
                          att_with_output_proj=att_with_output_proj)
 
         self.a_type = a_type
-        self.wind_size = wind_size
+        self.window_size = window_size
+        self.num_wind = num_wind
 
-        assert self.wind_size*self.wind_size % self.n_head == 0, \
-            f"Number of pixels in a window {self.C_out*self.wind_size*self.wind_size} should be divisible by number of heads {self.n_head}"
+        self.set_and_check_wind()
 
         if a_type=="conv":
             # key, query, value projections convolution
@@ -71,15 +79,16 @@ class SpatialViTAttention(CnnAttentionBase):
             self.value = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
         elif a_type=="lin":
             # linear projections
-            self.key = LinearGridExt(C_in*wind_size*wind_size, C_out*wind_size*wind_size, bias=False)
-            self.query = LinearGridExt(C_in*wind_size*wind_size, C_out*wind_size*wind_size, bias=False)
-            self.value = LinearGridExt(C_in*wind_size*wind_size, C_out*wind_size*wind_size, bias=False)
+            num_pixel_win = self.window_size[0]*self.window_size[1]
+            self.key = LinearGridExt(C_in*num_pixel_win, C_out*num_pixel_win, bias=False)
+            self.query = LinearGridExt(C_in*num_pixel_win, C_out*num_pixel_win, bias=False)
+            self.value = LinearGridExt(C_in*num_pixel_win, C_out*num_pixel_win, bias=False)
         else:
             raise NotImplementedError(f"Attention type not implemented: {a_type}")
 
         if self.att_with_relative_postion_bias:
-            self.define_relative_position_bias_table(num_win_h=self.H//self.wind_size, num_win_w=self.W//self.wind_size)
-            self.define_relative_position_index(num_win_h=self.H//self.wind_size, num_win_w=self.W//self.wind_size)
+            self.define_relative_position_bias_table(num_win_h=self.num_wind[0], num_win_w=self.num_wind[1])
+            self.define_relative_position_index(num_win_h=self.num_wind[0], num_win_w=self.num_wind[1])
         
     def forward(self, x):
         """
@@ -90,15 +99,18 @@ class SpatialViTAttention(CnnAttentionBase):
             y ([B, T, C_out, H', W']): output tensor
         """
         B, T, C, H, W = x.size()
-        Ws = self.wind_size
+        Ws = self.window_size
+
+        if self.a_type == "lin" and self.att_with_relative_postion_bias:
+            assert H==self.H and W==self.W, f"For lin a_type with relative position bias, input H and W have to be the same as the class declaration."
 
         assert C == self.C_in, f"Input channel {C} does not match expected input channel {self.C_in}"
-        assert H % Ws == 0, f"Height {H} should be divisible by window size {Ws}"
-        assert W % Ws == 0, f"Width {W} should be divisible by window size {Ws}"
+        assert H % self.num_wind[0] == 0, f"Height {H} should be divisible by window num {self.num_wind[0]}"
+        assert W % self.num_wind[1] == 0, f"Width {W} should be divisible by window num {self.num_wind[1]}"
 
-        if self.att_with_relative_postion_bias:
-            assert H == self.H, f"Input height {H} should equal to the preset H {self.H}"
-            assert W == self.W, f"Input height {W} should equal to the preset H {self.W}"
+        # if self.att_with_relative_postion_bias:
+        #     assert H == self.H, f"Input height {H} should equal to the preset H {self.H}"
+        #     assert W == self.W, f"Input height {W} should equal to the preset H {self.W}"
 
         if self.a_type=="conv":
             k = self.key(x) # (B, T, C, H_prime, W_prime)
@@ -115,6 +127,9 @@ class SpatialViTAttention(CnnAttentionBase):
             v = self.value(x)
             
         B, T, num_win_h, num_win_w, C, wh, ww = k.shape
+
+        assert self.num_wind[0] == num_win_h
+        assert self.num_wind[1] == num_win_w
 
         # format the window
         hc = torch.div(C*wh*ww, self.n_head, rounding_mode="floor")
@@ -158,10 +173,9 @@ class SpatialViTAttention(CnnAttentionBase):
         Reshape the input into windows of local areas        
         """
         b, t, c, h, w = x.shape
-        Ws = self.wind_size
 
         wind_view = rearrange(x, 'b t c (num_win_h win_size_h) (num_win_w win_size_w) -> b t num_win_h num_win_w c win_size_h win_size_w', 
-                              num_win_h=h//Ws, win_size_h=Ws, num_win_w=w//Ws, win_size_w=Ws)
+                              num_win_h=self.num_wind[0], win_size_h=h//self.num_wind[0], num_win_w=self.num_wind[1], win_size_w=w//self.num_wind[1])
         
         return wind_view
 
@@ -194,7 +208,7 @@ def tests():
     test_in = t.repeat(B, T, 1, 1, 1)
     print(test_in.shape)
            
-    spacial_vit = SpatialViTAttention(wind_size=w, a_type="conv", 
+    spacial_vit = SpatialViTAttention(window_size=[w, w], num_wind=None, a_type="conv", 
                                       C_in=C, C_out=C_out, H=H, W=W, 
                                       cosine_att=True, 
                                       normalize_Q_K=True, 
@@ -215,15 +229,26 @@ def tests():
     att_with_relative_postion_biases = [True, False]
     att_with_output_projs = [True, False]
 
+    B, T, C, H1, W1 = 2, 4, 2, 256, 256
+    C_out = 8
+    test_in = torch.rand(B, T, C, H1, W1)
+    print(test_in.shape)
+    
+    B, T, C, H2, W2 = 2, 4, 2, 128, 128
+    C_out = 8
+    test_in2 = torch.rand(B, T, C, H2, W2)
+    print(test_in2.shape)
+    
     for a_type in a_types:
         for normalize_Q_K in normalize_Q_Ks:
             for att_with_output_proj in att_with_output_projs:
                 for cosine_att in cosine_atts:
                     for att_with_relative_postion_bias in att_with_relative_postion_biases:
 
-                        spacial_vit = SpatialViTAttention(wind_size=8, a_type=a_type, 
+                        spacial_vit = SpatialViTAttention(window_size=None, num_wind=[4, 8],
+                                                          a_type=a_type, 
                                                           C_in=C, C_out=C_out, 
-                                                          H=H, W=W, 
+                                                          H=H1, W=W1, 
                                                           cosine_att=cosine_att, 
                                                           normalize_Q_K=normalize_Q_K, 
                                                           att_with_relative_postion_bias=att_with_relative_postion_bias,
@@ -231,11 +256,17 @@ def tests():
                         test_out = spacial_vit(test_in)
 
                         Bo, To, Co, Ho, Wo = test_out.shape
-                        assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
+                        assert B==Bo and T==To and Co==C_out and H1==Ho and W1==Wo
                         
                         loss = nn.MSELoss()
                         mse = loss(test_in, test_out[:,:,:C,:,:])
                         mse.backward()
+                        
+                        if a_type == "conv":
+                            test_out = spacial_vit(test_in2)
+
+                            Bo, To, Co, Ho, Wo = test_out.shape
+                            assert B==Bo and T==To and Co==C_out and H2==Ho and W2==Wo
                 
     print("Passed SpatialViTAttention tests")
     

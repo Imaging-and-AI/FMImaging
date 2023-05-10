@@ -24,11 +24,12 @@ from attention_modules import *
 
 class SpatialLocalAttention(CnnAttentionBase):
     """
-    Multi-head cnn attention model for the local patching. Number of pixels in a window are [wind_size, wind_size].
+    Multi-head cnn attention model for the local patching. Number of pixels in a window are [window_size, window_size].
     Number of pixels in a patch are [patch_size, patch_size]
     """
-    def __init__(self, C_in, C_out=16, H=128, W=128,
-                 wind_size=64, patch_size=8, 
+    def __init__(self, C_in, C_out=16, H=256, W=256,
+                 window_size=[64, 64], patch_size=[8, 8], 
+                 num_wind=[8, 8], num_patch=[4, 4], 
                  a_type="conv", n_head=8,
                  kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), 
                  att_dropout_p=0.0, 
@@ -45,7 +46,7 @@ class SpatialLocalAttention(CnnAttentionBase):
         Shared parameters are defined in base class.
 
         @args:
-            - wind_size (int): number of pixels in a window
+            - window_size (int): number of pixels in a window
             - patch_size(int): number of pixels in a patch
         """
         super().__init__(C_in=C_in, 
@@ -62,11 +63,18 @@ class SpatialLocalAttention(CnnAttentionBase):
                          att_with_output_proj=att_with_output_proj)
 
         self.a_type = a_type
-        self.wind_size = wind_size
+        self.window_size = window_size
         self.patch_size = patch_size
+        self.num_wind = num_wind
+        self.num_patch = num_patch
 
-        assert self.C_out*self.patch_size*self.patch_size % self.n_head == 0, \
-            f"Number of pixels in a window {self.C_out*self.patch_size*self.patch_size} should be divisible by number of heads {self.n_head}"
+        self.set_and_check_wind()
+        self.set_and_check_patch()
+
+        self.validate_window_patch()
+
+        assert self.C_out*self.patch_size[0]*self.patch_size[1] % self.n_head == 0, \
+            f"Number of pixels in a patch {self.C_out*self.patch_size[0]*self.patch_size[1]} should be divisible by number of heads {self.n_head}"
 
         if a_type=="conv":
             # key, query, value projections convolution
@@ -76,15 +84,16 @@ class SpatialLocalAttention(CnnAttentionBase):
             self.value = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
         elif a_type=="lin":
             # linear projections
-            self.key = LinearGridExt(C_in*patch_size*patch_size, C_out*patch_size*patch_size, bias=False)
-            self.query = LinearGridExt(C_in*patch_size*patch_size, C_out*patch_size*patch_size, bias=False)
-            self.value = LinearGridExt(C_in*patch_size*patch_size, C_out*patch_size*patch_size, bias=False)
+            num_pixel_patch = self.patch_size[0]*self.patch_size[1]
+            self.key = LinearGridExt(C_in*num_pixel_patch, C_out*num_pixel_patch, bias=False)
+            self.query = LinearGridExt(C_in*num_pixel_patch, C_out*num_pixel_patch, bias=False)
+            self.value = LinearGridExt(C_in*num_pixel_patch, C_out*num_pixel_patch, bias=False)
         else:
             raise NotImplementedError(f"Attention type not implemented: {a_type}")
 
         if self.att_with_relative_postion_bias:
-            self.define_relative_position_bias_table(num_win_h=self.wind_size//self.patch_size, num_win_w=self.wind_size//self.patch_size)
-            self.define_relative_position_index(num_win_h=self.wind_size//self.patch_size, num_win_w=self.wind_size//self.patch_size)
+            self.define_relative_position_bias_table(num_win_h=self.num_patch[0], num_win_w=self.num_patch[1])
+            self.define_relative_position_index(num_win_h=self.num_patch[0], num_win_w=self.num_patch[1])
 
     def forward(self, x):
         """
@@ -95,13 +104,8 @@ class SpatialLocalAttention(CnnAttentionBase):
             y ([B, T, C_out, H', W']): output tensor
         """
         B, T, C, H, W = x.size()
-        Ws = self.wind_size
-        Ps = self.patch_size
 
         assert C == self.C_in, f"Input channel {C} does not match expected input channel {self.C_in}"
-        assert H % Ws == 0, f"Height {H} should be divisible by window size {Ws}"
-        assert W % Ws == 0, f"Width {W} should be divisible by window size {Ws}"
-        assert Ws % Ps == 0, f"Ws {Ws} should be divisible by patch size {Ps}"
            
         if self.a_type=="conv":
             k = self.key(x) # (B, T, C, H_prime, W_prime)
@@ -118,6 +122,9 @@ class SpatialLocalAttention(CnnAttentionBase):
             v = self.value(x)
             
         B, T, num_win_h, num_win_w, num_patch_h_per_win, num_patch_w_per_win, C, ph, pw = k.shape
+
+        assert self.num_patch[0] == num_patch_h_per_win
+        assert self.num_patch[1] == num_patch_w_per_win
 
         # format the window
         hc = torch.div(C*ph*pw, self.n_head, rounding_mode="floor")
@@ -159,14 +166,12 @@ class SpatialLocalAttention(CnnAttentionBase):
     def im2grid(self, x):
         """
         Reshape the input into windows of local areas        
-        """
-        b, t, c, h, w = x.shape
-        Ws = self.wind_size
-        Ps = self.patch_size
-
+        """        
+        _, _, _, H, W = x.shape
+        
         wind_view = rearrange(x, 'b t c (num_win_h num_patch_h patch_size_h) (num_win_w num_patch_w patch_size_w) -> b t num_win_h num_win_w num_patch_h num_patch_w c patch_size_h patch_size_w', 
-                              num_win_h=h//Ws, num_patch_h=Ws//Ps, patch_size_h=Ps, 
-                              num_win_w=w//Ws, num_patch_w=Ws//Ps, patch_size_w=Ps)
+                              num_win_h=H//(self.num_patch[0] * self.patch_size[0]), num_patch_h=self.num_patch[0], patch_size_h=self.patch_size[0], 
+                              num_win_w=W//(self.num_patch[1] * self.patch_size[1]), num_patch_w=self.num_patch[1], patch_size_w=self.patch_size[1])
         
         return wind_view
 
@@ -200,7 +205,9 @@ def tests():
     test_in = t.repeat(B, T, 1, 1, 1)
     print(test_in.shape)
     
-    spacial_vit = SpatialLocalAttention(wind_size=w, patch_size=4, a_type="conv", C_in=C, C_out=C_out)
+    spacial_vit = SpatialLocalAttention(H=H, W=W, window_size=None, patch_size=None, 
+                                        num_wind=[2,2], num_patch=[2, 2],
+                                        a_type="conv", C_in=C, C_out=C_out)
     
     a = spacial_vit.im2grid(test_in)  
     b = spacial_vit.grid2im(a)
@@ -240,29 +247,43 @@ def tests():
     att_with_relative_postion_biases = [True, False]
     att_with_output_projs = [True, False]
 
+    B, T, C, H1, W1 = 2, 4, 2, 256, 256
+    C_out = 8
+    test_in = torch.rand(B, T, C, H1, W1)
+    print(test_in.shape)
+    
+    B, T, C, H2, W2 = 2, 4, 2, 128, 128
+    C_out = 8
+    test_in2 = torch.rand(B, T, C, H2, W2)
+    print(test_in2.shape)
+    
     for a_type in a_types:
         for normalize_Q_K in normalize_Q_Ks:
             for att_with_output_proj in att_with_output_projs:
                 for cosine_att in cosine_atts:
                     for att_with_relative_postion_bias in att_with_relative_postion_biases:
 
-                        spacial_vit = SpatialLocalAttention(wind_size=8, 
-                                                            patch_size=4, 
+                        m = SpatialLocalAttention(H=H1, W=W1, window_size=None, patch_size=None, 
+                                                            num_wind=[8, 8], num_patch=[4, 4], 
                                                             a_type=a_type, 
                                                             C_in=C, C_out=C_out, 
-                                                            H=H, W=W, 
                                                             cosine_att=cosine_att, 
                                                             normalize_Q_K=normalize_Q_K, 
                                                             att_with_relative_postion_bias=att_with_relative_postion_bias,
                                                             att_with_output_proj=att_with_output_proj)
-                        test_out = spacial_vit(test_in)
+                        test_out = m(test_in)
 
                         Bo, To, Co, Ho, Wo = test_out.shape
-                        assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
+                        assert B==Bo and T==To and Co==C_out and H1==Ho and W1==Wo
                         
                         loss = nn.MSELoss()
                         mse = loss(test_in, test_out[:,:,:C,:,:])
                         mse.backward()
+                        
+                        test_out = m(test_in2)
+
+                        Bo, To, Co, Ho, Wo = test_out.shape
+                        assert B==Bo and T==To and Co==C_out and H2==Ho and W2==Wo
                 
     print("Passed SpatialLocalAttention tests")
     

@@ -43,10 +43,11 @@ class STCNNT_Block(nn.Module):
     Can use Conv2D mixer with all cells, last cell, or none at all.
     """
     def __init__(self, att_types, C_in, C_out=16, H=64, W=64,
-                    a_type="conv", cell_type="sequential",
-                    window_size=64, patch_size=16, 
+                    a_type="conv", mixer_type="conv", cell_type="sequential",
+                    window_size=None, patch_size=None, num_wind=[8, 8], num_patch=[4, 4], 
                     is_causal=False, n_head=8,
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), stride_t=(2,2),
+                    mixer_kernel_size=(5, 5), mixer_stride=(1, 1), mixer_padding=(2, 2),
                     cosine_att=True,  
                     normalize_Q_K=False, 
                     att_dropout_p=0.0, dropout_p=0.1, 
@@ -55,7 +56,8 @@ class STCNNT_Block(nn.Module):
                     norm_mode="layer",
                     interpolate="none", 
                     interp_align_c=False,
-                    block_dense_connection=True):
+                    block_dense_connection=True,
+                    shuffle_in_window=True):
         """
         Transformer block
 
@@ -104,15 +106,25 @@ class STCNNT_Block(nn.Module):
         self.H = H
         self.W = W
         self.a_type = a_type
+        self.mixer_type = mixer_type
         self.cell_type = cell_type
         self.window_size = window_size
         self.patch_size = patch_size
+        self.num_wind = num_wind
+        self.num_patch = num_patch
         self.is_causal = is_causal
         self.n_head = n_head
+
         self.kernel_size = kernel_size
         self.stride = stride
-        self.stride_t = stride_t
         self.padding = padding
+        
+        self.stride_t = stride_t
+        
+        self.mixer_kernel_size = mixer_kernel_size
+        self.mixer_stride = mixer_stride
+        self.mixer_padding = mixer_padding
+        
         self.normalize_Q_K = normalize_Q_K
         self.cosine_att = cosine_att
         self.att_with_relative_postion_bias = att_with_relative_postion_bias
@@ -124,6 +136,8 @@ class STCNNT_Block(nn.Module):
         self.interpolate = interpolate
         self.interp_align_c = interp_align_c
         self.block_dense_connection = block_dense_connection
+                    
+        self.shuffle_in_window = shuffle_in_window
                     
         self.cells = []
 
@@ -152,23 +166,28 @@ class STCNNT_Block(nn.Module):
 
             if self.cell_type.lower() == "sequential":
                 self.cells.append((f"cell_{i}", STCNNT_Cell(C_in=C, C_out=C_out, H=H, W=W, 
-                                                                  att_mode=att_type, a_type=a_type,
+                                                                  att_mode=att_type, a_type=a_type, mixer_type=mixer_type,
                                                                   window_size=window_size, patch_size=patch_size, 
+                                                                  num_wind=num_wind, num_patch=num_patch, 
                                                                   is_causal=is_causal, n_head=n_head,
                                                                   kernel_size=kernel_size, stride=stride, padding=padding, stride_t=stride_t,
+                                                                  mixer_kernel_size=mixer_kernel_size, mixer_stride=mixer_stride, mixer_padding=mixer_padding,
                                                                   normalize_Q_K=normalize_Q_K, att_dropout_p=att_dropout_p, dropout_p=dropout_p,
                                                                   cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias, 
                                                                   att_with_output_proj=att_with_output_proj, scale_ratio_in_mixer=scale_ratio_in_mixer, 
-                                                                  with_mixer=(mixer=='1'), norm_mode=norm_mode)))
+                                                                  with_mixer=(mixer=='1'), norm_mode=norm_mode, shuffle_in_window=shuffle_in_window)))
             else:
                 self.cells.append((f"cell_{i}", STCNNT_Parallel_Cell(C_in=C, C_out=C_out, H=H, W=W, 
-                                                                           att_mode=att_type, a_type=a_type,
-                                                                           window_size=window_size, patch_size=patch_size, is_causal=is_causal, n_head=n_head,
+                                                                           att_mode=att_type, a_type=a_type, mixer_type=mixer_type, 
+                                                                           window_size=window_size, patch_size=patch_size, 
+                                                                           num_wind=num_wind, num_patch=num_patch,
+                                                                           is_causal=is_causal, n_head=n_head,
                                                                            kernel_size=kernel_size, stride=stride, padding=padding, stride_t=stride_t,
+                                                                           mixer_kernel_size=mixer_kernel_size, mixer_stride=mixer_stride, mixer_padding=mixer_padding,
                                                                            normalize_Q_K=normalize_Q_K, att_dropout_p=att_dropout_p, dropout_p=dropout_p, 
                                                                            cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias, 
                                                                            att_with_output_proj=att_with_output_proj, scale_ratio_in_mixer=scale_ratio_in_mixer,                                                                            
-                                                                           with_mixer=(mixer=='1'), norm_mode=norm_mode)))
+                                                                           with_mixer=(mixer=='1'), norm_mode=norm_mode, shuffle_in_window=shuffle_in_window)))
 
                 
         self.make_block()
@@ -239,7 +258,7 @@ def tests():
     att_typess = ["L1", "G1", "T1", "L0", "L1", "G0", "G1", "T1", "T0", "V1", "V0", "L0G1T0V1", "T1L0G1V0"]
 
     for att_types in att_typess:
-        CNNT_Block = STCNNT_Block(att_types=att_types, C_in=C, C_out=C_out, window_size=H//8, patch_size=H//16)
+        CNNT_Block = STCNNT_Block(H=H, W=W, att_types=att_types, C_in=C, C_out=C_out, window_size=[H//8, W//8], patch_size=[H//16, W//16])
         test_out, _ = CNNT_Block(test_in)
 
         Bo, To, Co, Ho, Wo = test_out.shape
@@ -252,7 +271,7 @@ def tests():
 
     for interpolate in interpolates:
         for interp_align_c in interp_align_cs:
-            CNNT_Block = STCNNT_Block(att_types=att_types, C_in=C, C_out=C_out, window_size=H//8, patch_size=H//16, 
+            CNNT_Block = STCNNT_Block(H=H, W=W, att_types=att_types, C_in=C, C_out=C_out, window_size=[H//8, W//8], patch_size=[H//16, W//16], 
                                    interpolate=interpolate, interp_align_c=interp_align_c)
             test_out_1, test_out_2 = CNNT_Block(test_in)
 
