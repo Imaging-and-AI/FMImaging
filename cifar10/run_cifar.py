@@ -139,13 +139,21 @@ larger_mixer_kernels = [True, False]
 mixer_types = ["conv", "lin"]
 shuffle_in_windows = ["1", "0"]
 
+backbone = ['hrnet', 'unet']
 Q_K_norm = [True]
 cosine_atts = ["1"]
 att_with_relative_postion_biases = ["1"]
 a_types = ["conv"]
-larger_mixer_kernels = [True]
-mixer_types = ["lin"]
-shuffle_in_windows = ["1"]
+larger_mixer_kernels = [True, False]
+mixer_types = ["lin", "conv"]
+shuffle_in_windows = ["1", "0"]
+block_dense_connections = ["1"]
+norm_modes = ["batch2d", "layer"]
+
+block_strs = [
+                [["T1L1G1", "T1L1G1", "T1L1G1"], ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1T1L1G1T1L1G1T1L1G1"], ["T1T1T1", "T1T1T1", "T1T1T1"], ["L1G1", "L1G1", "L1G1"], ["L1L1", "L1L1", "L1L1"], ["G1G1", "G1G1", "G1G1"] ], 
+                [["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1T1L1G1T1L1G1T1L1G1"], ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"], ["T1L1G1", "T1L1G1"], ["T1T1T1", "T1T1T1"], ["L1G1", "L1G1"] ]
+            ]
 
 for k, bk in enumerate(backbone):    
         block_str = block_strs[k]
