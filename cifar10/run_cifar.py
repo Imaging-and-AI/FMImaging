@@ -80,10 +80,10 @@ def create_cmd_run(cmd_run,
                    bs=['T1G1L1', 'T1G1L1', 'T1G1L1', 'T1G1L1'],
                    larger_mixer_kernel=True,
                    mixer_type="conv",
-                   shuffle_in_window=1
+                   shuffle_in_window=0
                 ):
     
-    run_str = f"{a_type}-{cell_type}-{norm_mode}-C-{c}-mixer-{mixer_type}-{larger_mixer_kernel}-block_dense-{block_dense_connection}-qknorm-{q_k_norm}-cosine_att-{cosine_att}-att_with_relative_postion_bias-{att_with_relative_postion_bias}-block_str-{'_'.join(bs)}"
+    run_str = f"{a_type}-{cell_type}-{norm_mode}-C-{c}-mixer-{mixer_type}-{larger_mixer_kernel}-block_dense-{block_dense_connection}-qknorm-{q_k_norm}-cosine_att-{cosine_att}-shuffle_in_window-{shuffle_in_window}-att_with_relative_postion_bias-{att_with_relative_postion_bias}-block_str-{'_'.join(bs)}"
                                         
     cmd_run = cmd.copy()
     cmd_run.extend([
@@ -146,13 +146,13 @@ att_with_relative_postion_biases = ["1"]
 a_types = ["conv"]
 larger_mixer_kernels = [True, False]
 mixer_types = ["lin", "conv"]
-shuffle_in_windows = ["1", "0"]
+shuffle_in_windows = ["0", "1"]
 block_dense_connections = ["1"]
 norm_modes = ["batch2d", "layer"]
 
 block_strs = [
-                [["T1L1G1", "T1L1G1", "T1L1G1"], ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1T1L1G1T1L1G1T1L1G1"], ["T1T1T1", "T1T1T1", "T1T1T1"], ["L1G1", "L1G1", "L1G1"], ["L1L1", "L1L1", "L1L1"], ["G1G1", "G1G1", "G1G1"] ], 
-                [["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1T1L1G1T1L1G1T1L1G1"], ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"], ["T1L1G1", "T1L1G1"], ["T1T1T1", "T1T1T1"], ["L1G1", "L1G1"] ]
+                [["T1L1G1", "T1L1G1", "T1L1G1"] ], 
+                [["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"]]
             ]
 
 for k, bk in enumerate(backbone):    
