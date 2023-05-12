@@ -43,6 +43,9 @@ class STCNNT_Cifar(STCNNT_Task_Base):
 
         final_c = 10 if config.data_set == "cifar10" else 100
 
+        if config.data_set == "imagenet":
+            final_c = 1000
+
         H = config.height[0]
         W = config.width[0]
 

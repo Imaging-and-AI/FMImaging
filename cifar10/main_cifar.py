@@ -35,7 +35,7 @@ def arg_parser():
     """
     parser = argparse.ArgumentParser("Argument parser for STCNNT Cifar10")
     parser.add_argument("--data_root", type=str, default=None, help='root folder for the data')
-    parser.add_argument("--data_set", type=str, default="cifar10", help='choice of dataset: "cifar10", "cifar100')
+    parser.add_argument("--data_set", type=str, default="cifar10", help='choice of dataset: "cifar10", "cifar100", "imagenet"')
     parser.add_argument("--head_channels", nargs='+', type=int, default=[8,128,10], help='number of channels for cifar head')
     
     parser = add_backbone_STCNNT_args(parser=parser)
@@ -64,6 +64,10 @@ def check_args(config):
     config.height = [32]
     config.width = [32]
 
+    if config.data_root == "imagenet":
+        config.height = [256]
+        config.width = [256]
+    
     return config
 
 # -------------------------------------------------------------------------------------------------
@@ -124,6 +128,29 @@ def create_dataset(config):
 
         val_set = tv.datasets.CIFAR100(root=config.data_root, train=False,
                                         download=True, transform=transform)
+        
+    elif config.data_set == "imagenet":
+        
+        transform_train = transforms.Compose([transforms.Resize((256, 256)),  #resises the image so it can be perfect for our model.
+                                        transforms.AutoAugment(T.AutoAugmentPolicy.IMAGENET),
+                                        transforms.RandomHorizontalFlip(), # FLips the image w.r.t horizontal axis
+                                        transforms.RandomRotation(10),     #Rotates the image to a specified angel
+                                        transforms.RandomAffine(0, shear=10, scale=(0.8,1.2)), #Performs actions like zooms, change shear angles.
+                                        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2), # Set the color params
+                                        transforms.ToTensor(), # comvert the image to tensor so that it can work with torch
+                                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)), #Normalize all the images
+                                        transform_f
+                            ])
+    
+        transform = transforms.Compose([transforms.Resize((256, 256)),
+                                transforms.ToTensor(),
+                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                                transform_f
+                                ])
+    
+        train_set = tv.datasets.ImageNet(root=config.data_root, split="train", transform=transform_train)
+
+        val_set = tv.datasets.ImageNet(root=config.data_root, split="val", transform=transform)
     else:
         raise NotImplementedError(f"Data set not implemented:{config.data_set}")
 
@@ -139,10 +166,11 @@ def main():
 
     train_set, val_set = create_dataset(config=config)
 
-    total_steps = int(np.ceil(len(train_set)/config.batch_size)*config.num_epochs)
+    num_samples = len(train_set)
     if config.ddp: 
-        total_steps /= torch.cuda.device_count()
-        total_steps = int(np.ceil(total_steps))
+        num_samples /= torch.cuda.device_count()
+
+    total_steps = int(np.ceil(num_samples/config.batch_size)*config.num_epochs)
     
     model = STCNNT_Cifar(config=config, total_steps=total_steps)
 

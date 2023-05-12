@@ -16,12 +16,12 @@ else:
 
 # unchanging paths
 cmd.extend([
-    "--data_set", "cifar10",
-    "--data_root", os.path.join(project_base_dir, "cifar10", "data"),
-    "--check_path", os.path.join(project_base_dir, "cifar10", "checkpoints"),
-    "--model_path", os.path.join(project_base_dir, "cifar10", "models"),
-    "--log_path", os.path.join(project_base_dir, "cifar10", "logs"),
-    "--results_path", os.path.join(project_base_dir, "cifar10", "results")
+    "--data_set", "imagenet",
+    "--data_root", os.path.join(project_base_dir, "imagenet", "data"),
+    "--check_path", os.path.join(project_base_dir, "imagenet", "checkpoints"),
+    "--model_path", os.path.join(project_base_dir, "imagenet", "models"),
+    "--log_path", os.path.join(project_base_dir, "imagenet", "logs"),
+    "--results_path", os.path.join(project_base_dir, "imagenet", "results")
 ])
 
 # unchanging commands
@@ -30,16 +30,17 @@ cmd.extend([
     "--save_cycle", "200",
     
     "--num_epochs", "150",
-    "--batch_size", "128",
+    "--batch_size", "16",
     "--device", "cuda",
-    "--window_size", "8", "8",
-    "--patch_size", "4", "4",
-    "--global_lr", "1e-3",
+    "--window_size", "32", "32",
+    "--patch_size", "8", "8",
+    "--global_lr", "5e-4",
     "--clip_grad_norm", "1.0",
     "--weight_decay", "0.0",
-    "--use_amp", "--ddp", 
-    "--iters_to_accumulate", "1",
-    "--project", "cifar",
+    "--use_amp", 
+    "--ddp", 
+    "--iters_to_accumulate", "2",
+    "--project", "imagenet",
     "--num_workers", "8",
        
     "--scheduler_type", "OneCycleLR",
@@ -52,11 +53,11 @@ cmd.extend([
     "--scheduler.StepLR.step_size", "5",
     "--scheduler.StepLR.gamma", "0.8",
        
-    "--backbone_hrnet.num_resolution_levels", "3",
+    "--backbone_hrnet.num_resolution_levels", "4",
     "--backbone_hrnet.use_interpolation", "1",
     
     # unet            
-    "--backbone_unet.num_resolution_levels", "3",
+    "--backbone_unet.num_resolution_levels", "4",
     "--backbone_unet.use_unet_attention", "1",
     "--backbone_unet.use_interpolation", "1",
     "--backbone_unet.with_conv", "1",
@@ -90,8 +91,8 @@ def create_cmd_run(cmd_run,
                                         
     cmd_run = cmd.copy()
     cmd_run.extend([
-        "--run_name", f"cifar-{bk}-{run_str}",
-        "--run_notes", f"cifar-{bk}-{run_str}",
+        "--run_name", f"imagenet-{bk}-{run_str}",
+        "--run_notes", f"imagenet-{bk}-{run_str}",
         "--backbone", f"{bk}",
         "--a_type", f"{a_type}",
         "--cell_type", f"{cell_type}",
@@ -146,8 +147,8 @@ backbone = ['unet', 'hrnet']
 Q_K_norm = [True]
 cosine_atts = ["1"]
 att_with_relative_postion_biases = ["1"]
-a_types = ["conv"]
-larger_mixer_kernels = [False]
+a_types = ["conv", "lin"]
+larger_mixer_kernels = [True, False]
 mixer_types = ["conv"]
 shuffle_in_windows = ["0"]
 block_dense_connections = ["1"]
@@ -188,4 +189,5 @@ for k, bk in enumerate(backbone):
                                                                     mixer_type=mixer_type,
                                                                     shuffle_in_window=shuffle_in_window)
 
+                                                print(cmd_run)
                                                 subprocess.run(cmd_run)

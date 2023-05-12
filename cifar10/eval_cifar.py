@@ -185,6 +185,17 @@ def create_base_test_set(config):
     elif config.data_set == "cifar100":
         test_set = tv.datasets.CIFAR100(root=config.data_root, train=False,
                                     download=True, transform=transform)
+        
+    elif config.data_set == "imagenet":
+           
+        transform = transforms.Compose([transforms.Resize((256, 256)),
+                                transforms.ToTensor(),
+                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                                transform_f
+                                ])
+    
+        test_set = tv.datasets.ImageNet(root=config.data_root, split="val", transform=transform)
+        
     else:
         raise NotImplementedError(f"Data set not implemented:{config.data_set}")
 
