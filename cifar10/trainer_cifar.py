@@ -164,8 +164,8 @@ def trainer(rank, model, config, train_set, val_set):
             logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, val, loss {val_loss_avg:.4f}, acc {val_acc:.4f}")
 
             # save the model weights every save_cycle
-            if epoch % c.save_cycle == 0:
-                model_e.save(epoch)
+            # if epoch % c.save_cycle == 0:
+            #     model_e.save(epoch)
 
             wandb.log({"epoch": epoch,
                         "train_loss": train_loss.avg,

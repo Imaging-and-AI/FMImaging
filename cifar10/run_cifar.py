@@ -26,6 +26,7 @@ cmd.extend([
 
 # unchanging commands
 cmd.extend([
+    "--summary_depth", "6",
     "--num_epochs", "150",
     "--batch_size", "128",
     "--device", "cuda",
@@ -145,10 +146,11 @@ cosine_atts = ["1"]
 att_with_relative_postion_biases = ["1"]
 a_types = ["conv"]
 larger_mixer_kernels = [True, False]
-mixer_types = ["lin", "conv"]
-shuffle_in_windows = ["0", "1"]
+mixer_types = ["conv"]
+shuffle_in_windows = ["0"]
 block_dense_connections = ["1"]
 norm_modes = ["batch2d", "layer"]
+C = [64]
 
 block_strs = [
                 [["T1L1G1", "T1L1G1", "T1L1G1"] ], 
