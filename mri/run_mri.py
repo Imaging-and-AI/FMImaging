@@ -35,6 +35,7 @@ cmd.extend([
     "--device", "cuda",
     "--window_size", "8",
     "--patch_size", "4",
+    "--n_head", "8",
     "--global_lr", "1e-3",
     "--clip_grad_norm", "1.0",
     "--weight_decay", "0.0",

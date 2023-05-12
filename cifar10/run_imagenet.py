@@ -34,6 +34,7 @@ cmd.extend([
     "--device", "cuda",
     "--window_size", "32", "32",
     "--patch_size", "8", "8",
+    "--n_head", "8",
     "--global_lr", "5e-4",
     "--clip_grad_norm", "1.0",
     "--weight_decay", "0.0",
@@ -55,11 +56,12 @@ cmd.extend([
     "--scheduler.StepLR.step_size", "5",
     "--scheduler.StepLR.gamma", "0.8",
        
-    "--backbone_hrnet.num_resolution_levels", "4",
+    # hrnet
+    "--backbone_hrnet.num_resolution_levels", "3",
     "--backbone_hrnet.use_interpolation", "1",
     
     # unet            
-    "--backbone_unet.num_resolution_levels", "4",
+    "--backbone_unet.num_resolution_levels", "3",
     "--backbone_unet.use_unet_attention", "1",
     "--backbone_unet.use_interpolation", "1",
     "--backbone_unet.with_conv", "1",
@@ -155,7 +157,7 @@ mixer_types = ["conv"]
 shuffle_in_windows = ["0"]
 block_dense_connections = ["1"]
 norm_modes = ["batch2d", "layer"]
-C = [64]
+C = [32]
 
 block_strs = [
                 [["T1L1G1", "T1L1G1", "T1L1G1"] ], 
