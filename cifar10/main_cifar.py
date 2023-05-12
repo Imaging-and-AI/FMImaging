@@ -64,7 +64,7 @@ def check_args(config):
     config.height = [32]
     config.width = [32]
 
-    if config.data_root == "imagenet":
+    if config.data_set == "imagenet":
         config.height = [256]
         config.width = [256]
     
@@ -96,8 +96,11 @@ def create_dataset(config):
         - train_set (torch Dataset): the train set
         - val_set (torch Dataset): the val set (same as test set)
     """
-    assert config.time==1 and config.height[0]==32 and config.width[0]==32,\
-        f"For Cifar10, time height width should 1 32 32"
+    if config.data_set == "cifar10" or config.data_set == "cifar100":
+        assert config.time==1 and config.height[0]==32 and config.width[0]==32, f"For Cifar10, time height width should 1 32 32"
+        
+    if config.data_set == "imagenet":
+        assert config.time==1 and config.height[0]==256 and config.width[0]==256, f"For ImageNet, time height width should 1 256 256"
     
     transform_train = transforms.Compose([transforms.Resize((32,32)),  #resises the image so it can be perfect for our model.
                                             transforms.AutoAugment(T.AutoAugmentPolicy.CIFAR10),

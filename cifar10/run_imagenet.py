@@ -143,11 +143,11 @@ larger_mixer_kernels = [True, False]
 mixer_types = ["conv", "lin"]
 shuffle_in_windows = ["1", "0"]
 
-backbone = ['unet', 'hrnet']
+backbone = ['hrnet', 'unet']
 Q_K_norm = [True]
 cosine_atts = ["1"]
 att_with_relative_postion_biases = ["1"]
-a_types = ["conv", "lin"]
+a_types = ["conv"]
 larger_mixer_kernels = [True, False]
 mixer_types = ["conv"]
 shuffle_in_windows = ["0"]
@@ -156,8 +156,8 @@ norm_modes = ["batch2d", "layer"]
 C = [64]
 
 block_strs = [
-                [["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"]],
-                [["T1L1G1", "T1L1G1", "T1L1G1"] ] 
+                [["T1L1G1", "T1L1G1", "T1L1G1"] ], 
+                [["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"]]
             ]
 
 for k, bk in enumerate(backbone):    
