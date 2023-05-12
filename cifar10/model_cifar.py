@@ -66,16 +66,22 @@ class STCNNT_Cifar(STCNNT_Task_Base):
             
             self.pre = nn.Identity()            
             self.backbone = STCNNT_HRnet(config=config)            
-            self.post = nn.Sequential(Conv2DExt(in_channels=hrnet_C_out, out_channels=1024, kernel_size=[1,1], padding=[0, 0], stride=[1,1]),
+            self.post = nn.Sequential(Conv2DExt(in_channels=hrnet_C_out, out_channels=2048, kernel_size=[1,1], padding=[0, 0], stride=[1,1]),
                                       AvgPool2DExt(kernel_size=[H, W]),
                                       nn.Flatten(start_dim=1, end_dim=-1),
-                                      nn.Linear(1024, final_c))
+                                      nn.Linear(2048, final_c))
             
         if config.backbone == "unet":
             self.pre = nn.Identity()            
             self.backbone = STCNNT_Unet(config=config)            
-            self.post = nn.Sequential(nn.Flatten(start_dim=1, end_dim=-1),
-                                      nn.Linear(config.backbone_unet.C*32*32, final_c))
+            # self.post = nn.Sequential(nn.Flatten(start_dim=1, end_dim=-1),
+            #                           nn.Linear(config.backbone_unet.C*32*32, final_c))
+            
+            unet_C_out = config.backbone_unet.C
+            self.post = nn.Sequential(Conv2DExt(in_channels=unet_C_out, out_channels=2048, kernel_size=[1,1], padding=[0, 0], stride=[1,1]),
+                                      AvgPool2DExt(kernel_size=[H, W]),
+                                      nn.Flatten(start_dim=1, end_dim=-1),
+                                      nn.Linear(2048, final_c))
             
         if config.backbone == "LLM":
             self.pre = nn.Identity()            
