@@ -68,7 +68,7 @@ def trainer(rank, model, config, train_set, val_set, test_set):
         loss_f = model.loss_f
 
     train_loader = [DataLoader(dataset=train_set_x, batch_size=c.batch_size, shuffle=shuffle, sampler=samplers[i],
-                                num_workers=c.num_workers, prefetch_factor=c.prefetch_factor,
+                                num_workers=c.num_workers, prefetch_factor=c.prefetch_factor, drop_last=True,
                                 persistent_workers=c.num_workers>0) for i, train_set_x in enumerate(train_set)]
 
     if rank<=0: # main or master process

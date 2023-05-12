@@ -125,9 +125,10 @@ def add_shared_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for S
     parser.add_argument("--block_dense_connection", type=int, default=1, help='whether to add dense connections between cells in a block')
         
     parser.add_argument("--a_type", type=str, default="conv", help='type of attention in the spatial attention modules')
+    parser.add_argument("--mixer_type", type=str, default="conv", help='conv or lin, type of mixer in the spatial attention modules; only conv is possible for the temporal attention')
     
-    parser.add_argument("--window_size", type=int, default=64, help='size of window for spatial attention. This is the number of pixels in a window. Given image height and weight H and W, number of windows is H/windows_size * W/windows_size')
-    parser.add_argument("--patch_size", type=int, default=16, help='size of patch for spatial attention. This is the number of pixels in a patch. An image is first split into windows. Every window is further split into patches.')
+    parser.add_argument("--window_size", nargs='+', type=int, default=[64, 64], help='size of window for spatial attention. This is the number of pixels in a window. Given image height and weight H and W, number of windows is H/windows_size * W/windows_size')
+    parser.add_argument("--patch_size", nargs='+', type=int, default=[16, 16], help='size of patch for spatial attention. This is the number of pixels in a patch. An image is first split into windows. Every window is further split into patches.')
     
     parser.add_argument("--window_sizing_method", type=str, default="mixed", help='method to adjust window_size betweem resolution levels, "keep_window_size", "keep_num_window", "mixed".\
                         "keep_window_size" means number of pixels in a window is kept after down/upsample the image; \
@@ -138,7 +139,12 @@ def add_shared_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for S
     parser.add_argument("--kernel_size", type=int, default=3, help='size of the square kernel for CNN')
     parser.add_argument("--stride", type=int, default=1, help='stride for CNN (equal x and y)')
     parser.add_argument("--padding", type=int, default=1, help='padding for CNN (equal x and y)')
-    parser.add_argument("--stride_t", type=int, default=2, help='stride for temporal attention cnn (equal x and y)')   
+    parser.add_argument("--stride_t", type=int, default=2, help='stride for temporal attention cnn (equal x and y)') 
+    
+    parser.add_argument("--mixer_kernel_size", type=int, default=5, help='conv kernel size for the mixer')
+    parser.add_argument("--mixer_stride", type=int, default=1, help='stride for the mixer')
+    parser.add_argument("--mixer_padding", type=int, default=2, help='padding for the mixer')
+      
     parser.add_argument("--normalize_Q_K", action="store_true", help='whether to normalize Q and K before computing attention matrix')
     parser.add_argument("--cosine_att", type=int, default=0, help='whether to use cosine attention; if True, normalize_Q_K is ignored')   
     parser.add_argument("--att_with_relative_postion_bias", type=int, default=1, help='whether to use relative position bias')   
@@ -150,7 +156,9 @@ def add_shared_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for S
     parser.add_argument("--scale_ratio_in_mixer", type=float, default=4.0, help='the scaling ratio to increase/decrease dimensions in the mixer of an attention layer')
     
     parser.add_argument("--norm_mode", type=str, default="instance2d", help='normalization mode: "layer", "batch2d", "instance2d", "batch3d", "instance3d"')
-        
+    
+    parser.add_argument("--shuffle_in_window", type=int, default=0, help='whether to shuffle patches in a window for the global attention')    
+    
     parser.add_argument("--is_causal", action="store_true", help='treat timed data as causal and mask future entries')
     parser.add_argument("--interp_align_c", action="store_true", help='align corners while interpolating')
     
@@ -267,7 +275,16 @@ def setup_run(config, dirs=["log_path", "results_path", "model_path", "check_pat
     if config.num_workers==0: config.prefetch_factor = 2
 
 # -------------------------------------------------------------------------------------------------
-# wrapper around getting device
+def compute_total_steps(config, num_samples):
+    if config.ddp: 
+        num_samples /= torch.cuda.device_count()
+
+    total_steps = int(np.ceil(num_samples/(config.batch_size*config.iters_to_accumulate))*config.num_epochs)
+    
+    return total_steps
+
+# -------------------------------------------------------------------------------------------------
+# # wrapper around getting device
 
 def get_device(device=None):
     """
