@@ -30,23 +30,23 @@ cmd.extend([
     "--save_cycle", "200",
     
     "--num_epochs", "150",
-    "--batch_size", "8",
+    "--batch_size", "16",
     "--device", "cuda",
     "--window_size", "32", "32",
     "--patch_size", "8", "8",
     "--n_head", "8",
-    "--global_lr", "5e-4",
+    "--global_lr", "1e-3",
     "--clip_grad_norm", "1.0",
     "--weight_decay", "0.0",
     "--use_amp", 
     "--ddp", 
-    "--iters_to_accumulate", "2",
+    "--iters_to_accumulate", "1",
     "--project", "imagenet",
     "--num_workers", "8",
        
     "--scale_ratio_in_mixer", "2.0",
 
-    "--scheduler_type", "ReduceLROnPlateau",
+    "--scheduler_type", "OneCycleLR",
     
     "--scheduler.ReduceLROnPlateau.patience", "1",
     "--scheduler.ReduceLROnPlateau.cooldown", "2",
@@ -152,7 +152,7 @@ Q_K_norm = [True]
 cosine_atts = ["1"]
 att_with_relative_postion_biases = ["1"]
 a_types = ["conv"]
-larger_mixer_kernels = [True, False]
+larger_mixer_kernels = [False]
 mixer_types = ["conv"]
 shuffle_in_windows = ["0"]
 block_dense_connections = ["1"]

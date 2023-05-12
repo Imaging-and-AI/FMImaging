@@ -63,10 +63,12 @@ def check_args(config):
     config.time = 1
     config.height = [32]
     config.width = [32]
+    config.num_classes = 10
 
     if config.data_set == "imagenet":
         config.height = [256]
         config.width = [256]
+        config.num_classes = 1000
     
     return config
 
@@ -182,8 +184,7 @@ def main():
         trainer(rank=-1, model=model, config=config,
                 train_set=train_set, val_set=val_set)
     else: # spawn a process for each gpu
-        mp.spawn(trainer, args=(model, config, train_set, val_set),
-                    nprocs=config.world_size)
+        mp.spawn(trainer, args=(model, config, train_set, val_set), nprocs=config.world_size)
 
 if __name__=="__main__":
     main()

@@ -89,6 +89,11 @@ class STCNNT_Cifar(STCNNT_Task_Base):
                                       nn.Flatten(start_dim=1, end_dim=-1),
                                       nn.Linear(2048, final_c))
             
+            if config.data_set == "imagenet":
+                config.C_in = ori_config.C_in
+                config.height[0] *= 2
+                config.width[0] *= 2
+                
         if config.backbone == "unet":
             if config.data_set == "imagenet":
                 self.pre = nn.Sequential(
@@ -116,6 +121,11 @@ class STCNNT_Cifar(STCNNT_Task_Base):
                                       nn.Flatten(start_dim=1, end_dim=-1),
                                       nn.Linear(2048, final_c))
             
+            if config.data_set == "imagenet":
+                config.C_in = ori_config.C_in
+                config.height[0] *= 2
+                config.width[0] *= 2
+            
         if config.backbone == "LLM":
             self.pre = nn.Identity()            
             self.backbone = STCNNT_LLMnet(config=config)       
@@ -133,10 +143,6 @@ class STCNNT_Cifar(STCNNT_Task_Base):
 
         if config.load_path is not None:
             self.load(device=device)
-
-        config.C_in = ori_config.C_in
-        config.height[0] *= 2
-        config.width[0] *= 2
         
     def forward(self, x):
         """
