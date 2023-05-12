@@ -30,7 +30,7 @@ cmd.extend([
     "--save_cycle", "200",
     
     "--num_epochs", "150",
-    "--batch_size", "16",
+    "--batch_size", "8",
     "--device", "cuda",
     "--window_size", "32", "32",
     "--patch_size", "8", "8",
@@ -44,6 +44,8 @@ cmd.extend([
     "--num_workers", "8",
        
     "--scheduler_type", "OneCycleLR",
+    
+    "--scale_ratio_in_mixer", "2.0",
     
     "--scheduler.ReduceLROnPlateau.patience", "1",
     "--scheduler.ReduceLROnPlateau.cooldown", "2",

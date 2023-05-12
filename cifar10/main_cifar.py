@@ -169,11 +169,7 @@ def main():
 
     train_set, val_set = create_dataset(config=config)
 
-    num_samples = len(train_set)
-    if config.ddp: 
-        num_samples /= torch.cuda.device_count()
-
-    total_steps = int(np.ceil(num_samples/config.batch_size)*config.num_epochs)
+    total_steps = compute_total_steps(config, len(train_set))
     
     model = STCNNT_Cifar(config=config, total_steps=total_steps)
 

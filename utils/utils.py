@@ -275,7 +275,16 @@ def setup_run(config, dirs=["log_path", "results_path", "model_path", "check_pat
     if config.num_workers==0: config.prefetch_factor = 2
 
 # -------------------------------------------------------------------------------------------------
-# wrapper around getting device
+def compute_total_steps(config, num_samples):
+    if config.ddp: 
+        num_samples /= torch.cuda.device_count()
+
+    total_steps = int(np.ceil(num_samples/(config.batch_size*config.iters_to_accumulate))*config.num_epochs)
+    
+    return total_steps
+
+# -------------------------------------------------------------------------------------------------
+# # wrapper around getting device
 
 def get_device(device=None):
     """
