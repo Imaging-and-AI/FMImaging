@@ -32,6 +32,7 @@ cmd.extend([
     "--num_epochs", "150",
     "--batch_size", "128",
     "--device", "cuda",
+    "--n_head", "8",
     "--window_size", "8", "8",
     "--patch_size", "4", "4",
     "--global_lr", "1e-3",
@@ -42,11 +43,13 @@ cmd.extend([
     "--project", "cifar",
     "--num_workers", "8",
        
-    "--scheduler_type", "OneCycleLR",
+    "--scale_ratio_in_mixer", "2.0",
+    
+    "--scheduler_type", "ReduceLROnPlateau",
     
     "--scheduler.ReduceLROnPlateau.patience", "1",
     "--scheduler.ReduceLROnPlateau.cooldown", "2",
-    "--scheduler.ReduceLROnPlateau.min_lr", "1e-6",
+    "--scheduler.ReduceLROnPlateau.min_lr", "1e-7",
     "--scheduler.ReduceLROnPlateau.factor", "0.8",
         
     "--scheduler.StepLR.step_size", "5",
