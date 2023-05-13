@@ -30,13 +30,13 @@ cmd.extend([
     "--save_cycle", "200",
     
     "--num_epochs", "200",
-    "--batch_size", "256",
+    "--batch_size", "128",
 
     "--device", "cuda",
     "--n_head", "8",
     "--window_size", "8", "8",
     "--patch_size", "4", "4",
-    "--global_lr", "5e-4",
+    "--global_lr", "2e-4",
     "--clip_grad_norm", "1.0",
     "--weight_decay", "0.0",
     "--use_amp", "--ddp", 
@@ -44,7 +44,7 @@ cmd.extend([
     "--project", "cifar",
     "--num_workers", "8",
           
-    "--scheduler_type", "ReduceLROnPlateau",
+    "--scheduler_type", "OneCycleLR",
     
     "--scheduler.ReduceLROnPlateau.patience", "2",
     "--scheduler.ReduceLROnPlateau.cooldown", "2",
@@ -126,26 +126,6 @@ def create_cmd_run(cmd_run,
 
 
 # test backbones
-backbone = ['hrnet', 'unet', 'LLM', 'small_unet']
-block_strs = [
-                [["T1L1G1", "T1L1G1", "T1L1G1"], ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1T1L1G1T1L1G1T1L1G1"], ["T1T1T1", "T1T1T1", "T1T1T1"], ["L1G1", "L1G1", "L1G1"], ["L1L1", "L1L1", "L1L1"], ["G1G1", "G1G1", "G1G1"] ], 
-                [["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1T1L1G1T1L1G1T1L1G1"], ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"], ["T1L1G1", "T1L1G1"], ["T1T1T1", "T1T1T1"], ["L1G1", "L1G1"] ], 
-                [["T1L1G1", "T1L1G1"], ["T1T1T1", "T1T1T1"], ["L1G1", "L1G1"] ] , 
-                [["T1L1G1", "T1L1G1", "T1L1G1"], ["T1T1T1", "T1T1T1", "T1T1T1"], ["L1G1", "L1G1", "L1G1"] ], 
-            ]
-
-a_types = ["conv", "lin"]
-cell_types = ["sequential", "parallel"]
-Q_K_norm = [True, False]
-cosine_atts = ["1", "0"]
-att_with_relative_postion_biases = ["1", "0"]
-C = [32, 64]
-block_dense_connections = ["1", "0"]
-norm_modes = ["batch2d", "layer", "instance2d"]
-larger_mixer_kernels = [True, False]
-mixer_types = ["conv", "lin"]
-shuffle_in_windows = ["1", "0"]
-
 backbone = ['hrnet']
 cell_types = ["sequential", "parallel"]
 Q_K_norm = [True]
