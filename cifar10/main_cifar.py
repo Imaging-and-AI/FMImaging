@@ -183,8 +183,15 @@ def main():
     if not config.ddp: # run in main process
         trainer(rank=-1, model=model, config=config,
                 train_set=train_set, val_set=val_set)
-    else: # spawn a process for each gpu
-        mp.spawn(trainer, args=(model, config, train_set, val_set), nprocs=config.world_size)
+    else: # spawn a process for each gpu        
+        try: 
+            mp.spawn(trainer, args=(model, config, train_set, val_set), nprocs=config.world_size)
+        except KeyboardInterrupt:
+            print('Interrupted')
+            try: 
+                torch.distributed.destroy_process_group()
+            except KeyboardInterrupt: 
+                os.system("kill $(ps aux | grep multiprocessing.spawn | grep -v grep | awk '{print $2}') ")
 
 if __name__=="__main__":
     main()

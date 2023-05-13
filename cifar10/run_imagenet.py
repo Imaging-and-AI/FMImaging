@@ -30,25 +30,23 @@ cmd.extend([
     "--save_cycle", "200",
     
     "--num_epochs", "150",
-    "--batch_size", "64",
+    "--batch_size", "16",
     "--device", "cuda",
     "--window_size", "32", "32",
     "--patch_size", "8", "8",
     "--n_head", "8",
-    "--global_lr", "1e-4",
+    "--global_lr", "2e-4",
     "--clip_grad_norm", "1.0",
     "--weight_decay", "0.0",
     "--use_amp", 
     "--ddp", 
     "--iters_to_accumulate", "1",
     "--project", "imagenet",
-    "--num_workers", "8",
+    "--num_workers", "16",
        
-    "--scale_ratio_in_mixer", "1.0",
-
     "--scheduler_type", "OneCycleLR",
     
-    "--scheduler.ReduceLROnPlateau.patience", "1",
+    "--scheduler.ReduceLROnPlateau.patience", "2",
     "--scheduler.ReduceLROnPlateau.cooldown", "2",
     "--scheduler.ReduceLROnPlateau.min_lr", "1e-7",
     "--scheduler.ReduceLROnPlateau.factor", "0.8",
@@ -88,15 +86,16 @@ def create_cmd_run(cmd_run,
                    bs=['T1G1L1', 'T1G1L1', 'T1G1L1', 'T1G1L1'],
                    larger_mixer_kernel=True,
                    mixer_type="conv",
-                   shuffle_in_window=0
+                   shuffle_in_window=0,
+                   scale_ratio_in_mixer=2.0
                 ):
     
-    run_str = f"{a_type}-{cell_type}-{norm_mode}-C-{c}-mixer-{mixer_type}-{larger_mixer_kernel}-block_dense-{block_dense_connection}-qknorm-{q_k_norm}-cosine_att-{cosine_att}-shuffle_in_window-{shuffle_in_window}-att_with_relative_postion_bias-{att_with_relative_postion_bias}-block_str-{'_'.join(bs)}"
+    run_str = f"{a_type}-{cell_type}-{norm_mode}-C-{c}-mixer-{mixer_type}-{larger_mixer_kernel}-{scale_ratio_in_mixer}-{int(scale_ratio_in_mixer)}-block_dense-{block_dense_connection}-qknorm-{q_k_norm}-cosine_att-{cosine_att}-shuffle_in_window-{shuffle_in_window}-att_with_relative_postion_bias-{att_with_relative_postion_bias}-block_str-{'_'.join(bs)}"
                                         
     cmd_run = cmd.copy()
     cmd_run.extend([
-        "--run_name", f"imagenet-{bk}-{run_str}",
-        "--run_notes", f"imagenet-{bk}-{run_str}",
+        "--run_name", f"cifar-{bk}-{run_str}",
+        "--run_notes", f"cifar-{bk}-{run_str}",
         "--backbone", f"{bk}",
         "--a_type", f"{a_type}",
         "--cell_type", f"{cell_type}",
@@ -108,7 +107,8 @@ def create_cmd_run(cmd_run,
         "--block_dense_connection", f"{block_dense_connection}",
         "--norm_mode", f"{norm_mode}",
         "--mixer_type", f"{mixer_type}",
-        "--shuffle_in_window", f"{shuffle_in_window}"
+        "--shuffle_in_window", f"{shuffle_in_window}",
+        "--scale_ratio_in_mixer", f"{scale_ratio_in_mixer}"
     ])
     
     if larger_mixer_kernel:
@@ -147,17 +147,25 @@ larger_mixer_kernels = [True, False]
 mixer_types = ["conv", "lin"]
 shuffle_in_windows = ["1", "0"]
 
-backbone = ['hrnet', 'unet']
+backbone = ['hrnet']
+cell_types = ["sequential", "parallel"]
 Q_K_norm = [True]
 cosine_atts = ["1"]
 att_with_relative_postion_biases = ["1"]
 a_types = ["conv"]
+
 larger_mixer_kernels = [False]
 mixer_types = ["conv"]
 shuffle_in_windows = ["0"]
 block_dense_connections = ["1"]
-norm_modes = ["batch2d", "layer"]
+norm_modes = ["batch2d"]
 C = [64]
+scale_ratio_in_mixers = [1.0, 4.0]
+
+block_strs = [
+                [["T1L1G1", "T1L1G1", "T1L1G1"], ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"] ], 
+                [["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"]]
+            ]
 
 block_strs = [
                 [["T1L1G1", "T1L1G1", "T1L1G1"] ], 
@@ -178,20 +186,22 @@ for k, bk in enumerate(backbone):
                                         for larger_mixer_kernel in larger_mixer_kernels:
                                             for shuffle_in_window in shuffle_in_windows:
                                                 for mixer_type in mixer_types:
-                                                    cmd_run = create_cmd_run(cmd.copy(), 
-                                                                    bk=bk, 
-                                                                    a_type=a_type, 
-                                                                    cell_type=cell_type,
-                                                                    norm_mode=norm_mode, 
-                                                                    block_dense_connection=block_dense_connection,
-                                                                    c=c,
-                                                                    q_k_norm=q_k_norm, 
-                                                                    cosine_att=cosine_att, 
-                                                                    att_with_relative_postion_bias=att_with_relative_postion_bias, 
-                                                                    bs=bs,
-                                                                    larger_mixer_kernel=larger_mixer_kernel,
-                                                                    mixer_type=mixer_type,
-                                                                    shuffle_in_window=shuffle_in_window)
+                                                    for scale_ratio_in_mixer in scale_ratio_in_mixers:
+                                                        cmd_run = create_cmd_run(cmd.copy(), 
+                                                                        bk=bk, 
+                                                                        a_type=a_type, 
+                                                                        cell_type=cell_type,
+                                                                        norm_mode=norm_mode, 
+                                                                        block_dense_connection=block_dense_connection,
+                                                                        c=c,
+                                                                        q_k_norm=q_k_norm, 
+                                                                        cosine_att=cosine_att, 
+                                                                        att_with_relative_postion_bias=att_with_relative_postion_bias, 
+                                                                        bs=bs,
+                                                                        larger_mixer_kernel=larger_mixer_kernel,
+                                                                        mixer_type=mixer_type,
+                                                                        shuffle_in_window=shuffle_in_window,
+                                                                        scale_ratio_in_mixer=scale_ratio_in_mixer)
 
-                                                print(cmd_run)
-                                                subprocess.run(cmd_run)
+                                                    print(cmd_run)
+                                                    subprocess.run(cmd_run)
