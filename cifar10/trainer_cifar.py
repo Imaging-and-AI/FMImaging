@@ -43,7 +43,7 @@ def trainer(rank, model, config, train_set, val_set):
     c = config # shortening due to numerous uses
 
     if c.ddp:
-        dist.init_process_group("nccl", rank=rank, world_size=c.world_size)
+        dist.init_process_group("nccl", rank=rank, world_size=c.world_size, timeout=datetime.timedelta(seconds=1800))
         device = rank
         model = model.to(device)
         model = DDP(model, device_ids=[rank], find_unused_parameters=True)

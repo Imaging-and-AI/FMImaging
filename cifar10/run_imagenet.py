@@ -30,7 +30,7 @@ cmd.extend([
     "--save_cycle", "200",
     
     "--num_epochs", "150",
-    "--batch_size", "16",
+    "--batch_size", "64",
     "--device", "cuda",
     "--window_size", "32", "32",
     "--patch_size", "8", "8",
