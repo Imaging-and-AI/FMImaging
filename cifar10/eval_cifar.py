@@ -11,6 +11,7 @@ import argparse
 
 import torch
 import torchvision as tv
+import torchmetrics
 from torchvision import transforms
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
@@ -23,79 +24,6 @@ sys.path.insert(1, str(Project_DIR))
 
 from utils.utils import *
 from model_cifar import STCNNT_Cifar
-
-# -------------------------------------------------------------------------------------------------
-# main test function
-
-def eval_test(model, config, test_set=None, device="cpu", id=""):
-    """
-    The test evaluation.
-    @args:
-        - model (torch model): model to be tested
-        - config (Namespace): config of the run
-        - test_set (torch Dataset): the data to test on
-        - device (torch.device): the device to run the test on
-        - id (str): unique id to log and save results with
-    @rets:
-        - test_loss_avg (float): the average test loss
-        - test_loss_acc (float): the average test acc [0,1]
-    """
-    c = config # shortening due to numerous uses
-
-    # if no test_set given then load the base set
-    if test_set is None: test_set = create_base_test_set(config)
-
-    test_loader = DataLoader(dataset=test_set, batch_size=c.batch_size, shuffle=False, sampler=None,
-                                num_workers=c.num_workers, prefetch_factor=c.prefetch_factor,
-                                persistent_workers=c.num_workers>0)
-
-    loss_f = torch.nn.CrossEntropyLoss()
-    test_loss = AverageMeter()
-    test_acc = AverageMeter()
-
-    model.eval()
-    model.to(device)
-
-    test_loader_iter = iter(test_loader)
-    total_iters = len(test_loader) if not c.debug else 10
-    
-    with torch.no_grad():
-        with tqdm(total=total_iters) as pbar:
-
-            for idx in  np.arange(total_iters):
-
-                inputs, labels = next(test_loader_iter)
-
-                inputs = inputs.to(device)
-                labels = labels.to(device)
-                total = labels.size(0)
-
-                with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
-                    output = model(inputs)
-                    loss = loss_f(output, labels)
-                    
-                test_loss.update(loss.item(), n=total)
-
-                _, predicted = torch.max(output.data, 1)
-                correct = (predicted == labels).sum().item()
-                test_acc.update(correct/total, n=total)
-
-                wandb.log({f"running_test_loss_{id}": loss.item(),
-                            f"running_test_acc_{id}": correct/total})
-
-                pbar.update(1)
-                pbar.set_description(f"Test {id} {inputs.shape}, {loss.item():.4f}, {correct/total:.4f}")
-
-            pbar.set_description(f"Test {id} results: {test_loss.avg:.4f}, {test_acc.avg:.4f}")
-            
-    logging.info(f"Test {id} results: {test_loss.avg:.4f}, {test_acc.avg:.4f}")
-    
-    wandb.run.summary[f"test_loss_avg_{id}"] = test_loss.avg
-    wandb.run.summary[f"test_acc_{id}"] = test_acc.avg
-    
-    save_results(config, test_loss.avg, test_acc.avg, id)
-
-    return test_loss.avg, test_acc.avg
 
 # -------------------------------------------------------------------------------------------------
 # setup for testing from cmd
@@ -185,6 +113,17 @@ def create_base_test_set(config):
     elif config.data_set == "cifar100":
         test_set = tv.datasets.CIFAR100(root=config.data_root, train=False,
                                     download=True, transform=transform)
+        
+    elif config.data_set == "imagenet":
+           
+        transform = transforms.Compose([transforms.Resize((256, 256)),
+                                transforms.ToTensor(),
+                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                                transform_f
+                                ])
+    
+        test_set = tv.datasets.ImageNet(root=config.data_root, split="val", transform=transform)
+        
     else:
         raise NotImplementedError(f"Data set not implemented:{config.data_set}")
 

@@ -3,6 +3,7 @@ Model(s) used for cifar10
 """
 import sys
 import numpy as np
+import copy
 import torch
 import torch.nn as nn
 from pathlib import Path
@@ -41,10 +42,12 @@ class STCNNT_Cifar(STCNNT_Task_Base):
         """
         super().__init__(config=config)
 
+        ori_config = copy.deepcopy(config)
+
         final_c = 10 if config.data_set == "cifar10" else 100
 
-        H = config.height[0]
-        W = config.width[0]
+        if config.data_set == "imagenet":
+            final_c = 1000
 
         if config.backbone == "small_unet":
             self.pre = nn.Identity()
@@ -64,18 +67,64 @@ class STCNNT_Cifar(STCNNT_Task_Base):
             
             hrnet_C_out = config.backbone_hrnet.C * sum([np.power(2, k) for k in range(config.backbone_hrnet.num_resolution_levels)])
             
-            self.pre = nn.Identity()            
+            if config.data_set == "imagenet":
+                self.pre = nn.Sequential(
+                                    Conv2DExt(in_channels=config.C_in, out_channels=config.backbone_hrnet.C, kernel_size=(3, 3), stride=(2, 2),
+                                            padding=(1, 1)),
+                                    nn.GELU(),
+                                    Conv2DExt(in_channels=config.backbone_hrnet.C, out_channels=config.backbone_hrnet.C, kernel_size=(3, 3), stride=(1, 1),
+                                            padding=(1, 1)),
+                                    nn.GELU(),
+                                )
+                
+                config.C_in = config.backbone_hrnet.C
+                config.height[0] //= 2
+                config.width[0] //= 2
+            else:
+                self.pre = nn.Identity()
+                
             self.backbone = STCNNT_HRnet(config=config)            
-            self.post = nn.Sequential(Conv2DExt(in_channels=hrnet_C_out, out_channels=1024, kernel_size=[1,1], padding=[0, 0], stride=[1,1]),
-                                      AvgPool2DExt(kernel_size=[H, W]),
+            self.post = nn.Sequential(Conv2DExt(in_channels=hrnet_C_out, out_channels=2048, kernel_size=[1,1], padding=[0, 0], stride=[1,1]),
+                                      AvgPool2DExt(kernel_size=[config.height[0], config.width[0]]),
                                       nn.Flatten(start_dim=1, end_dim=-1),
-                                      nn.Linear(1024, final_c))
+                                      nn.Linear(2048, final_c))
             
+            if config.data_set == "imagenet":
+                config.C_in = ori_config.C_in
+                config.height[0] *= 2
+                config.width[0] *= 2
+                
         if config.backbone == "unet":
-            self.pre = nn.Identity()            
+            if config.data_set == "imagenet":
+                self.pre = nn.Sequential(
+                                    Conv2DExt(in_channels=config.C_in, out_channels=config.backbone_unet.C, kernel_size=(3, 3), stride=(2, 2),
+                                            padding=(1, 1)),
+                                    nn.GELU(),
+                                    Conv2DExt(in_channels=config.backbone_unet.C, out_channels=config.backbone_unet.C, kernel_size=(3, 3), stride=(1, 1),
+                                            padding=(1, 1)),
+                                    nn.GELU(),
+                                )
+                
+                config.C_in = config.backbone_unet.C
+                config.height[0] //= 2
+                config.width[0] //= 2
+            else:
+                self.pre = nn.Identity()
+                         
             self.backbone = STCNNT_Unet(config=config)            
-            self.post = nn.Sequential(nn.Flatten(start_dim=1, end_dim=-1),
-                                      nn.Linear(config.backbone_unet.C*32*32, final_c))
+            # self.post = nn.Sequential(nn.Flatten(start_dim=1, end_dim=-1),
+            #                           nn.Linear(config.backbone_unet.C*32*32, final_c))
+            
+            unet_C_out = config.backbone_unet.C
+            self.post = nn.Sequential(Conv2DExt(in_channels=unet_C_out, out_channels=2048, kernel_size=[1,1], padding=[0, 0], stride=[1,1]),
+                                      AvgPool2DExt(kernel_size=[config.height[0], config.width[0]]),
+                                      nn.Flatten(start_dim=1, end_dim=-1),
+                                      nn.Linear(2048, final_c))
+            
+            if config.data_set == "imagenet":
+                config.C_in = ori_config.C_in
+                config.height[0] *= 2
+                config.width[0] *= 2
             
         if config.backbone == "LLM":
             self.pre = nn.Identity()            
@@ -83,7 +132,7 @@ class STCNNT_Cifar(STCNNT_Task_Base):
             
             output_C = np.power(2, config.backbone_LLM.num_stages-2) if config.backbone_LLM.num_stages>2 else config.backbone_LLM.C
                  
-            self.post = nn.Sequential(AvgPool2DExt(kernel_size=[H, W]), 
+            self.post = nn.Sequential(AvgPool2DExt(kernel_size=[config.height[0], config.width[0]]), 
                                       nn.Flatten(start_dim=1, end_dim=-1),
                                       nn.Linear(output_C, final_c))
 
@@ -94,7 +143,7 @@ class STCNNT_Cifar(STCNNT_Task_Base):
 
         if config.load_path is not None:
             self.load(device=device)
-
+        
     def forward(self, x):
         """
         @args:

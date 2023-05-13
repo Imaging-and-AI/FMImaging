@@ -35,7 +35,7 @@ def arg_parser():
     """
     parser = argparse.ArgumentParser("Argument parser for STCNNT Cifar10")
     parser.add_argument("--data_root", type=str, default=None, help='root folder for the data')
-    parser.add_argument("--data_set", type=str, default="cifar10", help='choice of dataset: "cifar10", "cifar100')
+    parser.add_argument("--data_set", type=str, default="cifar10", help='choice of dataset: "cifar10", "cifar100", "imagenet"')
     parser.add_argument("--head_channels", nargs='+', type=int, default=[8,128,10], help='number of channels for cifar head')
     
     parser = add_backbone_STCNNT_args(parser=parser)
@@ -63,7 +63,13 @@ def check_args(config):
     config.time = 1
     config.height = [32]
     config.width = [32]
+    config.num_classes = 10
 
+    if config.data_set == "imagenet":
+        config.height = [256]
+        config.width = [256]
+        config.num_classes = 1000
+    
     return config
 
 # -------------------------------------------------------------------------------------------------
@@ -92,8 +98,11 @@ def create_dataset(config):
         - train_set (torch Dataset): the train set
         - val_set (torch Dataset): the val set (same as test set)
     """
-    assert config.time==1 and config.height[0]==32 and config.width[0]==32,\
-        f"For Cifar10, time height width should 1 32 32"
+    if config.data_set == "cifar10" or config.data_set == "cifar100":
+        assert config.time==1 and config.height[0]==32 and config.width[0]==32, f"For Cifar10, time height width should 1 32 32"
+        
+    if config.data_set == "imagenet":
+        assert config.time==1 and config.height[0]==256 and config.width[0]==256, f"For ImageNet, time height width should 1 256 256"
     
     transform_train = transforms.Compose([transforms.Resize((32,32)),  #resises the image so it can be perfect for our model.
                                             transforms.AutoAugment(T.AutoAugmentPolicy.CIFAR10),
@@ -124,6 +133,29 @@ def create_dataset(config):
 
         val_set = tv.datasets.CIFAR100(root=config.data_root, train=False,
                                         download=True, transform=transform)
+        
+    elif config.data_set == "imagenet":
+        
+        transform_train = transforms.Compose([transforms.Resize((256, 256)),  #resises the image so it can be perfect for our model.
+                                        transforms.AutoAugment(T.AutoAugmentPolicy.IMAGENET),
+                                        transforms.RandomHorizontalFlip(), # FLips the image w.r.t horizontal axis
+                                        transforms.RandomRotation(10),     #Rotates the image to a specified angel
+                                        transforms.RandomAffine(0, shear=10, scale=(0.8,1.2)), #Performs actions like zooms, change shear angles.
+                                        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2), # Set the color params
+                                        transforms.ToTensor(), # comvert the image to tensor so that it can work with torch
+                                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)), #Normalize all the images
+                                        transform_f
+                            ])
+    
+        transform = transforms.Compose([transforms.Resize((256, 256)),
+                                transforms.ToTensor(),
+                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                                transform_f
+                                ])
+    
+        train_set = tv.datasets.ImageNet(root=config.data_root, split="train", transform=transform_train)
+
+        val_set = tv.datasets.ImageNet(root=config.data_root, split="val", transform=transform)
     else:
         raise NotImplementedError(f"Data set not implemented:{config.data_set}")
 
@@ -139,11 +171,7 @@ def main():
 
     train_set, val_set = create_dataset(config=config)
 
-    num_samples = len(train_set)
-    if config.ddp: 
-        num_samples /= torch.cuda.device_count()
-
-    total_steps = int(np.ceil(num_samples/config.batch_size)*config.num_epochs)
+    total_steps = compute_total_steps(config, len(train_set))
     
     model = STCNNT_Cifar(config=config, total_steps=total_steps)
 
@@ -156,8 +184,7 @@ def main():
         trainer(rank=-1, model=model, config=config,
                 train_set=train_set, val_set=val_set)
     else: # spawn a process for each gpu
-        mp.spawn(trainer, args=(model, config, train_set, val_set),
-                    nprocs=config.world_size)
+        mp.spawn(trainer, args=(model, config, train_set, val_set), nprocs=config.world_size)
 
 if __name__=="__main__":
     main()
