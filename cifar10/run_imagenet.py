@@ -35,7 +35,7 @@ cmd.extend([
     "--window_size", "32", "32",
     "--patch_size", "8", "8",
     "--n_head", "8",
-    "--global_lr", "1e-3",
+    "--global_lr", "1e-4",
     "--clip_grad_norm", "1.0",
     "--weight_decay", "0.0",
     "--use_amp", 
@@ -44,7 +44,7 @@ cmd.extend([
     "--project", "imagenet",
     "--num_workers", "8",
        
-    "--scale_ratio_in_mixer", "2.0",
+    "--scale_ratio_in_mixer", "1.0",
 
     "--scheduler_type", "OneCycleLR",
     
@@ -157,7 +157,7 @@ mixer_types = ["conv"]
 shuffle_in_windows = ["0"]
 block_dense_connections = ["1"]
 norm_modes = ["batch2d", "layer"]
-C = [32]
+C = [64]
 
 block_strs = [
                 [["T1L1G1", "T1L1G1", "T1L1G1"] ], 
