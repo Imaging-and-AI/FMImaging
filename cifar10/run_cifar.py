@@ -43,9 +43,7 @@ cmd.extend([
     "--iters_to_accumulate", "1",
     "--project", "cifar",
     "--num_workers", "8",
-       
-    "--scale_ratio_in_mixer", "4.0",
-    
+          
     "--scheduler_type", "ReduceLROnPlateau",
     
     "--scheduler.ReduceLROnPlateau.patience", "2",
@@ -160,11 +158,11 @@ mixer_types = ["conv"]
 shuffle_in_windows = ["0"]
 block_dense_connections = ["1"]
 norm_modes = ["batch2d"]
-C = [64]
+C = [128, 64]
 scale_ratio_in_mixers = [1.0, 4.0]
 
 block_strs = [
-                [["T1L1G1", "T1L1G1", "T1L1G1"], ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"] ], 
+                [["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"], ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"], ["T1L1G1", "T1L1G1", "T1L1G1"] ], 
                 [["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"]]
             ]
 
