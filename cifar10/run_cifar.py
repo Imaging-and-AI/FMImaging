@@ -48,10 +48,10 @@ cmd.extend([
     
     "--scheduler_type", "ReduceLROnPlateau",
     
-    "--scheduler.ReduceLROnPlateau.patience", "1",
+    "--scheduler.ReduceLROnPlateau.patience", "2",
     "--scheduler.ReduceLROnPlateau.cooldown", "2",
     "--scheduler.ReduceLROnPlateau.min_lr", "1e-7",
-    "--scheduler.ReduceLROnPlateau.factor", "0.8",
+    "--scheduler.ReduceLROnPlateau.factor", "0.9",
         
     "--scheduler.StepLR.step_size", "5",
     "--scheduler.StepLR.gamma", "0.8",
