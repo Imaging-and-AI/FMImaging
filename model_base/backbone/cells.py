@@ -274,7 +274,8 @@ class STCNNT_Parallel_Cell(nn.Module):
                  att_with_output_proj=True, 
                  scale_ratio_in_mixer=4.0, 
                  with_mixer=True, 
-                 norm_mode="layer"):
+                 norm_mode="layer",
+                 shuffle_in_window=True):
         """
         Complete transformer parallel cell
         """
@@ -312,6 +313,8 @@ class STCNNT_Parallel_Cell(nn.Module):
         self.norm_mode = norm_mode
         self.cosine_att = cosine_att
         self.att_with_relative_postion_bias = att_with_relative_postion_bias
+
+        self.shuffle_in_window = shuffle_in_window
 
         if(norm_mode=="layer"):
             self.n1 = nn.LayerNorm([C_in, H, W])
@@ -361,7 +364,8 @@ class STCNNT_Parallel_Cell(nn.Module):
                                                normalize_Q_K=normalize_Q_K, 
                                                att_dropout_p=att_dropout_p, 
                                                cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias,
-                                               att_with_output_proj=att_with_output_proj)
+                                               att_with_output_proj=att_with_output_proj,
+                                               shuffle_in_window=shuffle_in_window)
         elif(att_mode=="vit"):
             self.attn = SpatialViTAttention(C_in=C_in, C_out=C_out, 
                                             H=H, W=W,
