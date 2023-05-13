@@ -27,6 +27,8 @@ from utils.utils import *
 from eval_cifar import create_base_test_set, save_results
 from utils.save_model import save_final_model
 
+from colorama import Fore, Style
+
 # -------------------------------------------------------------------------------------------------
 # trainer
 
@@ -102,7 +104,7 @@ def trainer(rank, model, config, train_set, val_set):
     optim.zero_grad(set_to_none=True)
 
     for epoch in range(c.num_epochs):
-        if rank<=0: logging.info(f"{'-'*20}Epoch:{epoch}/{c.num_epochs}{'-'*20}")
+        if rank<=0: logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}{'-'*20}{Style.RESET_ALL}")
 
         model.train()
         if c.ddp: train_loader.sampler.set_epoch(epoch)
@@ -152,7 +154,7 @@ def trainer(rank, model, config, train_set, val_set):
                 pbar.update(1)
                 pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, loss {train_loss.avg:.4f}, lr {curr_lr:.8f}")
 
-            pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, loss {train_loss.avg:.4f}, acc-1 {train_acc_1.avg:.4f}, acc-5 {train_acc_5.avg:.4f}, lr {curr_lr:.8f}")
+            pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, loss {train_loss.avg:.4f}, {Fore.YELLOW}acc-1 {train_acc_1.avg:.4f}{Style.RESET_ALL}, {Fore.RED}acc-5 {train_acc_5.avg:.4f}{Style.RESET_ALL}, lr {curr_lr:.8f}")
 
         if rank<=0: # main or master process
             # run eval, save and log in this process

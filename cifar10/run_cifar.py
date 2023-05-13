@@ -36,7 +36,7 @@ cmd.extend([
     "--n_head", "8",
     "--window_size", "8", "8",
     "--patch_size", "4", "4",
-    "--global_lr", "2e-4",
+    "--global_lr", "1e-4",
     "--clip_grad_norm", "1.0",
     "--weight_decay", "0.0",
     "--use_amp", "--ddp", 
