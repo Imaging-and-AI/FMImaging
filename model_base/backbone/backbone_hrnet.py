@@ -644,23 +644,45 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             x_11, _ = self.B11(self.down_00_11(x_00))
 
         if self.num_resolution_levels >= 3:
-            x_02, _ = self.B02(x_01)
-            x_12, _ = self.B12(x_11 + self.down_01_12(x_01))
-            x_22, _ = self.B22(self.down_11_22(x_11) + self.down_01_22(x_01))
+            x_02, _ = self.B02(x_01+x_00)
+            
+            x_12, _ = self.B12(x_11 
+                            + self.down_01_12(x_01)
+                            )
+            
+            x_22, _ = self.B22(self.down_11_22(x_11) 
+                            + self.down_01_22(x_01)
+                            )
 
         if self.num_resolution_levels >= 4:
-            x_03, _ = self.B03(x_02)
-            x_13, _ = self.B13(x_12 + self.down_02_13(x_02))
-            x_23, _ = self.B23(x_22 + self.down_12_23(x_12) + self.down_02_23(x_02))
+            x_03, _ = self.B03(x_02+x_00+x_01)
+            
+            x_13, _ = self.B13(x_12 + self.down_02_13(x_02) + x_11)
+            
+            x_23, _ = self.B23(x_22 
+                            + self.down_12_23(x_12) 
+                            + self.down_02_23(x_02)
+                            )
+            
             x_33, _ = self.B33(self.down_22_33(x_22)
                             + self.down_12_33(x_12)
                             + self.down_02_33(x_02)
                             )
 
         if self.num_resolution_levels >= 5:
-            x_04, _ = self.B04(x_03)
-            x_14, _ = self.B14(x_13 + self.down_03_14(x_03))
-            x_24, _ = self.B24(x_23 + self.down_13_24(x_13) + self.down_03_24(x_03))
+            x_04, _ = self.B04(x_03+x_02+x_01+x_00)
+            
+            x_14, _ = self.B14(x_13 
+                            + self.down_03_14(x_03) 
+                            + x_12 
+                            + x_11
+                            )
+            
+            x_24, _ = self.B24(x_23 
+                            + self.down_13_24(x_13) 
+                            + self.down_03_24(x_03)
+                            + x_22
+                            )
 
             x_34, _ = self.B34(x_33
                             + self.down_23_34(x_23)

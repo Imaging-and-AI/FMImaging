@@ -36,7 +36,7 @@ cmd.extend([
     "--n_head", "8",
     "--window_size", "8", "8",
     "--patch_size", "4", "4",
-    "--global_lr", "1e-3",
+    "--global_lr", "5e-4",
     "--clip_grad_norm", "1.0",
     "--weight_decay", "0.0",
     "--use_amp", "--ddp", 
@@ -44,7 +44,7 @@ cmd.extend([
     "--project", "cifar",
     "--num_workers", "8",
        
-    "--scale_ratio_in_mixer", "2.0",
+    "--scale_ratio_in_mixer", "4.0",
     
     "--scheduler_type", "ReduceLROnPlateau",
     
