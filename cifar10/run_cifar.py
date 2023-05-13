@@ -29,8 +29,8 @@ cmd.extend([
     "--summary_depth", "6",
     "--save_cycle", "200",
     
-    "--num_epochs", "150",
-    "--batch_size", "128",
+    "--num_epochs", "200",
+    "--batch_size", "256",
     "--device", "cuda",
     "--n_head", "8",
     "--window_size", "8", "8",
@@ -145,7 +145,8 @@ larger_mixer_kernels = [True, False]
 mixer_types = ["conv", "lin"]
 shuffle_in_windows = ["1", "0"]
 
-backbone = ['unet', 'hrnet']
+backbone = ['hrnet']
+cell_types = ["sequential"]
 Q_K_norm = [True]
 cosine_atts = ["1"]
 att_with_relative_postion_biases = ["1"]
@@ -154,12 +155,12 @@ larger_mixer_kernels = [False]
 mixer_types = ["conv"]
 shuffle_in_windows = ["0"]
 block_dense_connections = ["1"]
-norm_modes = ["batch2d", "layer"]
-C = [64]
+norm_modes = ["batch2d"]
+C = [128]
 
 block_strs = [
-                [["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"]],
-                [["T1L1G1", "T1L1G1", "T1L1G1"] ] 
+                [["T1L1G1", "T1L1G1", "T1L1G1"], ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"] ], 
+                [["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"]]
             ]
 
 for k, bk in enumerate(backbone):    
