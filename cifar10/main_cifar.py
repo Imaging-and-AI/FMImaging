@@ -4,6 +4,8 @@ Main file for STCNNT Cifar10
 import wandb
 import logging
 import argparse
+import pprint
+
 import torchvision as tv
 from torchvision import transforms
 import torchvision.transforms as T
@@ -16,7 +18,7 @@ Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
 from utils.utils import *
-from trainer_cifar import trainer
+from trainer_cifar import *
 from model_cifar import STCNNT_Cifar
 
 # True class names
@@ -73,116 +75,56 @@ def check_args(config):
     return config
 
 # -------------------------------------------------------------------------------------------------
-# create the train and val sets
 
-def transform_f(x):
-    """
-    transform function for cifar images
-    @args:
-        - x (cifar dataset return object): the input image
-    @rets:
-        - x (torch.Tensor): 4D torch tensor [T,C,H,W], T=1
-    """
-    return x.unsqueeze(0)
+config_default = check_args(arg_parser())
+setup_run(config_default)
+   
+def set_up_config_for_sweep(wandb_config, config):
+    config = config_default
+    config.num_epochs = wandb_config.num_epochs
+    config.batch_size = wandb_config.batch_size
+    config.global_lr = wandb_config.global_lr
+    config.weight_decay = wandb_config.weight_decay
+    config.scheduler_type = wandb_config.scheduler_type
+    config.use_amp = wandb_config.use_amp
+    config.a_type = wandb_config.a_type
+    config.n_head = wandb_config.n_head
+    config.scale_ratio_in_mixer = wandb_config.scale_ratio_in_mixer
+    config.backbone_hrnet.num_resolution_levels = wandb_config.num_resolution_levels
+    config.backbone_hrnet.block_str = wandb_config.block_str
+    
+    return config
 
-def create_dataset(config):
-    """
-    create the train and val set using torchvision datasets
-    @args:
-        - config (Namespace): runtime namespace for setup
-    @args (from config):
-        - data_root (str): root directory for the dataset
-        - time (int): for assertion (==1)
-        - height, width (int list): for assertion (==32)
-    @rets:
-        - train_set (torch Dataset): the train set
-        - val_set (torch Dataset): the val set (same as test set)
-    """
-    if config.data_set == "cifar10" or config.data_set == "cifar100":
-        assert config.time==1 and config.height[0]==32 and config.width[0]==32, f"For Cifar10, time height width should 1 32 32"
-        
-    if config.data_set == "imagenet":
-        assert config.time==1 and config.height[0]==256 and config.width[0]==256, f"For ImageNet, time height width should 1 256 256"
+# ------------------------------------------------------------------------------------------------- run training
+def run_training():
     
-    transform_train = transforms.Compose([transforms.Resize((32,32)),  #resises the image so it can be perfect for our model.
-                                            transforms.AutoAugment(T.AutoAugmentPolicy.CIFAR10),
-                                            transforms.RandomHorizontalFlip(), # FLips the image w.r.t horizontal axis
-                                            transforms.RandomRotation(10),     #Rotates the image to a specified angel
-                                            transforms.RandomAffine(0, shear=10, scale=(0.8,1.2)), #Performs actions like zooms, change shear angles.
-                                            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2), # Set the color params
-                                            transforms.ToTensor(), # comvert the image to tensor so that it can work with torch
-                                            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)), #Normalize all the images
-                                            transform_f
-                               ])
-    
-    transform = transforms.Compose([transforms.Resize((32,32)),
-                               transforms.ToTensor(),
-                               transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-                               transform_f
-                               ])
-    
-    if config.data_set == "cifar10":
-        train_set = tv.datasets.CIFAR10(root=config.data_root, train=True,
-                                        download=True, transform=transform_train)
-
-        val_set = tv.datasets.CIFAR10(root=config.data_root, train=False,
-                                        download=True, transform=transform)
-    elif config.data_set == "cifar100":
-        train_set = tv.datasets.CIFAR100(root=config.data_root, train=True,
-                                        download=True, transform=transform_train)
-
-        val_set = tv.datasets.CIFAR100(root=config.data_root, train=False,
-                                        download=True, transform=transform)
-        
-    elif config.data_set == "imagenet":
-        
-        transform_train = transforms.Compose([transforms.Resize((256, 256)),  #resises the image so it can be perfect for our model.
-                                        transforms.AutoAugment(T.AutoAugmentPolicy.IMAGENET),
-                                        transforms.RandomHorizontalFlip(), # FLips the image w.r.t horizontal axis
-                                        transforms.RandomRotation(10),     #Rotates the image to a specified angel
-                                        transforms.RandomAffine(0, shear=10, scale=(0.8,1.2)), #Performs actions like zooms, change shear angles.
-                                        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2), # Set the color params
-                                        transforms.ToTensor(), # comvert the image to tensor so that it can work with torch
-                                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)), #Normalize all the images
-                                        transform_f
-                            ])
-    
-        transform = transforms.Compose([transforms.Resize((256, 256)),
-                                transforms.ToTensor(),
-                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-                                transform_f
-                                ])
-    
-        train_set = tv.datasets.ImageNet(root=config.data_root, split="train", transform=transform_train)
-
-        val_set = tv.datasets.ImageNet(root=config.data_root, split="val", transform=transform)
+    if(config_default.sweep_id != 'none'):
+        print("---> get the config from wandb ")
+        config = set_up_config_for_sweep(wandb.config, config_default)        
     else:
-        raise NotImplementedError(f"Data set not implemented:{config.data_set}")
-
-    return train_set, val_set
-
-# -------------------------------------------------------------------------------------------------
-# main function. spawns threads if going for distributed data parallel
-
-def main():
-    
-    config = check_args(arg_parser())
-    setup_run(config)
+        # Config is a variable that holds and saves hyperparameters and inputs
+        config = config_default
+        wandb.init(project=config.project, 
+                   entity=config.wandb_entity, 
+                   config=config_default, 
+                   name=config.run_name, 
+                   notes=config.run_notes)
+        
+    pprint.pprint(config)
 
     train_set, val_set = create_dataset(config=config)
 
     total_steps = compute_total_steps(config, len(train_set))
-    
+
     model = STCNNT_Cifar(config=config, total_steps=total_steps)
 
     # model summary
     model_summary = model_info(model, config)
     logging.info(f"Configuration for this run:\n{config}")
     logging.info(f"Model Summary:\n{str(model_summary)}")
-
+            
     if not config.ddp: # run in main process
-        trainer(rank=-1, model=model, config=config,
-                train_set=train_set, val_set=val_set)
+        trainer(rank=-1, model=model, config=config, train_set=train_set, val_set=val_set)
     else: # spawn a process for each gpu        
         try: 
             mp.spawn(trainer, args=(model, config, train_set, val_set), nprocs=config.world_size)
@@ -193,6 +135,22 @@ def main():
             except KeyboardInterrupt: 
                 os.system("kill $(ps aux | grep multiprocessing.spawn | grep -v grep | awk '{print $2}') ")
                 os.system("kill $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
+    
+# -------------------------------------------------------------------------------------------------
+# main function. spawns threads if going for distributed data parallel
+
+def main():
+    
+    sweep_id = config_default.sweep_id
+
+    # note the sweep_id is used to control the condition
+    print("get sweep id : ", sweep_id)
+    if (sweep_id != "none"):
+        print("start sweep runs ...")
+        wandb.agent(sweep_id, run_training, project="cifar", count=50)
+    else:
+        print("start a regular run ...")        
+        run_training()
 
 if __name__=="__main__":
     main()

@@ -15,6 +15,9 @@ from tqdm import tqdm
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
+import torchvision as tv
+from torchvision import transforms
+
 import torchmetrics
 
 import sys
@@ -28,6 +31,95 @@ from eval_cifar import create_base_test_set, save_results
 from utils.save_model import save_final_model
 
 from colorama import Fore, Style
+
+# -------------------------------------------------------------------------------------------------
+# create the train and val sets
+
+def transform_f(x):
+    """
+    transform function for cifar images
+    @args:
+        - x (cifar dataset return object): the input image
+    @rets:
+        - x (torch.Tensor): 4D torch tensor [T,C,H,W], T=1
+    """
+    return x.unsqueeze(0)
+
+def create_dataset(config):
+    """
+    create the train and val set using torchvision datasets
+    @args:
+        - config (Namespace): runtime namespace for setup
+    @args (from config):
+        - data_root (str): root directory for the dataset
+        - time (int): for assertion (==1)
+        - height, width (int list): for assertion (==32)
+    @rets:
+        - train_set (torch Dataset): the train set
+        - val_set (torch Dataset): the val set (same as test set)
+    """
+    if config.data_set == "cifar10" or config.data_set == "cifar100":
+        assert config.time==1 and config.height[0]==32 and config.width[0]==32, f"For Cifar10, time height width should 1 32 32"
+        
+    if config.data_set == "imagenet":
+        assert config.time==1 and config.height[0]==256 and config.width[0]==256, f"For ImageNet, time height width should 1 256 256"
+    
+    transform_train = transforms.Compose([transforms.Resize((32,32)),  #resises the image so it can be perfect for our model.
+                                            transforms.AutoAugment(transforms.AutoAugmentPolicy.CIFAR10),
+                                            transforms.RandomHorizontalFlip(), # FLips the image w.r.t horizontal axis
+                                            transforms.RandomRotation(10),     #Rotates the image to a specified angel
+                                            transforms.RandomAffine(0, shear=10, scale=(0.8,1.2)), #Performs actions like zooms, change shear angles.
+                                            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2), # Set the color params
+                                            transforms.ToTensor(), # comvert the image to tensor so that it can work with torch
+                                            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)), #Normalize all the images
+                                            transform_f
+                               ])
+    
+    transform = transforms.Compose([transforms.Resize((32,32)),
+                               transforms.ToTensor(),
+                               transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                               transform_f
+                               ])
+    
+    if config.data_set == "cifar10":
+        train_set = tv.datasets.CIFAR10(root=config.data_root, train=True,
+                                        download=True, transform=transform_train)
+
+        val_set = tv.datasets.CIFAR10(root=config.data_root, train=False,
+                                        download=True, transform=transform)
+    elif config.data_set == "cifar100":
+        train_set = tv.datasets.CIFAR100(root=config.data_root, train=True,
+                                        download=True, transform=transform_train)
+
+        val_set = tv.datasets.CIFAR100(root=config.data_root, train=False,
+                                        download=True, transform=transform)
+        
+    elif config.data_set == "imagenet":
+        
+        transform_train = transforms.Compose([transforms.Resize((256, 256)),  #resises the image so it can be perfect for our model.
+                                        transforms.AutoAugment(T.AutoAugmentPolicy.IMAGENET),
+                                        transforms.RandomHorizontalFlip(), # FLips the image w.r.t horizontal axis
+                                        transforms.RandomRotation(10),     #Rotates the image to a specified angel
+                                        transforms.RandomAffine(0, shear=10, scale=(0.8,1.2)), #Performs actions like zooms, change shear angles.
+                                        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2), # Set the color params
+                                        transforms.ToTensor(), # comvert the image to tensor so that it can work with torch
+                                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)), #Normalize all the images
+                                        transform_f
+                            ])
+    
+        transform = transforms.Compose([transforms.Resize((256, 256)),
+                                transforms.ToTensor(),
+                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                                transform_f
+                                ])
+    
+        train_set = tv.datasets.ImageNet(root=config.data_root, split="train", transform=transform_train)
+
+        val_set = tv.datasets.ImageNet(root=config.data_root, split="val", transform=transform)
+    else:
+        raise NotImplementedError(f"Data set not implemented:{config.data_set}")
+
+    return train_set, val_set
 
 # -------------------------------------------------------------------------------------------------
 # trainer
@@ -74,7 +166,7 @@ def trainer(rank, model, config, train_set, val_set):
     if rank<=0: # main or master process
         if c.ddp: setup_logger(config) # setup master process logging
 
-        wandb.init(project=c.project, entity=c.wandb_entity, config=c, name=c.run_name, notes=c.run_notes)
+        #wandb.init(project=c.project, entity=c.wandb_entity, config=c, name=c.run_name, notes=c.run_notes)
         wandb.watch(model)
         wandb.run.summary["trainable_params"] = c.trainable_params
         wandb.run.summary["total_params"] = c.total_params
