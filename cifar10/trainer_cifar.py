@@ -300,7 +300,7 @@ def trainer(rank, config, wandb_run):
                 best_val_acc = val_acc_1
                 #model_e.save(epoch)                
                 wandb_run.log({"epoch": epoch, "best_val_acc":best_val_acc})
-                logging.info(f"{Fore.RED}{'-'*10}log best val acc {best_val_acc:.4f}{Style.RESET_ALL}")
+                logging.info(f"{Fore.RED}{'---->'} log best val acc {best_val_acc:.4f}{Style.RESET_ALL}")
 
             # silently log to only the file as well
             logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, loss {train_loss.avg:.4f}, acc 1 {train_acc_1.avg:.4f}, acc 5 {train_acc_5.avg:.4f}, lr {curr_lr:.8f}")
