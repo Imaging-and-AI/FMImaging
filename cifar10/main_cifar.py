@@ -108,6 +108,7 @@ def run_training():
             # add parameter to the store
             config_str = pickle.dumps(config)     
             store.set("config", config_str)
+            print(f"---> set the config to key store on local rank {rank}")
         else:
             print(f"---> get the config from key store on local rank {rank}")
             config_str = store.get("config")
@@ -121,14 +122,14 @@ def run_training():
                 name=config.run_name, 
                 notes=config.run_notes)
          
-    if rank<=0:
-        config_str = pickle.dumps(config)     
-        store.set("config", config_str)
-        print(f"---> set the config to key store on local rank {rank}")
-    else:
-        print(f"---> get the config from key store on local rank {rank}")
-        config_str = store.get("config")
-        config = pickle.loads(config_str)
+    # if rank<=0:
+    #     config_str = pickle.dumps(config)     
+    #     store.set("config", config_str)
+    #     print(f"---> set the config to key store on local rank {rank}")
+    # else:
+    #     print(f"---> get the config from key store on local rank {rank}")
+    #     config_str = store.get("config")
+    #     config = pickle.loads(config_str)
                        
     dist.barrier()
     print(f"---> config synced for the local rank {rank}")
@@ -156,7 +157,6 @@ def main():
 
     if config_default.ddp:        
         rank = int(os.environ["LOCAL_RANK"])
-        global_rank = int(os.environ["RANK"])
     else:
         rank=-1
         
