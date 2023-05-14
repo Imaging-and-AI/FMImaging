@@ -90,6 +90,8 @@ def set_up_config_for_sweep(wandb_config, config):
     config.a_type = wandb_config.a_type
     config.n_head = wandb_config.n_head
     config.scale_ratio_in_mixer = wandb_config.scale_ratio_in_mixer
+    
+    config.backbone_hrnet.C = wandb_config.C
     config.backbone_hrnet.num_resolution_levels = wandb_config.num_resolution_levels
     config.backbone_hrnet.block_str = wandb_config.block_str
     
@@ -100,6 +102,7 @@ def run_training():
     
     if(config_default.sweep_id != 'none'):
         print("---> get the config from wandb ")
+        wandb.init(project=config_default.project)
         config = set_up_config_for_sweep(wandb.config, config_default)        
     else:
         # Config is a variable that holds and saves hyperparameters and inputs

@@ -43,11 +43,15 @@ sweep_config = {
         },
         
         'scale_ratio_in_mixer': {
-            'values': [1,0, 2.0, 4.0]
+            'values': [1.0, 2.0, 4.0]
         },
         
         'num_resolution_levels': {
             'values': [3, 2]
+        },
+        
+        'C': {
+            'values': [32, 64, 128]
         },
         
         'block_str': {
