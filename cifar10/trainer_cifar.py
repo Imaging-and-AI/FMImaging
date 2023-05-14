@@ -252,7 +252,7 @@ def trainer(rank, model, config, train_set, val_set, wandb_obj):
         if rank<=0: # main or master process
             # run eval, save and log in this process
             model_e = model.module if c.ddp else model
-            val_loss_avg, val_acc_1, val_acc_5 = eval_val(model_e, c, val_set, epoch, device)
+            val_loss_avg, val_acc_1, val_acc_5 = eval_val(model_e, c, val_set, epoch, device, wandb_obj=wandb_obj)
             if val_loss_avg < best_val_loss:
                 best_val_loss = val_loss_avg
                 best_model_wts = copy.deepcopy(model_e.state_dict())
@@ -308,10 +308,10 @@ def trainer(rank, model, config, train_set, val_set, wandb_obj):
         model = model.module if c.ddp else model
         model.save(epoch) # save the final weights
         # test last model
-        eval_test(model, config, test_set=None, device=device, id="last")
+        eval_test(model, config, test_set=None, device=device, id="last", wandb_obj=wandb_obj)
         # test best model
         model.load_state_dict(best_model_wts)
-        eval_test(model, config, test_set=None, device=device, id="best")
+        eval_test(model, config, test_set=None, device=device, id="best", wandb_obj=wandb_obj)
         # save both models
         save_final_model(model, config, best_model_wts)
 
@@ -321,7 +321,7 @@ def trainer(rank, model, config, train_set, val_set, wandb_obj):
 # -------------------------------------------------------------------------------------------------
 # evaluate the val set
 
-def eval(model, config, data_set, epoch, device, id="", run_mode="val"):
+def eval(model, config, data_set, epoch, device, wandb_obj, id="", run_mode="val"):
     """
     The validation evaluation.
     @args:
@@ -383,20 +383,20 @@ def eval(model, config, data_set, epoch, device, id="", run_mode="val"):
                 if run_mode == "test":
                     wandb_obj.log({f"running_test_loss_{id}": loss.item(), f"running_test_acc_1_{id}": data_acc_1.avg})
                 
-            pbar.set_description(f"{run_mode} {id}, epoch {epoch}/{c.num_epochs}, {inputs.shape}, loss {data_loss.avg:.4f}, acc-1 {data_acc_1.avg:.4f}, acc-5 {data_acc_5.avg:.4f}")
+            pbar.set_description(f"{run_mode} {id}, epoch {epoch}/{c.num_epochs}, {inputs.shape}, loss {data_loss.avg:.4f}, {Fore.YELLOW} acc-1 {data_acc_1.avg:.4f}, {Fore.RED} acc-5 {data_acc_5.avg:.4f}{Style.RESET_ALL}")
 
     return data_loss.avg, data_acc_1.avg, data_acc_5.avg
 
 # -------------------------------------------------------------------------------------------------
-def eval_val(model, config, val_set, epoch, device):
-    loss, acc_1, acc_5 = eval(model=model, config=config, data_set=val_set, epoch=epoch, device=device, id="", run_mode="val")
+def eval_val(model, config, val_set, epoch, device, wandb_obj):
+    loss, acc_1, acc_5 = eval(model=model, config=config, data_set=val_set, epoch=epoch, device=device, wandb_obj=wandb_obj, id="", run_mode="val")
     return loss, acc_1, acc_5
     
-def eval_test(model, config, test_set=None, device="cpu", id=""):
+def eval_test(model, config, wandb_obj, test_set=None, device="cpu", id=""):
     # if no test_set given then load the base set
     if test_set is None: test_set = create_base_test_set(config)
 
-    loss, acc_1, acc_5 = eval(model=model, config=config, data_set=test_set, epoch=config.num_epochs, device=device, id=id, run_mode="test")
+    loss, acc_1, acc_5 = eval(model=model, config=config, data_set=test_set, epoch=config.num_epochs, device=device, wandb_obj=wandb_obj, id=id, run_mode="test")
     
     wandb_obj.run.summary[f"test_loss_avg_{id}"] = loss
     wandb_obj.run.summary[f"test_acc_1_{id}"] = acc_1
