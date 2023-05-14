@@ -200,8 +200,8 @@ def trainer(rank, config, wandb_run):
         if c.ddp: setup_logger(config) # setup master process logging
 
         #wandb_run.init(project=c.project, entity=c.wandb_entity, config=c, name=c.run_name, notes=c.run_notes)        
-        wandb_run.run.summary["trainable_params"] = c.trainable_params
-        wandb_run.run.summary["total_params"] = c.total_params
+        wandb_run.summary["trainable_params"] = c.trainable_params
+        wandb_run.summary["total_params"] = c.total_params
 
         # save best model to be saved at the end
         best_val_loss = numpy.inf
@@ -337,8 +337,8 @@ def trainer(rank, config, wandb_run):
 
     if rank<=0: # main or master process
         # test and save model
-        wandb_run.run.summary["best_val_loss"] = best_val_loss
-        wandb_run.run.summary["best_val_acc"] = best_val_acc
+        wandb_run.summary["best_val_loss"] = best_val_loss
+        wandb_run.summary["best_val_acc"] = best_val_acc
 
         model = model.module if c.ddp else model
         model.save(epoch) # save the final weights
@@ -430,9 +430,9 @@ def eval_test(model, config, wandb_run, test_set=None, device="cpu", id=""):
 
     loss, acc_1, acc_5 = eval(model=model, config=config, data_set=test_set, epoch=config.num_epochs, device=device, wandb_run=wandb_run, id=id, run_mode="test")
     
-    wandb_run.run.summary[f"test_loss_avg_{id}"] = loss
-    wandb_run.run.summary[f"test_acc_1_{id}"] = acc_1
-    wandb_run.run.summary[f"test_acc_5_{id}"] = acc_5
+    wandb_run.summary[f"test_loss_avg_{id}"] = loss
+    wandb_run.summary[f"test_acc_1_{id}"] = acc_1
+    wandb_run.summary[f"test_acc_5_{id}"] = acc_5
     
     save_results(config, loss, acc_1, id)
 
