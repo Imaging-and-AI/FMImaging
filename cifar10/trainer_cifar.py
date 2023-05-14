@@ -128,6 +128,8 @@ def set_up_config_for_sweep(wandb_config, config):
     config.num_epochs = wandb_config.num_epochs
     config.batch_size = wandb_config.batch_size
     config.global_lr = wandb_config.global_lr
+    config.window_size = wandb_config.window_size
+    config.patch_size = wandb_config.patch_size
     config.weight_decay = wandb_config.weight_decay
     config.scheduler_type = wandb_config.scheduler_type
     config.use_amp = wandb_config.use_amp
@@ -135,6 +137,11 @@ def set_up_config_for_sweep(wandb_config, config):
     config.n_head = wandb_config.n_head
     config.scale_ratio_in_mixer = wandb_config.scale_ratio_in_mixer
     
+    config.mixer_type = wandb_config.mixer_type
+    config.normalize_Q_K = wandb_config.normalize_Q_K
+    config.cosine_att = wandb_config.cosine_att
+    config.att_with_relative_postion_bias = wandb_config.att_with_relative_postion_bias
+       
     config.backbone_hrnet.C = wandb_config.C
     config.backbone_hrnet.num_resolution_levels = wandb_config.num_resolution_levels
     config.backbone_hrnet.block_str = wandb_config.block_str
