@@ -126,11 +126,13 @@ def run_training():
     logging.info(f"Configuration for this run:\n{config}")
     logging.info(f"Model Summary:\n{str(model_summary)}")
             
+    wandb.watch(model)
+    
     if not config.ddp: # run in main process
-        trainer(rank=-1, model=model, config=config, train_set=train_set, val_set=val_set)
+        trainer(rank=-1, model=model, config=config, train_set=train_set, val_set=val_set, wandb_obj=wandb)
     else: # spawn a process for each gpu        
         try: 
-            mp.spawn(trainer, args=(model, config, train_set, val_set), nprocs=config.world_size)
+            mp.spawn(trainer, args=(model, config, train_set, val_set, wandb), nprocs=config.world_size)
         except KeyboardInterrupt:
             print('Interrupted')
             try: 

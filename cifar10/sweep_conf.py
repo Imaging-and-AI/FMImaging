@@ -39,7 +39,7 @@ sweep_config = {
         },
         
         'n_head': {
-            'values': [8, 12]
+            'values': [8, 16]
         },
         
         'scale_ratio_in_mixer': {

@@ -124,7 +124,7 @@ def create_dataset(config):
 # -------------------------------------------------------------------------------------------------
 # trainer
 
-def trainer(rank, model, config, train_set, val_set):
+def trainer(rank, model, config, train_set, val_set, wandb_obj):
     """
     The trainer cycle. Allows training on cpu/single gpu/multiple gpu(ddp)
     @args:
@@ -148,6 +148,8 @@ def trainer(rank, model, config, train_set, val_set):
         loss_f = model.module.loss_f
         sampler = DistributedSampler(train_set)
         shuffle = False
+        
+        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}{'-'*20}{Style.RESET_ALL}")
     else:
         # No init required if not ddp
         device = c.device
@@ -166,21 +168,20 @@ def trainer(rank, model, config, train_set, val_set):
     if rank<=0: # main or master process
         if c.ddp: setup_logger(config) # setup master process logging
 
-        #wandb.init(project=c.project, entity=c.wandb_entity, config=c, name=c.run_name, notes=c.run_notes)
-        wandb.watch(model)
-        wandb.run.summary["trainable_params"] = c.trainable_params
-        wandb.run.summary["total_params"] = c.total_params
+        #wandb_obj.init(project=c.project, entity=c.wandb_entity, config=c, name=c.run_name, notes=c.run_notes)        
+        wandb_obj.run.summary["trainable_params"] = c.trainable_params
+        wandb_obj.run.summary["total_params"] = c.total_params
 
         # save best model to be saved at the end
         best_val_loss = numpy.inf
         best_val_acc = 0
         best_model_wts = copy.deepcopy(model.module.state_dict() if c.ddp else model.state_dict())
 
-        wandb.define_metric("epoch")    
-        wandb.define_metric("train_loss", step_metric='epoch')
-        wandb.define_metric("train_acc", step_metric='epoch')
-        wandb.define_metric("val_loss", step_metric='epoch')
-        wandb.define_metric("val_acc", step_metric='epoch')
+        wandb_obj.define_metric("epoch")    
+        wandb_obj.define_metric("train_loss", step_metric='epoch')
+        wandb_obj.define_metric("train_acc", step_metric='epoch')
+        wandb_obj.define_metric("val_loss", step_metric='epoch')
+        wandb_obj.define_metric("val_acc", step_metric='epoch')
             
     # general cross entropy loss    
     train_loss = AverageMeter()
@@ -240,8 +241,8 @@ def trainer(rank, model, config, train_set, val_set):
                 train_loss.update(loss.item(), n=output.shape[0])
                 
                 if rank<=0: 
-                    wandb.log({"running_train_loss": loss.item()})
-                    wandb.log({"lr": curr_lr})
+                    wandb_obj.log({"running_train_loss": loss.item()})
+                    wandb_obj.log({"lr": curr_lr})
 
                 pbar.update(1)
                 pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, loss {train_loss.avg:.4f}, lr {curr_lr:.8f}")
@@ -267,7 +268,7 @@ def trainer(rank, model, config, train_set, val_set):
             # if epoch % c.save_cycle == 0:
             #     model_e.save(epoch)
 
-            wandb.log({"epoch": epoch,
+            wandb_obj.log({"epoch": epoch,
                         "train_loss": train_loss.avg,
                         "train_acc_1": train_acc_1.avg,
                         "train_acc_5": train_acc_5.avg,
@@ -301,8 +302,8 @@ def trainer(rank, model, config, train_set, val_set):
 
     if rank<=0: # main or master process
         # test and save model
-        wandb.run.summary["best_val_loss"] = best_val_loss
-        wandb.run.summary["best_val_acc"] = best_val_acc
+        wandb_obj.run.summary["best_val_loss"] = best_val_loss
+        wandb_obj.run.summary["best_val_acc"] = best_val_acc
 
         model = model.module if c.ddp else model
         model.save(epoch) # save the final weights
@@ -380,7 +381,7 @@ def eval(model, config, data_set, epoch, device, id="", run_mode="val"):
                 pbar.set_description(f"{run_mode}, epoch {epoch}/{c.num_epochs}, {inputs.shape}, loss {loss.item():.4f}, acc {data_acc_1.avg:.4f}")
 
                 if run_mode == "test":
-                    wandb.log({f"running_test_loss_{id}": loss.item(), f"running_test_acc_1_{id}": data_acc_1.avg})
+                    wandb_obj.log({f"running_test_loss_{id}": loss.item(), f"running_test_acc_1_{id}": data_acc_1.avg})
                 
             pbar.set_description(f"{run_mode} {id}, epoch {epoch}/{c.num_epochs}, {inputs.shape}, loss {data_loss.avg:.4f}, acc-1 {data_acc_1.avg:.4f}, acc-5 {data_acc_5.avg:.4f}")
 
@@ -397,9 +398,9 @@ def eval_test(model, config, test_set=None, device="cpu", id=""):
 
     loss, acc_1, acc_5 = eval(model=model, config=config, data_set=test_set, epoch=config.num_epochs, device=device, id=id, run_mode="test")
     
-    wandb.run.summary[f"test_loss_avg_{id}"] = loss
-    wandb.run.summary[f"test_acc_1_{id}"] = acc_1
-    wandb.run.summary[f"test_acc_5_{id}"] = acc_5
+    wandb_obj.run.summary[f"test_loss_avg_{id}"] = loss
+    wandb_obj.run.summary[f"test_acc_1_{id}"] = acc_1
+    wandb_obj.run.summary[f"test_acc_5_{id}"] = acc_5
     
     save_results(config, loss, acc_1, id)
 
