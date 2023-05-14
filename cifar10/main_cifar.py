@@ -130,9 +130,10 @@ def run_training():
     #     print(f"---> get the config from key store on local rank {rank}")
     #     config_str = store.get("config")
     #     config = pickle.loads(config_str)
-                       
-    dist.barrier()
-    print(f"---> config synced for the local rank {rank}")
+               
+    if config_default.ddp:
+        dist.barrier()
+        print(f"---> config synced for the local rank {rank}")
       
     try: 
         trainer(rank=rank, config=config, wandb_run=wandb_run)
