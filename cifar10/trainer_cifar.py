@@ -298,7 +298,7 @@ def trainer(rank, config, wandb_run):
                 best_model_wts = copy.deepcopy(model_e.state_dict())
             if val_acc_1 > best_val_acc:
                 best_val_acc = val_acc_1
-                model_e.save(epoch)                
+                #model_e.save(epoch)                
                 wandb_run.log({"epoch": epoch, "best_val_acc":best_val_acc})
                 logging.info(f"{Fore.RED}{'-'*10}log best val acc {best_val_acc:.4f}{Style.RESET_ALL}")
 
