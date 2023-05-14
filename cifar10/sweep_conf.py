@@ -23,6 +23,14 @@ sweep_config = {
             'values': [1e-4, 2e-4]
         },
         
+        'window_size': {
+            'values': [[8, 8]]
+        },
+        
+        'patch_size': {
+            'values': [[4, 4], [2, 2]]
+        },
+        
         'weight_decay': {
             'values': [0.0, 0.1, 1.0]
         },
@@ -43,6 +51,22 @@ sweep_config = {
             'values': [8, 16]
         },
         
+        'mixer_type': {
+            'values': ['conv', 'lin']
+        },
+        
+        'normalize_Q_K': {
+            'values': [True, False]
+        },
+        
+        'cosine_att': {
+            'values': [1, 0]
+        },
+        
+        'att_with_relative_postion_bias': {
+            'values': [1, 0]
+        },
+             
         'scale_ratio_in_mixer': {
             'values': [1.0, 2.0, 4.0]
         },
@@ -82,6 +106,14 @@ sweep_config_v2 = {
             'values': [128]
         },
         
+        'window_size': {
+            'values': [[8, 8]]
+        },
+        
+        'patch_size': {
+            'values': [[4, 4]]
+        },
+        
         'global_lr': {
             'values': [1e-4, 2e-4]
         },
@@ -106,6 +138,22 @@ sweep_config_v2 = {
             'values': [16, 32]
         },
         
+        'mixer_type': {
+            'values': ['conv']
+        },
+        
+        'normalize_Q_K': {
+            'values': [True]
+        },
+        
+        'cosine_att': {
+            'values': [1]
+        },
+        
+        'att_with_relative_postion_bias': {
+            'values': [1]
+        },
+                
         'scale_ratio_in_mixer': {
             'values': [1.0, 2.0, 4.0]
         },
