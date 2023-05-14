@@ -5,11 +5,13 @@ import wandb
 import logging
 import argparse
 import pprint
+import pickle
 
 import torchvision as tv
 from torchvision import transforms
 import torchvision.transforms as T
 import torch.multiprocessing as mp
+import torch.distributed as dist
 
 import sys
 from pathlib import Path
@@ -78,68 +80,72 @@ def check_args(config):
 
 config_default = check_args(arg_parser())
 setup_run(config_default)
-   
-def set_up_config_for_sweep(wandb_config, config):
-    config = config_default
-    config.num_epochs = wandb_config.num_epochs
-    config.batch_size = wandb_config.batch_size
-    config.global_lr = wandb_config.global_lr
-    config.weight_decay = wandb_config.weight_decay
-    config.scheduler_type = wandb_config.scheduler_type
-    config.use_amp = wandb_config.use_amp
-    config.a_type = wandb_config.a_type
-    config.n_head = wandb_config.n_head
-    config.scale_ratio_in_mixer = wandb_config.scale_ratio_in_mixer
     
-    config.backbone_hrnet.C = wandb_config.C
-    config.backbone_hrnet.num_resolution_levels = wandb_config.num_resolution_levels
-    config.backbone_hrnet.block_str = wandb_config.block_str
-    
-    return config
+# -------------------------------------------------------------------------------------------------
 
-# ------------------------------------------------------------------------------------------------- run training
 def run_training():
     
+    if config_default.ddp:        
+        rank = int(os.environ["LOCAL_RANK"])
+        global_rank = int(os.environ["RANK"])
+
+        is_master = rank<=0
+        dist.init_process_group("nccl")        
+        store=dist.TCPStore("localhost", 9001, dist.get_world_size(), is_master=is_master, timeout=timedelta(seconds=30), wait_for_workers=True)
+    else:
+        rank = -1
+        
+    print(f"Start training on rank {rank}.")
+    
+    wandb_run = None
+    
     if(config_default.sweep_id != 'none'):
-        print("---> get the config from wandb ")
-        wandb.init(project=config_default.project)
-        config = set_up_config_for_sweep(wandb.config, config_default)        
+        if rank<=0:
+            print(f"---> get the config from wandb on local rank {rank}")
+            wandb_run = wandb.init(entity=config_default.wandb_entity)
+            config = set_up_config_for_sweep(wandb.config, config_default)   
+           
+            # add parameter to the store
+            config_str = pickle.dumps(config)     
+            store.set("config", config_str)
+        else:
+            print(f"---> get the config from key store on local rank {rank}")
+            config_str = store.get("config")
+            config = pickle.loads(config_str)
     else:
         # Config is a variable that holds and saves hyperparameters and inputs
         config = config_default
-        wandb.init(project=config.project, 
-                   entity=config.wandb_entity, 
-                   config=config_default, 
-                   name=config.run_name, 
-                   notes=config.run_notes)
+        wandb_run = wandb.init(project=config.project, 
+                entity=config.wandb_entity, 
+                config=config, 
+                name=config.run_name, 
+                notes=config.run_notes)
+         
+    if rank<=0:
+        config_str = pickle.dumps(config)     
+        store.set("config", config_str)
+        print(f"---> set the config to key store on local rank {rank}")
+    else:
+        print(f"---> get the config from key store on local rank {rank}")
+        config_str = store.get("config")
+        config = pickle.loads(config_str)
+                       
+    dist.barrier()
+    print(f"---> config synced for the local rank {rank}")
+      
+    try: 
+        trainer(rank=rank, config=config, wandb_run=wandb_run)
         
-    pprint.pprint(config)
-
-    train_set, val_set = create_dataset(config=config)
-
-    total_steps = compute_total_steps(config, len(train_set))
-
-    model = STCNNT_Cifar(config=config, total_steps=total_steps)
-
-    # model summary
-    model_summary = model_info(model, config)
-    logging.info(f"Configuration for this run:\n{config}")
-    logging.info(f"Model Summary:\n{str(model_summary)}")
+        if config.ddp: # cleanup
+            dist.destroy_process_group()
             
-    wandb.watch(model)
-    
-    if not config.ddp: # run in main process
-        trainer(rank=-1, model=model, config=config, train_set=train_set, val_set=val_set, wandb_obj=wandb)
-    else: # spawn a process for each gpu        
+    except KeyboardInterrupt:
+        print('Interrupted')
         try: 
-            mp.spawn(trainer, args=(model, config, train_set, val_set, wandb), nprocs=config.world_size)
-        except KeyboardInterrupt:
-            print('Interrupted')
-            try: 
-                torch.distributed.destroy_process_group()
-            except KeyboardInterrupt: 
-                os.system("kill $(ps aux | grep multiprocessing.spawn | grep -v grep | awk '{print $2}') ")
-                os.system("kill $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
+            torch.distributed.destroy_process_group()
+        except KeyboardInterrupt: 
+            os.system("kill $(ps aux | grep multiprocessing.spawn | grep -v grep | awk '{print $2}') ")
+            os.system("kill $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
     
 # -------------------------------------------------------------------------------------------------
 # main function. spawns threads if going for distributed data parallel
@@ -148,11 +154,21 @@ def main():
     
     sweep_id = config_default.sweep_id
 
+    if config_default.ddp:        
+        rank = int(os.environ["LOCAL_RANK"])
+        global_rank = int(os.environ["RANK"])
+    else:
+        rank=-1
+        
     # note the sweep_id is used to control the condition
     print("get sweep id : ", sweep_id)
     if (sweep_id != "none"):
         print("start sweep runs ...")
-        wandb.agent(sweep_id, run_training, project="cifar", count=50)
+        if rank<=0:
+            wandb.agent(sweep_id, run_training, project="cifar", count=50)
+        else:
+            print(f"--> local rank {rank} - not start another agent")
+            run_training()    
     else:
         print("start a regular run ...")        
         run_training()

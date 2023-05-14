@@ -64,12 +64,12 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
     parser.add_argument("--ratio", nargs='+', type=int, default=[90,5,5], help='Ratio (as a percentage) for train/val/test divide of given data. Does allow for using partial dataset')    
 
     # dataloader arguments
-    parser.add_argument("--num_workers", type=int, default=4, help='number of workers for data loading')
-    parser.add_argument("--prefetch_factor", type=int, default=4, help='number of batches loaded in advance by each worker')
+    parser.add_argument("--num_workers", type=int, default=8, help='number of workers for data loading')
+    parser.add_argument("--prefetch_factor", type=int, default=8, help='number of batches loaded in advance by each worker')
 
     # trainer arguments
-    parser.add_argument("--num_epochs", type=int, default=30, help='number of epochs to train for')
-    parser.add_argument("--batch_size", type=int, default=8, help='size of each batch')
+    parser.add_argument("--num_epochs", type=int, default=150, help='number of epochs to train for')
+    parser.add_argument("--batch_size", type=int, default=128, help='size of each batch')
     parser.add_argument("--save_cycle", type=int, default=5, help='Number of epochs between saving model weights')
     parser.add_argument("--clip_grad_norm", type=float, default=1.0, help='gradient norm clip, if <=0, no clipping')
 
@@ -80,10 +80,10 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
     parser.add_argument("--beta2", type=float, default=0.95, help='beta2 for the default optimizer')
 
     parser.add_argument("--scheduler_type", type=str, default="ReduceLROnPlateau", help='"ReduceLROnPlateau", "StepLR", or "OneCycleLR"')
-    parser.add_argument('--scheduler.ReduceLROnPlateau.patience', dest='scheduler.ReduceLROnPlateau.patience', type=int, default=3, help="number of epochs to wait for further lr adjustment")
-    parser.add_argument('--scheduler.ReduceLROnPlateau.cooldown', dest='scheduler.ReduceLROnPlateau.cooldown', type=int, default=1, help="after adjusting the lr, number of epochs to wait before another adjustment")
-    parser.add_argument('--scheduler.ReduceLROnPlateau.min_lr', dest='scheduler.ReduceLROnPlateau.min_lr', type=float, default=1e-8, help="minimal lr")
-    parser.add_argument('--scheduler.ReduceLROnPlateau.factor', dest='scheduler.ReduceLROnPlateau.factor', type=float, default=0.8, help="lr reduction factor, multiplication")
+    parser.add_argument('--scheduler.ReduceLROnPlateau.patience', dest='scheduler.ReduceLROnPlateau.patience', type=int, default=2, help="number of epochs to wait for further lr adjustment")
+    parser.add_argument('--scheduler.ReduceLROnPlateau.cooldown', dest='scheduler.ReduceLROnPlateau.cooldown', type=int, default=2, help="after adjusting the lr, number of epochs to wait before another adjustment")
+    parser.add_argument('--scheduler.ReduceLROnPlateau.min_lr', dest='scheduler.ReduceLROnPlateau.min_lr', type=float, default=1e-7, help="minimal lr")
+    parser.add_argument('--scheduler.ReduceLROnPlateau.factor', dest='scheduler.ReduceLROnPlateau.factor', type=float, default=0.9, help="lr reduction factor, multiplication")
         
     parser.add_argument('--scheduler.StepLR.step_size', dest='scheduler.StepLR.step_size', type=int, default=5, help="number of epochs to reduce lr")
     parser.add_argument('--scheduler.StepLR.gamma', dest='scheduler.StepLR.gamma', type=float, default=0.8, help="multiplicative factor of learning rate decay")

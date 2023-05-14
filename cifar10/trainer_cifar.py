@@ -29,6 +29,7 @@ sys.path.insert(1, str(Project_DIR))
 from utils.utils import *
 from eval_cifar import create_base_test_set, save_results
 from utils.save_model import save_final_model
+from model_cifar import STCNNT_Cifar
 
 from colorama import Fore, Style
 
@@ -122,23 +123,53 @@ def create_dataset(config):
     return train_set, val_set
 
 # -------------------------------------------------------------------------------------------------
+
+def set_up_config_for_sweep(wandb_config, config):
+    config.num_epochs = wandb_config.num_epochs
+    config.batch_size = wandb_config.batch_size
+    config.global_lr = wandb_config.global_lr
+    config.weight_decay = wandb_config.weight_decay
+    config.scheduler_type = wandb_config.scheduler_type
+    config.use_amp = wandb_config.use_amp
+    config.a_type = wandb_config.a_type
+    config.n_head = wandb_config.n_head
+    config.scale_ratio_in_mixer = wandb_config.scale_ratio_in_mixer
+    
+    config.backbone_hrnet.C = wandb_config.C
+    config.backbone_hrnet.num_resolution_levels = wandb_config.num_resolution_levels
+    config.backbone_hrnet.block_str = wandb_config.block_str
+    
+    return config
+
+# -------------------------------------------------------------------------------------------------
+
 # trainer
 
-def trainer(rank, model, config, train_set, val_set, wandb_obj):
+def trainer(rank, config, wandb_run):
     """
     The trainer cycle. Allows training on cpu/single gpu/multiple gpu(ddp)
     @args:
         - rank (int): for distributed data parallel (ddp)
             -1 if running on cpu or only one gpu
-        - model (torch model): model to be trained
         - config (Namespace): config of the run
-        - train_set (torch Dataset): the data to train on
-        - val_set (torch Dataset): the data to validate each epoch
     """
     c = config # shortening due to numerous uses
 
+    train_set, val_set = create_dataset(config=config)
+    total_steps = compute_total_steps(config, len(train_set))
+    model = STCNNT_Cifar(config=config, total_steps=total_steps)
+
+    if rank<=0:
+        
+        # model summary
+        model_summary = model_info(model, config)
+        logging.info(f"Configuration for this run:\n{config}")
+        logging.info(f"Model Summary:\n{str(model_summary)}")
+                
+        wandb_run.watch(model)
+    
     if c.ddp:
-        dist.init_process_group("nccl", rank=rank, world_size=c.world_size, timeout=timedelta(seconds=1800))
+        #dist.init_process_group("nccl", rank=rank, world_size=c.world_size, timeout=timedelta(seconds=1800))
         device = rank
         model = model.to(device)
         model = DDP(model, device_ids=[rank], find_unused_parameters=True)
@@ -149,7 +180,7 @@ def trainer(rank, model, config, train_set, val_set, wandb_obj):
         sampler = DistributedSampler(train_set)
         shuffle = False
         
-        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}{'-'*20}{Style.RESET_ALL}")
+        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, {c.backbone}, {c.backbone_hrnet.block_str}, {'-'*20}{Style.RESET_ALL}")
     else:
         # No init required if not ddp
         device = c.device
@@ -168,20 +199,22 @@ def trainer(rank, model, config, train_set, val_set, wandb_obj):
     if rank<=0: # main or master process
         if c.ddp: setup_logger(config) # setup master process logging
 
-        #wandb_obj.init(project=c.project, entity=c.wandb_entity, config=c, name=c.run_name, notes=c.run_notes)        
-        wandb_obj.run.summary["trainable_params"] = c.trainable_params
-        wandb_obj.run.summary["total_params"] = c.total_params
+        #wandb_run.init(project=c.project, entity=c.wandb_entity, config=c, name=c.run_name, notes=c.run_notes)        
+        wandb_run.run.summary["trainable_params"] = c.trainable_params
+        wandb_run.run.summary["total_params"] = c.total_params
 
         # save best model to be saved at the end
         best_val_loss = numpy.inf
         best_val_acc = 0
         best_model_wts = copy.deepcopy(model.module.state_dict() if c.ddp else model.state_dict())
 
-        wandb_obj.define_metric("epoch")    
-        wandb_obj.define_metric("train_loss", step_metric='epoch')
-        wandb_obj.define_metric("train_acc", step_metric='epoch')
-        wandb_obj.define_metric("val_loss", step_metric='epoch')
-        wandb_obj.define_metric("val_acc", step_metric='epoch')
+        wandb_run.define_metric("epoch")    
+        wandb_run.define_metric("train_loss", step_metric='epoch')
+        wandb_run.define_metric("train_acc_1", step_metric='epoch')
+        wandb_run.define_metric("train_acc_5", step_metric='epoch')
+        wandb_run.define_metric("val_loss", step_metric='epoch')
+        wandb_run.define_metric("val_acc_1", step_metric='epoch')
+        wandb_run.define_metric("val_acc_5", step_metric='epoch')
             
     # general cross entropy loss    
     train_loss = AverageMeter()
@@ -241,8 +274,8 @@ def trainer(rank, model, config, train_set, val_set, wandb_obj):
                 train_loss.update(loss.item(), n=output.shape[0])
                 
                 if rank<=0: 
-                    wandb_obj.log({"running_train_loss": loss.item()})
-                    wandb_obj.log({"lr": curr_lr})
+                    wandb_run.log({"running_train_loss": loss.item()})
+                    wandb_run.log({"lr": curr_lr})
 
                 pbar.update(1)
                 pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, loss {train_loss.avg:.4f}, lr {curr_lr:.8f}")
@@ -252,13 +285,15 @@ def trainer(rank, model, config, train_set, val_set, wandb_obj):
         if rank<=0: # main or master process
             # run eval, save and log in this process
             model_e = model.module if c.ddp else model
-            val_loss_avg, val_acc_1, val_acc_5 = eval_val(model_e, c, val_set, epoch, device, wandb_obj=wandb_obj)
+            val_loss_avg, val_acc_1, val_acc_5 = eval_val(model_e, c, val_set, epoch, device, wandb_run=wandb_run)
             if val_loss_avg < best_val_loss:
                 best_val_loss = val_loss_avg
                 best_model_wts = copy.deepcopy(model_e.state_dict())
             if val_acc_1 > best_val_acc:
                 best_val_acc = val_acc_1
-                model_e.save(epoch)
+                model_e.save(epoch)                
+                wandb_run.log({"epoch": epoch, "best_val_acc":best_val_acc})
+                logging.info(f"{Fore.RED}{'-'*10}log best val acc {best_val_acc:.4f}{Style.RESET_ALL}")
 
             # silently log to only the file as well
             logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, loss {train_loss.avg:.4f}, acc 1 {train_acc_1.avg:.4f}, acc 5 {train_acc_5.avg:.4f}, lr {curr_lr:.8f}")
@@ -268,7 +303,7 @@ def trainer(rank, model, config, train_set, val_set, wandb_obj):
             # if epoch % c.save_cycle == 0:
             #     model_e.save(epoch)
 
-            wandb_obj.log({"epoch": epoch,
+            wandb_run.log({"epoch": epoch,
                         "train_loss": train_loss.avg,
                         "train_acc_1": train_acc_1.avg,
                         "train_acc_5": train_acc_5.avg,
@@ -302,26 +337,23 @@ def trainer(rank, model, config, train_set, val_set, wandb_obj):
 
     if rank<=0: # main or master process
         # test and save model
-        wandb_obj.run.summary["best_val_loss"] = best_val_loss
-        wandb_obj.run.summary["best_val_acc"] = best_val_acc
+        wandb_run.run.summary["best_val_loss"] = best_val_loss
+        wandb_run.run.summary["best_val_acc"] = best_val_acc
 
         model = model.module if c.ddp else model
         model.save(epoch) # save the final weights
         # test last model
-        eval_test(model, config, test_set=None, device=device, id="last", wandb_obj=wandb_obj)
+        eval_test(model, config, test_set=None, device=device, id="last", wandb_run=wandb_run)
         # test best model
         model.load_state_dict(best_model_wts)
-        eval_test(model, config, test_set=None, device=device, id="best", wandb_obj=wandb_obj)
+        eval_test(model, config, test_set=None, device=device, id="best", wandb_run=wandb_run)
         # save both models
         save_final_model(model, config, best_model_wts)
-
-    if c.ddp: # cleanup
-        dist.destroy_process_group()
 
 # -------------------------------------------------------------------------------------------------
 # evaluate the val set
 
-def eval(model, config, data_set, epoch, device, wandb_obj, id="", run_mode="val"):
+def eval(model, config, data_set, epoch, device, wandb_run, id="", run_mode="val"):
     """
     The validation evaluation.
     @args:
@@ -381,26 +413,26 @@ def eval(model, config, data_set, epoch, device, wandb_obj, id="", run_mode="val
                 pbar.set_description(f"{run_mode}, epoch {epoch}/{c.num_epochs}, {inputs.shape}, loss {loss.item():.4f}, acc {data_acc_1.avg:.4f}")
 
                 if run_mode == "test":
-                    wandb_obj.log({f"running_test_loss_{id}": loss.item(), f"running_test_acc_1_{id}": data_acc_1.avg})
+                    wandb_run.log({f"running_test_loss_{id}": loss.item(), f"running_test_acc_1_{id}": data_acc_1.avg})
                 
             pbar.set_description(f"{run_mode} {id}, epoch {epoch}/{c.num_epochs}, {inputs.shape}, loss {data_loss.avg:.4f}, {Fore.YELLOW} acc-1 {data_acc_1.avg:.4f}, {Fore.RED} acc-5 {data_acc_5.avg:.4f}{Style.RESET_ALL}")
 
     return data_loss.avg, data_acc_1.avg, data_acc_5.avg
 
 # -------------------------------------------------------------------------------------------------
-def eval_val(model, config, val_set, epoch, device, wandb_obj):
-    loss, acc_1, acc_5 = eval(model=model, config=config, data_set=val_set, epoch=epoch, device=device, wandb_obj=wandb_obj, id="", run_mode="val")
+def eval_val(model, config, val_set, epoch, device, wandb_run):
+    loss, acc_1, acc_5 = eval(model=model, config=config, data_set=val_set, epoch=epoch, device=device, wandb_run=wandb_run, id="", run_mode="val")
     return loss, acc_1, acc_5
     
-def eval_test(model, config, wandb_obj, test_set=None, device="cpu", id=""):
+def eval_test(model, config, wandb_run, test_set=None, device="cpu", id=""):
     # if no test_set given then load the base set
     if test_set is None: test_set = create_base_test_set(config)
 
-    loss, acc_1, acc_5 = eval(model=model, config=config, data_set=test_set, epoch=config.num_epochs, device=device, wandb_obj=wandb_obj, id=id, run_mode="test")
+    loss, acc_1, acc_5 = eval(model=model, config=config, data_set=test_set, epoch=config.num_epochs, device=device, wandb_run=wandb_run, id=id, run_mode="test")
     
-    wandb_obj.run.summary[f"test_loss_avg_{id}"] = loss
-    wandb_obj.run.summary[f"test_acc_1_{id}"] = acc_1
-    wandb_obj.run.summary[f"test_acc_5_{id}"] = acc_5
+    wandb_run.run.summary[f"test_loss_avg_{id}"] = loss
+    wandb_run.run.summary[f"test_acc_1_{id}"] = acc_1
+    wandb_run.run.summary[f"test_acc_5_{id}"] = acc_5
     
     save_results(config, loss, acc_1, id)
 
