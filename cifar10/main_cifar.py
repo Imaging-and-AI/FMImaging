@@ -4,10 +4,14 @@ Main file for STCNNT Cifar10
 import wandb
 import logging
 import argparse
+import pprint
+import pickle
+
 import torchvision as tv
 from torchvision import transforms
 import torchvision.transforms as T
 import torch.multiprocessing as mp
+import torch.distributed as dist
 
 import sys
 from pathlib import Path
@@ -16,7 +20,7 @@ Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
 from utils.utils import *
-from trainer_cifar import trainer
+from trainer_cifar import *
 from model_cifar import STCNNT_Cifar
 
 # True class names
@@ -73,126 +77,101 @@ def check_args(config):
     return config
 
 # -------------------------------------------------------------------------------------------------
-# create the train and val sets
 
-def transform_f(x):
-    """
-    transform function for cifar images
-    @args:
-        - x (cifar dataset return object): the input image
-    @rets:
-        - x (torch.Tensor): 4D torch tensor [T,C,H,W], T=1
-    """
-    return x.unsqueeze(0)
+config_default = check_args(arg_parser())
+setup_run(config_default)
+    
+# -------------------------------------------------------------------------------------------------
 
-def create_dataset(config):
-    """
-    create the train and val set using torchvision datasets
-    @args:
-        - config (Namespace): runtime namespace for setup
-    @args (from config):
-        - data_root (str): root directory for the dataset
-        - time (int): for assertion (==1)
-        - height, width (int list): for assertion (==32)
-    @rets:
-        - train_set (torch Dataset): the train set
-        - val_set (torch Dataset): the val set (same as test set)
-    """
-    if config.data_set == "cifar10" or config.data_set == "cifar100":
-        assert config.time==1 and config.height[0]==32 and config.width[0]==32, f"For Cifar10, time height width should 1 32 32"
-        
-    if config.data_set == "imagenet":
-        assert config.time==1 and config.height[0]==256 and config.width[0]==256, f"For ImageNet, time height width should 1 256 256"
+def run_training():
     
-    transform_train = transforms.Compose([transforms.Resize((32,32)),  #resises the image so it can be perfect for our model.
-                                            transforms.AutoAugment(T.AutoAugmentPolicy.CIFAR10),
-                                            transforms.RandomHorizontalFlip(), # FLips the image w.r.t horizontal axis
-                                            transforms.RandomRotation(10),     #Rotates the image to a specified angel
-                                            transforms.RandomAffine(0, shear=10, scale=(0.8,1.2)), #Performs actions like zooms, change shear angles.
-                                            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2), # Set the color params
-                                            transforms.ToTensor(), # comvert the image to tensor so that it can work with torch
-                                            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)), #Normalize all the images
-                                            transform_f
-                               ])
-    
-    transform = transforms.Compose([transforms.Resize((32,32)),
-                               transforms.ToTensor(),
-                               transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-                               transform_f
-                               ])
-    
-    if config.data_set == "cifar10":
-        train_set = tv.datasets.CIFAR10(root=config.data_root, train=True,
-                                        download=True, transform=transform_train)
+    if config_default.ddp:        
+        rank = int(os.environ["LOCAL_RANK"])
+        global_rank = int(os.environ["RANK"])
 
-        val_set = tv.datasets.CIFAR10(root=config.data_root, train=False,
-                                        download=True, transform=transform)
-    elif config.data_set == "cifar100":
-        train_set = tv.datasets.CIFAR100(root=config.data_root, train=True,
-                                        download=True, transform=transform_train)
-
-        val_set = tv.datasets.CIFAR100(root=config.data_root, train=False,
-                                        download=True, transform=transform)
-        
-    elif config.data_set == "imagenet":
-        
-        transform_train = transforms.Compose([transforms.Resize((256, 256)),  #resises the image so it can be perfect for our model.
-                                        transforms.AutoAugment(T.AutoAugmentPolicy.IMAGENET),
-                                        transforms.RandomHorizontalFlip(), # FLips the image w.r.t horizontal axis
-                                        transforms.RandomRotation(10),     #Rotates the image to a specified angel
-                                        transforms.RandomAffine(0, shear=10, scale=(0.8,1.2)), #Performs actions like zooms, change shear angles.
-                                        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2), # Set the color params
-                                        transforms.ToTensor(), # comvert the image to tensor so that it can work with torch
-                                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)), #Normalize all the images
-                                        transform_f
-                            ])
-    
-        transform = transforms.Compose([transforms.Resize((256, 256)),
-                                transforms.ToTensor(),
-                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-                                transform_f
-                                ])
-    
-        train_set = tv.datasets.ImageNet(root=config.data_root, split="train", transform=transform_train)
-
-        val_set = tv.datasets.ImageNet(root=config.data_root, split="val", transform=transform)
+        is_master = rank<=0
+        dist.init_process_group("nccl")        
+        store=dist.TCPStore("localhost", 9001, dist.get_world_size(), is_master=is_master, timeout=timedelta(seconds=30), wait_for_workers=True)
     else:
-        raise NotImplementedError(f"Data set not implemented:{config.data_set}")
-
-    return train_set, val_set
-
+        rank = -1
+        
+    print(f"Start training on rank {rank}.")
+    
+    wandb_run = None
+    
+    if(config_default.sweep_id != 'none'):
+        if rank<=0:
+            print(f"---> get the config from wandb on local rank {rank}")
+            wandb_run = wandb.init(entity=config_default.wandb_entity)
+            config = set_up_config_for_sweep(wandb.config, config_default)   
+           
+            # add parameter to the store
+            config_str = pickle.dumps(config)     
+            store.set("config", config_str)
+            print(f"---> set the config to key store on local rank {rank}")
+        else:
+            print(f"---> get the config from key store on local rank {rank}")
+            config_str = store.get("config")
+            config = pickle.loads(config_str)
+    else:
+        # Config is a variable that holds and saves hyperparameters and inputs
+        config = config_default
+        wandb_run = wandb.init(project=config.project, 
+                entity=config.wandb_entity, 
+                config=config, 
+                name=config.run_name, 
+                notes=config.run_notes)
+         
+    # if rank<=0:
+    #     config_str = pickle.dumps(config)     
+    #     store.set("config", config_str)
+    #     print(f"---> set the config to key store on local rank {rank}")
+    # else:
+    #     print(f"---> get the config from key store on local rank {rank}")
+    #     config_str = store.get("config")
+    #     config = pickle.loads(config_str)
+                       
+    dist.barrier()
+    print(f"---> config synced for the local rank {rank}")
+      
+    try: 
+        trainer(rank=rank, config=config, wandb_run=wandb_run)
+        
+        if config.ddp: # cleanup
+            dist.destroy_process_group()
+            
+    except KeyboardInterrupt:
+        print('Interrupted')
+        try: 
+            torch.distributed.destroy_process_group()
+        except KeyboardInterrupt: 
+            os.system("kill $(ps aux | grep multiprocessing.spawn | grep -v grep | awk '{print $2}') ")
+            os.system("kill $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
+    
 # -------------------------------------------------------------------------------------------------
 # main function. spawns threads if going for distributed data parallel
 
 def main():
     
-    config = check_args(arg_parser())
-    setup_run(config)
+    sweep_id = config_default.sweep_id
 
-    train_set, val_set = create_dataset(config=config)
-
-    total_steps = compute_total_steps(config, len(train_set))
-    
-    model = STCNNT_Cifar(config=config, total_steps=total_steps)
-
-    # model summary
-    model_summary = model_info(model, config)
-    logging.info(f"Configuration for this run:\n{config}")
-    logging.info(f"Model Summary:\n{str(model_summary)}")
-
-    if not config.ddp: # run in main process
-        trainer(rank=-1, model=model, config=config,
-                train_set=train_set, val_set=val_set)
-    else: # spawn a process for each gpu        
-        try: 
-            mp.spawn(trainer, args=(model, config, train_set, val_set), nprocs=config.world_size)
-        except KeyboardInterrupt:
-            print('Interrupted')
-            try: 
-                torch.distributed.destroy_process_group()
-            except KeyboardInterrupt: 
-                os.system("kill $(ps aux | grep multiprocessing.spawn | grep -v grep | awk '{print $2}') ")
-                os.system("kill $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
+    if config_default.ddp:        
+        rank = int(os.environ["LOCAL_RANK"])
+    else:
+        rank=-1
+        
+    # note the sweep_id is used to control the condition
+    print("get sweep id : ", sweep_id)
+    if (sweep_id != "none"):
+        print("start sweep runs ...")
+        if rank<=0:
+            wandb.agent(sweep_id, run_training, project="cifar", count=50)
+        else:
+            print(f"--> local rank {rank} - not start another agent")
+            run_training()    
+    else:
+        print("start a regular run ...")        
+        run_training()
 
 if __name__=="__main__":
     main()
