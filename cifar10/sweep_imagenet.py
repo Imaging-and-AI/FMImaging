@@ -23,6 +23,14 @@ sweep_config = {
             'values': [1e-4, 2e-4]
         },
         
+        'window_size': {
+            'values': [[32, 32]]
+        },
+        
+        'patch_size': {
+            'values': [[4, 4], [8, 8]]
+        },
+        
         'weight_decay': {
             'values': [0.0, 0.1, 1.0]
         },
@@ -43,6 +51,22 @@ sweep_config = {
             'values': [16, 32]
         },
         
+        'mixer_type': {
+            'values': ['conv', 'lin']
+        },
+        
+        'normalize_Q_K': {
+            'values': [True, False]
+        },
+        
+        'cosine_att': {
+            'values': [1, 0]
+        },
+        
+        'att_with_relative_postion_bias': {
+            'values': [1, 0]
+        },
+             
         'scale_ratio_in_mixer': {
             'values': [1.0, 2.0, 4.0]
         },
