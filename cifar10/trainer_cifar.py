@@ -120,6 +120,12 @@ def create_dataset(config):
     else:
         raise NotImplementedError(f"Data set not implemented:{config.data_set}")
 
+    if config.ratio[0] < 100:
+        ind_random = torch.randperm(len(train_set))
+        train_subset = torch.util.data.Subset(train_set, ind_random[0:int(len(train_set)*config.ratio[0])])
+        train_set = train_subset
+        print(f"--> Subset, keep {len(train_set)} for training ... ")
+
     return train_set, val_set
 
 # -------------------------------------------------------------------------------------------------
