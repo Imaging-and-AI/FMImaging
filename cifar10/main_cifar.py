@@ -7,6 +7,10 @@ import argparse
 import pprint
 import pickle
 
+from colorama import Fore, Style
+
+from datetime import datetime, timedelta
+
 import torchvision as tv
 from torchvision import transforms
 import torchvision.transforms as T
@@ -85,34 +89,25 @@ setup_run(config_default)
 
 def run_training():
     
-    if config_default.ddp:        
+    if config_default.ddp:
         rank = int(os.environ["LOCAL_RANK"])
         global_rank = int(os.environ["RANK"])
-
-        is_master = rank<=0
-        dist.init_process_group("nccl")        
-        store=dist.TCPStore("localhost", 9001, dist.get_world_size(), is_master=is_master, timeout=timedelta(seconds=30), wait_for_workers=True)
     else:
         rank = -1
+        global_rank = -1
         
-    print(f"Start training on rank {rank}.")
-    
-    wandb_run = None
-    
+    print(f"{Fore.RED}---> Run start on local rank {rank} - global rank {global_rank} <---{Style.RESET_ALL}", flush=True)
+           
+    wandb_run = None    
     if(config_default.sweep_id != 'none'):
         if rank<=0:
-            print(f"---> get the config from wandb on local rank {rank}")
-            wandb_run = wandb.init(entity=config_default.wandb_entity)
-            config = set_up_config_for_sweep(wandb.config, config_default)   
-           
-            # add parameter to the store
-            config_str = pickle.dumps(config)     
-            store.set("config", config_str)
-            print(f"---> set the config to key store on local rank {rank}")
+            print(f"---> get the config from wandb on local rank {rank}", flush=True)
+            wandb_run = wandb.init()
+            config = set_up_config_for_sweep(wandb_run.config, config_default)   
+            config.run_name = wandb_run.name
+            print(f"---> wandb run is {wandb_run.name} on local rank {rank}", flush=True)
         else:
-            print(f"---> get the config from key store on local rank {rank}")
-            config_str = store.get("config")
-            config = pickle.loads(config_str)
+            config = config_default
     else:
         # Config is a variable that holds and saves hyperparameters and inputs
         config = config_default
@@ -121,32 +116,54 @@ def run_training():
                 config=config, 
                 name=config.run_name, 
                 notes=config.run_notes)
-         
-    # if rank<=0:
-    #     config_str = pickle.dumps(config)     
-    #     store.set("config", config_str)
-    #     print(f"---> set the config to key store on local rank {rank}")
-    # else:
-    #     print(f"---> get the config from key store on local rank {rank}")
-    #     config_str = store.get("config")
-    #     config = pickle.loads(config_str)
-               
+
     if config_default.ddp:
-        dist.barrier()
-        print(f"---> config synced for the local rank {rank}")
-      
+                                    
+        if(config_default.sweep_id != 'none'):
+            
+            #is_master = rank<=0
+            #print(f"---> dist.TCPStore on local rank {rank}, is_master {is_master}", flush=True)
+            #store=dist.TCPStore("localhost", 9001, dist.get_world_size(), is_master=is_master, timeout=timedelta(seconds=30), wait_for_workers=True)
+
+            # if rank<=0:
+            #     # add parameter to the store
+            #     print(f"---> set the config to key store on local rank {rank}", flush=True)
+            #     config_str = pickle.dumps(config)     
+            #     store.set("config", config_str)    
+            # else:
+            #     print(f"---> get the config from key store on local rank {rank}", flush=True)
+            #     config_str = store.get("config")
+            #     config = pickle.loads(config_str)
+
+            if rank<=0:
+                c_list = [config]
+                print(f"{Fore.RED}--->before, on local rank {rank}, {c_list[0].run_name}{Style.RESET_ALL}", flush=True)
+            else:
+                c_list = [None]
+            
+            torch.distributed.broadcast_object_list(c_list, src=0, group=None, device=rank)
+            print(f"{Fore.RED}--->after, on local rank {rank}, {c_list[0].run_name}{Style.RESET_ALL}", flush=True)
+            if rank>0:
+                config = c_list[0]
+                        
+        print(f"---> config synced for the local rank {rank}")                        
+        dist.barrier()        
+        print(f"{Fore.RED}---> Ready to run on local rank {rank}, {config.run_name}{Style.RESET_ALL}", flush=True)
+          
     try: 
         trainer(rank=rank, config=config, wandb_run=wandb_run)
-        
-        if config.ddp: # cleanup
-            dist.destroy_process_group()
-            
+                                  
+        if rank<=0:
+            wandb_run.finish()                                
+                
+        print(f"{Fore.RED}---> Run finished on local rank {rank} <---{Style.RESET_ALL}", flush=True)
+                
     except KeyboardInterrupt:
         print('Interrupted')
         try: 
             torch.distributed.destroy_process_group()
         except KeyboardInterrupt: 
-            os.system("kill $(ps aux | grep multiprocessing.spawn | grep -v grep | awk '{print $2}') ")
+            os.system("kill $(ps aux | grep torchrun | grep -v grep | awk '{print $2}') ")
             os.system("kill $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
     
 # -------------------------------------------------------------------------------------------------
@@ -165,11 +182,22 @@ def main():
     print("get sweep id : ", sweep_id)
     if (sweep_id != "none"):
         print("start sweep runs ...")
+        
+        if config_default.ddp:
+            if not dist.is_initialized():
+                print(f"---> dist.init_process_group on local rank {rank}", flush=True)
+                dist.init_process_group("nccl", timeout=timedelta(seconds=18000))
+                    
         if rank<=0:
             wandb.agent(sweep_id, run_training, project="cifar", count=50)
         else:
             print(f"--> local rank {rank} - not start another agent")
-            run_training()    
+            run_training() 
+            
+        if config_default.ddp:
+            if dist.is_initialized():
+                print(f"---> dist.destory_process_group on local rank {rank}", flush=True)
+                dist.destroy_process_group()
     else:
         print("start a regular run ...")        
         run_training()

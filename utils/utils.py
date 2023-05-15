@@ -299,6 +299,23 @@ def get_device(device=None):
             "cuda" if torch.cuda.is_available() else "cpu"
 
 # -------------------------------------------------------------------------------------------------
+
+def get_cuda_info(device):
+	return {
+		"PyTorch_version": torch.__version__,
+		"CUDA_version": torch.version.cuda,
+		"cuDNN_version": torch.backends.cudnn.version(),
+		"Arch_version": torch._C._cuda_getArchFlags(),
+		"device_count": torch.cuda.device_count(),
+		"device_name": torch.cuda.get_device_name(device=device),
+		"device_id": torch.cuda.current_device(),
+		"cuda_capability": torch.cuda.get_device_capability(device=device),
+		"device_properties": torch.cuda.get_device_properties(device=device),
+		"reserved_memory": torch.cuda.memory_reserved(device=device) / 1024**3,
+		"allocated_memory": torch.cuda.memory_allocated(device=device) / 1024**3,
+		"max_allocated_memory": torch.cuda.max_memory_allocated(device=device) / 1024**3
+	}
+# -------------------------------------------------------------------------------------------------
 def get_gpu_ram_usage(device='cuda:0'):
     """
     Get info regarding memory usage of a device

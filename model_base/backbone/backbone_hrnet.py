@@ -82,6 +82,36 @@ class _D2(nn.Module):
             y = self.stride_conv(x)
 
         return y
+    
+class _D2_patch_merging(nn.Module):
+    """
+    Downsample by 2 layer using patch merging
+
+    This module takes in a [B, T, C, H, W] tensor and first reformat it to [B, T, 4*C_in, H//2, W//2],
+    then a conv is used to get C_out channels.
+    """
+
+    def __init__(self, C_in=16, C_out=64) -> None:
+        super().__init__()
+
+        self.C_in = C_in
+        self.C_out = C_out if C_out>0 else C_in
+
+        self.conv = Conv2DExt(in_channels=4*self.C_in, out_channels=self.C_out, kernel_size=[1,1], stride=[1,1], padding=[0,0])
+
+    def forward(self, x:Tensor) -> Tensor:
+
+        B, T, C, H, W = x.shape
+        
+        x0 = x[:, :, :, 0::2, 0::2]  # B T C, H/2 W/2
+        x1 = x[:, :, :, 1::2, 0::2]
+        x2 = x[:, :, :, 0::2, 1::2]
+        x3 = x[:, :, :, 1::2, 1::2]
+
+        y = torch.cat([x0, x1, x2, x3], dim=2)  # B T 4*C H/2 W/2
+        y = self.conv(y)
+        
+        return y    
 
 class DownSample(nn.Module):
     """
@@ -93,9 +123,11 @@ class DownSample(nn.Module):
 
         C_out = C_out if C_out>0 else C_in
 
-        layers = [('D2_0', _D2(C_in=C_in, C_out=C_out, use_interpolation=use_interpolation, with_conv=with_conv))]
+        #layers = [('D2_0', _D2(C_in=C_in, C_out=C_out, use_interpolation=use_interpolation, with_conv=with_conv))]
+        layers = [('D2_0', _D2_patch_merging(C_in=C_in, C_out=C_out))]
         for n in range(1, N):
-            layers.append( (f'D2_{n}', _D2(C_in=C_out, C_out=C_out, use_interpolation=use_interpolation, with_conv=with_conv)) )
+            #layers.append( (f'D2_{n}', _D2(C_in=C_out, C_out=C_out, use_interpolation=use_interpolation, with_conv=with_conv)) )
+            layers.append( (f'D2_{n}', _D2_patch_merging(C_in=C_out, C_out=C_out)) )
 
         self.block = nn.Sequential(OrderedDict(layers))
 

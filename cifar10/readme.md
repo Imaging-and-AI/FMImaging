@@ -16,6 +16,8 @@ sh ./run_sweep.sh -g 0,1 -n 2 -d cifar10 -s $sweep_id
 
 sh ./run_sweep.sh -g 0,1,2,3 -n 4 -d imagenet -s $sweep_id
 
+sh ./run_sweep.sh -g 0 -n 1 -d cifar10 -s $sweep_id # single GPU, single process training
+
 ```
 
 The [run_sweep](./run_sweep.sh) script will start a sweeping run on selected gpus (-g) for a node, by calling `torchrun --standalone --nproc-per-node $nproc_per_node ./main_cifar.py ...`.

@@ -122,7 +122,7 @@ def create_dataset(config):
 
     if config.ratio[0] < 100:
         ind_random = torch.randperm(len(train_set))
-        train_subset = torch.util.data.Subset(train_set, ind_random[0:int(len(train_set)*config.ratio[0])])
+        train_subset = torch.utils.data.Subset(train_set, ind_random[0:int(len(train_set)*config.ratio[0]/100)])
         train_set = train_subset
         print(f"--> Subset, keep {len(train_set)} for training ... ")
 
@@ -170,6 +170,7 @@ def trainer(rank, config, wandb_run):
 
     train_set, val_set = create_dataset(config=config)
     total_steps = compute_total_steps(config, len(train_set))
+    logging.info(f"total_steps for this run: {total_steps}, len(train_set) {len(train_set)}, batch {config.batch_size}")
     model = STCNNT_Cifar(config=config, total_steps=total_steps)
 
     if rank<=0:
@@ -353,15 +354,15 @@ def trainer(rank, config, wandb_run):
         wandb_run.summary["best_val_loss"] = best_val_loss
         wandb_run.summary["best_val_acc"] = best_val_acc
 
-        model = model.module if c.ddp else model
-        model.save(epoch) # save the final weights
-        # test last model
-        eval_test(model, config, test_set=None, device=device, id="last", wandb_run=wandb_run)
-        # test best model
-        model.load_state_dict(best_model_wts)
-        eval_test(model, config, test_set=None, device=device, id="best", wandb_run=wandb_run)
-        # save both models
-        save_final_model(model, config, best_model_wts)
+        # model = model.module if c.ddp else model
+        # model.save(epoch) # save the final weights
+        # # test last model
+        # eval_test(model, config, test_set=None, device=device, id="last", wandb_run=wandb_run)
+        # # test best model
+        # model.load_state_dict(best_model_wts)
+        # eval_test(model, config, test_set=None, device=device, id="best", wandb_run=wandb_run)
+        # # save both models
+        # save_final_model(model, config, best_model_wts)
 
 # -------------------------------------------------------------------------------------------------
 # evaluate the val set
@@ -423,7 +424,7 @@ def eval(model, config, data_set, epoch, device, wandb_run, id="", run_mode="val
                 data_acc_5.update(acc_5, n=output.shape[0])
 
                 pbar.update(1)
-                pbar.set_description(f"{run_mode}, epoch {epoch}/{c.num_epochs}, {inputs.shape}, loss {loss.item():.4f}, acc {data_acc_1.avg:.4f}")
+                pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, {run_mode}, {inputs.shape}, loss {loss.item():.4f}, {Fore.RED}acc {data_acc_1.avg:.4f}{Style.RESET_ALL}")
 
                 if run_mode == "test":
                     wandb_run.log({f"running_test_loss_{id}": loss.item(), f"running_test_acc_1_{id}": data_acc_1.avg})
