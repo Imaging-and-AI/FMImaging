@@ -179,6 +179,7 @@ def trainer(rank, config, wandb_run):
         model_summary = model_info(model, config)
         logging.info(f"Configuration for this run:\n{config}")
         logging.info(f"Model Summary:\n{str(model_summary)}")
+        logging.info(f"Wandb name:\n{wandb_run.name}")
                 
         wandb_run.watch(model)
     
