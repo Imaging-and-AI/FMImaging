@@ -17,7 +17,7 @@ def arg_parser():
     """
     parser = argparse.ArgumentParser("Argument parser for STCNNT Cifar10")   
     parser.add_argument("--standalone", action="store_true", help='whether to run in the standalone mode')
-    parser.add_argument("--nproc-per-node", type=int, default=1, help="number of processes per node")
+    parser.add_argument("--nproc_per_node", type=int, default=1, help="number of processes per node")
     parser.add_argument("--nnodes", type=int, default=1, help="number of nodes")
     parser.add_argument("--node_rank", type=int, default=0, help="current node rank")
     parser.add_argument("--rdzv_id", type=int, default=100, help="run id")
