@@ -23,10 +23,11 @@ torchrun --nproc_per_node 1 --nnodes 2 --node_rank 1 --rdzv_id 100 --rdzv_backen
 ```
 
 ```
+# each node has 4 GPUs and 2 processes. Each process will hold one model over 2 GPUs.
 # fsi 1
-CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node 1 --nnodes 2 --node_rank 0 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:8905 multinode.py --local_world_size 1
+CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node 2 --nnodes 2 --node_rank 0 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:8905 multinode.py --local_world_size 2
 # fsi 4
-CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node 1 --nnodes 2 --node_rank 1 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:8905 multinode.py --local_world_size 1
+CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node 2 --nnodes 2 --node_rank 1 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:8905 multinode.py --local_world_size 2
 
 ```
 
