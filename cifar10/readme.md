@@ -29,7 +29,7 @@ The [run_sweep](./run_sweep.sh) script will start a sweeping run on selected gpu
 The ```torchrun``` or ```python -m torch.distributed.launch --use-env ...``` can be called to perform the multi-node training. To run the multi-node training on a cluster of 4 nodes, 
 
 ```
-# on master node
+# on master node (fsi1)
 python3 ./cifar10/run_imagenet.py --nproc-per-node 4 --nnodes 4 --node_rank 0 --rdzv_id 100 --rdzv_endpoint 172.16.0.4:9001 
 
 # on other nodes

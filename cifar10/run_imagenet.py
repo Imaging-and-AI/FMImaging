@@ -96,7 +96,7 @@ def main():
     cmd.extend(["--nproc_per_node", f"{config.nproc_per_node}"])
 
     if config.standalone:
-        cmd.extend(["--master-port", f"{config.port}"])
+        cmd.extend(["--standalone"])
     else:
         cmd.extend(["--nnodes", f"{config.nnodes}", 
                     "--node_rank", f"{config.node_rank}", 
@@ -137,7 +137,7 @@ def main():
         "--n_head", "32",
         "--global_lr", "1e-4",
         "--clip_grad_norm", "1.0",
-        "--weight_decay", "0.1",
+        "--weight_decay", "1.0",
         "--use_amp", 
         "--ddp", 
         "--iters_to_accumulate", "1",
