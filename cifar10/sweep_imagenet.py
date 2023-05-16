@@ -20,7 +20,7 @@ sweep_config = {
         },
         
         'global_lr': {
-            'values': [1e-4, 2e-4]
+            'values': [1e-4]
         },
         
         'window_size': {

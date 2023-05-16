@@ -98,7 +98,7 @@ def create_dataset(config):
     elif config.data_set == "imagenet":
         
         transform_train = transforms.Compose([transforms.Resize((256, 256)),  #resises the image so it can be perfect for our model.
-                                        transforms.AutoAugment(T.AutoAugmentPolicy.IMAGENET),
+                                        transforms.AutoAugment(transforms.AutoAugmentPolicy.IMAGENET),
                                         transforms.RandomHorizontalFlip(), # FLips the image w.r.t horizontal axis
                                         transforms.RandomRotation(10),     #Rotates the image to a specified angel
                                         transforms.RandomAffine(0, shear=10, scale=(0.8,1.2)), #Performs actions like zooms, change shear angles.
@@ -122,9 +122,13 @@ def create_dataset(config):
 
     if config.ratio[0] < 100:
         ind_random = torch.randperm(len(train_set))
-        train_subset = torch.utils.data.Subset(train_set, ind_random[0:int(len(train_set)*config.ratio[0]/100)])
-        train_set = train_subset
+        train_set = torch.utils.data.Subset(train_set, ind_random[0:int(len(train_set)*config.ratio[0]/100)])
         print(f"--> Subset, keep {len(train_set)} for training ... ")
+        
+    if config.ratio[1] < 100:
+        ind_random = torch.randperm(len(val_set))
+        val_set = torch.utils.data.Subset(val_set, ind_random[0:int(len(val_set)*config.ratio[1]/100)])
+        print(f"--> Subset, keep {len(val_set)} for validation ... ")
 
     return train_set, val_set
 

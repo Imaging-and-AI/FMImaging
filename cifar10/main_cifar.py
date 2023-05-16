@@ -160,11 +160,12 @@ def run_training():
                 
     except KeyboardInterrupt:
         print('Interrupted')
-        try: 
-            torch.distributed.destroy_process_group()
-        except KeyboardInterrupt: 
-            os.system("kill $(ps aux | grep torchrun | grep -v grep | awk '{print $2}') ")
-            os.system("kill $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
+
+        if config_default.ddp:
+            torch.distributed.destroy_process_group()            
+
+        os.system("kill $(ps aux | grep torchrun | grep -v grep | awk '{print $2}') ")
+        os.system("kill $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
     
 # -------------------------------------------------------------------------------------------------
 # main function. spawns threads if going for distributed data parallel
