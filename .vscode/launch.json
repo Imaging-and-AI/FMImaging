@@ -54,6 +54,21 @@
             ]
         },
         {
+            "name": "imagenet, torchrun",
+            "type": "python",
+            "request": "launch",
+            "program": "./cifar10/run_imagenet.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
+            "args": [
+                "--nproc-per-node", "4", 
+                "--nnodes", "1", "--node_rank", "0",
+                "--rdzv_id", "100", 
+                "--rdzv_endpoint", "localhost:9001", "--standalone"
+            ]
+        },
+        {
             "name": "MRI",
             "type": "python",
             "request": "launch",

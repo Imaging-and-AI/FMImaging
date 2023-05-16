@@ -185,17 +185,17 @@ def main():
             dist.init_process_group("nccl", timeout=timedelta(seconds=18000))
                 
     # note the sweep_id is used to control the condition
-    print("get sweep id : ", sweep_id)
+    print("get sweep id : ", sweep_id, flush=True)
     if (sweep_id != "none"):
-        print("start sweep runs ...")
+        print("start sweep runs ...", flush=True)
                     
         if rank<=0:
             wandb.agent(sweep_id, run_training, project="cifar", count=50)
         else:
-            print(f"--> local rank {rank} - not start another agent")
+            print(f"--> local rank {rank} - not start another agent", flush=True)
             run_training()             
     else:
-        print("start a regular run ...")        
+        print("start a regular run ...", flush=True)        
         run_training()
 
     if config_default.ddp:
