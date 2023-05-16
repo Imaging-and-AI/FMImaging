@@ -7,7 +7,7 @@ import subprocess
 import os
 
 # base command to run a file
-cmd = ["python3", "cifar10/main_cifar.py"]
+cmd = ["/home/gtuser/.local/bin/torchrun", "cifar10/main_cifar.py", "--standalone", "--nproc-per-node", "4"]
 
 if "FMIMAGING_PROJECT_BASE" in os.environ:
     project_base_dir = os.environ['FMIMAGING_PROJECT_BASE']
@@ -34,10 +34,10 @@ cmd.extend([
     "--device", "cuda",
     "--window_size", "32", "32",
     "--patch_size", "8", "8",
-    "--n_head", "8",
-    "--global_lr", "2e-4",
+    "--n_head", "16",
+    "--global_lr", "1e-4",
     "--clip_grad_norm", "1.0",
-    "--weight_decay", "0.0",
+    "--weight_decay", "0.1",
     "--use_amp", 
     "--ddp", 
     "--iters_to_accumulate", "1",

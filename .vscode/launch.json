@@ -31,7 +31,7 @@
             "name": "Cifar10_ddp",
             "type": "python",
             "request": "launch",
-            "program": "/home/xueh2/.local/bin/torchrun",
+            "program": "/home/gtuser/.local/bin/torchrun",
             "justMyCode": true,
             "console": "integratedTerminal",
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},

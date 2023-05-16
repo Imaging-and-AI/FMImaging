@@ -179,29 +179,29 @@ def main():
     else:
         rank=-1
         
+    if config_default.ddp:
+        if not dist.is_initialized():
+            print(f"---> dist.init_process_group on local rank {rank}", flush=True)
+            dist.init_process_group("nccl", timeout=timedelta(seconds=18000))
+                
     # note the sweep_id is used to control the condition
     print("get sweep id : ", sweep_id)
     if (sweep_id != "none"):
         print("start sweep runs ...")
-        
-        if config_default.ddp:
-            if not dist.is_initialized():
-                print(f"---> dist.init_process_group on local rank {rank}", flush=True)
-                dist.init_process_group("nccl", timeout=timedelta(seconds=18000))
                     
         if rank<=0:
             wandb.agent(sweep_id, run_training, project="cifar", count=50)
         else:
             print(f"--> local rank {rank} - not start another agent")
-            run_training() 
-            
-        if config_default.ddp:
-            if dist.is_initialized():
-                print(f"---> dist.destory_process_group on local rank {rank}", flush=True)
-                dist.destroy_process_group()
+            run_training()             
     else:
         print("start a regular run ...")        
         run_training()
+
+    if config_default.ddp:
+        if dist.is_initialized():
+            print(f"---> dist.destory_process_group on local rank {rank}", flush=True)
+            dist.destroy_process_group()
 
 if __name__=="__main__":
     main()
