@@ -268,9 +268,13 @@ def setup_run(config, dirs=["log_path", "results_path", "model_path", "check_pat
         
     config.world_size = world_size if config.ddp else -1
     logging.info(f"Training on {config.device} with ddp set to {config.ddp}")
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '12355'
+    # os.environ['MASTER_ADDR'] = 'localhost'
+    # os.environ['MASTER_PORT'] = '12355'
 
+    if config.ddp:
+        config.num_workers = 1
+        config.prefetch_factor = 4
+        
     # pytorch loader fix
     if config.num_workers==0: config.prefetch_factor = 2
 
