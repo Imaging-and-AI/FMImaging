@@ -1,25 +1,25 @@
 """
 Main file for STCNNT Cifar10
 """
-import wandb
-import logging
-import argparse
-import pprint
-import pickle
-
-from colorama import Fore, Style
-
-from datetime import datetime, timedelta
-
 import torchvision as tv
 from torchvision import transforms
 import torchvision.transforms as T
 import torch.multiprocessing as mp
 import torch.distributed as dist
 
+import wandb
+import logging
+import argparse
+import pprint
+import pickle
+
+# from colorama import Fore, Style
+
+from datetime import datetime, timedelta
+
+import os
 import sys
 from pathlib import Path
-
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
@@ -27,9 +27,9 @@ from utils.utils import *
 from trainer_cifar import *
 from model_cifar import STCNNT_Cifar
 
-# True class names
-classes = ['airplane', 'automobile', 'bird', 'cat',
-            'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
+# # True class names
+# classes = ['airplane', 'automobile', 'bird', 'cat',
+#             'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
 
 # -------------------------------------------------------------------------------------------------
 # Extra args on top of shared args
@@ -61,11 +61,22 @@ def check_args(config):
     @rets:
         - config (Namespace): the checked and updated argparse for Cifar10
     """
-    assert config.run_name is not None, f"Please provide a \"--run_name\" for wandb"
-    assert config.log_path is not None, f"Please provide a \"--log_path\" to save the logs in"
-    assert config.results_path is not None, f"Please provide a \"--results_path\" to save the results in"
-    assert config.model_path is not None, f"Please provide a \"--model_path\" to save the final model in"
-    assert config.check_path is not None, f"Please provide a \"--check_path\" to save the checkpoints in"
+    
+    if "FMIMAGING_PROJECT_BASE" in os.environ:
+        project_base_dir = os.environ['FMIMAGING_PROJECT_BASE']
+    else:
+        if sys.platform == 'win32':
+            project_base_dir = r'\\hl-share\sbc\Lab-Xue\projects'
+        else:
+            project_base_dir = '/export/Lab-Xue/projects'
+        
+    if config.data_root is None: config.data_root = os.path.join(project_base_dir, config.data_set, "data")
+    if config.check_path is None: config.check_path = os.path.join(project_base_dir, config.data_set, "checkpoints")
+    if config.model_path is None: config.model_path = os.path.join(project_base_dir, config.data_set, "models")
+    if config.log_path is None: config.log_path = os.path.join(project_base_dir, config.data_set, "logs")
+    if config.results_path is None: config.results_path = os.path.join(project_base_dir, config.data_set, "results")
+        
+    if config.run_name is None: config.run_name = config.data_set + '_' + datetime.now().strftime("%H-%M-%S")
 
     if config.data_set == 'cifar10':
         config.time = 1
@@ -87,22 +98,26 @@ def check_args(config):
             config.data_root = "/export/Lab-Xue/projects/imagenet/data"
     
     return config
+   
 
 # -------------------------------------------------------------------------------------------------
+   
+config_default = arg_parser()
 
-config_default = check_args(arg_parser())
-setup_run(config_default)
-    
 # -------------------------------------------------------------------------------------------------
 
 def run_training():
     
+    global config_default
+       
     if config_default.ddp:
         rank = int(os.environ["LOCAL_RANK"])
         global_rank = int(os.environ["RANK"])
+        world_size = int(os.environ["WORLD_SIZE"])
     else:
         rank = -1
         global_rank = -1
+        world_size = 1
         
     print(f"{Fore.RED}---> Run start on local rank {rank} - global rank {global_rank} <---{Style.RESET_ALL}", flush=True)
            
@@ -119,11 +134,12 @@ def run_training():
     else:
         # Config is a variable that holds and saves hyperparameters and inputs
         config = config_default
-        wandb_run = wandb.init(project=config.project, 
-                entity=config.wandb_entity, 
-                config=config, 
-                name=config.run_name, 
-                notes=config.run_notes)
+        if rank<=0:
+            wandb_run = wandb.init(project=config.project, 
+                    entity=config.wandb_entity, 
+                    config=config, 
+                    name=config.run_name, 
+                    notes=config.run_notes)
 
     if config_default.ddp:
                                     
@@ -149,13 +165,15 @@ def run_training():
             else:
                 c_list = [None]
             
-            torch.distributed.broadcast_object_list(c_list, src=0, group=None, device=rank)
+            if world_size > 1:
+                torch.distributed.broadcast_object_list(c_list, src=0, group=None, device=rank)
+                
             print(f"{Fore.RED}--->after, on local rank {rank}, {c_list[0].run_name}{Style.RESET_ALL}", flush=True)
             if rank>0:
                 config = c_list[0]
                         
         print(f"---> config synced for the local rank {rank}")                        
-        dist.barrier()        
+        if world_size > 1: dist.barrier()        
         print(f"{Fore.RED}---> Ready to run on local rank {rank}, {config.run_name}{Style.RESET_ALL}", flush=True)
           
     try: 
@@ -180,19 +198,30 @@ def run_training():
 
 def main():
     
+    global config_default
+    
     if config_default.ddp:
         if not dist.is_initialized():            
             dist.init_process_group("nccl")
-                
-    sweep_id = config_default.sweep_id
-
-    if config_default.ddp:        
+                            
         rank = int(os.environ["LOCAL_RANK"])
-        print(f"---> dist.init_process_group on local rank {rank}", flush=True)
+        global_rank = int(os.environ["RANK"])
+        world_size = int(os.environ["WORLD_SIZE"])
+        local_world_size = int(os.environ["LOCAL_WORLD_SIZE"])
+        
+        print(f"{Fore.YELLOW}---> dist.init_process_group on local rank {rank}, global rank{global_rank}, world size {world_size}, local World size {local_world_size} <---{Style.RESET_ALL}", flush=True)
     else:
-        rank=-1
-                        
+        rank = -1
+        global_rank = -1        
+        print(f"---> ddp is off <---", flush=True)
+    
+    config_default = check_args(config_default)
+    setup_run(config_default)                
+               
+    print(f"--------> run training on local rank {rank}", flush=True)
+                            
     # note the sweep_id is used to control the condition
+    sweep_id = config_default.sweep_id
     print("get sweep id : ", sweep_id, flush=True)
     if (sweep_id != "none"):
         print("start sweep runs ...", flush=True)
@@ -205,11 +234,11 @@ def main():
     else:
         print("start a regular run ...", flush=True)        
         run_training()
-
-    if config_default.ddp:
+                   
+    if config_default.ddp:         
         if dist.is_initialized():
             print(f"---> dist.destory_process_group on local rank {rank}", flush=True)
             dist.destroy_process_group()
 
-if __name__=="__main__":
+if __name__=="__main__":    
     main()

@@ -25,6 +25,8 @@ from skimage.util import view_as_blocks
 from datetime import datetime
 from torchinfo import summary
 
+import torch.distributed as dist
+
 # -------------------------------------------------------------------------------------------------
 # from https://stackoverflow.com/questions/18668227/argparse-subcommands-with-nested-namespaces
 class Nestedspace(argparse.Namespace):
@@ -130,7 +132,7 @@ def add_shared_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for S
     parser.add_argument("--window_size", nargs='+', type=int, default=[64, 64], help='size of window for spatial attention. This is the number of pixels in a window. Given image height and weight H and W, number of windows is H/windows_size * W/windows_size')
     parser.add_argument("--patch_size", nargs='+', type=int, default=[16, 16], help='size of patch for spatial attention. This is the number of pixels in a patch. An image is first split into windows. Every window is further split into patches.')
     
-    parser.add_argument("--window_sizing_method", type=str, default="mixed", help='method to adjust window_size betweem resolution levels, "keep_window_size", "keep_num_window", "mixed".\
+    parser.add_argument("--window_sizing_method", type=str, default="mixed", help='method to adjust window_size between resolution levels, "keep_window_size", "keep_num_window", "mixed".\
                         "keep_window_size" means number of pixels in a window is kept after down/upsample the image; \
                         "keep_num_window" means the number of windows is kept after down/upsample the image; \
                         "mixed" means interleave both methods.')
@@ -171,7 +173,7 @@ def add_backbone_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for
     Add backbone model specific parameters
     """
     
-    parser.add_argument('--backbone', type=str, default="unet", help="which backbone model to use, 'hrnet', 'unet', 'LLM', 'small_unet' ")
+    parser.add_argument('--backbone', type=str, default="hrnet", help="which backbone model to use, 'hrnet', 'unet', 'LLM', 'small_unet' ")
     
     # hrnet
     parser.add_argument('--backbone_hrnet.C', dest='backbone_hrnet.C', type=int, default=16, help="number of channels in main body of hrnet")
@@ -268,16 +270,20 @@ def setup_run(config, dirs=["log_path", "results_path", "model_path", "check_pat
         
     config.world_size = world_size if config.ddp else -1
     logging.info(f"Training on {config.device} with ddp set to {config.ddp}")
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '12355'
+    # os.environ['MASTER_ADDR'] = 'localhost'
+    # os.environ['MASTER_PORT'] = '12355'
 
+    if config.ddp:
+        config.num_workers = 1
+        config.prefetch_factor = 4
+        
     # pytorch loader fix
     if config.num_workers==0: config.prefetch_factor = 2
 
 # -------------------------------------------------------------------------------------------------
 def compute_total_steps(config, num_samples):
     if config.ddp: 
-        num_samples /= torch.cuda.device_count()
+        num_samples /= dist.get_world_size()
 
     total_steps = int(np.ceil(num_samples/(config.batch_size*config.iters_to_accumulate))*config.num_epochs)
     
