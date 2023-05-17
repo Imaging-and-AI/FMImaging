@@ -34,6 +34,8 @@ on the local set up
 ```
 torchrun --nproc_per_node 1 --standalone cifar10/main_cifar.py --ddp
 
+python3 ./cifar10/run_cifar.py --nproc_per_node 1 --standalone
+
 python3 ./cifar10/run_imagenet.py --nproc_per_node 1 --standalone
 
 ```
@@ -41,6 +43,8 @@ python3 ./cifar10/run_imagenet.py --nproc_per_node 1 --standalone
 - single node, multiple gpu training
 ```
 torchrun --nproc_per_node 2 --standalone cifar10/main_cifar.py --ddp
+
+python3 ./cifar10/run_cifar.py --nproc_per_node 2 --standalone
 
 python3 ./cifar10/run_imagenet.py --nproc_per_node 2 --standalone
 
@@ -55,6 +59,11 @@ torchrun --nproc_per_node 2 --nnodes 2 --node_rank 0 --rdzv_id 100 --rdzv_backen
 torchrun --nproc_per_node 2 --nnodes 2 --node_rank 1 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint gt7.nhlbi.nih.gov:9001 cifar10/main_cifar.py --ddp
 
 # gt7
+python3 ./cifar10/run_cifar.py --nproc_per_node 2 --nnodes 2 --node_rank 0 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint gt7.nhlbi.nih.gov:9001
+# gt3
+python3 ./cifar10/run_cifar.py --nproc_per_node 2 --nnodes 2 --node_rank 1 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint gt7.nhlbi.nih.gov:9001
+
+# gt7
 python3 ./cifar10/run_imagenet.py --nproc_per_node 2 --nnodes 2 --node_rank 0 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint gt7.nhlbi.nih.gov:9001
 # gt3
 python3 ./cifar10/run_imagenet.py --nproc_per_node 2 --nnodes 2 --node_rank 1 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint gt7.nhlbi.nih.gov:9001
@@ -63,13 +72,23 @@ python3 ./cifar10/run_imagenet.py --nproc_per_node 2 --nnodes 2 --node_rank 1 --
 
 - four nodes, on cloud
 ```
-# on master node (fsi1)
+# imagenet
 python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 0 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
 
-# on other nodes
 python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 1 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
 
 python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 2 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
 
 python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 3 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+# cifar
+python3 ./cifar10/run_cifar.py --nproc_per_node 4 --nnodes 4 --node_rank 0 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+python3 ./cifar10/run_cifar.py --nproc_per_node 4 --nnodes 4 --node_rank 1 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+python3 ./cifar10/run_cifar.py --nproc_per_node 4 --nnodes 4 --node_rank 2 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+python3 ./cifar10/run_cifar.py --nproc_per_node 4 --nnodes 4 --node_rank 3 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+
 ```
