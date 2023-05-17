@@ -16,10 +16,19 @@ This file demos how to perform the multi-node training with model parallel:
 
 ```
 # on gt7
-torchrun --nproc_per_node 2 --nnodes 2 --node_rank 0 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint gt7.nhlbi.nih.gov:9001 multinode.py
+torchrun --nproc_per_node 1 --nnodes 2 --node_rank 0 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint gt7.nhlbi.nih.gov:9001 multinode.py
 
 # on gt3
-torchrun --nproc_per_node 2 --nnodes 2 --node_rank 1 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint gt7.nhlbi.nih.gov:9001 multinode.py
+torchrun --nproc_per_node 1 --nnodes 2 --node_rank 1 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint gt7.nhlbi.nih.gov:9001 multinode.py
+```
+
+```
+# each node has 4 GPUs and 2 processes. Each process will hold one model over 2 GPUs.
+# fsi 1
+CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node 2 --nnodes 2 --node_rank 0 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:8905 multinode.py --local_world_size 2
+# fsi 4
+CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node 2 --nnodes 2 --node_rank 1 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:8905 multinode.py --local_world_size 2
+
 ```
 
 ## Multi-GPU DDP training with wandb sweep

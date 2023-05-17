@@ -66,7 +66,7 @@ class Trainer:
             self._load_snapshot(snapshot_path)
 
         self.device_ids = device_ids
-        self.model = DDP(self.model, output_device=device_ids[0])
+        self.model = DDP(self.model)
 
     def _load_snapshot(self, snapshot_path):
         loc = f"cuda:{self.local_rank}"

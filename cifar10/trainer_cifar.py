@@ -144,6 +144,7 @@ def set_up_config_for_sweep(wandb_config, config):
     config.scheduler_type = wandb_config.scheduler_type
     config.use_amp = wandb_config.use_amp
     config.a_type = wandb_config.a_type
+    config.cell_type = wandb_config.cell_type
     config.n_head = wandb_config.n_head
     config.scale_ratio_in_mixer = wandb_config.scale_ratio_in_mixer
     
