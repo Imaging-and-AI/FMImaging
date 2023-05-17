@@ -23,7 +23,7 @@ def arg_parser():
     parser.add_argument("--rdzv_id", type=int, default=100, help="run id")
     parser.add_argument("--rdzv_backend", type=str, default="c10d", help="backend of torchrun")
     parser.add_argument("--rdzv_endpoint", type=str, default="localhost:9001", help="master node endpoint")
-    parser.add_argument("--port", type=int, default=9001, help="port for standalone mode")
+    parser.add_argument("--output_file", type=str, default="imagenet_run.sh", help="imagenet run file")
     
     args = parser.parse_args()
     
@@ -195,43 +195,48 @@ def main():
 
     # -------------------------------------------------------------
 
-    for k, bk in enumerate(backbone):    
-            block_str = block_strs[k]
-            
-            for bs in block_str:
-                for a_type, cell_type in itertools.product(a_types, cell_types):
-                    for q_k_norm in Q_K_norm:
-                        for cosine_att in cosine_atts:
-                            for att_with_relative_postion_bias in att_with_relative_postion_biases:
-                                for c in C:
-                                    for block_dense_connection in block_dense_connections:
-                                        for norm_mode in norm_modes:
-                                            for larger_mixer_kernel in larger_mixer_kernels:
-                                                for shuffle_in_window in shuffle_in_windows:
-                                                    for mixer_type in mixer_types:
-                                                        for scale_ratio_in_mixer in scale_ratio_in_mixers:
-                                                            
-                                                            # -------------------------------------------------------------
-                                                            cmd_run = create_cmd_run(cmd.copy(), 
-                                                                            bk=bk, 
-                                                                            a_type=a_type, 
-                                                                            cell_type=cell_type,
-                                                                            norm_mode=norm_mode, 
-                                                                            block_dense_connection=block_dense_connection,
-                                                                            c=c,
-                                                                            q_k_norm=q_k_norm, 
-                                                                            cosine_att=cosine_att, 
-                                                                            att_with_relative_postion_bias=att_with_relative_postion_bias, 
-                                                                            bs=bs,
-                                                                            larger_mixer_kernel=larger_mixer_kernel,
-                                                                            mixer_type=mixer_type,
-                                                                            shuffle_in_window=shuffle_in_window,
-                                                                            scale_ratio_in_mixer=scale_ratio_in_mixer)
-                                                            # -------------------------------------------------------------
-                                                            
-                                                            print(cmd_run)
-                                                            subprocess.run(cmd_run)
+    with open(config.output_file, 'w') as file:
+        for k, bk in enumerate(backbone):    
+                block_str = block_strs[k]
+                
+                for bs in block_str:
+                    for a_type, cell_type in itertools.product(a_types, cell_types):
+                        for q_k_norm in Q_K_norm:
+                            for cosine_att in cosine_atts:
+                                for att_with_relative_postion_bias in att_with_relative_postion_biases:
+                                    for c in C:
+                                        for block_dense_connection in block_dense_connections:
+                                            for norm_mode in norm_modes:
+                                                for larger_mixer_kernel in larger_mixer_kernels:
+                                                    for shuffle_in_window in shuffle_in_windows:
+                                                        for mixer_type in mixer_types:
+                                                            for scale_ratio_in_mixer in scale_ratio_in_mixers:
+                                                                
+                                                                # -------------------------------------------------------------
+                                                                cmd_run = create_cmd_run(cmd.copy(), 
+                                                                                bk=bk, 
+                                                                                a_type=a_type, 
+                                                                                cell_type=cell_type,
+                                                                                norm_mode=norm_mode, 
+                                                                                block_dense_connection=block_dense_connection,
+                                                                                c=c,
+                                                                                q_k_norm=q_k_norm, 
+                                                                                cosine_att=cosine_att, 
+                                                                                att_with_relative_postion_bias=att_with_relative_postion_bias, 
+                                                                                bs=bs,
+                                                                                larger_mixer_kernel=larger_mixer_kernel,
+                                                                                mixer_type=mixer_type,
+                                                                                shuffle_in_window=shuffle_in_window,
+                                                                                scale_ratio_in_mixer=scale_ratio_in_mixer)
+                                                                print("---" * 20)
+                                                                print(cmd_run)
+                                                                print("---" * 20)
+                                                                #subprocess.run(cmd_run)
 
+                                                                cmd_str = ' '.join(cmd_run)
+                                                                
+                                                                
+                                                                file.write(cmd_str+"\n\n")
                                                             
 # -------------------------------------------------------------
 

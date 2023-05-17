@@ -30,10 +30,12 @@ The ```torchrun``` or ```python -m torch.distributed.launch --use-env ...``` can
 
 ```
 # on master node (fsi1)
-python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 0 --rdzv_id 100 --rdzv_endpoint 172.16.0.4:9001 
+python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 0 --rdzv_id 100 --rdzv_endpoint 172.16.0.4:9001 --output_file /export/Lab-Xue/projects/imagenet/run.sh
 
 # on other nodes
-python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 1 --rdzv_id 100 --rdzv_endpoint 172.16.0.4:9001
-python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 2 --rdzv_id 100 --rdzv_endpoint 172.16.0.4:9001
-python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 3 --rdzv_id 100 --rdzv_endpoint 172.16.0.4:9001
+python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 1 --rdzv_id 100 --rdzv_endpoint 172.16.0.4:9001 --output_file /export/Lab-Xue/projects/imagenet/run.sh
+
+python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 2 --rdzv_id 100 --rdzv_endpoint 172.16.0.4:9001 --output_file /export/Lab-Xue/projects/imagenet/run.sh
+
+python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 3 --rdzv_id 100 --rdzv_endpoint 172.16.0.4:9001 --output_file /export/Lab-Xue/projects/imagenet/run.sh
 ```

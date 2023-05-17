@@ -172,18 +172,18 @@ def run_training():
 
 def main():
     
+    if config_default.ddp:
+        if not dist.is_initialized():            
+            dist.init_process_group("nccl")
+                
     sweep_id = config_default.sweep_id
 
     if config_default.ddp:        
         rank = int(os.environ["LOCAL_RANK"])
+        print(f"---> dist.init_process_group on local rank {rank}", flush=True)
     else:
         rank=-1
-        
-    if config_default.ddp:
-        if not dist.is_initialized():
-            print(f"---> dist.init_process_group on local rank {rank}", flush=True)
-            dist.init_process_group("nccl", timeout=timedelta(seconds=18000))
-                
+                        
     # note the sweep_id is used to control the condition
     print("get sweep id : ", sweep_id, flush=True)
     if (sweep_id != "none"):

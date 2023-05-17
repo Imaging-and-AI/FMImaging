@@ -47,6 +47,10 @@ sweep_config = {
             'values': ['conv', 'lin']
         },
         
+        'cell_type': {
+            'values': ['sequential', 'parallel']
+        },
+        
         'n_head': {
             'values': [8, 16]
         },
@@ -132,6 +136,10 @@ sweep_config_v2 = {
         
         'a_type': {
             'values': ['conv']
+        },
+        
+        'cell_type': {
+            'values': ['sequential', 'parallel']
         },
         
         'n_head': {
