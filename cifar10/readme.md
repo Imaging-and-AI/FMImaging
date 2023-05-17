@@ -28,14 +28,48 @@ The [run_sweep](./run_sweep.sh) script will start a sweeping run on selected gpu
 
 The ```torchrun``` or ```python -m torch.distributed.launch --use-env ...``` can be called to perform the multi-node training. To run the multi-node training on a cluster of 4 nodes, 
 
+on the local set up
+
+- single node, single gpu training
+```
+torchrun --nproc_per_node 1 --standalone cifar10/main_cifar.py --ddp
+
+python3 ./cifar10/run_imagenet.py --nproc_per_node 1 --standalone
+
+```
+
+- single node, multiple gpu training
+```
+torchrun --nproc_per_node 2 --standalone cifar10/main_cifar.py --ddp
+
+python3 ./cifar10/run_imagenet.py --nproc_per_node 2 --standalone
+
+```
+
+- two nodes, multiple gpu training
+```
+# every node has two processes, two nodes are trained together
+# gt7
+torchrun --nproc_per_node 2 --nnodes 2 --node_rank 0 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint gt7.nhlbi.nih.gov:9001 cifar10/main_cifar.py --ddp
+# gt3
+torchrun --nproc_per_node 2 --nnodes 2 --node_rank 1 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint gt7.nhlbi.nih.gov:9001 cifar10/main_cifar.py --ddp
+
+# gt7
+python3 ./cifar10/run_imagenet.py --nproc_per_node 2 --nnodes 2 --node_rank 0 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint gt7.nhlbi.nih.gov:9001
+# gt3
+python3 ./cifar10/run_imagenet.py --nproc_per_node 2 --nnodes 2 --node_rank 1 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint gt7.nhlbi.nih.gov:9001
+
+```
+
+- four nodes, on cloud
 ```
 # on master node (fsi1)
-python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 0 --rdzv_id 100 --rdzv_endpoint 172.16.0.4:9001 --output_file /export/Lab-Xue/projects/imagenet/run.sh
+python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 0 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
 
 # on other nodes
-python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 1 --rdzv_id 100 --rdzv_endpoint 172.16.0.4:9001 --output_file /export/Lab-Xue/projects/imagenet/run.sh
+python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 1 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
 
-python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 2 --rdzv_id 100 --rdzv_endpoint 172.16.0.4:9001 --output_file /export/Lab-Xue/projects/imagenet/run.sh
+python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 2 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
 
-python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 3 --rdzv_id 100 --rdzv_endpoint 172.16.0.4:9001 --output_file /export/Lab-Xue/projects/imagenet/run.sh
+python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 3 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
 ```
