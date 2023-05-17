@@ -62,21 +62,29 @@ def check_args(config):
         - config (Namespace): the checked and updated argparse for Cifar10
     """
     assert config.run_name is not None, f"Please provide a \"--run_name\" for wandb"
-    assert config.data_root is not None, f"Please provide a \"--data_root\" to load the data"
     assert config.log_path is not None, f"Please provide a \"--log_path\" to save the logs in"
     assert config.results_path is not None, f"Please provide a \"--results_path\" to save the results in"
     assert config.model_path is not None, f"Please provide a \"--model_path\" to save the final model in"
     assert config.check_path is not None, f"Please provide a \"--check_path\" to save the checkpoints in"
 
-    config.time = 1
-    config.height = [32]
-    config.width = [32]
-    config.num_classes = 10
+    if config.data_set == 'cifar10':
+        config.time = 1
+        config.height = [32]
+        config.width = [32]
+        config.num_classes = 10
+    
+    if config.data_set == 'cifar10' and config.data_root is None:
+        config.data_root = "/export/Lab-Xue/projects/cifar10/data"
+        
+    if config.data_set == 'cifar100' and config.data_root is None:
+        config.data_root = "/export/Lab-Xue/projects/cifar100/data"
 
     if config.data_set == "imagenet":
         config.height = [256]
         config.width = [256]
         config.num_classes = 1000
+        if config.data_root is None:
+            config.data_root = "/export/Lab-Xue/projects/imagenet/data"
     
     return config
 

@@ -48,15 +48,15 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
         parser : new/modified parser
     """
     # common paths
-    parser.add_argument("--log_path", type=str, default=None, help='directory for log files')
-    parser.add_argument("--results_path", type=str, default=None, help='folder to save results in')
-    parser.add_argument("--model_path", type=str, default=None, help='directory for saving the final model')
-    parser.add_argument("--check_path", type=str, default=None, help='directory for saving checkpoints (model weights)')
+    parser.add_argument("--log_path", type=str, default='/export/Lab-Xue/projects/log', help='directory for log files')
+    parser.add_argument("--results_path", type=str, default='/export/Lab-Xue/projects/results', help='folder to save results in')
+    parser.add_argument("--model_path", type=str, default='/export/Lab-Xue/projects/models', help='directory for saving the final model')
+    parser.add_argument("--check_path", type=str, default='/export/Lab-Xue/projects/checkpoints', help='directory for saving checkpoints (model weights)')
 
     # wandb
     parser.add_argument("--project", type=str, default='STCNNT', help='project name')
-    parser.add_argument("--run_name", type=str, default=None, help='current run name')
-    parser.add_argument("--run_notes", type=str, default=None, help='notes for the current run')
+    parser.add_argument("--run_name", type=str, default='cifar', help='current run name')
+    parser.add_argument("--run_notes", type=str, default='cifar_train', help='notes for the current run')
     parser.add_argument("--wandb_entity", type=str, default="gadgetron", help='wandb entity to link with')
     parser.add_argument("--sweep_id", type=str, default="none", help='sweep id for hyper parameter searching')
 
