@@ -168,47 +168,48 @@ def run_training():
                 
     except KeyboardInterrupt:
         print('Interrupted')
-        try: 
-            torch.distributed.destroy_process_group()
-        except KeyboardInterrupt: 
-            os.system("kill $(ps aux | grep torchrun | grep -v grep | awk '{print $2}') ")
-            os.system("kill $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
+
+        if config_default.ddp:
+            torch.distributed.destroy_process_group()            
+
+        os.system("kill $(ps aux | grep torchrun | grep -v grep | awk '{print $2}') ")
+        os.system("kill $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
     
 # -------------------------------------------------------------------------------------------------
 # main function. spawns threads if going for distributed data parallel
 
 def main():
     
+    if config_default.ddp:
+        if not dist.is_initialized():            
+            dist.init_process_group("nccl")
+                
     sweep_id = config_default.sweep_id
 
     if config_default.ddp:        
         rank = int(os.environ["LOCAL_RANK"])
+        print(f"---> dist.init_process_group on local rank {rank}", flush=True)
     else:
         rank=-1
-        
+                        
     # note the sweep_id is used to control the condition
-    print("get sweep id : ", sweep_id)
+    print("get sweep id : ", sweep_id, flush=True)
     if (sweep_id != "none"):
-        print("start sweep runs ...")
-        
-        if config_default.ddp:
-            if not dist.is_initialized():
-                print(f"---> dist.init_process_group on local rank {rank}", flush=True)
-                dist.init_process_group("nccl", timeout=timedelta(seconds=18000))
+        print("start sweep runs ...", flush=True)
                     
         if rank<=0:
             wandb.agent(sweep_id, run_training, project="cifar", count=50)
         else:
-            print(f"--> local rank {rank} - not start another agent")
-            run_training() 
-            
-        if config_default.ddp:
-            if dist.is_initialized():
-                print(f"---> dist.destory_process_group on local rank {rank}", flush=True)
-                dist.destroy_process_group()
+            print(f"--> local rank {rank} - not start another agent", flush=True)
+            run_training()             
     else:
-        print("start a regular run ...")        
+        print("start a regular run ...", flush=True)        
         run_training()
+
+    if config_default.ddp:
+        if dist.is_initialized():
+            print(f"---> dist.destory_process_group on local rank {rank}", flush=True)
+            dist.destroy_process_group()
 
 if __name__=="__main__":
     main()
