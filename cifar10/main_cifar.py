@@ -78,15 +78,24 @@ def check_args(config):
         
     if config.run_name is None: config.run_name = config.data_set + '_' + datetime.now().strftime("%H-%M-%S")
 
-    config.time = 1
-    config.height = [32]
-    config.width = [32]
-    config.num_classes = 10
+    if config.data_set == 'cifar10':
+        config.time = 1
+        config.height = [32]
+        config.width = [32]
+        config.num_classes = 10
+    
+    if config.data_set == 'cifar10' and config.data_root is None:
+        config.data_root = "/export/Lab-Xue/projects/cifar10/data"
+        
+    if config.data_set == 'cifar100' and config.data_root is None:
+        config.data_root = "/export/Lab-Xue/projects/cifar100/data"
 
     if config.data_set == "imagenet":
         config.height = [256]
         config.width = [256]
         config.num_classes = 1000
+        if config.data_root is None:
+            config.data_root = "/export/Lab-Xue/projects/imagenet/data"
     
     return config
    
