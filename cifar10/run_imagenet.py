@@ -126,6 +126,8 @@ def main():
 
     # unchanging commands
     cmd.extend([
+        "--data_set", "imagenet",
+        
         "--summary_depth", "6",
         "--save_cycle", "200",
         

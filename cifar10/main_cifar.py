@@ -78,8 +78,9 @@ def check_args(config):
         
     if config.run_name is None: config.run_name = config.data_set + '_' + datetime.now().strftime("%H-%M-%S")
 
-    if config.data_set == 'cifar10':
-        config.time = 1
+    config.time = 1
+
+    if config.data_set == 'cifar10':        
         config.height = [32]
         config.width = [32]
         config.num_classes = 10
