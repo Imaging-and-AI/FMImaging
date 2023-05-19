@@ -147,6 +147,13 @@ do
     echo "update node $n ..."
     ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "cd /home/gtuser/mrprogs/STCNNT.git && git pull"
 done
+
+for n in fsi{1..8}
+do
+    echo "check node $n ..."
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "sudo nvidia-smi -pm 1"
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "nvidia-smi"
+done
 ```
 
 ## Reinstall nvidia driver
