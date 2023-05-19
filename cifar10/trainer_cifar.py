@@ -503,10 +503,11 @@ def eval_test(rank, model, config, wandb_run, test_set=None, device="cpu", id=""
 
     loss, acc_1, acc_5 = eval(rank=rank, model=model, config=config, data_set=test_set, epoch=config.num_epochs, device=device, wandb_run=wandb_run, id=id, run_mode="test")
     
-    wandb_run.summary[f"test_loss_avg_{id}"] = loss
-    wandb_run.summary[f"test_acc_1_{id}"] = acc_1
-    wandb_run.summary[f"test_acc_5_{id}"] = acc_5
-    
-    save_results(config, loss, acc_1, id)
+    if rank<=0:
+        wandb_run.summary[f"test_loss_avg_{id}"] = loss
+        wandb_run.summary[f"test_acc_1_{id}"] = acc_1
+        wandb_run.summary[f"test_acc_5_{id}"] = acc_5
+        
+        save_results(config, loss, acc_1, id)
 
     return loss, acc_1, acc_5
