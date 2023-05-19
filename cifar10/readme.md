@@ -136,4 +136,18 @@ do
     az vm start --name $n -g $rg
 done
 
+for n in fsi{1..8}
+do
+    echo "update node $n ..."
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "git clone git@github.com:AzR919/STCNNT.git /home/gtuser/mrprogs/STCNNT.git"
+done
+
+for n in fsi{1..8}
+do
+    echo "update node $n ..."
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "cd /home/gtuser/mrprogs/STCNNT.git && git pull"
+done
+
+
+
 ```
