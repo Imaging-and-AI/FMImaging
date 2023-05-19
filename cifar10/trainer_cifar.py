@@ -211,7 +211,7 @@ def trainer(rank, config, wandb_run):
     
     if c.ddp:
         #dist.init_process_group("nccl", rank=rank, world_size=c.world_size, timeout=timedelta(seconds=1800))
-        device = rank
+        device = torch.device(f"cuda:{rank}")
         model = model.to(device)
         model = DDP(model, device_ids=[rank], find_unused_parameters=True)
         optim = model.module.optim
@@ -325,10 +325,12 @@ def trainer(rank, config, wandb_run):
 
             pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} tra, {inputs.shape}, loss {train_loss.avg:.4f}, {Fore.YELLOW}acc-1 {train_acc_1.avg:.4f}{Style.RESET_ALL}, {Fore.RED}acc-5 {train_acc_5.avg:.4f}{Style.RESET_ALL}, lr {curr_lr:.8f}")
 
+        # -----------------------------------------------------
+        # run eval, save and log in this process
+        val_loss_avg, val_acc_1, val_acc_5 = eval_val(rank, model, c, val_set, epoch, device=device, wandb_run=wandb_run)
+            
         if rank<=0: # main or master process
-            # run eval, save and log in this process
-            model_e = model.module if c.ddp else model
-            val_loss_avg, val_acc_1, val_acc_5 = eval_val(model_e, c, val_set, epoch, device, wandb_run=wandb_run)
+            model_e = model.module if c.ddp else model            
             if val_loss_avg < best_val_loss:
                 best_val_loss = val_loss_avg
                 best_model_wts = copy.deepcopy(model_e.state_dict())
@@ -385,17 +387,17 @@ def trainer(rank, config, wandb_run):
         # model = model.module if c.ddp else model
         # model.save(epoch) # save the final weights
         # # test last model
-        # eval_test(model, config, test_set=None, device=device, id="last", wandb_run=wandb_run)
+        # eval_test(rank, model, config, test_set=None, device=device, id="last", wandb_run=wandb_run)
         # # test best model
         # model.load_state_dict(best_model_wts)
-        # eval_test(model, config, test_set=None, device=device, id="best", wandb_run=wandb_run)
+        # eval_test(rank, model, config, test_set=None, device=device, id="best", wandb_run=wandb_run)
         # # save both models
         # save_final_model(model, config, best_model_wts)
 
 # -------------------------------------------------------------------------------------------------
 # evaluate the val set
 
-def eval(model, config, data_set, epoch, device, wandb_run, id="", run_mode="val"):
+def eval(rank, model, config, data_set, epoch, device, wandb_run, id="", run_mode="val"):
     """
     The validation evaluation.
     @args:
@@ -415,12 +417,19 @@ def eval(model, config, data_set, epoch, device, wandb_run, id="", run_mode="val
     # else:
     #     sampler = None
     
-    sampler = None
-    data_loader = DataLoader(dataset=data_set, batch_size=c.batch_size, shuffle=False, sampler=sampler,
-                                num_workers=c.num_workers, prefetch_factor=c.prefetch_factor,
-                                persistent_workers=c.num_workers>0)
+    shuffle = False
+    
+    if c.ddp:
+        loss_f = model.module.loss_f
+        sampler = DistributedSampler(data_set)    
+    else:
+        loss_f = model.loss_f
+        sampler = None
 
-    loss_f = model.loss_f
+    data_loader = DataLoader(dataset=data_set, batch_size=c.batch_size, shuffle=shuffle, sampler=sampler,
+                                num_workers=c.num_workers, prefetch_factor=c.prefetch_factor, drop_last=True,
+                                persistent_workers=c.num_workers>0)
+        
     data_loss = AverageMeter()
     data_acc_1 = AverageMeter()
     data_acc_5 = AverageMeter()
@@ -429,7 +438,6 @@ def eval(model, config, data_set, epoch, device, wandb_run, id="", run_mode="val
     Accuracy_5 = torchmetrics.Accuracy(task="multiclass", num_classes=config.num_classes, top_k=5).to(device=device)
     
     model.eval()
-    model.to(device)
 
     data_loader_iter = iter(data_loader)
     total_iters = len(data_loader) if not c.debug else 10
@@ -460,23 +468,40 @@ def eval(model, config, data_set, epoch, device, wandb_run, id="", run_mode="val
                 pbar.update(1)
                 pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} {run_mode}, {inputs.shape}, loss {loss.item():.4f}, {Fore.RED}acc {data_acc_1.avg:.4f}{Style.RESET_ALL}")
 
-                if run_mode == "test":
+                if rank<=0 and run_mode == "test":
                     wandb_run.log({f"running_test_loss_{id}": loss.item(), f"running_test_acc_1_{id}": data_acc_1.avg})
                 
-            pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} {run_mode}, {id} {inputs.shape}, loss {data_loss.avg:.4f}, {Fore.YELLOW} acc-1 {data_acc_1.avg:.4f}, {Fore.RED} acc-5 {data_acc_5.avg:.4f}{Style.RESET_ALL}")
+            pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} {run_mode}, rank {rank}, {id} {inputs.shape}, loss {data_loss.avg:.4f}, {Fore.YELLOW} acc-1 {data_acc_1.avg:.4f}, {Fore.RED} acc-5 {data_acc_5.avg:.4f}{Style.RESET_ALL}")
 
-    return data_loss.avg, data_acc_1.avg, data_acc_5.avg
+    # aggregate the measurement
+    if c.ddp:
+        acc_1 = torch.tensor(data_acc_1.avg).to(device=device)
+        dist.all_reduce(acc_1, op=torch.distributed.ReduceOp.AVG)
+        
+        acc_5 = torch.tensor(data_acc_5.avg).to(device=device)
+        dist.all_reduce(acc_5, op=torch.distributed.ReduceOp.AVG)
+        
+        d_loss = torch.tensor(data_loss.avg).to(device=device)
+        dist.all_reduce(d_loss, op=torch.distributed.ReduceOp.AVG)
+    else:
+        acc_1 = data_acc_1.avg
+        acc_5 = data_acc_5.avg
+        d_loss = data_loss.avg
+
+    if rank<=0: logging.info(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} {run_mode}, loss {d_loss:.4f}, {Fore.YELLOW} acc-1 {acc_1:.4f}, {Fore.RED} acc-5 {acc_5:.4f}{Style.RESET_ALL}")
+    
+    return d_loss, acc_1, acc_5
 
 # -------------------------------------------------------------------------------------------------
-def eval_val(model, config, val_set, epoch, device, wandb_run):
-    loss, acc_1, acc_5 = eval(model=model, config=config, data_set=val_set, epoch=epoch, device=device, wandb_run=wandb_run, id="", run_mode="val")
+def eval_val(rank, model, config, val_set, epoch, device, wandb_run):
+    loss, acc_1, acc_5 = eval(rank=rank, model=model, config=config, data_set=val_set, epoch=epoch, device=device, wandb_run=wandb_run, id="", run_mode="val")
     return loss, acc_1, acc_5
     
-def eval_test(model, config, wandb_run, test_set=None, device="cpu", id=""):
+def eval_test(rank, model, config, wandb_run, test_set=None, device="cpu", id=""):
     # if no test_set given then load the base set
     if test_set is None: test_set = create_base_test_set(config)
 
-    loss, acc_1, acc_5 = eval(model=model, config=config, data_set=test_set, epoch=config.num_epochs, device=device, wandb_run=wandb_run, id=id, run_mode="test")
+    loss, acc_1, acc_5 = eval(rank=rank, model=model, config=config, data_set=test_set, epoch=config.num_epochs, device=device, wandb_run=wandb_run, id=id, run_mode="test")
     
     wandb_run.summary[f"test_loss_avg_{id}"] = loss
     wandb_run.summary[f"test_acc_1_{id}"] = acc_1
