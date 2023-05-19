@@ -147,7 +147,21 @@ do
     echo "update node $n ..."
     ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "cd /home/gtuser/mrprogs/STCNNT.git && git pull"
 done
+```
 
+## Reinstall nvidia driver
+```
+# remote old installation if any
+sudo apt-get --purge remove cuda*
+sudo apt-get remove --purge nvidia-*
 
+# add nvidia driver ppa
+sudo add-apt-repository ppa:graphics-drivers/ppa -y
 
+# update software cache
+sudo apt update
+sudo apt upgrade -y
+
+sudo apt-get install ubuntu-drivers-common -y
+sudo ubuntu-drivers install 525 -y
 ```
