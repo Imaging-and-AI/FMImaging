@@ -19,7 +19,7 @@ def arg_parser():
     parser = argparse.ArgumentParser("Argument parser for STCNNT Cifar10")   
     parser.add_argument("--standalone", action="store_true", help='whether to run in the standalone mode')
     parser.add_argument("--nproc_per_node", type=int, default=1, help="number of processes per node")
-    parser.add_argument("--nnodes", type=int, default=1, help="number of nodes")
+    parser.add_argument("--nnodes", type=str, default="1", help="number of nodes")
     parser.add_argument("--node_rank", type=int, default=0, help="current node rank")
     parser.add_argument("--rdzv_id", type=int, default=100, help="run id")
     parser.add_argument("--rdzv_backend", type=str, default="c10d", help="backend of torchrun")
@@ -99,12 +99,12 @@ def main():
     # base command to run a file
     cmd = ["torchrun"]
 
-    cmd.extend(["--nproc_per_node", f"{config.nproc_per_node}"])
+    cmd.extend(["--nproc_per_node", f"{config.nproc_per_node}", "--max_restarts", "6"])
 
     if config.standalone:
         cmd.extend(["--standalone"])
     else:
-        cmd.extend(["--nnodes", f"{config.nnodes}", 
+        cmd.extend(["--nnodes", config.nnodes, 
                     "--node_rank", f"{config.node_rank}", 
                     "--rdzv_id", f"{config.rdzv_id}", 
                     "--rdzv_backend", f"{config.rdzv_backend}", 
