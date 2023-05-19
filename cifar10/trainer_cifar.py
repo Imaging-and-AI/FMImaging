@@ -273,7 +273,7 @@ def trainer(rank, config, wandb_run):
     optim.zero_grad(set_to_none=True)
 
     for epoch in range(curr_epoch, c.num_epochs):
-        if rank<=0: logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}{'-'*20}{Style.RESET_ALL}")
+        logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank{rank} {'-'*20}{Style.RESET_ALL}")
 
         model.train()
         if c.ddp: train_loader.sampler.set_epoch(epoch)
@@ -281,8 +281,8 @@ def trainer(rank, config, wandb_run):
 
         train_loader_iter = iter(train_loader)
         total_iters = len(train_loader) if not c.debug else 10
-        with tqdm(total=total_iters, disable=rank>0) as pbar:
-
+        #with tqdm(total=total_iters, disable=rank>0) as pbar:
+        with tqdm(total=total_iters) as pbar:
             for idx in range(total_iters):
                 
                 inputs, labels = next(train_loader_iter)
@@ -321,9 +321,9 @@ def trainer(rank, config, wandb_run):
                     wandb_run.log({"lr": curr_lr})
 
                 pbar.update(1)
-                pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} tra, {inputs.shape}, loss {train_loss.avg:.4f}, lr {curr_lr:.8f}")
+                pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} tra, rank {rank}, {inputs.shape}, loss {train_loss.avg:.4f}, lr {curr_lr:.8f}")
 
-            pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} tra, {inputs.shape}, loss {train_loss.avg:.4f}, {Fore.YELLOW}acc-1 {train_acc_1.avg:.4f}{Style.RESET_ALL}, {Fore.RED}acc-5 {train_acc_5.avg:.4f}{Style.RESET_ALL}, lr {curr_lr:.8f}")
+            pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} tra, rank {rank}, loss {train_loss.avg:.4f}, {Fore.YELLOW}acc-1 {train_acc_1.avg:.4f}{Style.RESET_ALL}, {Fore.RED}acc-5 {train_acc_5.avg:.4f}{Style.RESET_ALL}, lr {curr_lr:.8f}")
 
         # -----------------------------------------------------
         # run eval, save and log in this process
@@ -355,30 +355,24 @@ def trainer(rank, config, wandb_run):
                         "val_acc_1":val_acc_1,
                         "val_acc_5":val_acc_5})
 
+        if stype != "OneCycleLR":
             if stype == "ReduceLROnPlateau":
                 sched.step(1.0 - val_acc_1)
             else: # stype == "StepLR"
                 sched.step()
 
-            if c.ddp:
-                new_lr_0 = torch.zeros(1).to(rank)
-                new_lr_0[0] = optim.param_groups[0]["lr"]
-                dist.broadcast(new_lr_0, src=0)
-
-                if not c.all_w_decay:
-                    new_lr_1 = torch.zeros(1).to(rank)
-                    new_lr_1[0] = optim.param_groups[1]["lr"]
-                    dist.broadcast(new_lr_1, src=0)
-        else: # child processes
-            new_lr_0 = torch.zeros(1).to(rank)
-            dist.broadcast(new_lr_0, src=0)
-            optim.param_groups[0]["lr"] = new_lr_0.item()
-
-            if not c.all_w_decay:
-                new_lr_1 = torch.zeros(1).to(rank)
-                dist.broadcast(new_lr_1, src=0)
-                optim.param_groups[1]["lr"] = new_lr_1.item()
-
+        # if c.ddp:
+        #     new_lr_0 = torch.zeros(1).to(rank)
+        #     new_lr_0[0] = optim.param_groups[0]["lr"]
+        #     dist.broadcast(new_lr_0, src=0)
+        #     if rank>0: optim.param_groups[0]["lr"] = new_lr_0[0].item()
+            
+        #     if not c.all_w_decay:
+        #         new_lr_1 = torch.zeros(1).to(rank)
+        #         new_lr_1[0] = optim.param_groups[1]["lr"]
+        #         dist.broadcast(new_lr_1, src=0)
+        #         if rank>0: optim.param_groups[1]["lr"] = new_lr_1[0].item()
+                    
     if rank<=0: # main or master process
         # test and save model
         wandb_run.summary["best_val_loss"] = best_val_loss
