@@ -81,6 +81,23 @@ python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 2 --
 
 python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 4 --node_rank 3 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
 
+# imagenet
+python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 8 --node_rank 0 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 8 --node_rank 1 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 8 --node_rank 2 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 8 --node_rank 3 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 8 --node_rank 4 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 8 --node_rank 5 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 8 --node_rank 6 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+python3 ./cifar10/run_imagenet.py --nproc_per_node 4 --nnodes 8 --node_rank 7 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
 # cifar
 python3 ./cifar10/run_cifar.py --nproc_per_node 4 --nnodes 4 --node_rank 0 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
 
@@ -90,5 +107,33 @@ python3 ./cifar10/run_cifar.py --nproc_per_node 4 --nnodes 4 --node_rank 2 --rdz
 
 python3 ./cifar10/run_cifar.py --nproc_per_node 4 --nnodes 4 --node_rank 3 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
 
+
+```
+
+## Start/stop VMs
+
+Install az cli:
+```
+curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+az login --use-device-code
+
+```
+
+```
+rg=xueh2-a100-eastus2
+
+for n in node1 node2 node3 node4 node5 node6 node7 node8
+do
+    echo "stop node $n ..."
+    az vm stop --name $n -g $rg
+    az vm deallocate --name $n -g $rg
+done
+
+for n in node1 node2 node3 node4 node5 node6 node7 node8
+do
+    echo "start node $n ..."
+    az vm start --name $n -g $rg
+done
 
 ```

@@ -6,6 +6,7 @@ import argparse
 import itertools
 import subprocess
 import os
+import shutil
 
 
 def arg_parser():
@@ -13,7 +14,7 @@ def arg_parser():
     @args:
         - No args
     @rets:
-        - parser (ArgumentParser): the argparse for torchrun
+        - parser (ArgumentParser): the argparse for torchrun of cifar10
     """
     parser = argparse.ArgumentParser("Argument parser for STCNNT Cifar10")   
     parser.add_argument("--standalone", action="store_true", help='whether to run in the standalone mode')
@@ -23,7 +24,8 @@ def arg_parser():
     parser.add_argument("--rdzv_id", type=int, default=100, help="run id")
     parser.add_argument("--rdzv_backend", type=str, default="c10d", help="backend of torchrun")
     parser.add_argument("--rdzv_endpoint", type=str, default="localhost:9001", help="master node endpoint")
-    parser.add_argument("--output_file", type=str, default="imagenet_run.sh", help="imagenet run file")
+    parser.add_argument("--load_path", type=str, default=None, help="check point file to load if provided")
+    parser.add_argument("--clean_checkpoints", action="store_true", help='whether to delete previous check point files')
     
     args = parser.parse_args()
     
@@ -37,7 +39,7 @@ def create_cmd_run(cmd_run,
                    cell_type='sequential', 
                    norm_mode='batch2d', 
                    block_dense_connection=1, 
-                   c=64, 
+                   c=32, 
                    q_k_norm=True, 
                    cosine_att=1, 
                    att_with_relative_postion_bias=1, 
@@ -45,7 +47,8 @@ def create_cmd_run(cmd_run,
                    larger_mixer_kernel=True,
                    mixer_type="conv",
                    shuffle_in_window=0,
-                   scale_ratio_in_mixer=2.0
+                   scale_ratio_in_mixer=2.0,
+                   load_path=None
                 ):
     
     run_str = f"{a_type}-{cell_type}-{norm_mode}-C-{c}-mixer-{mixer_type}-{larger_mixer_kernel}-{scale_ratio_in_mixer}-{int(scale_ratio_in_mixer)}-block_dense-{block_dense_connection}-qknorm-{q_k_norm}-cosine_att-{cosine_att}-shuffle_in_window-{shuffle_in_window}-att_with_relative_postion_bias-{att_with_relative_postion_bias}-block_str-{'_'.join(bs)}"
@@ -77,6 +80,9 @@ def create_cmd_run(cmd_run,
         cmd_run.extend(["--normalize_Q_K"])
         
     cmd_run.extend([f"--backbone_{bk}.block_str", *bs])
+    
+    if load_path is not None:
+        cmd_run.extend(["--load_path", load_path])
         
     print(f"Running command:\n{' '.join(cmd_run)}")
 
@@ -113,10 +119,18 @@ def main():
         project_base_dir = '/export/Lab-Xue/projects'
 
     # unchanging paths
+    
+    ckp_path = os.path.join(project_base_dir, "cifar10", "checkpoints")
+    
+    if config.load_path is None:
+        if config.clean_checkpoints:
+            shutil.rmtree(ckp_path, ignore_errors=True)
+            os.mkdir(ckp_path)
+    
     cmd.extend([
         "--data_set", "cifar10",
         "--data_root", os.path.join(project_base_dir, "cifar10", "data"),
-        "--check_path", os.path.join(project_base_dir, "cifar10", "checkpoints"),
+        "--check_path", ckp_path,
         "--model_path", os.path.join(project_base_dir, "cifar10", "models"),
         "--log_path", os.path.join(project_base_dir, "cifar10", "logs"),
         "--results_path", os.path.join(project_base_dir, "cifar10", "results")
@@ -126,6 +140,8 @@ def main():
 
     # unchanging commands
     cmd.extend([
+        "--data_set", "cifar10",
+        
         "--summary_depth", "6",
         "--save_cycle", "200",
         
@@ -185,8 +201,8 @@ def main():
     mixer_types = ["conv"]
     shuffle_in_windows = ["0"]
     block_dense_connections = ["1"]
-    norm_modes = ["batch2d"]
-    C = [128]
+    norm_modes = ["layer"]
+    C = [64]
     scale_ratio_in_mixers = [4.0]
 
     block_strs = [
@@ -227,7 +243,8 @@ def main():
                                                                             larger_mixer_kernel=larger_mixer_kernel,
                                                                             mixer_type=mixer_type,
                                                                             shuffle_in_window=shuffle_in_window,
-                                                                            scale_ratio_in_mixer=scale_ratio_in_mixer)
+                                                                            scale_ratio_in_mixer=scale_ratio_in_mixer,
+                                                                            load_path=config.load_path)
                                                             
                                                             print("---" * 20)
                                                             print(cmd_run)

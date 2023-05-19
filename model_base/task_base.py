@@ -7,6 +7,7 @@ import sys
 import logging
 import abc 
 from abc import ABC
+from colorama import Fore, Style
 
 import torch
 import torch.nn as nn
@@ -26,7 +27,7 @@ sys.path.insert(1, str(Project_DIR))
 
 from imaging_attention import *
 from backbone.blocks import *
-from utils.utils import get_device, create_generic_class_str
+from utils.utils import get_device, create_generic_class_str, optimizer_to
 
 __all__ = ['STCNNT_Task_Base']
 
@@ -122,6 +123,7 @@ class STCNNT_Task_Base(nn.Module, ABC):
         self.optim = None
         self.sched = None
         self.stype = None
+        self.curr_epoch = 0
         if c.optim is None:
             return
 
@@ -181,7 +183,7 @@ class STCNNT_Task_Base(nn.Module, ABC):
         run_name = self.config.run_name.replace(" ", "_")
         save_file_name = f"{run_name}_{self.config.date}_epoch-{epoch}.pth"
         save_path = os.path.join(self.config.check_path, save_file_name)
-        logging.info(f"Saving model status at {save_path}")
+        logging.info(f"{Fore.YELLOW}Saving model status at {save_path}{Style.RESET_ALL}")
         torch.save({
             "epoch":epoch,
             "model_state": self.state_dict(), 
@@ -199,17 +201,20 @@ class STCNNT_Task_Base(nn.Module, ABC):
         @args (from config):
             - load_path (str): path to load the weights from
         """
-        logging.info(f"Loading model from {self.config.load_path}")
+        logging.info(f"{Fore.YELLOW}Loading model from {self.config.load_path}{Style.RESET_ALL}")
         
         device = get_device(device=device)
         
-        status = torch.load(self.config.load_path, map_location=device)
-        
+        status = torch.load(self.config.load_path, map_location=self.config.device)        
         self.load_state_dict(status['model_state'])
-        self.optim.load_state_dict(status['optimizer_state'])
-        self.sched.load_state_dict(status['scheduler_state'])
+        
+        self.optim.load_state_dict(status['optimizer_state'])   
+        optimizer_to(self.optim, device=self.config.device)
+             
+        self.sched.load_state_dict(status['scheduler_state'])        
         self.config = status['config']
         self.stype = status['scheduler_type']
+        self.curr_epoch = status['epoch']
 
 # -------------------------------------------------------------------------------------------------
 

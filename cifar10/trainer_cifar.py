@@ -176,10 +176,31 @@ def trainer(rank, config, wandb_run):
     train_set, val_set = create_dataset(config=config)
     total_steps = compute_total_steps(config, len(train_set))
     logging.info(f"total_steps for this run: {total_steps}, len(train_set) {len(train_set)}, batch {config.batch_size}")
+    
+    if config.ddp:
+        config.device = torch.device(f'cuda:{rank}')
+        
     model = STCNNT_Cifar(config=config, total_steps=total_steps)
 
-    if rank<=0:
+    # if config.load_path is not None:
+    #     print(f"load model from {config.load_path}")
+    #     status = torch.load(config.load_path, map_location=torch.device(f'cuda:{rank}'))
         
+    #     model.load_state_dict(status['model_state'])
+        
+    #     model.optim.load_state_dict(status['optimizer_state'])
+    #     optimizer_to(model.optim, device=torch.device(f'cuda:{rank}'))
+              
+    #     model.sched.load_state_dict(status['scheduler_state'])        
+    #     model.config = status['config']
+    #     model.stype = status['scheduler_type']
+    #     model.curr_epoch = status['epoch']
+
+    if config.ddp:
+        dist.barrier()
+
+    if rank<=0:
+                        
         # model summary
         model_summary = model_info(model, config)
         logging.info(f"Configuration for this run:\n{config}")
@@ -197,6 +218,7 @@ def trainer(rank, config, wandb_run):
         sched = model.module.sched
         stype = model.module.stype
         loss_f = model.module.loss_f
+        curr_epoch = model.module.curr_epoch
         sampler = DistributedSampler(train_set)
         shuffle = False
         
@@ -209,6 +231,7 @@ def trainer(rank, config, wandb_run):
         sched = model.sched
         stype = model.stype
         loss_f = model.loss_f
+        curr_epoch = model.curr_epoch
         sampler = None
         shuffle = True
 
@@ -249,7 +272,7 @@ def trainer(rank, config, wandb_run):
 
     optim.zero_grad(set_to_none=True)
 
-    for epoch in range(c.num_epochs):
+    for epoch in range(curr_epoch, c.num_epochs):
         if rank<=0: logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}{'-'*20}{Style.RESET_ALL}")
 
         model.train()
@@ -298,9 +321,9 @@ def trainer(rank, config, wandb_run):
                     wandb_run.log({"lr": curr_lr})
 
                 pbar.update(1)
-                pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, loss {train_loss.avg:.4f}, lr {curr_lr:.8f}")
+                pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} tra, {inputs.shape}, loss {train_loss.avg:.4f}, lr {curr_lr:.8f}")
 
-            pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, loss {train_loss.avg:.4f}, {Fore.YELLOW}acc-1 {train_acc_1.avg:.4f}{Style.RESET_ALL}, {Fore.RED}acc-5 {train_acc_5.avg:.4f}{Style.RESET_ALL}, lr {curr_lr:.8f}")
+            pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} tra, {inputs.shape}, loss {train_loss.avg:.4f}, {Fore.YELLOW}acc-1 {train_acc_1.avg:.4f}{Style.RESET_ALL}, {Fore.RED}acc-5 {train_acc_5.avg:.4f}{Style.RESET_ALL}, lr {curr_lr:.8f}")
 
         if rank<=0: # main or master process
             # run eval, save and log in this process
@@ -310,10 +333,9 @@ def trainer(rank, config, wandb_run):
                 best_val_loss = val_loss_avg
                 best_model_wts = copy.deepcopy(model_e.state_dict())
             if val_acc_1 > best_val_acc:
-                best_val_acc = val_acc_1
-                #model_e.save(epoch)                
+                best_val_acc = val_acc_1                
+                model_e.save(epoch)                
                 wandb_run.log({"epoch": epoch, "best_val_acc":best_val_acc})
-                logging.info(f"{Fore.RED}{'---->'} log best val acc {best_val_acc:.4f}{Style.RESET_ALL}")
 
             # silently log to only the file as well
             logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, tra, {inputs.shape}, loss {train_loss.avg:.4f}, acc 1 {train_acc_1.avg:.4f}, acc 5 {train_acc_5.avg:.4f}, lr {curr_lr:.8f}")
@@ -388,7 +410,13 @@ def eval(model, config, data_set, epoch, device, wandb_run, id="", run_mode="val
     """
     c = config # shortening due to numerous uses
 
-    data_loader = DataLoader(dataset=data_set, batch_size=c.batch_size, shuffle=False, sampler=None,
+    # if c.ddp:
+    #     sampler = DistributedSampler(data_set)
+    # else:
+    #     sampler = None
+    
+    sampler = None
+    data_loader = DataLoader(dataset=data_set, batch_size=c.batch_size, shuffle=False, sampler=sampler,
                                 num_workers=c.num_workers, prefetch_factor=c.prefetch_factor,
                                 persistent_workers=c.num_workers>0)
 
@@ -406,7 +434,7 @@ def eval(model, config, data_set, epoch, device, wandb_run, id="", run_mode="val
     data_loader_iter = iter(data_loader)
     total_iters = len(data_loader) if not c.debug else 10
     
-    with torch.no_grad():
+    with torch.inference_mode():
         with tqdm(total=total_iters) as pbar:
 
             for idx in range(total_iters):
@@ -430,12 +458,12 @@ def eval(model, config, data_set, epoch, device, wandb_run, id="", run_mode="val
                 data_acc_5.update(acc_5, n=output.shape[0])
 
                 pbar.update(1)
-                pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, {run_mode}, {inputs.shape}, loss {loss.item():.4f}, {Fore.RED}acc {data_acc_1.avg:.4f}{Style.RESET_ALL}")
+                pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} {run_mode}, {inputs.shape}, loss {loss.item():.4f}, {Fore.RED}acc {data_acc_1.avg:.4f}{Style.RESET_ALL}")
 
                 if run_mode == "test":
                     wandb_run.log({f"running_test_loss_{id}": loss.item(), f"running_test_acc_1_{id}": data_acc_1.avg})
                 
-            pbar.set_description(f"{run_mode} {id}, epoch {epoch}/{c.num_epochs}, {inputs.shape}, loss {data_loss.avg:.4f}, {Fore.YELLOW} acc-1 {data_acc_1.avg:.4f}, {Fore.RED} acc-5 {data_acc_5.avg:.4f}{Style.RESET_ALL}")
+            pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} {run_mode}, {id} {inputs.shape}, loss {data_loss.avg:.4f}, {Fore.YELLOW} acc-1 {data_acc_1.avg:.4f}, {Fore.RED} acc-5 {data_acc_5.avg:.4f}{Style.RESET_ALL}")
 
     return data_loss.avg, data_acc_1.avg, data_acc_5.avg
 

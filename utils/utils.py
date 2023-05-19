@@ -241,7 +241,7 @@ def setup_run(config, dirs=["log_path", "results_path", "model_path", "check_pat
     """
     # get current date
     now = datetime.now()
-    now = now.strftime("%m-%d-%Y_T%H-%M-%S")
+    now = now.strftime("%m-%d-%Y") # make sure in ddp, different nodes have the save file name
     config.date = now
 
     # setup logging
@@ -304,6 +304,22 @@ def get_device(device=None):
     return device if device is not None else \
             "cuda" if torch.cuda.is_available() else "cpu"
 
+# -------------------------------------------------------------------------------------------------
+
+def optimizer_to(optim, device):
+    for param in optim.state.values():
+        # Not sure there are any global tensors in the state dict
+        if isinstance(param, torch.Tensor):
+            param.data = param.data.to(device)
+            if param._grad is not None:
+                param._grad.data = param._grad.data.to(device)
+        elif isinstance(param, dict):
+            for subparam in param.values():
+                if isinstance(subparam, torch.Tensor):
+                    subparam.data = subparam.data.to(device)
+                    if subparam._grad is not None:
+                        subparam._grad.data = subparam._grad.data.to(device)
+                        
 # -------------------------------------------------------------------------------------------------
 
 def get_cuda_info(device):
