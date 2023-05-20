@@ -181,7 +181,7 @@ def main():
     wandb.init(project=config.project, entity=config.wandb_entity, config=config,
                         name=config.run_name, notes=config.run_notes)
 
-    eval_test(model, config, test_set=None, device="cuda")
+    eval_test(-1, model, config, test_set=None, device="cuda")
 
 if __name__=="__main__":
     main()

@@ -28,10 +28,42 @@ from model_base.losses import *
 from utils.save_model import save_final_model
 from utils.running_inference import running_inference
 
+from model_mri import STCNNT_MRI
+from data_mri import load_mri_data
+
+from colorama import Fore, Style
+
+# -------------------------------------------------------------------------------------------------
+
+def set_up_config_for_sweep(wandb_config, config):
+    config.num_epochs = wandb_config.num_epochs
+    config.batch_size = wandb_config.batch_size
+    config.global_lr = wandb_config.global_lr
+    config.window_size = wandb_config.window_size
+    config.patch_size = wandb_config.patch_size
+    config.weight_decay = wandb_config.weight_decay
+    config.scheduler_type = wandb_config.scheduler_type
+    config.use_amp = wandb_config.use_amp
+    config.a_type = wandb_config.a_type
+    config.cell_type = wandb_config.cell_type
+    config.n_head = wandb_config.n_head
+    config.scale_ratio_in_mixer = wandb_config.scale_ratio_in_mixer
+    
+    config.mixer_type = wandb_config.mixer_type
+    config.normalize_Q_K = wandb_config.normalize_Q_K
+    config.cosine_att = wandb_config.cosine_att
+    config.att_with_relative_postion_bias = wandb_config.att_with_relative_postion_bias
+       
+    config.backbone_hrnet.C = wandb_config.C
+    config.backbone_hrnet.num_resolution_levels = wandb_config.num_resolution_levels
+    config.backbone_hrnet.block_str = wandb_config.block_str
+    
+    return config
+
 # -------------------------------------------------------------------------------------------------
 # trainer
 
-def trainer(rank, model, config, train_set, val_set, test_set):
+def trainer(rank, config, wandb_run):
     """
     The trainer cycle. Allows training on cpu/single gpu/multiple gpu(ddp)
     @args:
@@ -45,17 +77,43 @@ def trainer(rank, model, config, train_set, val_set, test_set):
     """
     c = config # shortening due to numerous uses
 
+    train_set, val_set, test_set = load_mri_data(config=config)
+    total_steps = compute_total_steps(config, len(train_set))
+    logging.info(f"total_steps for this run: {total_steps}, len(train_set) {len(train_set)}, batch {config.batch_size}")
+    
+    if config.ddp:
+        config.device = torch.device(f'cuda:{rank}')
+    
+    model = STCNNT_MRI(config=config, total_steps=total_steps)
+    
+    if config.ddp:
+        dist.barrier()
+
+    if rank<=0:
+                        
+        # model summary
+        model_summary = model_info(model, config)
+        logging.info(f"Configuration for this run:\n{config}")
+        logging.info(f"Model Summary:\n{str(model_summary)}")
+        logging.info(f"Wandb name:\n{wandb_run.name}")
+                
+        wandb_run.watch(model)
+        
+    # -----------------------------------------------
+    
     if c.ddp:
-        dist.init_process_group("nccl", rank=rank, world_size=c.world_size)
-        device = rank
+        device = torch.device(f"cuda:{rank}")
         model = model.to(device)
         model = DDP(model, device_ids=[rank], find_unused_parameters=True)
         optim = model.module.optim
         sched = model.module.sched
         stype = model.module.stype
+        loss_f = model.module.loss_f
+        curr_epoch = model.module.curr_epoch
         samplers = [DistributedSampler(train_set_x) for train_set_x in train_set]
         shuffle = False
-        loss_f = model.module.loss_f
+        
+        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, {c.backbone}, C {c.backbone_hrnet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_hrnet.block_str}, {'-'*20}{Style.RESET_ALL}")
     else:
         # No init required if not ddp
         device = c.device
@@ -63,54 +121,39 @@ def trainer(rank, model, config, train_set, val_set, test_set):
         optim = model.optim
         sched = model.sched
         stype = model.stype
+        loss_f = model.loss_f
+        curr_epoch = model.curr_epoch
         samplers = [None for _ in train_set]
         shuffle = True
-        loss_f = model.loss_f
-
+        
+    # -----------------------------------------------
+    
     train_loader = [DataLoader(dataset=train_set_x, batch_size=c.batch_size, shuffle=shuffle, sampler=samplers[i],
                                 num_workers=c.num_workers, prefetch_factor=c.prefetch_factor, drop_last=True,
                                 persistent_workers=c.num_workers>0) for i, train_set_x in enumerate(train_set)]
 
+    # -----------------------------------------------
+    
     if rank<=0: # main or master process
         if c.ddp: setup_logger(config) # setup master process logging
 
-        wandb.init(project=c.project, entity=c.wandb_entity, config=c,
-                    name=c.run_name, notes=c.run_notes)
-        wandb.watch(model)
-        wandb.log({"trainable_params":c.trainable_params,
+        wandb_run.watch(model)
+        wandb_run.log({"trainable_params":c.trainable_params,
                     "total_params":c.total_params})
 
-        wandb.define_metric("epoch")    
-        wandb.define_metric("train_loss_avg", step_metric='epoch')
-        wandb.define_metric("train_mse_loss", step_metric='epoch')
-        wandb.define_metric("train_l1_loss", step_metric='epoch')
-        wandb.define_metric("train_ssim_loss", step_metric='epoch')
-        wandb.define_metric("train_ssim3D_loss", step_metric='epoch')
-        wandb.define_metric("train_psnr", step_metric='epoch')
-        wandb.define_metric("val_loss_avg", step_metric='epoch')
-        wandb.define_metric("val_mse_loss", step_metric='epoch')
-        wandb.define_metric("val_l1_loss", step_metric='epoch')
-        wandb.define_metric("val_ssim_loss", step_metric='epoch')
-        wandb.define_metric("val_ssim3D_loss", step_metric='epoch')
-        wandb.define_metric("val_psnr", step_metric='epoch')
-                            
-        # save best model to be saved at the end
-        best_val_loss = numpy.inf
-        best_model_wts = copy.deepcopy(model.module.state_dict() if c.ddp else model.state_dict())
-
-        train_loss = AverageMeter()
-
-        train_mse_meter = AverageMeter()
-        train_l1_meter = AverageMeter()
-        train_ssim_meter = AverageMeter()
-        train_ssim3D_meter = AverageMeter()
-        train_psnr_meter = AverageMeter()
-
-        mse_loss_func = MSE_Loss(complex_i=c.complex_i)
-        l1_loss_func = L1_Loss(complex_i=c.complex_i)
-        ssim_loss_func = SSIM_Loss(complex_i=c.complex_i, device=device)
-        ssim3D_loss_func = SSIM3D_Loss(complex_i=c.complex_i, device=device)
-        psnr_func = PSNR()
+        wandb_run.define_metric("epoch")    
+        wandb_run.define_metric("train_loss_avg", step_metric='epoch')
+        wandb_run.define_metric("train_mse_loss", step_metric='epoch')
+        wandb_run.define_metric("train_l1_loss", step_metric='epoch')
+        wandb_run.define_metric("train_ssim_loss", step_metric='epoch')
+        wandb_run.define_metric("train_ssim3D_loss", step_metric='epoch')
+        wandb_run.define_metric("train_psnr", step_metric='epoch')
+        wandb_run.define_metric("val_loss_avg", step_metric='epoch')
+        wandb_run.define_metric("val_mse_loss", step_metric='epoch')
+        wandb_run.define_metric("val_l1_loss", step_metric='epoch')
+        wandb_run.define_metric("val_ssim_loss", step_metric='epoch')
+        wandb_run.define_metric("val_ssim3D_loss", step_metric='epoch')
+        wandb_run.define_metric("val_psnr", step_metric='epoch')                            
         
         # log a few training examples
         for i, train_set_x in enumerate(train_set):            
@@ -126,28 +169,52 @@ def trainer(rank, model, config, train_set, val_set, test_set):
             title = f"Tra_samples_{i}_Noisy_Noisy_GT_{x.shape}"
             save_image_batch_wandb(title, c.complex_i, x, np.copy(x), y)
 
+    # -----------------------------------------------
+    # save best model to be saved at the end
+    best_val_loss = numpy.inf
+    best_model_wts = copy.deepcopy(model.module.state_dict() if c.ddp else model.state_dict())
+
+    train_loss = AverageMeter()
+
+    train_mse_meter = AverageMeter()
+    train_l1_meter = AverageMeter()
+    train_ssim_meter = AverageMeter()
+    train_ssim3D_meter = AverageMeter()
+    train_psnr_meter = AverageMeter()
+
+    mse_loss_func = MSE_Loss(complex_i=c.complex_i)
+    l1_loss_func = L1_Loss(complex_i=c.complex_i)
+    ssim_loss_func = SSIM_Loss(complex_i=c.complex_i, device=device)
+    ssim3D_loss_func = SSIM3D_Loss(complex_i=c.complex_i, device=device)
+    psnr_func = PSNR()
+        
+    # -----------------------------------------------
+    
     total_iters = sum([len(loader_x) for loader_x in train_loader])
     total_iters = total_iters if not c.debug else min(10, total_iters)
 
     # mix precision training
     scaler = torch.cuda.amp.GradScaler(enabled=c.use_amp)
     
+    optim.zero_grad(set_to_none=True)
+    
+    # -----------------------------------------------
+    
     for epoch in range(c.num_epochs):
-        if rank<=0:
-            logging.info(f"{'-'*20}Epoch:{epoch}/{c.num_epochs}{'-'*20}")
+        logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank{rank} {'-'*20}{Style.RESET_ALL}")
 
-            train_loss.reset()
-            train_mse_meter.reset()
-            train_l1_meter.reset()
-            train_ssim_meter.reset()
-            train_ssim3D_meter.reset()
-            train_psnr_meter.reset()
+        train_loss.reset()
+        train_mse_meter.reset()
+        train_l1_meter.reset()
+        train_ssim_meter.reset()
+        train_ssim3D_meter.reset()
+        train_psnr_meter.reset()
 
         model.train()
         if c.ddp: [loader_x.sampler.set_epoch(epoch) for loader_x in train_loader]
 
         train_loader_iter = [iter(loader_x) for loader_x in train_loader]
-        with tqdm(total=total_iters, disable=rank>0) as pbar:
+        with tqdm(total=total_iters) as pbar:
 
             for idx in range(total_iters):
 
@@ -183,7 +250,7 @@ def trainer(rank, model, config, train_set, val_set, test_set):
                 curr_lr = optim.param_groups[0]['lr']
                 
                 if rank<=0:
-                    wandb.log({"running_train_loss": loss.item()})
+                    wandb_run.log({"running_train_loss": loss.item()})
                     total=x.shape[0]
                     train_loss.update(loss.item(), n=total)
 
@@ -230,7 +297,7 @@ def trainer(rank, model, config, train_set, val_set, test_set):
                                                 f"{val_losses[1]:.4f}, {val_losses[2]:.4f}, {val_losses[3]:.4f}, "+
                                                 f"{val_losses[4]:.4f}, {val_losses[5]:.4f}, lr {curr_lr:.8f}")
         
-            wandb.log({"epoch": epoch,
+            wandb_run.log({"epoch": epoch,
                         "train_loss_avg": train_loss.avg,
                         "train_mse_loss": train_mse_meter.avg,
                         "train_l1_loss": train_l1_meter.avg,
@@ -270,7 +337,7 @@ def trainer(rank, model, config, train_set, val_set, test_set):
 
     if rank<=0: # main or master process
         # test and save model
-        wandb.run.summary["best_val_loss"] = best_val_loss
+        wandb_run.run.summary["best_val_loss"] = best_val_loss
 
         model = model.module if c.ddp else model
         model.save(epoch) # save the final weights
