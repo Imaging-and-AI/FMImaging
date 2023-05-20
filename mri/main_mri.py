@@ -3,16 +3,22 @@ Main file for STCNNT MRI denoising
 """
 import logging
 import argparse
+
+import torchvision as tv
+from torchvision import transforms
+import torchvision.transforms as T
 import torch.multiprocessing as mp
+import torch.distributed as dist
 
 import sys
+from colorama import Fore, Style
 from pathlib import Path
 
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
 from utils.utils import *
-from trainer_mri import trainer
+from trainer_mri import trainer, set_up_config_for_sweep
 from model_mri import STCNNT_MRI
 from data_mri import load_mri_data
 
@@ -80,31 +86,132 @@ def check_args(config):
 
     return config
 
+
+# -------------------------------------------------------------------------------------------------
+   
+config_default = arg_parser()
+
+# -------------------------------------------------------------------------------------------------
+
+def run_training():
+    
+    global config_default
+       
+    if config_default.ddp:
+        rank = int(os.environ["LOCAL_RANK"])
+        global_rank = int(os.environ["RANK"])
+        world_size = int(os.environ["WORLD_SIZE"])
+    else:
+        rank = -1
+        global_rank = -1
+        world_size = 1
+        
+    print(f"{Fore.RED}---> Run start on local rank {rank} - global rank {global_rank} <---{Style.RESET_ALL}", flush=True)
+           
+    wandb_run = None    
+    if(config_default.sweep_id != 'none'):
+        if rank<=0:
+            print(f"---> get the config from wandb on local rank {rank}", flush=True)
+            wandb_run = wandb.init()
+            config = set_up_config_for_sweep(wandb_run.config, config_default)   
+            config.run_name = wandb_run.name
+            print(f"---> wandb run is {wandb_run.name} on local rank {rank}", flush=True)
+        else:
+            config = config_default
+    else:
+        # Config is a variable that holds and saves hyperparameters and inputs
+        config = config_default
+        if rank<=0:
+            wandb_run = wandb.init(project=config.project, 
+                    entity=config.wandb_entity, 
+                    config=config, 
+                    name=config.run_name, 
+                    notes=config.run_notes)
+
+    if config_default.ddp:
+                                    
+        if(config_default.sweep_id != 'none'):
+            
+            if rank<=0:
+                c_list = [config]
+                print(f"{Fore.RED}--->before, on local rank {rank}, {c_list[0].run_name}{Style.RESET_ALL}", flush=True)
+            else:
+                c_list = [None]
+            
+            if world_size > 1:
+                torch.distributed.broadcast_object_list(c_list, src=0, group=None, device=rank)
+                
+            print(f"{Fore.RED}--->after, on local rank {rank}, {c_list[0].run_name}{Style.RESET_ALL}", flush=True)
+            if rank>0:
+                config = c_list[0]
+                        
+        print(f"---> config synced for the local rank {rank}")                        
+        if world_size > 1: dist.barrier()        
+        print(f"{Fore.RED}---> Ready to run on local rank {rank}, {config.run_name}{Style.RESET_ALL}", flush=True)
+          
+    try: 
+        trainer(rank=rank, config=config, wandb_run=wandb_run)
+                                  
+        if rank<=0:
+            wandb_run.finish()                                
+                
+        print(f"{Fore.RED}---> Run finished on local rank {rank} <---{Style.RESET_ALL}", flush=True)
+                
+    except KeyboardInterrupt:
+        print('Interrupted')
+
+        if config_default.ddp:
+            torch.distributed.destroy_process_group()            
+
+        os.system("kill $(ps aux | grep torchrun | grep -v grep | awk '{print $2}') ")
+        os.system("kill $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
+    
 # -------------------------------------------------------------------------------------------------
 # main function. spawns threads if going for distributed data parallel
 
 def main():
 
-    config = check_args(arg_parser())
-    setup_run(config)
-
-    train_set, val_set, test_set = load_mri_data(config=config)
-
-    total_steps = compute_total_steps(config, len(train_set))
+    global config_default
     
-    model = STCNNT_MRI(config=config, total_steps=total_steps)
-
-    # model summary
-    model_summary = model_info(model, config)
-    logging.info(f"Configuration for this run:\n{config}")
-    logging.info(f"Model Summary:\n{str(model_summary)}")
-
-    if not config.ddp: # run in main process
-        trainer(rank=-1, model=model, config=config,
-                train_set=train_set, val_set=val_set, test_set=test_set)
-    else: # spawn a process for each gpu
-        mp.spawn(trainer, args=(model, config, train_set, val_set, test_set),
-                    nprocs=config.world_size)
+    if config_default.ddp:
+        if not dist.is_initialized():            
+            dist.init_process_group("nccl")
+                            
+        rank = int(os.environ["LOCAL_RANK"])
+        global_rank = int(os.environ["RANK"])
+        world_size = int(os.environ["WORLD_SIZE"])
+        local_world_size = int(os.environ["LOCAL_WORLD_SIZE"])
+        
+        print(f"{Fore.YELLOW}---> dist.init_process_group on local rank {rank}, global rank{global_rank}, world size {world_size}, local World size {local_world_size} <---{Style.RESET_ALL}", flush=True)
+    else:
+        rank = -1
+        global_rank = -1        
+        print(f"---> ddp is off <---", flush=True)
+    
+    config_default = check_args(config_default)
+    setup_run(config_default)                
+               
+    print(f"--------> run training on local rank {rank}", flush=True)
+                            
+    # note the sweep_id is used to control the condition
+    sweep_id = config_default.sweep_id
+    print("get sweep id : ", sweep_id, flush=True)
+    if (sweep_id != "none"):
+        print("start sweep runs ...", flush=True)
+                    
+        if rank<=0:
+            wandb.agent(sweep_id, run_training, project="cifar", count=50)
+        else:
+            print(f"--> local rank {rank} - not start another agent", flush=True)
+            run_training()             
+    else:
+        print("start a regular run ...", flush=True)        
+        run_training()
+                   
+    if config_default.ddp:         
+        if dist.is_initialized():
+            print(f"---> dist.destory_process_group on local rank {rank}", flush=True)
+            dist.destroy_process_group()
 
 if __name__=="__main__":
     main()

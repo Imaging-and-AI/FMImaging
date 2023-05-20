@@ -182,20 +182,6 @@ def trainer(rank, config, wandb_run):
         
     model = STCNNT_Cifar(config=config, total_steps=total_steps)
 
-    # if config.load_path is not None:
-    #     print(f"load model from {config.load_path}")
-    #     status = torch.load(config.load_path, map_location=torch.device(f'cuda:{rank}'))
-        
-    #     model.load_state_dict(status['model_state'])
-        
-    #     model.optim.load_state_dict(status['optimizer_state'])
-    #     optimizer_to(model.optim, device=torch.device(f'cuda:{rank}'))
-              
-    #     model.sched.load_state_dict(status['scheduler_state'])        
-    #     model.config = status['config']
-    #     model.stype = status['scheduler_type']
-    #     model.curr_epoch = status['epoch']
-
     if config.ddp:
         dist.barrier()
 
