@@ -97,5 +97,6 @@ def main():
     trainer = CifarTrainer(config_default)
     trainer.train()
     
+# -------------------------------------------------------------------------------------------------
 if __name__=="__main__":    
     main()
