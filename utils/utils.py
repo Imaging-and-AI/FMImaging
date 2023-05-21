@@ -404,7 +404,7 @@ def model_info(model, config):
             see torchinfo/model_statistics.py for more information.
     """
     c = config
-    input_size = (c.batch_size, c.time, c.C_in, c.height[-1], c.width[-1])
+    input_size = (c.batch_size, c.time, c.C_in, c.height[0], c.width[0])
     col_names=("num_params", "params_percent", "mult_adds", "input_size", "output_size", "trainable")
     row_settings=["var_names", "depth"]
     dtypes=[torch.float32]

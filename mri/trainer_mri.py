@@ -246,8 +246,8 @@ def trainer(rank, config, wandb_run):
 
                 pbar.update(1)
                 pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {x.shape}, "+
-                                        f"loss {loss.item():.4f}, mse {mse_loss:.4f}, l1 {l1_loss:.4f}, "+
-                                        f"ssim {ssim_loss:.4f}, ssim3D {ssim3D_loss:.4f}, psnr {psnr:.4f}, "+
+                                        f"loss {train_loss.avg:.4f}, mse {train_mse_meter.avg:.4f}, l1 {train_l1_meter.avg:.4f}, "+
+                                        f"ssim {train_ssim_meter.avg:.4f}, ssim3D {train_ssim3D_meter.avg:.4f}, psnr {train_psnr_meter.avg:.4f}, "+
                                         f"lr {curr_lr:.8f}")
 
             pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, loss {train_loss.avg:.4f}, "+

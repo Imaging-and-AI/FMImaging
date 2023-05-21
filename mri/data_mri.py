@@ -105,9 +105,14 @@ class MRIDenoisingDatasetTrain():
         self.images = []
 
         for i in range(len(h5file)):
-            self.images.extend([(np.array(h5file[i][key+"/image"]),\
-                                 np.array(h5file[i][key+"/gmap"])) for key in keys[i]])
+            with tqdm(total=len(keys[i])) as pbar:
+                for n, key in enumerate(keys[i]):
+                    self.images.append([np.array(h5file[i][key+"/image"]), np.array(h5file[i][key+"/gmap"])])
+                    pbar.update(1)
+                    pbar.set_description_str(f"{h5file}, {n} in {len(keys[i])}, total {len(self.images)}")
 
+                pbar.close()
+                
     def load_one_sample(self, i):
         """
         Loads one sample from the saved images

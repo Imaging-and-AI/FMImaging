@@ -211,7 +211,7 @@ def main():
     mixer_types = ["conv"]
     shuffle_in_windows = ["0"]
     block_dense_connections = ["1"]
-    norm_modes = ["layer"]
+    norm_modes = ["batch2d", "instance2d"]
     C = [64]
     scale_ratio_in_mixers = [1.0]
 
