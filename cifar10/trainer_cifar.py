@@ -259,7 +259,7 @@ def trainer(rank, config, wandb_run):
     optim.zero_grad(set_to_none=True)
 
     for epoch in range(curr_epoch, c.num_epochs):
-        logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank{rank} {'-'*20}{Style.RESET_ALL}")
+        logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank} {'-'*20}{Style.RESET_ALL}")
 
         model.train()
         if c.ddp: train_loader.sampler.set_epoch(epoch)

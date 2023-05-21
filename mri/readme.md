@@ -1,0 +1,156 @@
+# MRI image enhancement training
+
+This project provides model and training code for MRI image enhancement training. 
+
+### wandb sweep
+
+To run the parameter sweep, a sweep configuration file is needed (e.g. [sweep_conf](./sweep_conf.py)). 
+
+```
+# first, generate the sweep and record the sweep in
+python3 ./sweep_conf.py
+
+# second, run the sweep
+
+# run on 2 gpus, with 2 processes
+sh ./run_sweep.sh -g 0,1 -n 2 -s $sweep_id  -r 100 -p 9001
+
+# run on 4 gpus, with 4 processes
+sh ./run_sweep.sh -g 0,1,2,3 -n 4 -s $sweep_id  -r 100 -p 9001
+
+# run on one gpu
+sh ./run_sweep.sh -g 0 -n 1 -s $sweep_id -r 100 -p 9001
+
+```
+
+**Warning** Current wandb sweep does not work well with toruchrun for multi-gpu training. So current solution is good for one gpu and one process usecage (e.g. -g 0 -n 1).
+
+### multi-node training
+
+on the local set up
+
+- single node, single gpu training
+```
+torchrun --nproc_per_node 1 --standalone $HOME/mrprogs/STCNNT.git/mri/main_mri.py --ddp
+
+python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node 1 --standalone
+
+```
+
+- single node, multiple gpu training
+```
+torchrun --nproc_per_node 2 --standalone $HOME/mrprogs/STCNNT.git/mri/main_mri.py --ddp
+
+python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node 2 --standalone
+
+```
+
+- two nodes, multiple gpu training
+```
+# every node has two processes, two nodes are trained together
+# gt7
+torchrun --nproc_per_node 2 --nnodes 2 --node_rank 0 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint gt7.nhlbi.nih.gov:9001 mri/main_mri.py --ddp
+# gt3
+torchrun --nproc_per_node 2 --nnodes 2 --node_rank 1 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint gt7.nhlbi.nih.gov:9001 mri/main_mri.py --ddp
+
+# gt7
+python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node 2 --nnodes 2 --node_rank 0 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint gt7.nhlbi.nih.gov:9001
+# gt3
+python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node 2 --nnodes 2 --node_rank 1 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint gt7.nhlbi.nih.gov:9001
+
+
+```
+
+- four nodes, on cloud
+```
+
+python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node 4 --nnodes 4 --node_rank 0 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node 4 --nnodes 4 --node_rank 1 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node 4 --nnodes 4 --node_rank 2 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node 4 --nnodes 4 --node_rank 3 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+- eight nodes, on cloud
+
+python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node 4 --nnodes 8 --node_rank 0 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node 4 --nnodes 8 --node_rank 1 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node 4 --nnodes 8 --node_rank 2 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node 4 --nnodes 8 --node_rank 3 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node 4 --nnodes 8 --node_rank 4 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node 4 --nnodes 8 --node_rank 5 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node 4 --nnodes 8 --node_rank 6 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node 4 --nnodes 8 --node_rank 7 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4:9001
+
+```
+
+## Start/stop VMs
+
+Install az cli:
+```
+curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+az login --use-device-code
+
+```
+
+```
+rg=xueh2-a100-eastus2
+
+for n in node1 node2 node3 node4 node5 node6 node7 node8
+do
+    echo "stop node $n ..."
+    az vm stop --name $n -g $rg
+    az vm deallocate --name $n -g $rg
+done
+
+for n in node1 node2 node3 node4 node5 node6 node7 node8
+do
+    echo "start node $n ..."
+    az vm start --name $n -g $rg
+done
+
+for n in fsi{1..8}
+do
+    echo "update node $n ..."
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "git clone git@github.com:AzR919/STCNNT.git /home/gtuser/mrprogs/STCNNT.git"
+done
+
+for n in fsi{1..8}
+do
+    echo "update node $n ..."
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "cd /home/gtuser/mrprogs/STCNNT.git && git pull"
+done
+
+for n in fsi{1..8}
+do
+    echo "check node $n ..."
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "sudo nvidia-smi -pm 1"
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "nvidia-smi"
+done
+```
+
+## Reinstall nvidia driver
+```
+# remote old installation if any
+sudo apt-get --purge remove cuda*
+sudo apt-get remove --purge nvidia-*
+
+# add nvidia driver ppa
+sudo add-apt-repository ppa:graphics-drivers/ppa -y
+
+# update software cache
+sudo apt update
+sudo apt upgrade -y
+
+sudo apt-get install ubuntu-drivers-common -y
+sudo ubuntu-drivers install 525 -y
+```

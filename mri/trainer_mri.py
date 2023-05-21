@@ -34,33 +34,6 @@ from data_mri import load_mri_data
 from colorama import Fore, Style
 
 # -------------------------------------------------------------------------------------------------
-
-def set_up_config_for_sweep(wandb_config, config):
-    config.num_epochs = wandb_config.num_epochs
-    config.batch_size = wandb_config.batch_size
-    config.global_lr = wandb_config.global_lr
-    config.window_size = wandb_config.window_size
-    config.patch_size = wandb_config.patch_size
-    config.weight_decay = wandb_config.weight_decay
-    config.scheduler_type = wandb_config.scheduler_type
-    config.use_amp = wandb_config.use_amp
-    config.a_type = wandb_config.a_type
-    config.cell_type = wandb_config.cell_type
-    config.n_head = wandb_config.n_head
-    config.scale_ratio_in_mixer = wandb_config.scale_ratio_in_mixer
-    
-    config.mixer_type = wandb_config.mixer_type
-    config.normalize_Q_K = wandb_config.normalize_Q_K
-    config.cosine_att = wandb_config.cosine_att
-    config.att_with_relative_postion_bias = wandb_config.att_with_relative_postion_bias
-       
-    config.backbone_hrnet.C = wandb_config.C
-    config.backbone_hrnet.num_resolution_levels = wandb_config.num_resolution_levels
-    config.backbone_hrnet.block_str = wandb_config.block_str
-    
-    return config
-
-# -------------------------------------------------------------------------------------------------
 # trainer
 
 def trainer(rank, config, wandb_run):
@@ -78,8 +51,11 @@ def trainer(rank, config, wandb_run):
     c = config # shortening due to numerous uses
 
     train_set, val_set, test_set = load_mri_data(config=config)
-    total_steps = compute_total_steps(config, len(train_set))
-    logging.info(f"total_steps for this run: {total_steps}, len(train_set) {len(train_set)}, batch {config.batch_size}")
+    
+    total_num_samples = sum([len(s) for s in train_set])
+    
+    total_steps = compute_total_steps(config, total_num_samples)
+    logging.info(f"total_steps for this run: {total_steps}, len(train_set) {[len(s) for s in train_set]}, batch {config.batch_size}")
     
     if config.ddp:
         config.device = torch.device(f'cuda:{rank}')
@@ -138,8 +114,8 @@ def trainer(rank, config, wandb_run):
         if c.ddp: setup_logger(config) # setup master process logging
 
         wandb_run.watch(model)
-        wandb_run.log({"trainable_params":c.trainable_params,
-                    "total_params":c.total_params})
+        wandb_run.summary["trainable_params"] = c.trainable_params
+        wandb_run.summary["total_params"] = c.total_params
 
         wandb_run.define_metric("epoch")    
         wandb_run.define_metric("train_loss_avg", step_metric='epoch')
@@ -186,7 +162,7 @@ def trainer(rank, config, wandb_run):
     l1_loss_func = L1_Loss(complex_i=c.complex_i)
     ssim_loss_func = SSIM_Loss(complex_i=c.complex_i, device=device)
     ssim3D_loss_func = SSIM3D_Loss(complex_i=c.complex_i, device=device)
-    psnr_func = PSNR()
+    psnr_func = PSNR(range=1024)
         
     # -----------------------------------------------
     
@@ -201,7 +177,7 @@ def trainer(rank, config, wandb_run):
     # -----------------------------------------------
     
     for epoch in range(c.num_epochs):
-        logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank{rank} {'-'*20}{Style.RESET_ALL}")
+        logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank} {'-'*20}{Style.RESET_ALL}")
 
         train_loss.reset()
         train_mse_meter.reset()
@@ -251,6 +227,8 @@ def trainer(rank, config, wandb_run):
                 
                 if rank<=0:
                     wandb_run.log({"running_train_loss": loss.item()})
+                    wandb_run.log({"lr": curr_lr})
+                    
                     total=x.shape[0]
                     train_loss.update(loss.item(), n=total)
 
@@ -266,17 +244,18 @@ def trainer(rank, config, wandb_run):
                     train_ssim3D_meter.update(ssim3D_loss, n=total)
                     train_psnr_meter.update(psnr, n=total)
 
-                    pbar.update(1)
-                    pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {x.shape}, "+
-                                            f"{loss.item():.4f}, {mse_loss:.4f}, {l1_loss:.4f}, "+
-                                            f"{ssim_loss:.4f}, {ssim3D_loss:.4f}, {psnr:.4f}, "+
-                                            f"lr {curr_lr:.8f}")
+                pbar.update(1)
+                pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {x.shape}, "+
+                                        f"loss {loss.item():.4f}, mse {mse_loss:.4f}, l1 {l1_loss:.4f}, "+
+                                        f"ssim {ssim_loss:.4f}, ssim3D {ssim3D_loss:.4f}, psnr {psnr:.4f}, "+
+                                        f"lr {curr_lr:.8f}")
 
-            if rank<=0:
-                pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {x.shape}, {train_loss.avg:.4f}, "+
-                                        f"{train_mse_meter.avg:.4f}, {train_l1_meter.avg:.4f}, {train_ssim_meter.avg:.4f}, "+
-                                        f"{train_ssim3D_meter.avg:.4f}, {train_psnr_meter.avg:.4f}, lr {curr_lr:.8f}")
+            pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, loss {train_loss.avg:.4f}, "+
+                                    f"mse {train_mse_meter.avg:.4f}, l1 {train_l1_meter.avg:.4f}, ssim {train_ssim_meter.avg:.4f}, "+
+                                    f"ssim3D {train_ssim3D_meter.avg:.4f}, psnr {train_psnr_meter.avg:.4f}, lr {curr_lr:.8f}")
 
+        # -------------------------------------------------------
+        
         if rank<=0: # main or master process
             # run eval, save and log in this process
             model_e = model.module if c.ddp else model
@@ -285,9 +264,7 @@ def trainer(rank, config, wandb_run):
                 best_val_loss = val_losses[0]
                 best_model_wts = copy.deepcopy(model_e.state_dict())
                 model_e.save(epoch)
-            else:
-                if epoch % c.save_cycle == 0:
-                    model_e.save(epoch)
+                wandb_run.log({"epoch": epoch, "best_val_loss":best_val_loss})
                 
             # silently log to only the file as well
             logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, tra, {x.shape}, {train_loss.avg:.4f}, "+
@@ -349,9 +326,6 @@ def trainer(rank, config, wandb_run):
         # save both models
         save_final_model(model, config, best_model_wts)
 
-    if c.ddp: # cleanup
-        dist.destroy_process_group()
-
 # -------------------------------------------------------------------------------------------------
 # evaluate the val set
 
@@ -391,7 +365,7 @@ def eval_val(model, config, val_set, epoch, device):
     l1_loss_func = L1_Loss(complex_i=c.complex_i)
     ssim_loss_func = SSIM_Loss(complex_i=c.complex_i, device=device)
     ssim3D_loss_func = SSIM3D_Loss(complex_i=c.complex_i, device=device)
-    psnr_func = PSNR()
+    psnr_func = PSNR(range=1024)
 
     model.eval()
     model.to(device)

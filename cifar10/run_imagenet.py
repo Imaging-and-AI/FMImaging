@@ -187,7 +187,9 @@ def main():
                         
         # small unet
         "--backbone_small_unet.channels", "16", "32", "64",   
-        "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1"    
+        "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1",
+        
+        "--ratio", "100", "100", "100"
     ])
     
     # test backbones

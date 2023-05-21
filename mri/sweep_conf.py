@@ -38,7 +38,7 @@ sweep_config = {
         'scheduler_type': {
             'values': ["ReduceLROnPlateau", "OneCycleLR"]
         },
-        
+                
         'use_amp': {
             'values': [True, False]
         },
@@ -84,11 +84,28 @@ sweep_config = {
         },
         
         'block_str': {
-            'values': [["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"], 
-                       ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"], 
-                       ["T1L1G1", "T1L1G1", "T1L1G1"],
-                       ["T1T1T1", "T1T1T1", "T1T1T1"]
-                       ]
+            'values': [
+                        ["T1L1G1", "T1L1G1", "T1L1G1"],
+                        ["T1T1T1", "T1T1T1", "T1T1T1"],
+                        ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"], 
+                        ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"]
+                    ]
+        },
+        
+        'height': {
+            'values': [[32, 64], [48, 96], [32], [64]]
+        },
+        
+        'width': {
+            'values': [[32, 64], [48, 96], [32], [64]]
+        },
+        
+        'train_files': {
+            'values': [
+                [ ["train_3D_3T_retro_cine_2018.h5"], ["2dt"]], 
+                [ ["train_3D_3T_retro_cine_2018.h5", "train_3D_3T_retro_cine_2019.h5"], ["2dt", "3d"] ],
+                [ ["train_3D_3T_retro_cine_2018.h5", "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5"], ["2dt", "3d", "2d"] ]  
+            ]            
         }
     }
 }
