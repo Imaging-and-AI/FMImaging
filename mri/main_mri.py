@@ -91,6 +91,18 @@ class MriTrainer(Trainer_Base):
         if self.config.data_root is None:
             self.config.data_root = "/export/Lab-Xue/projects/mri/data"
             
+    def set_up_config_for_sweep(self, wandb_config):
+        super().set_up_config_for_sweep(wandb_config=wandb_config)
+        
+        self.config.height = wandb_config.height
+        self.config.width = wandb_config.width
+        
+        self.config.train_files = wandb_config.train_files[0]
+        self.config.train_data_types = wandb_config.train_files[1]
+        
+        self.config.test_files = None
+        self.config.test_data_types = None
+        
     def run_task_trainer(self, rank=-1, wandb_run=None):
         trainer(rank=rank, config=self.config, wandb_run=wandb_run)
         

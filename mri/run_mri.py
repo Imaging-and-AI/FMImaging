@@ -136,18 +136,14 @@ def main():
         "--log_path", os.path.join(project_base_dir, "mri", "logs"),
         "--results_path", os.path.join(project_base_dir, "mri", "results"),
         
-        "--train_files", "train_3D_3T_retro_cine_2020_small.h5", "train_3D_3T_retro_cine_2020_small.h5", "train_3D_3T_retro_cine_2020_small.h5",
-        "--train_data_types", "2d", "2dt", "3d",
-        "--test_files", "train_3D_3T_retro_cine_2020_small_2D_test.h5", "train_3D_3T_retro_cine_2020_small_2DT_test.h5", "train_3D_3T_retro_cine_2020_small_3D_test.h5",
-        "--test_data_types", "2d", "2dt", "3d"
+        "--train_files", "train_3D_3T_retro_cine_2020.h5", "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2018.h5",
+        "--train_data_types", "2d", "2dt", "3d"        
     ])
 
     # -------------------------------------------------------------
 
     # unchanging commands
-    cmd.extend([
-        "--data_set", "mri",
-        
+    cmd.extend([       
         "--summary_depth", "6",
         "--save_cycle", "200",
         
@@ -263,7 +259,7 @@ def main():
                                                             print("---" * 20)
                                                             print(cmd_run)
                                                             print("---" * 20)
-                                                            subprocess.run(cmd_run)
+                                                            #subprocess.run(cmd_run)
 
                                                                 # cmd_str = ' '.join(cmd_run)
                                                                 # file.write(cmd_str+"\n\n")
