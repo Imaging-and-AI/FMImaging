@@ -1,0 +1,162 @@
+# Set up a new Azure VM
+
+```
+# set up home folder
+sudo apt update
+mkdir ~/software
+mkdir ~/Debug
+mkdir ~/Debug/DebugOutput
+mkdir ~/gadgetron_ismrmrd_data
+ln -s ~/gadgetron_ismrmrd_data /tmp/gadgetron_data
+chmod a+rwx /tmp/gadgetron_data
+mkdir ~/mrprogs
+mkdir ~/key
+
+sudo apt install software-properties-common -y
+sudo apt install build-essential -y
+sudo apt install python3-pip emacs tmux -y
+
+cd ~ && touch .tmux.conf
+echo "set -g mouse on" >> .tmux.conf
+
+# install vscode
+#https://code.visualstudio.com/docs/setup/linux
+
+wget -q https://packages.microsoft.com/keys/microsoft.asc -O- | sudo apt-key add -
+sudo add-apt-repository "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main"
+sudo apt install code -y
+
+# install cuda and gpu driver
+cd ~/software
+
+wget https://developer.download.nvidia.com/compute/cuda/12.1.1/local_installers/cuda_12.1.1_530.30.02_linux.run
+
+sudo sh cuda_12.1.1_530.30.02_linux.run
+
+sudo nvidia-smi -pm 1
+
+sudo reboot now
+
+# clone repo
+cd ~/.ssh
+ssh-keygen -t rsa -b 4096 -C "hui.xue@nih.gov"
+cat ./id_rsa.pub
+
+# add key to github
+cd ~/mrprogs
+git clone git@github.com:AzR919/STCNNT.git
+
+# mount and format disks
+# https://gist.github.com/keithmorris/b2aeec1ea947d4176a14c1c6a58bfc36
+
+sudo fdisk -l
+
+sudo fdisk /dev/nvme3n1
+sudo mkfs -t ext4 /dev/nvme3n1p1
+sudo mkdir -p /export/data
+sudo mount -t ext4 /dev/nvme3n1p1 /export/data/
+sudo chmod a+rw /export
+sudo chmod a+rw /export/data
+
+sudo fdisk /dev/sda
+sudo mkfs -t ext4 /dev/sda1
+sudo mkdir -p /export/Lab-Xue
+sudo mount -t ext4 /dev/sda1 /export/Lab-Xue/
+sudo chmod a+rw /export
+sudo chmod a+rw /export/Lab-Xue
+
+sudo fdisk /dev/sdc
+sudo mkfs -t ext4 /dev/sdc1
+sudo mkdir -p /export/Lab-Xue
+sudo mount -t ext4 /dev/sdc1 /export/Lab-Xue/
+sudo chmod a+rw /export
+sudo chmod a+rw /export/Lab-Xue
+
+# install packages
+
+pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu118
+pip3 install wandb tqdm h5py torchinfo tifffile opencv-python scikit-image einops onnx numpy scipy moviepy imageio matplotlib torchmetrics
+
+# login prompt
+# add ~/.local/bin into the path
+
+wandb login
+
+ssh -i ~/.ssh/xueh2-a100.pem gtuser@fsi1.eastus2.cloudapp.azure.com
+ssh -i ~/.ssh/xueh2-a100.pem gtuser@fsi2.eastus2.cloudapp.azure.com
+
+```
+
+## Create a new VM
+
+- use the azure image SFImaging/a100-general-training in the xueh2-a100-eastus2-2 group
+- Create VM, with the node type Standard NC96ads A100 v4 (96 vcpus, 880 GiB memory)
+
+## Add new VM to code remote debug
+```
+ssh -i C:/Users/xueh2/.ssh/xueh2-a100.pem gtuser@20.114.147.179 -K
+```
+## Copy data
+```
+scp -i ~/.ssh/xueh2-a100.pem /export/Lab-Xue/data/common/ILSVRC2012_img_val.tar gtuser@fsi2.eastus2.cloudapp.azure.com:/export/Lab-Xue/
+scp -i ~/.ssh/xueh2-a100.pem /export/Lab-Xue/data/common/ILSVRC2012_devkit_t12.tar.gz gtuser@fsi2.eastus2.cloudapp.azure.com:/export/Lab-Xue/
+scp -i ~/.ssh/xueh2-a100.pem /export/Lab-Xue/data/common/ILSVRC2012_img_train.tar gtuser@fsi2.eastus2.cloudapp.azure.com:/export/Lab-Xue/
+```
+
+## after creating a VM from an image
+```
+VM_name=fsi6.eastus2.cloudapp.azure.com
+
+ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "pip3 install torchmetrics colorama moviepy imageio"
+ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sudo nvidia-smi -pm 1"
+ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "nvidia-smi"
+
+
+ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name
+
+git clone git@github.com:AzR919/STCNNT.git /home/gtuser/mrprogs/STCNNT.git"
+
+sudo fdisk /dev/sdc
+sudo mkfs -t ext4 /dev/sdc1
+sudo mkdir -p /export/Lab-Xue
+sudo mount -t ext4 /dev/sdc1 /export/Lab-Xue/
+sudo chmod a+rw /export
+sudo chmod a+rw /export/Lab-Xue
+
+sudo fdisk /dev/sda
+sudo mkfs -t ext4 /dev/sda1
+sudo mkdir -p /export/Lab-Xue
+sudo mount -t ext4 /dev/sda1 /export/Lab-Xue/
+sudo chmod a+rw /export
+sudo chmod a+rw /export/Lab-Xue
+
+exit
+
+ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "mkdir -p /export/Lab-Xue/projects/imagenet/data"
+scp -i ~/.ssh/xueh2-a100.pem /export/Lab-Xue/data/common/ILSVRC2012_img_val.tar gtuser@$VM_name:/export/Lab-Xue/projects/imagenet/data/
+scp -i ~/.ssh/xueh2-a100.pem /export/Lab-Xue/data/common/ILSVRC2012_devkit_t12.tar.gz gtuser@$VM_name:/export/Lab-Xue/projects/imagenet/data/
+scp -i ~/.ssh/xueh2-a100.pem /export/Lab-Xue/data/common/ILSVRC2012_img_train.tar gtuser@$VM_name:/export/Lab-Xue/projects/imagenet/data/
+ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "python3 -c \"import torchvision as tv; a = tv.datasets.ImageNet(root='/export/Lab-Xue/projects/imagenet/data', split='train'); a = tv.datasets.ImageNet(root='/export/Lab-Xue/projects/imagenet/data', split='val') \" "
+
+ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "mkdir -p /export/Lab-Xue/projects/mri/data"
+scp -i ~/.ssh/xueh2-a100.pem /export/Lab-Xue/projects/mri/data/train_3D_3T_retro_cine_2018.h5 gtuser@$VM_name:/export/Lab-Xue/projects/mri/data/
+scp -i ~/.ssh/xueh2-a100.pem /export/Lab-Xue/projects/mri/data/train_3D_3T_perf_2021.h5 gtuser@$VM_name:/export/Lab-Xue/projects/mri/data/
+
+```
+
+## Run commands on nodes
+```
+rg=xueh2-a100-eastus2
+
+node_list=(fsi1 fsi2 fsi3 fsi4 fsi5 fsi6 fsi7 fsi8 fsi9 fsi10 fsi11 fsi12 fsi13 fsi14 fsi15 fsi16)
+
+for n in ${node_list[*]}
+do
+    echo "copy data to $n ..."
+    VM_name=$n.eastus2.cloudapp.azure.com
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "mkdir -p /export/Lab-Xue/projects/mri/data"
+scp -i ~/.ssh/xueh2-a100.pem /export/Lab-Xue/projects/mri/data/train_3D_3T_retro_cine_2018.h5 gtuser@$VM_name:/export/Lab-Xue/projects/mri/data/
+scp -i ~/.ssh/xueh2-a100.pem /export/Lab-Xue/projects/mri/data/train_3D_3T_perf_2021.h5 gtuser@$VM_name:/export/Lab-Xue/projects/mri/data/
+
+done
+```
