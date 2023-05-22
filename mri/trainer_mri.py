@@ -3,10 +3,11 @@ Trainer for MRI denoising.
 Provides the mian function to call for training:
     - trainer
 """
-import cv2
 import copy
 import wandb
 import numpy
+import pickle
+from time import time
 import torch
 import torch.nn as nn
 import torch.distributed as dist
@@ -36,6 +37,21 @@ from colorama import Fore, Style
 # -------------------------------------------------------------------------------------------------
 # trainer
 
+def create_log_str(config, epoch, rank, data_shape, loss, mse, l1, ssim, ssim3d, psnr, curr_lr, role):
+    if data_shape is not None:
+        data_shape_str = f"{data_shape} "
+    else:
+        data_shape_str = ""
+        
+    if curr_lr >=0:
+        lr_str = f", lr {curr_lr:.8f}"
+    else:
+        lr_str = ""
+        
+    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {Fore.YELLOW}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.RED}loss {loss:.4f},{Style.RESET_ALL} {Fore.YELLOW}mse {mse:.4f}, l1 {l1:.4f}, ssim {ssim:.4f}, ssim3D {ssim3d:.4f}, psnr {psnr:.4f}{Style.RESET_ALL}{lr_str}"
+        
+    return str
+
 def trainer(rank, config, wandb_run):
     """
     The trainer cycle. Allows training on cpu/single gpu/multiple gpu(ddp)
@@ -50,7 +66,52 @@ def trainer(rank, config, wandb_run):
     """
     c = config # shortening due to numerous uses
 
+    start = time()
     train_set, val_set, test_set = load_mri_data(config=config)
+    print(f"load_mri_data took {time() - start} seconds ...")
+        
+    # data_file = Path(config.log_path + f"/{config.run_name}__train.pkl")
+    # if data_file.is_file():
+    #     print(f"--> find the stored train, val and test data file ... ")
+        
+    #     start = time()
+    #     with open(data_file, 'rb') as f:
+    #         train_set = pickle.load(f)
+    #     print(f"load train set took {time() - start} seconds ...")
+            
+    #     start = time()
+    #     data_file = Path(config.log_path + f"{config.run_name}__val.pkl")
+    #     with open(data_file, 'rb') as f:
+    #         val_set = pickle.load(f)        
+    #     print(f"load val set took {time() - start} seconds ...")
+            
+    #     start = time()
+    #     data_file = Path(config.log_path + f"{config.run_name}__test.pkl")
+    #     with open(data_file, 'rb') as f:
+    #         test_set = pickle.load(f)
+    #     print(f"load test set took {time() - start} seconds ...")
+    # else:
+    #     start = time()
+    #     train_set, val_set, test_set = load_mri_data(config=config)
+    #     print(f"load_mri_data took {time() - start} seconds ...")
+        
+    #     if rank <=0:
+    #         start = time()
+    #         with open(data_file, 'wb') as f:
+    #             pickle.dump(train_set, f)
+    #         print(f"pickle train set took {time() - start} seconds ...")
+                
+    #         start = time()
+    #         data_file = Path(config.log_path + f"{config.run_name}__val.pkl")
+    #         with open(data_file, 'wb') as f:
+    #             pickle.dump(val_set, f)
+    #         print(f"pickle val set took {time() - start} seconds ...")
+                    
+    #         start = time()
+    #         data_file = Path(config.log_path + f"{config.run_name}__test.pkl")
+    #         with open(data_file, 'wb') as f:
+    #             pickle.dump(test_set, f)
+    #         print(f"pickle test set took {time() - start} seconds ...")
     
     total_num_samples = sum([len(s) for s in train_set])
     
@@ -86,7 +147,7 @@ def trainer(rank, config, wandb_run):
         stype = model.module.stype
         loss_f = model.module.loss_f
         curr_epoch = model.module.curr_epoch
-        samplers = [DistributedSampler(train_set_x) for train_set_x in train_set]
+        samplers = [DistributedSampler(train_set_x, shuffle=True) for train_set_x in train_set]
         shuffle = False
         
         logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, {c.backbone}, C {c.backbone_hrnet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_hrnet.block_str}, {'-'*20}{Style.RESET_ALL}")
@@ -176,7 +237,7 @@ def trainer(rank, config, wandb_run):
     
     # -----------------------------------------------
     
-    for epoch in range(c.num_epochs):
+    for epoch in range(curr_epoch, c.num_epochs):
         logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank} {'-'*20}{Style.RESET_ALL}")
 
         train_loss.reset()
@@ -195,13 +256,18 @@ def trainer(rank, config, wandb_run):
             for idx in range(total_iters):
 
                 loader_ind = idx % len(train_loader_iter)
+                
+                tm = start_timer(enable=c.with_timer)                
                 stuff = next(train_loader_iter[loader_ind], None)
                 while stuff is None:
                     del train_loader_iter[loader_ind]
                     loader_ind = idx % len(train_loader_iter)
                     stuff = next(train_loader_iter[loader_ind], None)
-                x, y, gmaps_median, noise_sigmas = stuff
-
+                x, y, gmaps_median, noise_sigmas = stuff                
+                end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
+                
+                
+                tm = start_timer(enable=c.with_timer)
                 x = x.to(device)
                 y = y.to(device)
 
@@ -210,8 +276,15 @@ def trainer(rank, config, wandb_run):
                     loss = loss_f(output, y)
                     loss = loss / c.iters_to_accumulate
                     
+                end_timer(enable=c.with_timer, t=tm, msg="---> forward pass took ")
+                
+                
+                tm = start_timer(enable=c.with_timer)
                 scaler.scale(loss).backward()
-
+                end_timer(enable=c.with_timer, t=tm, msg="---> backward pass took ")
+                
+                
+                tm = start_timer(enable=c.with_timer)
                 if (idx + 1) % c.iters_to_accumulate == 0 or (idx + 1 == total_iters):
                     if(c.clip_grad_norm>0):
                         scaler.unscale_(optim)
@@ -222,37 +295,60 @@ def trainer(rank, config, wandb_run):
                     scaler.update()
                 
                     if stype == "OneCycleLR": sched.step()
-                    
+                end_timer(enable=c.with_timer, t=tm, msg="---> other steps took ")
+                
+                
+                tm = start_timer(enable=c.with_timer)
                 curr_lr = optim.param_groups[0]['lr']
                 
+                total=x.shape[0]
+                train_loss.update(loss.item(), n=total)
+
+                mse_loss = mse_loss_func(output, y).item()
+                l1_loss = l1_loss_func(output, y).item()
+                ssim_loss = ssim_loss_func(output, y).item()
+                ssim3D_loss = ssim3D_loss_func(output, y).item()
+                psnr = psnr_func(output, y).item()
+
+                train_mse_meter.update(mse_loss, n=total)
+                train_l1_meter.update(l1_loss, n=total)
+                train_ssim_meter.update(ssim_loss, n=total)
+                train_ssim3D_meter.update(ssim3D_loss, n=total)
+                train_psnr_meter.update(psnr, n=total)
+
+                pbar.update(1)
+                log_str = create_log_str(config, epoch, rank, 
+                                         x.shape, 
+                                         train_loss.avg, 
+                                         train_mse_meter.avg, 
+                                         train_l1_meter.avg, 
+                                         train_ssim_meter.avg, 
+                                         train_ssim3D_meter.avg, 
+                                         train_psnr_meter.avg, 
+                                         curr_lr, 
+                                         "tra")
+                
+                pbar.set_description_str(log_str)                
+
                 if rank<=0:
                     wandb_run.log({"running_train_loss": loss.item()})
                     wandb_run.log({"lr": curr_lr})
-                    
-                    total=x.shape[0]
-                    train_loss.update(loss.item(), n=total)
-
-                    mse_loss = mse_loss_func(output, y).item()
-                    l1_loss = l1_loss_func(output, y).item()
-                    ssim_loss = ssim_loss_func(output, y).item()
-                    ssim3D_loss = ssim3D_loss_func(output, y).item()
-                    psnr = psnr_func(output, y).item()
-
-                    train_mse_meter.update(mse_loss, n=total)
-                    train_l1_meter.update(l1_loss, n=total)
-                    train_ssim_meter.update(ssim_loss, n=total)
-                    train_ssim3D_meter.update(ssim3D_loss, n=total)
-                    train_psnr_meter.update(psnr, n=total)
-
-                pbar.update(1)
-                pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, {x.shape}, "+
-                                        f"loss {train_loss.avg:.4f}, mse {train_mse_meter.avg:.4f}, l1 {train_l1_meter.avg:.4f}, "+
-                                        f"ssim {train_ssim_meter.avg:.4f}, ssim3D {train_ssim3D_meter.avg:.4f}, psnr {train_psnr_meter.avg:.4f}, "+
-                                        f"lr {curr_lr:.8f}")
-
-            pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, tra, loss {train_loss.avg:.4f}, "+
-                                    f"mse {train_mse_meter.avg:.4f}, l1 {train_l1_meter.avg:.4f}, ssim {train_ssim_meter.avg:.4f}, "+
-                                    f"ssim3D {train_ssim3D_meter.avg:.4f}, psnr {train_psnr_meter.avg:.4f}, lr {curr_lr:.8f}")
+                
+                end_timer(enable=c.with_timer, t=tm, msg="---> logging and measuring took ")
+                
+            # ---------------------------------------
+            log_str = create_log_str(c, epoch, rank, 
+                                         None, 
+                                         train_loss.avg, 
+                                         train_mse_meter.avg, 
+                                         train_l1_meter.avg, 
+                                         train_ssim_meter.avg, 
+                                         train_ssim3D_meter.avg, 
+                                         train_psnr_meter.avg, 
+                                         curr_lr, 
+                                         "tra")
+            
+            pbar.set_description_str(log_str)
 
         # -------------------------------------------------------
         
@@ -438,12 +534,31 @@ def eval_val(model, config, val_set, epoch, device):
                 val_psnr_meter.update(psnr, n=total)
 
                 pbar.update(1)
-                pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {x.shape}, "+
-                                        f"{loss.item():.4f}, {mse_loss:.4f}, {l1_loss:.4f}, "+
-                                        f"{ssim_loss:.4f}, {ssim3D_loss:.4f}, {psnr:.4f},")
-
-            pbar.set_description(f"Epoch {epoch}/{c.num_epochs}, val, {x.shape}, {val_loss_meter.avg:.4f}, "+
-                                    f"{val_mse_meter.avg:.4f}, {val_l1_meter.avg:.4f}, {val_ssim_meter.avg:.4f}, "+
-                                    f"{val_ssim3D_meter.avg:.4f}, {val_psnr_meter.avg:.4f}")
-
+                log_str = create_log_str(c, epoch, -1, 
+                                         x.shape, 
+                                         val_loss_meter.avg, 
+                                         val_mse_meter.avg, 
+                                         val_l1_meter.avg, 
+                                         val_ssim_meter.avg, 
+                                         val_ssim3D_meter.avg, 
+                                         val_psnr_meter.avg, 
+                                         -1, 
+                                         "val")
+                
+                pbar.set_description_str(log_str)
+                
+            # -----------------------------------
+            log_str = create_log_str(c, epoch, -1, 
+                                         None, 
+                                         val_loss_meter.avg, 
+                                         val_mse_meter.avg, 
+                                         val_l1_meter.avg, 
+                                         val_ssim_meter.avg, 
+                                         val_ssim3D_meter.avg, 
+                                         val_psnr_meter.avg, 
+                                         -1, 
+                                         "val")
+                
+            pbar.set_description_str(log_str)
+                
     return val_loss_meter.avg, val_mse_meter.avg, val_l1_meter.avg, val_ssim_meter.avg, val_ssim3D_meter.avg, val_psnr_meter.avg

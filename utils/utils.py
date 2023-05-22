@@ -26,6 +26,7 @@ from datetime import datetime
 from torchinfo import summary
 
 import torch.distributed as dist
+from colorama import Fore, Style
 
 # -------------------------------------------------------------------------------------------------
 # from https://stackoverflow.com/questions/18668227/argparse-subcommands-with-nested-namespaces
@@ -75,7 +76,8 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
     parser.add_argument("--batch_size", type=int, default=128, help='size of each batch')
     parser.add_argument("--save_cycle", type=int, default=5, help='Number of epochs between saving model weights')
     parser.add_argument("--clip_grad_norm", type=float, default=1.0, help='gradient norm clip, if <=0, no clipping')
-
+    parser.add_argument("--with_timer", action="store_true", help='whether to train with timing')
+ 
     # loss, optimizer, and scheduler arguments
     parser.add_argument("--optim", type=str, default="adamw", help='what optimizer to use, "adamw", "nadam", "sgd"')
     parser.add_argument("--global_lr", type=float, default=5e-4, help='step size for the optimizer')
@@ -207,7 +209,25 @@ def add_backbone_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for
     parser = add_shared_STCNNT_args(parser=parser)
             
     return parser
+
+# -------------------------------------------------------------------------------------------------
     
+def start_timer(enable=False):
+    
+    if enable:
+        start = torch.cuda.Event(enable_timing=True)
+        end = torch.cuda.Event(enable_timing=True)
+        start.record()
+        return (start, end)
+    else:
+        return None
+
+def end_timer(enable=False, t=None, msg=""):
+    if enable:
+        t[1].record()
+        torch.cuda.synchronize()
+        print(f"{Fore.LIGHTBLUE_EX}{msg} {t[0].elapsed_time(t[1])} ms ...{Style.RESET_ALL}")
+        
 # -------------------------------------------------------------------------------------------------
 # setup logger
 

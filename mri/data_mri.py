@@ -19,6 +19,7 @@ import cv2
 import h5py
 import torch
 import logging
+from time import time
 from tqdm import tqdm
 import numpy as np
 from pathlib import Path
@@ -35,13 +36,54 @@ from noise_augmentation import *
 # -------------------------------------------------------------------------------------------------
 # train dataset class
 
+def load_images_from_h5file(h5file, keys, max_load=100000):
+        """
+        Load images from h5 file objects
+        @args:
+            - h5file (h5File list): list of h5files to load images from
+            - keys (key list list): list of list of keys. One for each h5file
+            
+        @outputs:
+            - images : list of image and gmap pairs as a list
+        """
+        images = []
+
+        num_loaded = 0
+        for i in range(len(h5file)):
+            # with tqdm(total=len(keys[i])) as pbar:
+            #     for n, key in enumerate(keys[i]):
+            #         if num_loaded < max_load:
+            #             images.append([np.array(h5file[i][key+"/image"]), np.array(h5file[i][key+"/gmap"]), i])
+            #         else:
+            #             images.append([key+"/image", key+"/gmap", i])
+                        
+            #         pbar.update(1)
+            #         pbar.set_description_str(f"{h5file}, {n} in {len(keys[i])}, total {len(images)}")
+
+            #     pbar.close()
+            
+            with tqdm(total=len(keys[i])) as pbar:
+                for n, key in enumerate(keys[i]):
+                    if num_loaded < max_load:
+                        images.append([np.array(h5file[i][key+"/image"]), np.array(h5file[i][key+"/gmap"]), i])
+                        num_loaded += 1
+                    else:
+                        images.append([key+"/image", key+"/gmap", i])
+                        
+                    if n>0 and n%100 == 0:
+                        pbar.update(100)
+                        pbar.set_description_str(f"{h5file}, {n} in {len(keys[i])}, total {len(images)}")
+
+        return images
+    
+    
 class MRIDenoisingDatasetTrain():
     """
     Dataset for MRI denoising.
     The extracted patch maintains the strict temporal consistency
     This dataset is for 2D+T training, where the temporal redundancy is strong
     """
-    def __init__(self, h5file, keys, data_type,
+    def __init__(self, h5file, keys, data_type, max_load=10000,
                     time_cutout=30, cutout_shape=[64, 64], use_gmap=True,
                     use_complex=True, min_noise_level=1.0, max_noise_level=6.0,
                     matrix_size_adjust_ratio=[0.5, 0.75, 1.0, 1.25, 1.5],
@@ -62,6 +104,7 @@ class MRIDenoisingDatasetTrain():
             - h5file (h5File list): list of h5files to load images from
             - keys (key list list): list of list of keys. One for each h5file
             - data_type ("2d"|"2dt"|"3d"): types of mri data
+            - max_load (int): number of loaded samples when instantiating the dataset
             - time_cutout (int): cutout size in time dimension
             - cutout_shape (int list): 2 values for patch cutout shape
             - use_gmap (bool): whether to load and return gmap
@@ -82,6 +125,10 @@ class MRIDenoisingDatasetTrain():
             f"Data type not implemented: {data_type}"
         self.data_type = data_type
 
+        self.h5file = h5file
+        self.keys = keys
+        self.max_load = max_load
+        
         self.time_cutout = time_cutout
         if self.data_type=="2d": self.time_cutout = 1
         self.cutout_shape = cutout_shape
@@ -102,16 +149,7 @@ class MRIDenoisingDatasetTrain():
         self.num_patches_cutout = num_patches_cutout
         self.patches_shuffle = patches_shuffle
 
-        self.images = []
-
-        for i in range(len(h5file)):
-            with tqdm(total=len(keys[i])) as pbar:
-                for n, key in enumerate(keys[i]):
-                    self.images.append([np.array(h5file[i][key+"/image"]), np.array(h5file[i][key+"/gmap"])])
-                    pbar.update(1)
-                    pbar.set_description_str(f"{h5file}, {n} in {len(keys[i])}, total {len(self.images)}")
-
-                pbar.close()
+        self.images = load_images_from_h5file(h5file, keys, max_load=self.max_load)
                 
     def load_one_sample(self, i):
         """
@@ -127,6 +165,15 @@ class MRIDenoisingDatasetTrain():
         """
         # get the image
         data = self.images[i][0]
+        
+        if not isinstance(data, np.ndarray):
+            ind = self.images[i][2]
+            key_image = self.images[i][0]
+            key_gmap = self.images[i][1]
+            self.images[i][0] = np.array(self.h5file[ind][key_image])
+            self.images[i][1] = np.array(self.h5file[ind][key_gmap])
+            data = self.images[i][0]
+        
         if data.ndim == 2: data = data[np.newaxis,:,:]
         gmap = self.load_gmap(i, random_factor=-1)
 
@@ -316,6 +363,11 @@ class MRIDenoisingDatasetTrain():
         Loads a random gmap for current index
         """
         gmap = self.images[i][1]
+        if not isinstance(gmap, np.ndarray):
+            ind = self.images[i][2]
+            key_gmap = self.images[i][1]
+            gmap = np.array(self.h5file[ind][key_gmap])
+            
         if(gmap.ndim==2):
             gmap = np.expand_dims(gmap, axis=0)
 
@@ -523,18 +575,21 @@ def load_mri_data(config):
     }
 
     train_set = []
-    for hw in zip(c.height, c.width):
-        train_set.extend([MRIDenoisingDatasetTrain(h5file=[h_file], keys=[train_keys[i]],
-                                                        data_type=c.train_data_types[i], cutout_shape=hw,
-                                                        **kwargs) for (i,h_file) in enumerate(h5files)])
+    
+    for (i, h_file) in enumerate(h5files):
+        logging.info(f"--> loading data from file: {h_file}")
+        images = load_images_from_h5file([h_file], [train_keys[i]], max_load=c.max_load)
+        for hw in zip(c.height, c.width):        
+            train_set.append(MRIDenoisingDatasetTrain(h5file=[h_file], keys=[train_keys[i]], max_load=-1, data_type=c.train_data_types[i], cutout_shape=hw, **kwargs))
+            train_set[-1].images = images
 
     if c.test_files is None: # no test case given so use some from train data
-        val_set = [MRIDenoisingDatasetTrain(h5file=[h_file], keys=[val_keys[i]], data_type=c.train_data_types[i],
-                                                cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
+        val_set = [MRIDenoisingDatasetTrain(h5file=[h_file], keys=[val_keys[i]], max_load=c.max_load, 
+                                            data_type=c.train_data_types[i], cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
                                                 for (i,h_file) in enumerate(h5files)]
 
-        test_set = [MRIDenoisingDatasetTrain(h5file=[h_file], keys=[test_keys[i]], data_type=c.train_data_types[i],
-                                                cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
+        test_set = [MRIDenoisingDatasetTrain(h5file=[h_file], keys=[test_keys[i]], max_load=c.max_load, 
+                                             data_type=c.train_data_types[i], cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
                                                 for (i,h_file) in enumerate(h5files)]
     else: # test case is given. take part of it as val set
         test_h5files = []

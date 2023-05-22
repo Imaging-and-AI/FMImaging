@@ -18,7 +18,7 @@ def arg_parser():
     """
     parser = argparse.ArgumentParser("Argument parser for STCNNT MRI")   
     parser.add_argument("--standalone", action="store_true", help='whether to run in the standalone mode')
-    parser.add_argument("--nproc_per_node", type=int, default=1, help="number of processes per node")
+    parser.add_argument("--nproc_per_node", type=int, default=2, help="number of processes per node")
     parser.add_argument("--nnodes", type=str, default="1", help="number of nodes")
     parser.add_argument("--node_rank", type=int, default=0, help="current node rank")
     parser.add_argument("--rdzv_id", type=int, default=100, help="run id")
@@ -129,15 +129,17 @@ def main():
             os.mkdir(ckp_path)
     
     cmd.extend([
-        "--data_set", "mri",
-        "--data_root", os.path.join(project_base_dir, "mri", "data"),
+        "--data_root", "/data/mri/denoising",
         "--check_path", ckp_path,
         "--model_path", os.path.join(project_base_dir, "mri", "models"),
         "--log_path", os.path.join(project_base_dir, "mri", "logs"),
         "--results_path", os.path.join(project_base_dir, "mri", "results"),
         
-        "--train_files", "train_3D_3T_retro_cine_2020.h5", "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2018.h5",
-        "--train_data_types", "2d", "2dt", "3d"        
+        "--train_files", "train_3D_3T_retro_cine_2019.h5",
+        "--train_data_types", "2dt"
+        
+        #"--train_files", "train_3D_3T_retro_cine_2020.h5", "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2018.h5",
+        #"--train_data_types", "2d", "2dt", "3d"        
     ])
 
     # -------------------------------------------------------------
@@ -147,8 +149,8 @@ def main():
         "--summary_depth", "6",
         "--save_cycle", "200",
         
-        "--num_epochs", "150",
-        "--batch_size", "16",
+        "--num_epochs", "60",
+        "--batch_size", "48",
         "--device", "cuda",
         "--window_size", "8", "8",
         "--patch_size", "4", "4",
@@ -161,8 +163,9 @@ def main():
         "--iters_to_accumulate", "1",
         "--project", "mri",
         "--num_workers", "16",
+        "--prefetch_factor", "8",
         
-        "--scheduler_type", "OneCycleLR",
+        "--scheduler_type", "ReduceLROnPlateau",
                
         "--scheduler.ReduceLROnPlateau.patience", "2",
         "--scheduler.ReduceLROnPlateau.cooldown", "2",
@@ -173,7 +176,7 @@ def main():
         "--scheduler.StepLR.gamma", "0.8",
         
         # hrnet
-        "--backbone_hrnet.num_resolution_levels", "3",
+        "--backbone_hrnet.num_resolution_levels", "2",
         "--backbone_hrnet.use_interpolation", "1",
         
         # unet            
@@ -192,11 +195,14 @@ def main():
         
         "--complex_i",
         "--residual",
-        "--ratio", "80", "10", "10",
-        "--losses", "mse", "l1",
+        "--ratio", "90", "4", "4",
+        "--losses", "mse", "l1", "ssim",
+        "--loss_weights", "1.0", "10.0", "100.0",
         "--height", "32", "64",
         "--width", "32", "64",
-        "--time", "12"
+        "--time", "8",
+        "--max_load", "-1",
+        #"--with_timer"
     ])
     
     # test backbones
@@ -212,8 +218,8 @@ def main():
     shuffle_in_windows = ["0"]
     block_dense_connections = ["1"]
     norm_modes = ["batch2d", "instance2d"]
-    C = [64]
-    scale_ratio_in_mixers = [1.0]
+    C = [32, 64]
+    scale_ratio_in_mixers = [1.0, 4.0]
 
     block_strs = [
                     [["T1L1G1", "T1L1G1", "T1L1G1"], ["T1T1T1", "T1T1T1", "T1T1T1"] ]
@@ -259,7 +265,7 @@ def main():
                                                             print("---" * 20)
                                                             print(cmd_run)
                                                             print("---" * 20)
-                                                            #subprocess.run(cmd_run)
+                                                            subprocess.run(cmd_run)
 
                                                                 # cmd_str = ' '.join(cmd_run)
                                                                 # file.write(cmd_str+"\n\n")
