@@ -242,10 +242,8 @@ class run_ddp_base(object):
 
 # -------------------------------------------------------------
 
-def main():
-    
-    ddp_run = run_ddp_base(proj_info="stcnnt", script_to_run='./cifar/main_cifar.py')
-    ddp_run.run()
+def main():    
+    pass
          
 # -------------------------------------------------------------
 
