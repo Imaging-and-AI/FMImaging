@@ -17,7 +17,7 @@ from pathlib import Path
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
-from utils.utils import *
+from utils import *
 from trainer_mri import trainer
 from model_mri import STCNNT_MRI
 from data_mri import load_mri_data

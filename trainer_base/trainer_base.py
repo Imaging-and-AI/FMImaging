@@ -33,7 +33,7 @@ sys.path.insert(1, str(Project_DIR))
 Project_DIR = Path(__file__).parents[2].resolve()
 sys.path.insert(1, str(Project_DIR))
 
-from utils.utils import *
+from utils import *
 
 import wandb
 
@@ -42,8 +42,14 @@ __all__ = ['Trainer_Base']
 # -------------------------------------------------------------------------------------------------
 # Base model for training
 # to handle the multi-node, multi-gpu training
+#
 # support wandb sweep.
 # Note: wandb sweep does not work with torchrun due to multi-processiong conflicts.
+# 
+# this class supports:
+# - single node, single process, single gpu training
+# - single node, multiple process, multiple gpu training
+# - multiple nodes, multiple processes, multiple gpu training
 
 class Trainer_Base(ABC):
     """
@@ -136,6 +142,8 @@ class Trainer_Base(ABC):
         broadcasted to all processes.
         """
       
+        # -------------------------------------------------------
+        # get the rank and runtime info
         if self.config.ddp:
             rank = int(os.environ["LOCAL_RANK"])
             global_rank = int(os.environ["RANK"])
@@ -147,6 +155,10 @@ class Trainer_Base(ABC):
             
         print(f"{Fore.RED}---> Run start on local rank {rank} - global rank {global_rank} <---{Style.RESET_ALL}", flush=True)
             
+        # -------------------------------------------------------
+        # if sweeping, update the config with parameters from wandb
+        # perform the wandb.init to create a run
+        # only the rank=0 process get the wandb parameters
         wandb_run = None    
         if(self.config.sweep_id != 'none'):
             if rank<=0:
@@ -158,6 +170,7 @@ class Trainer_Base(ABC):
             else:
                 config = self.config
         else:
+            # if not sweep, use the inputted parameters
             # Config is a variable that holds and saves hyperparameters and inputs
             config = self.config
             if rank<=0:
@@ -167,8 +180,9 @@ class Trainer_Base(ABC):
                         name=config.run_name, 
                         notes=config.run_notes)
 
-        if self.config.ddp:
-                                        
+        # -------------------------------------------------------
+        # if ddp is used, broadcast the parameters from rank0 to all other ranks
+        if self.config.ddp:                                        
             if(self.config.sweep_id != 'none'):
                 
                 if rank<=0:
@@ -188,6 +202,8 @@ class Trainer_Base(ABC):
             if world_size > 1: dist.barrier()        
             print(f"{Fore.RED}---> Ready to run on local rank {rank}, {config.run_name}{Style.RESET_ALL}", flush=True)
             
+        # -------------------------------------------------------
+        # run the training for current rank and wandb run
         try: 
             self.run_task_trainer(rank=rank, wandb_run=wandb_run)
                                     
@@ -200,14 +216,17 @@ class Trainer_Base(ABC):
             print('Interrupted')
 
             if self.config.ddp:
-                torch.distributed.destroy_process_group()            
-
+                torch.distributed.destroy_process_group()
+                            
+            # make sure the runtime is cleaned, by brutelly removing processes
             os.system("kill $(ps aux | grep torchrun | grep -v grep | awk '{print $2}') ")
             os.system("kill $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
             os.system("kill $(ps aux | grep python3 | grep -v grep | awk '{print $2}') ")
         
     def train(self):
            
+        # -------------------------------------------------------
+        # get the rank and runtime info
         if self.config.ddp:
             if not dist.is_initialized():            
                 dist.init_process_group("nccl")
@@ -223,12 +242,16 @@ class Trainer_Base(ABC):
             global_rank = -1        
             print(f"---> ddp is off <---", flush=True)
         
+        # -------------------------------------------------------
+        # set up and check the run arguments
         self.check_args()
         setup_run(self.config)                
                 
         print(f"--------> run training on local rank {rank}", flush=True)
                                 
+        # -------------------------------------------------------
         # note the sweep_id is used to control the condition
+        # if doing sweep, get the parameters from wandb
         sweep_id = self.config.sweep_id
         print("get sweep id : ", sweep_id, flush=True)
         if (sweep_id != "none"):
@@ -240,9 +263,12 @@ class Trainer_Base(ABC):
                 print(f"--> local rank {rank} - not start another agent", flush=True)
                 self.run_training()             
         else:
+            # if not doing sweep, start a regular run
             print("start a regular run ...", flush=True)        
             self.run_training()
                     
+        # -------------------------------------------------------
+        # after the run, release the process groups
         if self.config.ddp:         
             if dist.is_initialized():
                 print(f"---> dist.destory_process_group on local rank {rank}", flush=True)

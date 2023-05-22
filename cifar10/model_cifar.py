@@ -21,7 +21,7 @@ from model_base.imaging_attention.attention_modules import Conv2DExt, AvgPool2DE
 from model_base.backbone import *
 from model_base.backbone.backbone_small_unet import *
 from model_base.task_base import *
-from utils.utils import get_device
+from utils import get_device
 
 # -------------------------------------------------------------------------------------------------
 # Cifar model

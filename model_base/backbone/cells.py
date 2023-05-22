@@ -29,7 +29,7 @@ sys.path.insert(1, str(Project_DIR))
 Project_DIR = Path(__file__).parents[2].resolve()
 sys.path.insert(1, str(Project_DIR))
 
-from utils.utils import create_generic_class_str
+from utils import create_generic_class_str
 
 from imaging_attention import *
 

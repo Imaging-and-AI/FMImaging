@@ -28,7 +28,7 @@ sys.path.insert(1, str(Project_DIR))
 
 from imaging_attention import *
 from blocks import *
-from utils.utils import get_device, create_generic_class_str
+from utils import get_device, create_generic_class_str
 
 __all__ = ['STCNNT_Base_Runtime']
 

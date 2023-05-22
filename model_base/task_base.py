@@ -27,7 +27,7 @@ sys.path.insert(1, str(Project_DIR))
 
 from imaging_attention import *
 from backbone.blocks import *
-from utils.utils import get_device, create_generic_class_str, optimizer_to
+from utils import get_device, create_generic_class_str, optimizer_to
 
 __all__ = ['STCNNT_Task_Base']
 

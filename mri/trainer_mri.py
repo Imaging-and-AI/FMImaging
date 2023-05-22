@@ -23,7 +23,7 @@ from pathlib import Path
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
-from utils.utils import *
+from utils import *
 from eval_mri import eval_test
 from model_base.losses import *
 from utils.save_model import save_final_model
@@ -257,7 +257,7 @@ def trainer(rank, config, wandb_run):
 
                 loader_ind = idx % len(train_loader_iter)
                 
-                tm = start_timer(enable=c.with_timer)                
+                tm = start_timer(enable=c.with_timer)
                 stuff = next(train_loader_iter[loader_ind], None)
                 while stuff is None:
                     del train_loader_iter[loader_ind]

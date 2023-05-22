@@ -32,7 +32,7 @@ sys.path.insert(1, str(Project_DIR))
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
-from utils.utils import get_device, model_info, get_gpu_ram_usage, create_generic_class_str
+from utils import get_device, model_info, get_gpu_ram_usage, create_generic_class_str
 
 def position_encoding(
     seq_len: int,
