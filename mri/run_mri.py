@@ -11,17 +11,14 @@ sys.path.insert(1, str(Project_DIR))
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
-Project_DIR = Path(__file__).parents[2].resolve()
-sys.path.insert(1, str(Project_DIR))
-
 from trainer_base import *
 
 # -------------------------------------------------------------
 
 class mri_ddp_base(run_ddp_base):
     
-    def __init__(self, proj_info, script_to_run) -> None:
-        super().__init__(proj_info, script_to_run)
+    def __init__(self, project, script_to_run) -> None:
+        super().__init__(project, script_to_run)
         
     def set_up_constants(self, config):
         
@@ -64,6 +61,8 @@ class mri_ddp_base(run_ddp_base):
         "--backbone_small_unet.channels", "16", "32", "64",   
         "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1",
         
+        "--min_noise_level", "2.0",
+        "--max_noise_level", "8.0",
         "--complex_i",
         "--residual",
         "--ratio", "90", "4", "4",
@@ -72,7 +71,10 @@ class mri_ddp_base(run_ddp_base):
         "--height", "32", "64",
         "--width", "32", "64",
         "--time", "8",
-        "--max_load", "-1"
+        "--max_load", "-1",
+        
+        "--train_files", "train_3D_3T_retro_cine_2018.h5", "train_3D_3T_perf_2021.h5", 
+        "--train_data_types", "2dt", "2dt"
         ])
 
     def set_up_variables(self, config):
@@ -104,7 +106,7 @@ class mri_ddp_base(run_ddp_base):
 
 def main():
     
-    ddp_run = mri_ddp_base(proj_info="mri", script_to_run='./mri/main_mri.py')
+    ddp_run = mri_ddp_base(project="mri", script_to_run='./mri/main_mri.py')
     ddp_run.run()
 
 # -------------------------------------------------------------

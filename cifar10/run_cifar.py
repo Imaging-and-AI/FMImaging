@@ -18,8 +18,8 @@ from trainer_base import *
 
 class cifar_ddp_base(run_ddp_base):
     
-    def __init__(self, proj_info, script_to_run) -> None:
-        super().__init__(proj_info, script_to_run)
+    def __init__(self, project, script_to_run) -> None:
+        super().__init__(project, script_to_run)
         
     def set_up_constants(self, config):
         
@@ -93,7 +93,7 @@ class cifar_ddp_base(run_ddp_base):
 
 def main():
     
-    ddp_run = cifar_ddp_base(proj_info="cifar", script_to_run='./cifar10/main_cifar.py')
+    ddp_run = cifar_ddp_base(project="cifar", script_to_run='./cifar10/main_cifar.py')
     ddp_run.run()
 
 # -------------------------------------------------------------

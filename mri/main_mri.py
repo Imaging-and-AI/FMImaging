@@ -39,7 +39,7 @@ def arg_parser():
     parser.add_argument("--test_files", type=str, nargs='+', default=["train_3D_3T_retro_cine_2020_small_2DT_test.h5"], help='list of test h5files')
     parser.add_argument("--train_data_types", type=str, nargs='+', default=["2dt"], help='the type of each train file: "2d", "2dt", "3d"')
     parser.add_argument("--test_data_types", type=str, nargs='+', default=["2dt"], help='the type of each test file: "2d", "2dt", "3d"')
-    parser.add_argument("--max_load", type=int, default=-1, help='number of samples to load into the disk, if <0, samples will be read in from the disk while training')
+    parser.add_argument("--max_load", type=int, default=-1, help='number of samples to load into the disk, if <0, samples will be read from the disk while training')
     
     parser = add_backbone_STCNNT_args(parser=parser)
 

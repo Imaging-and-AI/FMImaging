@@ -10,9 +10,9 @@ import shutil
 
 class run_ddp_base(object):
     
-    def __init__(self, proj_info, script_to_run) -> None:
+    def __init__(self, project, script_to_run) -> None:
         super().__init__()
-        self.proj_info = proj_info
+        self.project = project
         self.script_to_run = script_to_run
         self.cmd = []
         
@@ -81,11 +81,11 @@ class run_ddp_base(object):
                         load_path=None
                         ):
         
-        run_str = f"{a_type}-{cell_type}-{norm_mode}-C-{c}-mixer-{mixer_type}-{larger_mixer_kernel}-{int(scale_ratio_in_mixer)}-block_dense-{block_dense_connection}-qknorm-{q_k_norm}-cosine_att-{cosine_att}-shuffle_in_window-{shuffle_in_window}-att_with_relative_postion_bias-{att_with_relative_postion_bias}-block_str-{'_'.join(bs)}"
+        run_str = f"{a_type}-{cell_type}-{norm_mode}-C-{c}-MIXER-{mixer_type}-{larger_mixer_kernel}-{int(scale_ratio_in_mixer)}-BLOCK_DENSE-{block_dense_connection}-QKNORM-{q_k_norm}-CONSINE_ATT-{cosine_att}-shuffle_in_window-{shuffle_in_window}-att_with_relative_postion_bias-{att_with_relative_postion_bias}-BLOCK_STR-{'_'.join(bs)}"
                                             
         cmd_run.extend([
-            "--run_name", f"{config.project}-{bk}-{run_str}",
-            "--run_notes", f"{config.project}-{bk}-{run_str}",
+            "--run_name", f"{config.project}-{bk.upper()}-{run_str}",
+            "--run_notes", f"{config.project}-{bk.upper()}-{run_str}",
             "--backbone", f"{bk}",
             "--a_type", f"{a_type}",
             "--cell_type", f"{cell_type}",
@@ -124,7 +124,7 @@ class run_ddp_base(object):
         "--save_cycle", "200",        
         "--device", "cuda",
         "--ddp", 
-        "--project", config.project,
+        "--project", self.project,
                                
         # hrnet
         "--backbone_hrnet.use_interpolation", "1",
@@ -212,9 +212,7 @@ class run_ddp_base(object):
         @rets:
             - parser (ArgumentParser): the argparse for torchrun of mri
         """
-        parser = argparse.ArgumentParser(prog=self.proj_info)   
-        
-        parser.add_argument("--project", type=str, default="fsi", help="project names, such as cifar10, mri, imagenet etc.")
+        parser = argparse.ArgumentParser(prog=self.project)   
         
         parser.add_argument("--data_root", type=str, default=None, help="data folder; if None, use the project folder")
         
@@ -235,6 +233,7 @@ class run_ddp_base(object):
 
     def run(self):
         config = self.arg_parser()
+        config.project = self.project
         self.set_up_torchrun(config)
         self.set_up_run_path(config)
         self.set_up_constants(config)

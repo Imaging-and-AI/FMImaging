@@ -36,7 +36,7 @@
             "console": "integratedTerminal",
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
             "args": [
-                "--standalone", "--nproc_per_node", "1", "--project", "cifar"
+                "--standalone", "--nproc_per_node", "1"
             ]
             // "args": [
             //     "--nproc_per_node", "1", 
@@ -100,7 +100,7 @@
             "console": "integratedTerminal",
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
             "args": [
-                "--standalone", "--nproc_per_node", "2", "--project", "imagenet"
+                "--standalone", "--nproc_per_node", "2"
             ]
             // "args": [
             //     "--nproc_per_node", "1", 
@@ -130,7 +130,7 @@
             "console": "integratedTerminal",
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
             "args": [
-                "--standalone", "--nproc_per_node", "2", "--project", "mri", "--data_root", "/data/mri/denoising"
+                "--standalone", "--nproc_per_node", "2", "--data_root", "/data/mri/denoising"
             ]
         },
         {
