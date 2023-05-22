@@ -19,7 +19,7 @@ from pathlib import Path
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
-from utils.utils import *
+from utils import *
 from model_base.losses import *
 from model_mri import STCNNT_MRI
 from utils.running_inference import running_inference

@@ -31,7 +31,7 @@ from losses import *
 from imaging_attention import *
 from cells import *
 from blocks import *
-from utils.utils import get_device, model_info, add_backbone_STCNNT_args, Nestedspace
+from utils import get_device, model_info, add_backbone_STCNNT_args, Nestedspace
 
 from backbone_base import STCNNT_Base_Runtime
 

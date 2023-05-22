@@ -31,7 +31,7 @@ sys.path.insert(1, str(Project_DIR))
 from losses import *
 from imaging_attention import *
 from backbone import *
-from utils.utils import get_device, create_generic_class_str, add_backbone_STCNNT_args, Nestedspace
+from utils import get_device, create_generic_class_str, add_backbone_STCNNT_args, Nestedspace
 
 __all__ = ['CNNT_Unet']
 

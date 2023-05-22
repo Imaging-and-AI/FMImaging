@@ -22,7 +22,7 @@ from pathlib import Path
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
-from utils.utils import *
+from utils import *
 
 import os
 import sys

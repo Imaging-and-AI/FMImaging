@@ -20,7 +20,7 @@ sys.path.insert(1, str(Project_DIR))
 
 from model_base.transformer import * 
 
-from utils.utils import *
+from utils import *
 
 __all__ = ['MPPredictor', 'LossMPPrediction', 'MSELossMPPrediction', 'L1LossMPPrediction']
 

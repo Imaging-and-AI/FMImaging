@@ -26,7 +26,7 @@ from pathlib import Path
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
-from utils.utils import *
+from utils import *
 from eval_cifar import create_base_test_set, save_results
 from utils.save_model import save_final_model
 from model_cifar import STCNNT_Cifar
@@ -271,7 +271,11 @@ def trainer(rank, config, wandb_run):
         with tqdm(total=total_iters) as pbar:
             for idx in range(total_iters):
                 
+                tm = start_timer(enable=c.with_timer)
                 inputs, labels = next(train_loader_iter)
+                end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
+                
+                tm = start_timer(enable=c.with_timer)
                 inputs = inputs.to(device)
                 labels = labels.to(device)
 
@@ -279,9 +283,13 @@ def trainer(rank, config, wandb_run):
                     output = model(inputs)
                     loss = loss_f(output, labels)
                     loss = loss / c.iters_to_accumulate
-                    
+                end_timer(enable=c.with_timer, t=tm, msg="---> forward pass took ")
+                  
+                tm = start_timer(enable=c.with_timer)  
                 scaler.scale(loss).backward()
-
+                end_timer(enable=c.with_timer, t=tm, msg="---> backward pass took ")
+                
+                tm = start_timer(enable=c.with_timer)
                 if (idx + 1) % c.iters_to_accumulate == 0 or (idx + 1 == total_iters):
                     if(c.clip_grad_norm>0):
                         scaler.unscale_(optim)
@@ -292,9 +300,10 @@ def trainer(rank, config, wandb_run):
                     scaler.update()
                 
                     if stype == "OneCycleLR": sched.step()
-                    
+                end_timer(enable=c.with_timer, t=tm, msg="---> other steps took ")
+                                
+                tm = start_timer(enable=c.with_timer)
                 curr_lr = optim.param_groups[0]['lr']
-
                 acc_1 = Accuracy_1(output, labels).item()
                 acc_5 = Accuracy_5(output, labels).item()
                 
@@ -309,6 +318,8 @@ def trainer(rank, config, wandb_run):
                 pbar.update(1)
                 pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} tra, rank {rank}, {inputs.shape}, loss {train_loss.avg:.4f}, lr {curr_lr:.8f}")
 
+                end_timer(enable=c.with_timer, t=tm, msg="---> logging and measuring took ")
+                
             pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} tra, rank {rank}, loss {train_loss.avg:.4f}, {Fore.YELLOW}acc-1 {train_acc_1.avg:.4f}{Style.RESET_ALL}, {Fore.RED}acc-5 {train_acc_5.avg:.4f}{Style.RESET_ALL}, lr {curr_lr:.8f}")
 
         # -----------------------------------------------------
