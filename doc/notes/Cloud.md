@@ -16,12 +16,14 @@ az login --use-device-code
 rg=xueh2-a100-eastus2
 node_list=(node1 node2 node3 node4 node5 node6 node7 node8 node9 node10 node11 node12 node13 node14 node15 node16)
 
+# start the VMs
 for n in ${node_list[*]}
 do
     echo "start node $n ..."
     az vm start --name $n -g $rg
 done
 
+# stop the VMs
 for n in ${node_list[*]}
 do
     echo "stop node $n ..."
@@ -29,38 +31,65 @@ do
     az vm deallocate --name $n -g $rg
 done
 
-for n in fsi{1..16}
-do
-    echo "update node $n ..."
-    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "git clone git@github.com:AzR919/STCNNT.git /home/gtuser/mrprogs/STCNNT.git"
-done
-
-for n in fsi{1..16}
-do
-    echo "update node $n ..."
-    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "cd /home/gtuser/mrprogs/STCNNT.git && git pull"
-done
-
+# check GPU status
 for n in fsi{1..16}
 do
     echo "check node $n ..."
     ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "nvidia-smi"
 done
+
+# mount drive
+# no need to mount node5
+for n in fsi{1,6,10,12,13}
+do
+    echo "check node $n ..."
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "sudo mount /dev/sda1 /export/Lab-Xue"
+done
+
+for n in fsi{2,3,4,7,8,11,14,15,16,9}
+do
+    echo "check node $n ..."
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "sudo mount /dev/sdc1 /export/Lab-Xue"
+done
+
+# update the code
+for n in fsi{1..16}
+do
+    echo "update node $n ..."
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "cd /home/gtuser/mrprogs/STCNNT.git && git pull"
+done
 ```
 
-## Reinstall nvidia driver
+# Download training data to VMs
 ```
-# remote old installation if any
-sudo apt-get --purge remove cuda*
-sudo apt-get remove --purge nvidia-*
+rg=xueh2-a100-eastus2
 
-# add nvidia driver ppa
-sudo add-apt-repository ppa:graphics-drivers/ppa -y
+node_list=(fsi1 fsi2 fsi3 fsi4 fsi5 fsi6 fsi7 fsi8 fsi9 fsi10 fsi11 fsi12 fsi13 fsi14 fsi15 fsi16)
 
-# update software cache
-sudo apt update
-sudo apt upgrade -y
+# copy key
+for n in ${node_list[*]}
+do
+    echo "copy data to $n ..."
+    VM_name=$n.eastus2.cloudapp.azure.com    
+scp -i ~/.ssh/xueh2-a100.pem ~/.ssh/xueh2-a100.pem gtuser@$VM_name:/home/gtuser/.ssh/
+done
 
-sudo apt-get install ubuntu-drivers-common -y
-sudo ubuntu-drivers install 525 -y
+# copy data
+
+for n in ${node_list[*]}
+do
+    echo "copy data to $n ..."
+    VM_name=$n.eastus2.cloudapp.azure.com
+
+    # MRI data
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/mri/data; nohup wget https://gadgetronrawdata.blob.core.windows.net/mr-denoising-training-data/train_3D_3T_retro_cine_2018.h5 > ./log.txt 2>&1 &'"
+
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/mri/data; nohup wget https://gadgetronrawdata.blob.core.windows.net/mr-denoising-training-data/train_3D_3T_perf_2021.h5 > ./log.txt 2>&1 &'"
+
+    # imagenet data
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/imagenet/data; nohup wget https://gadgetronrawdata.blob.core.windows.net/stcnnt/ILSVRC2012_devkit_t12.tar.gz > ./log.txt 2>&1 &'"
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/imagenet/data; nohup wget https://gadgetronrawdata.blob.core.windows.net/stcnnt/ILSVRC2012_img_val.tar > ./log.txt 2>&1 &'"
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/imagenet/data; nohup wget https://gadgetronrawdata.blob.core.windows.net/stcnnt/ILSVRC2012_devkit_t12.tar.gz > ./log.txt 2>&1 &'"
+done
+
 ```

@@ -96,14 +96,8 @@ ssh -i ~/.ssh/xueh2-a100.pem gtuser@fsi2.eastus2.cloudapp.azure.com
 ```
 ssh -i C:/Users/xueh2/.ssh/xueh2-a100.pem gtuser@20.114.147.179 -K
 ```
-## Copy data
-```
-scp -i ~/.ssh/xueh2-a100.pem /export/Lab-Xue/data/common/ILSVRC2012_img_val.tar gtuser@fsi2.eastus2.cloudapp.azure.com:/export/Lab-Xue/
-scp -i ~/.ssh/xueh2-a100.pem /export/Lab-Xue/data/common/ILSVRC2012_devkit_t12.tar.gz gtuser@fsi2.eastus2.cloudapp.azure.com:/export/Lab-Xue/
-scp -i ~/.ssh/xueh2-a100.pem /export/Lab-Xue/data/common/ILSVRC2012_img_train.tar gtuser@fsi2.eastus2.cloudapp.azure.com:/export/Lab-Xue/
-```
 
-## after creating a VM from an image
+# After creating a VM from an image
 ```
 VM_name=fsi6.eastus2.cloudapp.azure.com
 
@@ -113,7 +107,6 @@ ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "nvidia-smi"
 
 
 ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name
-
 git clone git@github.com:AzR919/STCNNT.git /home/gtuser/mrprogs/STCNNT.git"
 
 sudo fdisk /dev/sdc
@@ -139,24 +132,22 @@ scp -i ~/.ssh/xueh2-a100.pem /export/Lab-Xue/data/common/ILSVRC2012_img_train.ta
 ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "python3 -c \"import torchvision as tv; a = tv.datasets.ImageNet(root='/export/Lab-Xue/projects/imagenet/data', split='train'); a = tv.datasets.ImageNet(root='/export/Lab-Xue/projects/imagenet/data', split='val') \" "
 
 ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "mkdir -p /export/Lab-Xue/projects/mri/data"
-scp -i ~/.ssh/xueh2-a100.pem /export/Lab-Xue/projects/mri/data/train_3D_3T_retro_cine_2018.h5 gtuser@$VM_name:/export/Lab-Xue/projects/mri/data/
-scp -i ~/.ssh/xueh2-a100.pem /export/Lab-Xue/projects/mri/data/train_3D_3T_perf_2021.h5 gtuser@$VM_name:/export/Lab-Xue/projects/mri/data/
 
 ```
 
-## Run commands on nodes
+# Reinstall nvidia driver
 ```
-rg=xueh2-a100-eastus2
+# remote old installation if any
+sudo apt-get --purge remove cuda*
+sudo apt-get remove --purge nvidia-*
 
-node_list=(fsi1 fsi2 fsi3 fsi4 fsi5 fsi6 fsi7 fsi8 fsi9 fsi10 fsi11 fsi12 fsi13 fsi14 fsi15 fsi16)
+# add nvidia driver ppa
+sudo add-apt-repository ppa:graphics-drivers/ppa -y
 
-for n in ${node_list[*]}
-do
-    echo "copy data to $n ..."
-    VM_name=$n.eastus2.cloudapp.azure.com
-    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "mkdir -p /export/Lab-Xue/projects/mri/data"
-scp -i ~/.ssh/xueh2-a100.pem /export/Lab-Xue/projects/mri/data/train_3D_3T_retro_cine_2018.h5 gtuser@$VM_name:/export/Lab-Xue/projects/mri/data/
-scp -i ~/.ssh/xueh2-a100.pem /export/Lab-Xue/projects/mri/data/train_3D_3T_perf_2021.h5 gtuser@$VM_name:/export/Lab-Xue/projects/mri/data/
+# update software cache
+sudo apt update
+sudo apt upgrade -y
 
-done
+sudo apt-get install ubuntu-drivers-common -y
+sudo ubuntu-drivers install 525 -y
 ```
