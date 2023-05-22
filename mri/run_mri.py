@@ -26,7 +26,8 @@ def arg_parser():
     parser.add_argument("--rdzv_endpoint", type=str, default="localhost:9001", help="master node endpoint")
     parser.add_argument("--load_path", type=str, default=None, help="check point file to load if provided")
     parser.add_argument("--clean_checkpoints", action="store_true", help='whether to delete previous check point files')
-        
+    parser.add_argument("--with_timer", action="store_true", help='whether to train with timing')
+    
     args = parser.parse_args()
     
     return args
@@ -135,12 +136,15 @@ def main():
         "--log_path", os.path.join(project_base_dir, "mri", "logs"),
         "--results_path", os.path.join(project_base_dir, "mri", "results"),
         
-        "--train_files", "train_3D_3T_retro_cine_2019.h5",
-        "--train_data_types", "2dt"
+        "--train_files", "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_perf_2019.h5",
+        "--train_data_types", "2dt", "2dt"
         
         #"--train_files", "train_3D_3T_retro_cine_2020.h5", "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2018.h5",
         #"--train_data_types", "2d", "2dt", "3d"        
     ])
+
+    if config.with_timer:
+        cmd.extend(["--with_timer"])
 
     # -------------------------------------------------------------
 
@@ -202,7 +206,7 @@ def main():
         "--width", "32", "64",
         "--time", "8",
         "--max_load", "-1",
-        #"--with_timer"
+        "--with_timer"
     ])
     
     # test backbones
