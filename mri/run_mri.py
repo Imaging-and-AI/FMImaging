@@ -70,7 +70,7 @@ class mri_ddp_base(run_ddp_base):
         "--height", "32", "64",
         "--width", "32", "64",
         "--time", "8",
-        "--max_load", "10000",
+        #"--max_load", "10000",
         
         "--train_files", "train_3D_3T_retro_cine_2018.h5", "train_3D_3T_perf_2021.h5", 
         "--train_data_types", "2dt", "2dt"
@@ -78,6 +78,8 @@ class mri_ddp_base(run_ddp_base):
         
         if config.tra_ratio > 0 and config.tra_ratio<=100:
             self.cmd.extend(["--ratio", f"{int(config.tra_ratio)}", "5", "5"])
+            
+        self.cmd.extend(["--max_load", f"{int(config.max_load)}"])
 
     def set_up_variables(self, config):
         
@@ -104,6 +106,11 @@ class mri_ddp_base(run_ddp_base):
 
         return vars
 
+    def arg_parser(self):
+        parser = super().arg_parser()
+        parser.add_argument("--max_load", type=int, default=1000, help="number of max loaded samples into the RAM")
+        return parser
+    
 # -------------------------------------------------------------
 
 def main():
