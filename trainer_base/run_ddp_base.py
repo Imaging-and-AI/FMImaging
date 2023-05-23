@@ -228,12 +228,11 @@ class run_ddp_base(object):
         parser.add_argument("--with_timer", action="store_true", help='whether to train with timing')
         parser.add_argument("--tra_ratio", type=float, default=100, help="percentage of training data used")
         
-        args = parser.parse_args()
-        
-        return args
+        return parser
 
     def run(self):
-        config = self.arg_parser()
+        parser = self.arg_parser()
+        config = parser.parse_args()
         config.project = self.project
         self.set_up_torchrun(config)
         self.set_up_run_path(config)
