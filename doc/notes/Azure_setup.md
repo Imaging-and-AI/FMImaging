@@ -51,12 +51,35 @@ git clone git@github.com:AzR919/STCNNT.git
 
 sudo fdisk -l
 
-sudo fdisk /dev/nvme3n1
-sudo mkfs -t ext4 /dev/nvme3n1p1
-sudo mkdir -p /export/data
-sudo mount -t ext4 /dev/nvme3n1p1 /export/data/
-sudo chmod a+rw /export
-sudo chmod a+rw /export/data
+# test hard drive speed
+sudo hdparm -Tt /dev/nvme3n1
+
+# format and mount drives
+
+drive=(/dev/nvme0n1
+    /dev/nvme1n1
+    /dev/nvme2n1
+    /dev/nvme3n1
+    )
+
+mpoint=(
+    /export/Lab-Xue/projects/mri
+    /export/Lab-Xue/projects/imagenet
+    /export/Lab-Xue/projects/fm
+    /export/Lab-Xue/projects/data
+    )
+
+for index in ${!drive[*]}; do 
+    echo "${drive[$index]} is in ${mpoint[$index]}"
+    sudo fdisk ${drive[$index]}
+    sudo mkfs -t ext4 ${drive[$index]}
+    sudo mkdir -p ${mpoint[$index]}
+    sudo mount -t ext4 ${drive[$index]} ${mpoint[$index]}
+    sudo chmod a+rw ${mpoint[$index]}
+done
+mkdir -p /export/Lab-Xue/projects/mri/data
+mkdir -p /export/Lab-Xue/projects/imagenet/data
+mkdir -p /export/Lab-Xue/projects/fm/data
 
 sudo fdisk /dev/sda
 sudo mkfs -t ext4 /dev/sda1
