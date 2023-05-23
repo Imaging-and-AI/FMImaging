@@ -38,58 +38,6 @@ do
     ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "nvidia-smi"
 done
 
-# mount drive
-# no need to mount node5
-for n in fsi{1,6,10,12,13}
-do
-    echo "mount node $n ..."
-    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "sudo mount /dev/sda1 /export/Lab-Xue"
-done
-
-for n in fsi{2,3,4,7,8,11,14,15,16,9}
-do
-    echo "mount node $n ..."
-    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "sudo mount /dev/sdc1 /export/Lab-Xue"
-done
-
-# update the code
-for n in fsi{1..16}
-do
-    echo "update node $n ..."
-    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "cd /home/gtuser/mrprogs/STCNNT.git && git pull"
-done
-```
-
-# upload data to storage account
-
-```
-azcopy copy ./train_3D_3T_perf_2021.h5 "https://stcnnt.blob.core.windows.net/mri/data/train_3D_3T_perf_2021.h5?sp=racwdli&st=2023-05-23T12:04:57Z&se=2026-05-23T20:04:57Z&sv=2022-11-02&sr=c&sig=t9sm9FdUUidOFspgXOP9bpaEj57kxMoQUV7p8%2FfIUUA%3D" --recursive
-
-azcopy copy . "https://stcnnt.blob.core.windows.net/mri/data/?sp=racwdli&st=2023-05-23T12:04:57Z&se=2026-05-23T20:04:57Z&sv=2022-11-02&sr=c&sig=t9sm9FdUUidOFspgXOP9bpaEj57kxMoQUV7p8%2FfIUUA%3D" --include-pattern "*3D*.h5"  --recursive
-
-azcopy copy /export/Lab-Xue/projects/imagenet/data/downloaded "https://stcnnt.blob.core.windows.net/imagenet/data/?sp=racwdli&st=2023-05-23T12:12:36Z&se=2026-05-23T20:12:36Z&sv=2022-11-02&sr=c&sig=BD8VIaux4YSYsmkg6JdeIf1ckVAVmcGCnqlHGp93h8Y%3D" --include-pattern "ILS*" --recursive
-
-```
-
-# Download training data to VMs
-```
-azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/train_3D_3T_retro_cine_2018.h5?sp=racwdli&st=2023-05-23T12:04:57Z&se=2026-05-23T20:04:57Z&sv=2022-11-02&sr=c&sig=t9sm9FdUUidOFspgXOP9bpaEj57kxMoQUV7p8%2FfIUUA%3D" /export/Lab-Xue/projects/mri/data
-
-azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/train_3D_3T_perf_2021.h5?sp=racwdli&st=2023-05-23T12:04:57Z&se=2026-05-23T20:04:57Z&sv=2022-11-02&sr=c&sig=t9sm9FdUUidOFspgXOP9bpaEj57kxMoQUV7p8%2FfIUUA%3D" /export/Lab-Xue/projects/mri/data
-
-azcopy copy "https://stcnnt.blob.core.windows.net/imagenet/downloaded/ILSVRC2012_img_train.tar?sp=racwdli&st=2023-05-23T12:12:36Z&se=2026-05-23T20:12:36Z&sv=2022-11-02&sr=c&sig=BD8VIaux4YSYsmkg6JdeIf1ckVAVmcGCnqlHGp93h8Y%3D" /export/Lab-Xue/projects/imagenet/data
-
-azcopy copy "https://stcnnt.blob.core.windows.net/imagenet/downloaded/ILSVRC2012_devkit_t12.tar.gz?sp=racwdli&st=2023-05-23T12:12:36Z&se=2026-05-23T20:12:36Z&sv=2022-11-02&sr=c&sig=BD8VIaux4YSYsmkg6JdeIf1ckVAVmcGCnqlHGp93h8Y%3D" /export/Lab-Xue/projects/imagenet/data
-
-azcopy copy "https://stcnnt.blob.core.windows.net/imagenet/downloaded/ILSVRC2012_img_val.tar?sp=racwdli&st=2023-05-23T12:12:36Z&se=2026-05-23T20:12:36Z&sv=2022-11-02&sr=c&sig=BD8VIaux4YSYsmkg6JdeIf1ckVAVmcGCnqlHGp93h8Y%3D" /export/Lab-Xue/projects/imagenet/data
-
-```
-
-```
-rg=xueh2-a100-eastus2
-
-node_list=(fsi1 fsi2 fsi3 fsi4 fsi5 fsi6 fsi7 fsi8 fsi9 fsi10 fsi11 fsi12 fsi13 fsi14 fsi15 fsi16)
-
 # copy key
 for n in ${node_list[*]}
 do
@@ -99,28 +47,13 @@ scp -i ~/.ssh/xueh2-a100.pem ~/.ssh/xueh2-a100.pem gtuser@$VM_name:/home/gtuser/
 scp -i ~/.ssh/xueh2-a100.pem $HOME/mrprogs/STCNNT.git/doc/notes/set_up_VM.sh gtuser@$VM_name:/home/gtuser/
 done
 
-# copy data
+# mount drive
+bash ~/set_up_VM.sh
 
-for n in ${node_list[*]}
+# update the code
+for n in fsi{1..16}
 do
-    echo "copy data to $n ..."
-    VM_name=$n.eastus2.cloudapp.azure.com
-
-    # imagenet data
-    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/imagenet/data; nohup azcopy copy https://gadgetronrawdata.blob.core.windows.net/stcnnt/ILSVRC2012_devkit_t12.tar.gz . > /dev/null 2>&1 &'"
-    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/imagenet/data; nohup azcopy copy https://gadgetronrawdata.blob.core.windows.net/stcnnt/ILSVRC2012_img_val.tar . > /dev/null 2>&1 &'"
-    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/imagenet/data; nohup azcopy copy https://gadgetronrawdata.blob.core.windows.net/stcnnt/ILSVRC2012_devkit_t12.tar.gz . > /dev/null 2>&1 &'"
+    echo "update node $n ..."
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "cd /home/gtuser/mrprogs/STCNNT.git && git pull"
 done
-
-for n in ${node_list[*]}
-do
-    echo "copy data to $n ..."
-    VM_name=$n.eastus2.cloudapp.azure.com
-
-    # MRI data
-    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/mri/data; rm -rf ./*; nohup azcopy copy https://gadgetronrawdata.blob.core.windows.net/mr-denoising-training-data/train_3D_3T_retro_cine_2018.h5 . > /dev/null 2>&1 &'"
-
-    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/mri/data; nohup azcopy copy https://gadgetronrawdata.blob.core.windows.net/mr-denoising-training-data/train_3D_3T_perf_2021.h5 . > /dev/null 2>&1 &'"
-done
-
 ```

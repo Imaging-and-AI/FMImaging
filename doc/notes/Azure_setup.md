@@ -14,7 +14,7 @@ mkdir ~/key
 
 sudo apt install software-properties-common -y
 sudo apt install build-essential -y
-sudo apt install python3-pip emacs tmux -y
+sudo apt install python3-pip emacs tmux hdparm -y
 
 cd ~ && touch .tmux.conf
 echo "set -g mouse on" >> .tmux.conf
@@ -81,20 +81,6 @@ mkdir -p /export/Lab-Xue/projects/mri/data
 mkdir -p /export/Lab-Xue/projects/imagenet/data
 mkdir -p /export/Lab-Xue/projects/fm/data
 
-sudo fdisk /dev/sda
-sudo mkfs -t ext4 /dev/sda1
-sudo mkdir -p /export/Lab-Xue
-sudo mount -t ext4 /dev/sda1 /export/Lab-Xue/
-sudo chmod a+rw /export
-sudo chmod a+rw /export/Lab-Xue
-
-sudo fdisk /dev/sdc
-sudo mkfs -t ext4 /dev/sdc1
-sudo mkdir -p /export/Lab-Xue
-sudo mount -t ext4 /dev/sdc1 /export/Lab-Xue/
-sudo chmod a+rw /export
-sudo chmod a+rw /export/Lab-Xue
-
 # install azcopy
 cd ~/software
 wget https://aka.ms/downloadazcopy-v10-linux
@@ -138,22 +124,6 @@ ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "nvidia-smi"
 
 ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name
 git clone git@github.com:AzR919/STCNNT.git /home/gtuser/mrprogs/STCNNT.git"
-
-sudo fdisk /dev/sdc
-sudo mkfs -t ext4 /dev/sdc1
-sudo mkdir -p /export/Lab-Xue
-sudo mount -t ext4 /dev/sdc1 /export/Lab-Xue/
-sudo chmod a+rw /export
-sudo chmod a+rw /export/Lab-Xue
-
-sudo fdisk /dev/sda
-sudo mkfs -t ext4 /dev/sda1
-sudo mkdir -p /export/Lab-Xue
-sudo mount -t ext4 /dev/sda1 /export/Lab-Xue/
-sudo chmod a+rw /export
-sudo chmod a+rw /export/Lab-Xue
-
-exit
 
 ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "mkdir -p /export/Lab-Xue/projects/imagenet/data"
 scp -i ~/.ssh/xueh2-a100.pem /export/Lab-Xue/data/common/ILSVRC2012_img_val.tar gtuser@$VM_name:/export/Lab-Xue/projects/imagenet/data/
