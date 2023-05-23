@@ -219,9 +219,9 @@ class Trainer_Base(ABC):
                 torch.distributed.destroy_process_group()
                             
             # make sure the runtime is cleaned, by brutelly removing processes
-            os.system("kill $(ps aux | grep torchrun | grep -v grep | awk '{print $2}') ")
-            os.system("kill $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
-            os.system("kill $(ps aux | grep python3 | grep -v grep | awk '{print $2}') ")
+            os.system("kill -9 $(ps aux | grep torchrun | grep -v grep | awk '{print $2}') ")
+            os.system("kill -9 $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
+            os.system("kill -9 $(ps aux | grep python3 | grep -v grep | awk '{print $2}') ")
         
     def train(self):
            
