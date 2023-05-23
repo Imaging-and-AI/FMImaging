@@ -60,7 +60,31 @@ do
 done
 ```
 
+# upload data to storage account
+
+```
+azcopy copy ./train_3D_3T_perf_2021.h5 "https://stcnnt.blob.core.windows.net/mri/data/train_3D_3T_perf_2021.h5?sp=racwdli&st=2023-05-23T12:04:57Z&se=2026-05-23T20:04:57Z&sv=2022-11-02&sr=c&sig=t9sm9FdUUidOFspgXOP9bpaEj57kxMoQUV7p8%2FfIUUA%3D" --recursive
+
+azcopy copy . "https://stcnnt.blob.core.windows.net/mri/data/?sp=racwdli&st=2023-05-23T12:04:57Z&se=2026-05-23T20:04:57Z&sv=2022-11-02&sr=c&sig=t9sm9FdUUidOFspgXOP9bpaEj57kxMoQUV7p8%2FfIUUA%3D" --include-pattern "*3D*.h5"  --recursive
+
+azcopy copy /export/Lab-Xue/projects/imagenet/data/downloaded "https://stcnnt.blob.core.windows.net/imagenet/data/?sp=racwdli&st=2023-05-23T12:12:36Z&se=2026-05-23T20:12:36Z&sv=2022-11-02&sr=c&sig=BD8VIaux4YSYsmkg6JdeIf1ckVAVmcGCnqlHGp93h8Y%3D" --include-pattern "ILS*" --recursive
+
+```
+
 # Download training data to VMs
+```
+azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/train_3D_3T_retro_cine_2018.h5?sp=racwdli&st=2023-05-23T12:04:57Z&se=2026-05-23T20:04:57Z&sv=2022-11-02&sr=c&sig=t9sm9FdUUidOFspgXOP9bpaEj57kxMoQUV7p8%2FfIUUA%3D" /export/Lab-Xue/projects/mri/data
+
+azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/train_3D_3T_perf_2021.h5?sp=racwdli&st=2023-05-23T12:04:57Z&se=2026-05-23T20:04:57Z&sv=2022-11-02&sr=c&sig=t9sm9FdUUidOFspgXOP9bpaEj57kxMoQUV7p8%2FfIUUA%3D" /export/Lab-Xue/projects/mri/data
+
+azcopy copy "https://stcnnt.blob.core.windows.net/imagenet/downloaded/ILSVRC2012_img_train.tar?sp=racwdli&st=2023-05-23T12:12:36Z&se=2026-05-23T20:12:36Z&sv=2022-11-02&sr=c&sig=BD8VIaux4YSYsmkg6JdeIf1ckVAVmcGCnqlHGp93h8Y%3D" /export/Lab-Xue/projects/imagenet/data
+
+azcopy copy "https://stcnnt.blob.core.windows.net/imagenet/downloaded/ILSVRC2012_devkit_t12.tar.gz?sp=racwdli&st=2023-05-23T12:12:36Z&se=2026-05-23T20:12:36Z&sv=2022-11-02&sr=c&sig=BD8VIaux4YSYsmkg6JdeIf1ckVAVmcGCnqlHGp93h8Y%3D" /export/Lab-Xue/projects/imagenet/data
+
+azcopy copy "https://stcnnt.blob.core.windows.net/imagenet/downloaded/ILSVRC2012_img_val.tar?sp=racwdli&st=2023-05-23T12:12:36Z&se=2026-05-23T20:12:36Z&sv=2022-11-02&sr=c&sig=BD8VIaux4YSYsmkg6JdeIf1ckVAVmcGCnqlHGp93h8Y%3D" /export/Lab-Xue/projects/imagenet/data
+
+```
+
 ```
 rg=xueh2-a100-eastus2
 
@@ -93,7 +117,7 @@ do
     VM_name=$n.eastus2.cloudapp.azure.com
 
     # MRI data
-    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/mri/data; nohup azcopy copy https://gadgetronrawdata.blob.core.windows.net/mr-denoising-training-data/train_3D_3T_retro_cine_2018.h5 . > /dev/null 2>&1 &'"
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/mri/data; rm -rf ./*; nohup azcopy copy https://gadgetronrawdata.blob.core.windows.net/mr-denoising-training-data/train_3D_3T_retro_cine_2018.h5 . > /dev/null 2>&1 &'"
 
     ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/mri/data; nohup azcopy copy https://gadgetronrawdata.blob.core.windows.net/mr-denoising-training-data/train_3D_3T_perf_2021.h5 . > /dev/null 2>&1 &'"
 done
