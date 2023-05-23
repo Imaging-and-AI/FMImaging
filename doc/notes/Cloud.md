@@ -42,13 +42,13 @@ done
 # no need to mount node5
 for n in fsi{1,6,10,12,13}
 do
-    echo "check node $n ..."
+    echo "mount node $n ..."
     ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "sudo mount /dev/sda1 /export/Lab-Xue"
 done
 
 for n in fsi{2,3,4,7,8,11,14,15,16,9}
 do
-    echo "check node $n ..."
+    echo "mount node $n ..."
     ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "sudo mount /dev/sdc1 /export/Lab-Xue"
 done
 
@@ -81,15 +81,21 @@ do
     echo "copy data to $n ..."
     VM_name=$n.eastus2.cloudapp.azure.com
 
-    # MRI data
-    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/mri/data; nohup wget https://gadgetronrawdata.blob.core.windows.net/mr-denoising-training-data/train_3D_3T_retro_cine_2018.h5 > ./log.txt 2>&1 &'"
-
-    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/mri/data; nohup wget https://gadgetronrawdata.blob.core.windows.net/mr-denoising-training-data/train_3D_3T_perf_2021.h5 > ./log.txt 2>&1 &'"
-
     # imagenet data
-    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/imagenet/data; nohup wget https://gadgetronrawdata.blob.core.windows.net/stcnnt/ILSVRC2012_devkit_t12.tar.gz > ./log.txt 2>&1 &'"
-    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/imagenet/data; nohup wget https://gadgetronrawdata.blob.core.windows.net/stcnnt/ILSVRC2012_img_val.tar > ./log.txt 2>&1 &'"
-    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/imagenet/data; nohup wget https://gadgetronrawdata.blob.core.windows.net/stcnnt/ILSVRC2012_devkit_t12.tar.gz > ./log.txt 2>&1 &'"
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/imagenet/data; nohup azcopy copy https://gadgetronrawdata.blob.core.windows.net/stcnnt/ILSVRC2012_devkit_t12.tar.gz . > /dev/null 2>&1 &'"
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/imagenet/data; nohup azcopy copy https://gadgetronrawdata.blob.core.windows.net/stcnnt/ILSVRC2012_img_val.tar . > /dev/null 2>&1 &'"
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/imagenet/data; nohup azcopy copy https://gadgetronrawdata.blob.core.windows.net/stcnnt/ILSVRC2012_devkit_t12.tar.gz . > /dev/null 2>&1 &'"
+done
+
+for n in ${node_list[*]}
+do
+    echo "copy data to $n ..."
+    VM_name=$n.eastus2.cloudapp.azure.com
+
+    # MRI data
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/mri/data; nohup azcopy copy https://gadgetronrawdata.blob.core.windows.net/mr-denoising-training-data/train_3D_3T_retro_cine_2018.h5 . > /dev/null 2>&1 &'"
+
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name "sh -c 'cd /export/Lab-Xue/projects/mri/data; nohup azcopy copy https://gadgetronrawdata.blob.core.windows.net/mr-denoising-training-data/train_3D_3T_perf_2021.h5 . > /dev/null 2>&1 &'"
 done
 
 ```

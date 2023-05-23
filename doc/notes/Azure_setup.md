@@ -72,6 +72,13 @@ sudo mount -t ext4 /dev/sdc1 /export/Lab-Xue/
 sudo chmod a+rw /export
 sudo chmod a+rw /export/Lab-Xue
 
+# install azcopy
+cd ~/software
+wget https://aka.ms/downloadazcopy-v10-linux
+tar -xvf downloadazcopy-v10-linux
+sudo cp ./azcopy_linux_amd64_*/azcopy /usr/bin/
+sudo chmod a+x /usr/bin/azcopy
+
 # install packages
 
 pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu118
