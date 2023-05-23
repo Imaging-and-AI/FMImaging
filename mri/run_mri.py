@@ -65,7 +65,6 @@ class mri_ddp_base(run_ddp_base):
         "--max_noise_level", "8.0",
         "--complex_i",
         "--residual",
-        "--ratio", "90", "4", "4",
         "--losses", "mse", "l1", "ssim",
         "--loss_weights", "1.0", "10.0", "100.0",
         "--height", "32", "64",
@@ -76,6 +75,9 @@ class mri_ddp_base(run_ddp_base):
         "--train_files", "train_3D_3T_retro_cine_2018.h5", "train_3D_3T_perf_2021.h5", 
         "--train_data_types", "2dt", "2dt"
         ])
+        
+        if config.tra_ratio > 0 and config.tra_ratio<=100:
+            self.cmd.extend(["--ratio", f"{int(config.tra_ratio)}", "5", "5"])
 
     def set_up_variables(self, config):
         

@@ -57,10 +57,11 @@ class imagenet_ddp_base(run_ddp_base):
                         
         # small unet
         "--backbone_small_unet.channels", "16", "32", "64",   
-        "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1",
-        
-        "--ratio", "100", "100", "100"
+        "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1"
         ])
+        
+        if config.tra_ratio > 0 and config.tra_ratio<=100:
+            self.cmd.extend(["--ratio", f"{int(config.tra_ratio)}", "100", "100"])
 
     def set_up_variables(self, config):
         

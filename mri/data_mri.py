@@ -62,6 +62,9 @@ def load_images_from_h5file(h5file, keys, max_load=100000):
 
             #     pbar.close()
             
+            if max_load<=0:
+                logging.info(f"{h5file[i]}, data will not be pre-read ...")
+            
             with tqdm(total=len(keys[i])) as pbar:
                 for n, key in enumerate(keys[i]):
                     if num_loaded < max_load:
@@ -530,7 +533,8 @@ def load_mri_data(config):
     c = config # shortening due to numerous uses
 
     ratio = [x/100 for x in c.ratio]
-
+    logging.info(f"--> loading data with ratio {ratio} ...")
+    
     h5files = []
     train_keys = []
     val_keys = []
@@ -577,7 +581,7 @@ def load_mri_data(config):
     train_set = []
     
     for (i, h_file) in enumerate(h5files):
-        logging.info(f"--> loading data from file: {h_file}")
+        logging.info(f"--> loading data from file: {h_file} for {len(train_keys[i])} entries ...")
         images = load_images_from_h5file([h_file], [train_keys[i]], max_load=c.max_load)
         for hw in zip(c.height, c.width):        
             train_set.append(MRIDenoisingDatasetTrain(h5file=[h_file], keys=[train_keys[i]], max_load=-1, data_type=c.train_data_types[i], cutout_shape=hw, **kwargs))
