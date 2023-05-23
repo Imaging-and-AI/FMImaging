@@ -226,6 +226,7 @@ class run_ddp_base(object):
         parser.add_argument("--load_path", type=str, default=None, help="check point file to load if provided")
         parser.add_argument("--clean_checkpoints", action="store_true", help='whether to delete previous check point files')
         parser.add_argument("--with_timer", action="store_true", help='whether to train with timing')
+        parser.add_argument("--tra_ratio", type=float, default=100, help="percentage of training data used")
         
         args = parser.parse_args()
         

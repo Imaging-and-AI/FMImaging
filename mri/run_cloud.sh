@@ -33,4 +33,5 @@ echo "node_rank: $node_rank"
 
 echo "python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node $nproc_per_node --nnodes $nnodes --node_rank $node_rank --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint $rdzv_endpoint:$port"
 
-python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node $nproc_per_node --nnodes $nnodes --node_rank $node_rank --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint $rdzv_endpoint:$port
+WANDB_API_KEY=3420ade4920debef5eb73377a2bb8f600e26a2c8
+python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node $nproc_per_node --nnodes $nnodes --node_rank $node_rank --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint $rdzv_endpoint:$port --tra_ratio $tra_ratio
