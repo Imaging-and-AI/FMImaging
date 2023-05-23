@@ -34,7 +34,7 @@ class mri_ddp_base(run_ddp_base):
 
         "--n_head", "32",
 
-        "--global_lr", "1e-4",
+        "--global_lr", "5e-4",
 
         "--clip_grad_norm", "1.0",
         "--weight_decay", "1.0",
@@ -43,10 +43,10 @@ class mri_ddp_base(run_ddp_base):
 
         "--iters_to_accumulate", "1",
 
-        "--num_workers", "16",
-        "--prefetch_factor", "8",
+        "--num_workers", f"{os.cpu_count()//(2*config.nproc_per_node)}",
+        "--prefetch_factor", "4",
         
-        "--scheduler_type", "ReduceLROnPlateau",
+        "--scheduler_type", "OneCycleLR",
                       
         # hrnet
         "--backbone_hrnet.num_resolution_levels", "2",
