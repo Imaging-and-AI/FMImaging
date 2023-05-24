@@ -27,10 +27,10 @@ class mri_ddp_base(run_ddp_base):
         self.cmd.extend([       
        
         "--num_epochs", "100",
-        "--batch_size", "48",
+        "--batch_size", "32",
 
-        "--window_size", "8", "8",
-        "--patch_size", "4", "4",
+        "--window_size", "4", "4",
+        "--patch_size", "2", "2",
 
         "--n_head", "32",
 
@@ -65,8 +65,8 @@ class mri_ddp_base(run_ddp_base):
         "--max_noise_level", "8.0",
         "--complex_i",
         "--residual",
-        "--losses", "mse", "l1"
-        "--loss_weights", "1.0", "1.0"
+        "--losses", "mse", "l1",
+        "--loss_weights", "1.0", "1.0",
         "--height", "32", "64",
         "--width", "32", "64",
         "--time", "12",
@@ -95,9 +95,9 @@ class mri_ddp_base(run_ddp_base):
         vars['larger_mixer_kernels'] = [False]
         vars['mixer_types'] = ["conv"]
         vars['shuffle_in_windows'] = ["0"]
-        vars['block_dense_connections'] = ["1", "0"]
+        vars['block_dense_connections'] = ["0", "1"]
         vars['norm_modes'] = ["batch2d", "instance2d"]
-        vars['C'] = [32, 16]
+        vars['C'] = [32, 64]
         vars['scale_ratio_in_mixers'] = [1.0, 4.0]
 
         vars['block_strs'] = [
