@@ -199,7 +199,21 @@ def save_image_batch(complex_i, noisy, predi, clean):
         save_y = clean[:,:,0,:,:]
        
     B, T, H, W = save_x.shape
-    if B>2:
+    
+    max_col = 12
+    if B>max_col:
+        num_row = B//max_col
+        if max_col*num_row < B: 
+            num_row += 1
+        composed_res = np.zeros((T, 3*H*num_row, 10*W))
+        for b in range(B):
+            r = b//max_col
+            c = b - r*max_col
+            for t in range(T):
+                composed_res[t, 3*r*H:(3*r+1)*H, c*W:(c+1)*W] = save_x[b,t,:,:].squeeze()
+                composed_res[t, (3*r+1)*H:(3*r+2)*H, c*W:(c+1)*W] = save_p[b,t,:,:].squeeze()
+                composed_res[t, (3*r+2)*H:(3*r+3)*H, c*W:(c+1)*W] = save_y[b,t,:,:].squeeze()
+    elif B>2:
         composed_res = np.zeros((T, 3*H, B*W))
         for b in range(B):
             for t in range(T):
