@@ -29,8 +29,8 @@ class mri_ddp_base(run_ddp_base):
         "--num_epochs", "100",
         "--batch_size", "32",
 
-        "--window_size", "4", "4",
-        "--patch_size", "2", "2",
+        "--window_size", "8", "8",
+        "--patch_size", "4", "4",
 
         "--n_head", "32",
 
@@ -86,7 +86,7 @@ class mri_ddp_base(run_ddp_base):
         vars = dict()
         
         vars['backbone'] = ['unet']
-        vars['cell_types'] = ["sequential", "parallel"]
+        vars['cell_types'] = ["parallel", "sequential"]
         vars['Q_K_norm'] = [True]
         vars['cosine_atts'] = ["1"]
         vars['att_with_relative_postion_biases'] = ["1"]
@@ -108,7 +108,7 @@ class mri_ddp_base(run_ddp_base):
 
     def arg_parser(self):
         parser = super().arg_parser()
-        parser.add_argument("--max_load", type=int, default=1000, help="number of max loaded samples into the RAM")
+        parser.add_argument("--max_load", type=int, default=-1, help="number of max loaded samples into the RAM")
         return parser
     
 # -------------------------------------------------------------
