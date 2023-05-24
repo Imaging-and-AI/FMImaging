@@ -133,7 +133,7 @@ class L1_Loss:
         B, T, C, H, W = targets.shape
         if(self.complex_i):
             assert C==2, f"Complex type requires image to have C=2, given C={C}"
-            diff_L1 = torch.abs(outputs[:,:,:1]-targets[:,:,:1]) + torch.abs(outputs[:,:,1:]-targets[:,:,1:])
+            diff_L1 = torch.abs(outputs[:,:,0]-targets[:,:,0]) + torch.abs(outputs[:,:,1]-targets[:,:,1])
         else:
             diff_L1 = torch.abs(outputs-targets)
 
@@ -171,7 +171,7 @@ class MSE_Loss:
         B, T, C, H, W = targets.shape
         if(self.complex_i):
             assert C==2, f"Complex type requires image to have C=2, given C={C}"
-            diff_mag_square = torch.square(outputs[:,:,:1]-targets[:,:,:1]) + torch.square(outputs[:,:,1:]-targets[:,:,1:])
+            diff_mag_square = torch.square(outputs[:,:,0]-targets[:,:,0]) + torch.square(outputs[:,:,1]-targets[:,:,1])
         else:
             diff_mag_square = torch.square(outputs-targets)
 

@@ -410,7 +410,7 @@ def trainer(rank, config, wandb_run):
 
     if rank<=0: # main or master process
         # test and save model
-        wandb_run.run.summary["best_val_loss"] = best_val_loss
+        wandb_run.summary["best_val_loss"] = best_val_loss
 
         model = model.module if c.ddp else model
         model.save(epoch) # save the final weights

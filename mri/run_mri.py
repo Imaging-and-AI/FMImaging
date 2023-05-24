@@ -26,7 +26,7 @@ class mri_ddp_base(run_ddp_base):
         
         self.cmd.extend([       
        
-        "--num_epochs", "60",
+        "--num_epochs", "100",
         "--batch_size", "48",
 
         "--window_size", "8", "8",
@@ -34,12 +34,12 @@ class mri_ddp_base(run_ddp_base):
 
         "--n_head", "32",
 
-        "--global_lr", "5e-4",
+        "--global_lr", "1e-4",
 
         "--clip_grad_norm", "1.0",
-        "--weight_decay", "1.0",
+        "--weight_decay", "0.1",
 
-        "--use_amp", 
+        #"--use_amp", 
 
         "--iters_to_accumulate", "1",
 
@@ -52,7 +52,7 @@ class mri_ddp_base(run_ddp_base):
         "--backbone_hrnet.num_resolution_levels", "2",
         
         # unet            
-        "--backbone_unet.num_resolution_levels", "3",
+        "--backbone_unet.num_resolution_levels", "2",
         
         # LLMs
         "--backbone_LLM.num_stages", "3",
@@ -65,11 +65,11 @@ class mri_ddp_base(run_ddp_base):
         "--max_noise_level", "8.0",
         "--complex_i",
         "--residual",
-        "--losses", "mse", "l1", "ssim",
-        "--loss_weights", "1.0", "10.0", "100.0",
+        "--losses", "mse", "l1"
+        "--loss_weights", "1.0", "1.0"
         "--height", "32", "64",
         "--width", "32", "64",
-        "--time", "8",
+        "--time", "12",
         #"--max_load", "10000",
         
         "--train_files", "train_3D_3T_retro_cine_2018.h5", "train_3D_3T_perf_2021.h5", 
@@ -85,7 +85,7 @@ class mri_ddp_base(run_ddp_base):
         
         vars = dict()
         
-        vars['backbone'] = ['hrnet']
+        vars['backbone'] = ['unet']
         vars['cell_types'] = ["sequential", "parallel"]
         vars['Q_K_norm'] = [True]
         vars['cosine_atts'] = ["1"]
@@ -95,13 +95,13 @@ class mri_ddp_base(run_ddp_base):
         vars['larger_mixer_kernels'] = [False]
         vars['mixer_types'] = ["conv"]
         vars['shuffle_in_windows'] = ["0"]
-        vars['block_dense_connections'] = ["1"]
+        vars['block_dense_connections'] = ["1", "0"]
         vars['norm_modes'] = ["batch2d", "instance2d"]
-        vars['C'] = [32, 64]
+        vars['C'] = [32, 16]
         vars['scale_ratio_in_mixers'] = [1.0, 4.0]
 
         vars['block_strs'] = [
-                        [["T1L1G1", "T1L1G1", "T1L1G1"], ["T1T1T1", "T1T1T1", "T1T1T1"] ]
+                        [["T1L1G1", "T1L1G1", "T1L1G1"], ["T1T1T1", "T1T1T1", "T1T1T1"]]
                     ]
 
         return vars
