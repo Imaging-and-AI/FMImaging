@@ -24,6 +24,7 @@ from tqdm import tqdm
 import numpy as np
 from pathlib import Path
 from skimage.util import view_as_blocks
+from colorama import Fore, Style
 
 Project_DIR = Path(__file__).parents[0].resolve()
 sys.path.insert(1, str(Project_DIR))
@@ -580,8 +581,8 @@ def load_mri_data(config):
         for hw in zip(c.height, c.width):        
             train_set.append(MRIDenoisingDatasetTrain(h5file=[h_file], keys=[train_keys[i]], max_load=-1, data_type=c.train_data_types[i], cutout_shape=hw, **kwargs))
             train_set[-1].images = images
-
-    if c.test_files is None: # no test case given so use some from train data
+        
+    if c.test_files is None or c.test_files[0] is None: # no test case given so use some from train data
         val_set = [MRIDenoisingDatasetTrain(h5file=[h_file], keys=[val_keys[i]], max_load=c.max_load, 
                                             data_type=c.train_data_types[i], cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
                                                 for (i,h_file) in enumerate(h5files)]
@@ -610,7 +611,7 @@ def load_mri_data(config):
 
         val_set = []
         val_len = 0
-        val_len_lim = 8
+        val_len_lim = 12
         per_file = 1 if len(test_h5files)>val_len_lim else val_len_lim//len(test_h5files)
         # take 8 samples through all files for val set
         for h_file,t_keys in test_h5files:
@@ -618,5 +619,11 @@ def load_mri_data(config):
             val_len += per_file
             if val_len > val_len_lim:
                 break
+
+    total_tra = sum([len(d) for d in train_set])
+    total_val = sum([len(d) for d in val_set])
+    total_test = sum([len(d) for d in test_set])
+
+    logging.info(f"--->{Fore.YELLOW}Number of samples for tra/val/test are {total_tra}/{total_val}/{total_test}{Style.RESET_ALL}")
 
     return train_set, val_set, test_set

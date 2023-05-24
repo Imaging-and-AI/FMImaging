@@ -67,17 +67,17 @@ def save_final_model(model, config, best_model_wts):
         model_scripted = torch.jit.trace(model, model_input, strict=False)
         model_scripted.save(f"{name}.pts")
 
-        # torch.onnx.export(model, model_input, f"{name}.onnx", 
-        #                     export_params=True, 
-        #                     opset_version=16, 
-        #                     training =torch.onnx.TrainingMode.TRAINING,
-        #                     do_constant_folding=False,
-        #                     input_names = ['input'], 
-        #                     output_names = ['output'], 
-        #                     dynamic_axes={'input' : {0:'batch_size', 1: 'time', 3: 'H', 4: 'W'}, 
-        #                                     'input' : {0:'batch_size', 1: 'time', 3: 'H', 4: 'W'}
-        #                                     }
-        #                     )
+        torch.onnx.export(model, model_input, f"{name}.onnx", 
+                            export_params=True, 
+                            opset_version=16, 
+                            training =torch.onnx.TrainingMode.TRAINING,
+                            do_constant_folding=False,
+                            input_names = ['input'], 
+                            output_names = ['output'], 
+                            dynamic_axes={'input' : {0:'batch_size', 1: 'time', 3: 'H', 4: 'W'}, 
+                                            'input' : {0:'batch_size', 1: 'time', 3: 'H', 4: 'W'}
+                                            }
+                            )
 
     last_model_name = f"{model_file_name}_last"
     save_model_instance(model, name=last_model_name)

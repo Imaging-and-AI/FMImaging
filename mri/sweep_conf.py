@@ -6,13 +6,13 @@ import wandb
 sweep_config = {
     'method': 'random',
     'metric': {
-      'name': 'best_val_acc',
-      'goal': 'maximize'
+      'name': 'best_val_loss',
+      'goal': 'minimize'
     },
     'parameters': {
         
         'num_epochs': {
-            'values': [50, 100]
+            'values': [60, 100]
         },
         
         'batch_size': {
@@ -80,7 +80,7 @@ sweep_config = {
         },
         
         'C': {
-            'values': [64, 128]
+            'values': [64, 128, 32]
         },
         
         'block_str': {
@@ -91,20 +91,16 @@ sweep_config = {
                         ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"]
                     ]
         },
-        
-        'height': {
-            'values': [[32, 64], [48, 96], [32], [64]]
-        },
-        
+                
         'width': {
-            'values': [[32, 64], [48, 96], [32], [64]]
+            'values': [[32, 64], [48, 96], [32], [48], [64]]
         },
         
         'train_files': {
             'values': [
-                [ ["train_3D_3T_retro_cine_2018.h5"], ["2dt"]], 
-                [ ["train_3D_3T_retro_cine_2018.h5", "train_3D_3T_retro_cine_2019.h5"], ["2dt", "3d"] ],
-                [ ["train_3D_3T_retro_cine_2018.h5", "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5"], ["2dt", "3d", "2d"] ]  
+                [ ["train_3D_3T_retro_cine_2018.h5", "train_3D_3T_perf_2021.h5"], ["2dt", "2dt"]] 
+                #[ ["train_3D_3T_retro_cine_2018.h5", "train_3D_3T_retro_cine_2019.h5"], ["2dt", "3d"] ],
+                #[ ["train_3D_3T_retro_cine_2018.h5", "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5"], ["2dt", "3d", "2d"] ]  
             ]            
         }
     }

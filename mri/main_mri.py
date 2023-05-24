@@ -36,8 +36,7 @@ def arg_parser():
     parser = argparse.ArgumentParser("Argument parser for STCNNT MRI")
     parser.add_argument("--data_root", type=str, default=None, help='root folder for the data')
     parser.add_argument("--train_files", type=str, nargs='+', default=["train_3D_3T_retro_cine_2020_small.h5"], help='list of train h5files')
-    #parser.add_argument("--test_files", type=str, nargs='+', default=["train_3D_3T_retro_cine_2020_small_2DT_test.h5"], help='list of test h5files')
-    parser.add_argument("--test_files", type=str, nargs='+', default=None, help='list of test h5files')
+    parser.add_argument("--test_files", type=none_or_str, nargs='+', default=["train_3D_3T_retro_cine_2020_small_2DT_test.h5"], help='list of test h5files')
     parser.add_argument("--train_data_types", type=str, nargs='+', default=["2dt"], help='the type of each train file: "2d", "2dt", "3d"')
     parser.add_argument("--test_data_types", type=str, nargs='+', default=["2dt"], help='the type of each test file: "2d", "2dt", "3d"')
     parser.add_argument("--max_load", type=int, default=-1, help='number of samples to load into the disk, if <0, samples will be read from the disk while training')
@@ -79,7 +78,7 @@ class MriTrainer(Trainer_Base):
             - config (Namespace): runtime namespace for setup
         """
         super().__init__(config)
-    
+        self.project = 'mri'
 
     def check_args(self):
         """
@@ -97,7 +96,7 @@ class MriTrainer(Trainer_Base):
     def set_up_config_for_sweep(self, wandb_config):
         super().set_up_config_for_sweep(wandb_config=wandb_config)
         
-        self.config.height = wandb_config.height
+        self.config.height = wandb_config.width
         self.config.width = wandb_config.width
         
         self.config.train_files = wandb_config.train_files[0]
