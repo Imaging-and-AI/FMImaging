@@ -5,7 +5,7 @@ Provides the mian function to call for training:
 """
 import copy
 import wandb
-import numpy
+import numpy as np
 import pickle
 from time import time
 import torch
@@ -30,7 +30,7 @@ from utils.save_model import save_final_model
 from utils.running_inference import running_inference
 
 from model_mri import STCNNT_MRI
-from data_mri import load_mri_data
+from data_mri import MRIDenoisingDatasetTrain, load_mri_data
 
 from colorama import Fore, Style
 
@@ -204,11 +204,12 @@ def trainer(rank, config, wandb_run):
                 y = np.concatenate((y, np.expand_dims(a_y, axis=0)), axis=0)
                 
             title = f"Tra_samples_{i}_Noisy_Noisy_GT_{x.shape}"
-            save_image_batch_wandb(title, c.complex_i, x, np.copy(x), y)
-
+            vid = save_image_batch(c.complex_i, x, np.copy(x), y)
+            wandb_run.log({title:vid})
+            
     # -----------------------------------------------
     # save best model to be saved at the end
-    best_val_loss = numpy.inf
+    best_val_loss = np.inf
     best_model_wts = copy.deepcopy(model.module.state_dict() if c.ddp else model.state_dict())
 
     train_loss = AverageMeter()
@@ -355,7 +356,7 @@ def trainer(rank, config, wandb_run):
         if rank<=0: # main or master process
             # run eval, save and log in this process
             model_e = model.module if c.ddp else model
-            val_losses = eval_val(model_e, c, val_set, epoch, device)
+            val_losses = eval_val(model_e, c, val_set, epoch, device, wandb_run)
             if val_losses[0] < best_val_loss:
                 best_val_loss = val_losses[0]
                 best_model_wts = copy.deepcopy(model_e.state_dict())
@@ -425,7 +426,7 @@ def trainer(rank, config, wandb_run):
 # -------------------------------------------------------------------------------------------------
 # evaluate the val set
 
-def eval_val(model, config, val_set, epoch, device):
+def eval_val(model, config, val_set, epoch, device, wandb_run):
     """
     The validation evaluation.
     @args:
@@ -444,7 +445,9 @@ def eval_val(model, config, val_set, epoch, device):
     """
     c = config # shortening due to numerous uses
 
-    val_loader = [DataLoader(dataset=val_set_x, batch_size=1, shuffle=False, sampler=None,
+    batch_size = c.batch_size if isinstance(val_set[0], MRIDenoisingDatasetTrain) else 1
+
+    val_loader = [DataLoader(dataset=val_set_x, batch_size=batch_size, shuffle=False, sampler=None,
                                 num_workers=c.num_workers, prefetch_factor=c.prefetch_factor,
                                 persistent_workers=c.num_workers>0) for val_set_x in val_set]
 
@@ -488,34 +491,40 @@ def eval_val(model, config, val_set, epoch, device):
                     batch = next(val_loader_iter[loader_ind], None)
                 x, y, gmaps_median, noise_sigmas = batch
 
-                two_D = False
-                cutout_in = cutout
-                overlap_in = overlap
-                if x.shape[1]==1:
-                    xy, og_shape, pt_shape = cut_into_patches([x,y], cutout=cutout[1:])
-                    x, y = xy[0], xy[1]
-                    cutout_in = (c.twoD_num_patches_cutout, *cutout[1:])
-                    overlap_in = (c.twoD_num_patches_cutout//4, *overlap[1:])
-                    two_D = True
+                if batch_size >1 and x.shape[-1]==c.width[-1]:
+                    # run normal inference
+                    x = x.to(device)
+                    y = y.to(device)                    
+                    output = model(x)
+                else:
+                    two_D = False
+                    cutout_in = cutout
+                    overlap_in = overlap
+                    if x.shape[1]==1:
+                        xy, og_shape, pt_shape = cut_into_patches([x,y], cutout=cutout[1:])
+                        x, y = xy[0], xy[1]
+                        cutout_in = (c.twoD_num_patches_cutout, *cutout[1:])
+                        overlap_in = (c.twoD_num_patches_cutout//4, *overlap[1:])
+                        two_D = True
 
-                x = x.to(device)
-                y = y.to(device)
+                    x = x.to(device)
+                    y = y.to(device)
+                    
+                    try:
+                        _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device=device)
+                    except:
+                        _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device="cpu")
+                        y = y.to("cpu")
 
-                try:
-                    _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device=device)
-                except:
-                    _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device="cpu")
-                    y = y.to("cpu")
-
-                if two_D:
-                    xy = repatch([x,output,y], og_shape, pt_shape)
-                    x, output, y = xy[0], xy[1], xy[2]
+                    if two_D:
+                        xy = repatch([x,output,y], og_shape, pt_shape)
+                        x, output, y = xy[0], xy[1], xy[2]
 
                 if images_logged < 8:
                     images_logged += 1
                     title = f"Val_image_{idx}_Noisy_Pred_GT_{x.shape}"
-                    save_image_batch_wandb(title, c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
-
+                    vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
+                    wandb_run.log({title: wandb.Video(np.repeat(vid[:,np.newaxis,:,:].astype('uint8'), 3, axis=1), caption=title, fps=1, format="gif")})
                 loss = loss_f(output, y)
 
                 mse_loss = mse_loss_func(output, y).item()

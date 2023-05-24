@@ -39,6 +39,9 @@ import wandb
 
 __all__ = ['Trainer_Base']
 
+#torch.multiprocessing.set_sharing_strategy('file_system')
+#torch.multiprocessing.set_start_method('spawn')
+
 # -------------------------------------------------------------------------------------------------
 # Base model for training
 # to handle the multi-node, multi-gpu training

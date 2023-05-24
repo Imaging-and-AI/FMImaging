@@ -172,13 +172,12 @@ def save_image_wandb(title, complex_i, noisy, predi, clean):
 
 # -------------------------------------------------------------------------------------------------
 
-def save_image_batch_wandb(title, complex_i, noisy, predi, clean):
+def save_image_batch(complex_i, noisy, predi, clean):
     """
     Logs the image to wandb as a 5D gif [B,T,C,H,W]
     If complex image then save the magnitude using first 2 channels
     Else use just the first channel
     @args:
-        - title (str): title to log image with
         - complex_i (bool): complex images or not
         - noisy (5D numpy array): the noisy image [B, T, C+1, H, W]
         - predi (5D numpy array): the predicted image [B, T, C, H, W]
@@ -220,8 +219,7 @@ def save_image_batch_wandb(title, complex_i, noisy, predi, clean):
     temp = np.zeros_like(composed_res)
     composed_res = cv2.normalize(composed_res, temp, 0, 255, norm_type=cv2.NORM_MINMAX)
 
-    wandbvid = wandb.Video(np.repeat(composed_res[:,np.newaxis,:,:].astype('uint8'), 3, axis=1), fps=1, format="gif")
-    wandb.log({title: wandbvid})
+    return np.repeat(composed_res[:,np.newaxis,:,:].astype('uint8'), 3, axis=1)
 
 # -------------------------------------------------------------------------------------------------
 

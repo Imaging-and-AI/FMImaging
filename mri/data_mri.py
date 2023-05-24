@@ -580,8 +580,8 @@ def load_mri_data(config):
         for hw in zip(c.height, c.width):        
             train_set.append(MRIDenoisingDatasetTrain(h5file=[h_file], keys=[train_keys[i]], max_load=-1, data_type=c.train_data_types[i], cutout_shape=hw, **kwargs))
             train_set[-1].images = images
-
-    if c.test_files is None: # no test case given so use some from train data
+        
+    if c.test_files is None or c.test_files[0] is None: # no test case given so use some from train data
         val_set = [MRIDenoisingDatasetTrain(h5file=[h_file], keys=[val_keys[i]], max_load=c.max_load, 
                                             data_type=c.train_data_types[i], cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
                                                 for (i,h_file) in enumerate(h5files)]

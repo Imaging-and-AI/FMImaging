@@ -18,6 +18,11 @@ class Nestedspace(argparse.Namespace):
         else:
             self.__dict__[name] = value
             
+def none_or_str(value):
+    if value == 'None':
+        return None
+    return value
+
 # -------------------------------------------------------------------------------------------------
 # parser for commonly shared args (subject to change over time)
 def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transformer projects")):
