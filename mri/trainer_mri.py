@@ -565,7 +565,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                     images_logged += 1
                     title = f"{id.upper()}_rank_{rank}_image_{idx}_Noisy_Pred_GT_{x.shape}"
                     vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
-                    wandb_run.log({title: wandb.Video(np.repeat(vid[:,np.newaxis,:,:].astype('uint8'), 3, axis=1), caption=title, fps=1, format="gif")})
+                    wandb_run.log({title: wandb.Video(vid, caption=title, fps=1, format="gif")})
                 loss = loss_f(output, y)
 
                 mse_loss = mse_loss_func(output, y).item()
