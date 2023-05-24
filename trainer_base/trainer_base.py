@@ -164,8 +164,8 @@ class Trainer_Base(ABC):
             if rank<=0:
                 print(f"---> get the config from wandb on local rank {rank}", flush=True)
                 wandb_run = wandb.init()
-                config = self.set_up_config_for_sweep(wandb_run.config, self.config)   
-                config.run_name = wandb_run.name
+                config = self.set_up_config_for_sweep(wandb_run.config)   
+                #config.run_name = wandb_run.name
                 print(f"---> wandb run is {wandb_run.name} on local rank {rank}", flush=True)
             else:
                 config = self.config

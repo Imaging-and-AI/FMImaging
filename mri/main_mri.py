@@ -79,7 +79,7 @@ class MriTrainer(Trainer_Base):
             - config (Namespace): runtime namespace for setup
         """
         super().__init__(config)
-    
+        self.project = 'mri'
 
     def check_args(self):
         """
@@ -97,7 +97,7 @@ class MriTrainer(Trainer_Base):
     def set_up_config_for_sweep(self, wandb_config):
         super().set_up_config_for_sweep(wandb_config=wandb_config)
         
-        self.config.height = wandb_config.height
+        self.config.height = wandb_config.width
         self.config.width = wandb_config.width
         
         self.config.train_files = wandb_config.train_files[0]
