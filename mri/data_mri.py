@@ -611,7 +611,7 @@ def load_mri_data(config):
 
         val_set = []
         val_len = 0
-        val_len_lim = 8
+        val_len_lim = 12
         per_file = 1 if len(test_h5files)>val_len_lim else val_len_lim//len(test_h5files)
         # take 8 samples through all files for val set
         for h_file,t_keys in test_h5files:
