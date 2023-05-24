@@ -24,6 +24,7 @@ from tqdm import tqdm
 import numpy as np
 from pathlib import Path
 from skimage.util import view_as_blocks
+from colorama import Fore, Style
 
 Project_DIR = Path(__file__).parents[0].resolve()
 sys.path.insert(1, str(Project_DIR))
@@ -618,5 +619,11 @@ def load_mri_data(config):
             val_len += per_file
             if val_len > val_len_lim:
                 break
+
+    total_tra = sum([len(d) for d in train_set])
+    total_val = sum([len(d) for d in val_set])
+    total_test = sum([len(d) for d in test_set])
+
+    logging.info(f"--->{Fore.YELLOW}Number of samples for tra/val/test are {total_tra}/{total_val}/{total_test}{Style.RESET_ALL}")
 
     return train_set, val_set, test_set

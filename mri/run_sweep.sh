@@ -6,7 +6,7 @@ gpu_id=0
 nproc_per_node=1
 data_name=mri
 port=9001
-tra_ratio=100
+tra_ratio=90
 val_ratio=5
 data_root=/export/Lab-Xue/projects/mri/data
 
