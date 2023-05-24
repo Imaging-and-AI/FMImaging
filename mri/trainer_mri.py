@@ -206,7 +206,8 @@ def trainer(rank, config, wandb_run):
             title = f"Tra_samples_{i}_Noisy_Noisy_GT_{x.shape}"
             vid = save_image_batch(c.complex_i, x, np.copy(x), y)
             wandb_run.log({title:wandb.Video(vid, caption=f"Tra sample {i}", fps=1, format='gif')})
-            
+            logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}")
+                         
     # -----------------------------------------------
     # save best model to be saved at the end
     best_val_loss = np.inf
@@ -566,6 +567,8 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                     title = f"{id.upper()}_rank_{rank}_image_{idx}_Noisy_Pred_GT_{x.shape}"
                     vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
                     wandb_run.log({title: wandb.Video(vid, caption=f"epoch {epoch}", fps=1, format="gif")})
+                    logging.info(f"{Fore.YELLOW}---> Upload val sample - {title}")
+                    
                 loss = loss_f(output, y)
 
                 mse_loss = mse_loss_func(output, y).item()
