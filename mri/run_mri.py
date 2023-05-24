@@ -77,7 +77,7 @@ class mri_ddp_base(run_ddp_base):
         ])
         
         if config.tra_ratio > 0 and config.tra_ratio<=100:
-            self.cmd.extend(["--ratio", f"{int(config.tra_ratio)}", "5", "5"])
+            self.cmd.extend(["--ratio", f"{int(config.tra_ratio)}", f"{int(config.val_ratio)}", "5"])
             
         self.cmd.extend(["--max_load", f"{int(config.max_load)}"])
 

@@ -80,7 +80,7 @@ sweep_config = {
         },
         
         'C': {
-            'values': [64, 128]
+            'values': [64, 128, 32]
         },
         
         'block_str': {

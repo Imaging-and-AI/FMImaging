@@ -141,7 +141,7 @@ def trainer(rank, config, wandb_run):
     if c.ddp:
         device = torch.device(f"cuda:{rank}")
         model = model.to(device)
-        model = DDP(model, device_ids=[rank], find_unused_parameters=True)
+        model = DDP(model, device_ids=[rank], find_unused_parameters=False)
         optim = model.module.optim
         sched = model.module.sched
         stype = model.module.stype
@@ -352,12 +352,13 @@ def trainer(rank, config, wandb_run):
             pbar.set_description_str(log_str)
 
         # -------------------------------------------------------
-        
+       
+        val_losses = eval_val(rank, model, c, val_set, epoch, device, wandb_run)
+            
+        # -------------------------------------------------------
         if rank<=0: # main or master process
-            # run eval, save and log in this process
-            model_e = model.module if c.ddp else model
-            val_losses = eval_val(model_e, c, val_set, epoch, device, wandb_run)
             if val_losses[0] < best_val_loss:
+                model_e = model.module if c.ddp else model
                 best_val_loss = val_losses[0]
                 best_model_wts = copy.deepcopy(model_e.state_dict())
                 model_e.save(epoch)
@@ -409,24 +410,57 @@ def trainer(rank, config, wandb_run):
                 dist.broadcast(new_lr_1, src=0)
                 optim.param_groups[1]["lr"] = new_lr_1.item()
 
-    if rank<=0: # main or master process
-        # test and save model
-        wandb_run.summary["best_val_loss"] = best_val_loss
 
+    # test last model
+    test_losses = eval_val(rank, model, config, test_set, epoch, device, wandb_run, id="test")
+    if rank<=0:
+        wandb_run.summary["best_val_loss"] = best_val_loss
+        
+        wandb_run.summary["test_loss_last"] = test_losses[0]
+        wandb_run.summary["test_mse_last"] = test_losses[0]
+        wandb_run.summary["test_l1_last"] = test_losses[0]
+        wandb_run.summary["test_ssim_last"] = test_losses[0]
+        wandb_run.summary["test_ssim3D_last"] = test_losses[0]
+        wandb_run.summary["test_psnr_last"] = test_losses[0]
+        
         model = model.module if c.ddp else model
-        model.save(epoch) # save the final weights
-        # test last model
-        eval_test(model, config, test_set=test_set, device=device, id="last")
-        # test best model
-        model.load_state_dict(best_model_wts)
-        eval_test(model, config, test_set=test_set, device=device, id="best")
+        model.save(epoch)
+        
         # save both models
-        save_final_model(model, config, best_model_wts)
+        fname_last, fname_best = save_final_model(model, config, best_model_wts)
+
+        logging.info(f"--> {Fore.YELLOW}Save last mode at {fname_last}{Style.RESET_ALL}")
+        logging.info(f"--> {Fore.YELLOW}Save best mode at {fname_best}{Style.RESET_ALL}")
+
+        wandb_run.save(fname_last+'.pt')
+        wandb_run.save(fname_last+'.pts')
+        wandb_run.save(fname_last+'.onnx')
+        
+        wandb_run.save(fname_best+'.pt')
+        wandb_run.save(fname_best+'.pts')
+        wandb_run.save(fname_best+'.onnx')
+        
+    # test best model, reload the weights
+    model = STCNNT_MRI(config=config, total_steps=total_steps)
+    model.load_state_dict(best_model_wts)
+    model = model.to(device)
+    
+    if c.ddp:        
+        model = DDP(model, device_ids=[rank], find_unused_parameters=False)        
+                
+    test_losses = eval_val(rank, model, config, test_set, epoch, device, wandb_run, id="test")
+    if rank<=0:
+        wandb_run.summary["test_loss_best"] = test_losses[0]
+        wandb_run.summary["test_mse_best"] = test_losses[0]
+        wandb_run.summary["test_l1_best"] = test_losses[0]
+        wandb_run.summary["test_ssim_best"] = test_losses[0]
+        wandb_run.summary["test_ssim3D_best"] = test_losses[0]
+        wandb_run.summary["test_psnr_best"] = test_losses[0]
 
 # -------------------------------------------------------------------------------------------------
 # evaluate the val set
 
-def eval_val(model, config, val_set, epoch, device, wandb_run):
+def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
     """
     The validation evaluation.
     @args:
@@ -445,13 +479,20 @@ def eval_val(model, config, val_set, epoch, device, wandb_run):
     """
     c = config # shortening due to numerous uses
 
+    shuffle = False
+    
+    if c.ddp:
+        loss_f = model.module.loss_f
+        sampler = [DistributedSampler(val_set_x, shuffle=False) for val_set_x in val_set]
+    else:
+        loss_f = model.loss_f
+        sampler = [None for _ in val_set]
+        
     batch_size = c.batch_size if isinstance(val_set[0], MRIDenoisingDatasetTrain) else 1
 
-    val_loader = [DataLoader(dataset=val_set_x, batch_size=batch_size, shuffle=False, sampler=None,
+    val_loader = [DataLoader(dataset=val_set_x, batch_size=batch_size, shuffle=False, sampler=sampler[i],
                                 num_workers=c.num_workers, prefetch_factor=c.prefetch_factor,
-                                persistent_workers=c.num_workers>0) for val_set_x in val_set]
-
-    loss_f = model.loss_f
+                                persistent_workers=c.num_workers>0) for i, val_set_x in enumerate(val_set)]
 
     val_loss_meter = AverageMeter()
     val_mse_meter = AverageMeter()
@@ -478,7 +519,7 @@ def eval_val(model, config, val_set, epoch, device, wandb_run):
 
     images_logged = 0
 
-    with torch.no_grad():
+    with torch.inference_mode():
         with tqdm(total=total_iters) as pbar:
 
             for idx in range(total_iters):
@@ -520,9 +561,9 @@ def eval_val(model, config, val_set, epoch, device, wandb_run):
                         xy = repatch([x,output,y], og_shape, pt_shape)
                         x, output, y = xy[0], xy[1], xy[2]
 
-                if images_logged < 8:
+                if rank<=0 and images_logged < 8:
                     images_logged += 1
-                    title = f"Val_image_{idx}_Noisy_Pred_GT_{x.shape}"
+                    title = f"{id.upper()}_rank_{rank}_image_{idx}_Noisy_Pred_GT_{x.shape}"
                     vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
                     wandb_run.log({title: wandb.Video(np.repeat(vid[:,np.newaxis,:,:].astype('uint8'), 3, axis=1), caption=title, fps=1, format="gif")})
                 loss = loss_f(output, y)
@@ -543,7 +584,7 @@ def eval_val(model, config, val_set, epoch, device, wandb_run):
                 val_psnr_meter.update(psnr, n=total)
 
                 pbar.update(1)
-                log_str = create_log_str(c, epoch, -1, 
+                log_str = create_log_str(c, epoch, rank, 
                                          x.shape, 
                                          val_loss_meter.avg, 
                                          val_mse_meter.avg, 
@@ -552,12 +593,12 @@ def eval_val(model, config, val_set, epoch, device, wandb_run):
                                          val_ssim3D_meter.avg, 
                                          val_psnr_meter.avg, 
                                          -1, 
-                                         "val")
+                                         id)
                 
                 pbar.set_description_str(log_str)
                 
             # -----------------------------------
-            log_str = create_log_str(c, epoch, -1, 
+            log_str = create_log_str(c, epoch, rank, 
                                          None, 
                                          val_loss_meter.avg, 
                                          val_mse_meter.avg, 
@@ -566,8 +607,49 @@ def eval_val(model, config, val_set, epoch, device, wandb_run):
                                          val_ssim3D_meter.avg, 
                                          val_psnr_meter.avg, 
                                          -1, 
-                                         "val")
+                                         id)
                 
             pbar.set_description_str(log_str)
                 
-    return val_loss_meter.avg, val_mse_meter.avg, val_l1_meter.avg, val_ssim_meter.avg, val_ssim3D_meter.avg, val_psnr_meter.avg
+    if c.ddp:
+        val_loss = torch.tensor(val_loss_meter.avg).to(device=device)
+        dist.all_reduce(val_loss, op=torch.distributed.ReduceOp.AVG)
+        
+        val_mse = torch.tensor(val_mse_meter.avg).to(device=device)
+        dist.all_reduce(val_mse, op=torch.distributed.ReduceOp.AVG)
+        
+        val_l1 = torch.tensor(val_l1_meter.avg).to(device=device)
+        dist.all_reduce(val_l1, op=torch.distributed.ReduceOp.AVG)
+        
+        val_ssim = torch.tensor(val_ssim_meter.avg).to(device=device)
+        dist.all_reduce(val_ssim, op=torch.distributed.ReduceOp.AVG)
+        
+        val_ssim3D = torch.tensor(val_ssim3D_meter.avg).to(device=device)
+        dist.all_reduce(val_ssim3D, op=torch.distributed.ReduceOp.AVG)
+        
+        val_psnr = torch.tensor(val_psnr_meter.avg).to(device=device)
+        dist.all_reduce(val_psnr, op=torch.distributed.ReduceOp.AVG)
+    else:
+        val_loss = val_loss_meter.avg
+        val_mse = val_mse_meter.avg
+        val_l1 = val_l1_meter.avg
+        val_ssim = val_ssim_meter.avg
+        val_ssim3D = val_ssim3D_meter.avg
+        val_psnr = val_psnr_meter.avg
+        
+    if rank<=0:
+        
+        log_str = create_log_str(c, epoch, rank, 
+                                None, 
+                                val_loss, 
+                                val_mse, 
+                                val_l1, 
+                                val_ssim, 
+                                val_ssim3D, 
+                                val_psnr, 
+                                -1, 
+                                id)
+        
+        logging.info(log_str)
+    
+    return val_loss, val_mse, val_l1, val_ssim, val_ssim3D, val_psnr
