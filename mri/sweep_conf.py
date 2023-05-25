@@ -44,7 +44,7 @@ sweep_config = {
         },
                 
         'use_amp': {
-            'values': [True, False]
+            'values': [False]
         },
         
         'a_type': {
@@ -56,7 +56,7 @@ sweep_config = {
         },
         
         'n_head': {
-            'values': [16, 32]
+            'values': [32]
         },
         
         'mixer_type': {
