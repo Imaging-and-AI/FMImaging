@@ -27,7 +27,7 @@ class mri_ddp_base(run_ddp_base):
         self.cmd.extend([       
        
         "--num_epochs", "10",
-        "--batch_size", "32",
+        "--batch_size", "16",
 
         "--window_size", "8", "8",
         "--patch_size", "2", "2",

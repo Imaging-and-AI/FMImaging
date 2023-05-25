@@ -20,6 +20,7 @@ Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
 from utils import *
+from utils.setup_training import get_bar_format
 from model_base.losses import *
 from model_mri import STCNNT_MRI
 from utils.running_inference import running_inference

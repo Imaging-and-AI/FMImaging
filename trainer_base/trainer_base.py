@@ -220,12 +220,13 @@ class Trainer_Base(ABC):
                                     
             if rank<=0:
                 wandb_run.finish()
+                print(f"{Fore.YELLOW}Remove {wandb_run.dir} ...{Style.RESET_ALL}", flush=True)
                 shutil.rmtree(wandb_run.dir, ignore_errors=True)
                     
             print(f"{Fore.RED}---> Run finished on local rank {rank} <---{Style.RESET_ALL}", flush=True)
                     
         except KeyboardInterrupt:
-            print('Interrupted')
+            print(f"{Fore.YELLOW}Interrupted from the keyboard ...{Style.RESET_ALL}", flush=True)
 
             if self.config.ddp:
                 torch.distributed.destroy_process_group()
@@ -235,6 +236,7 @@ class Trainer_Base(ABC):
             os.system("kill -9 $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
             os.system("kill -9 $(ps aux | grep python3 | grep -v grep | awk '{print $2}') ")
             
+            print(f"{Fore.YELLOW}Remove {wandb_run.dir} ...{Style.RESET_ALL}", flush=True)
             shutil.rmtree(wandb_run.dir, ignore_errors=True)
         
     def train(self):

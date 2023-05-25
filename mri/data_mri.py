@@ -32,8 +32,8 @@ sys.path.insert(1, str(Project_DIR))
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
+from utils.setup_training import get_bar_format
 from noise_augmentation import *
-from utils import get_bar_format
 
 # -------------------------------------------------------------------------------------------------
 # train dataset class
