@@ -26,8 +26,8 @@ class mri_ddp_base(run_ddp_base):
         
         self.cmd.extend([       
        
-        "--num_epochs", "100",
-        "--batch_size", "16",
+        "--num_epochs", "10",
+        "--batch_size", "32",
 
         "--window_size", "8", "8",
         "--patch_size", "2", "2",
@@ -104,7 +104,10 @@ class mri_ddp_base(run_ddp_base):
 
         vars['block_strs'] = [
                         [ 
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"] 
+                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                            ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
+                            ["T1T1T1T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1"]
                          ]
                     ]
 
