@@ -205,7 +205,7 @@ def save_image_batch(complex_i, noisy, predi, clean):
         num_row = B//max_col
         if max_col*num_row < B: 
             num_row += 1
-        composed_res = np.zeros((T, 3*H*num_row, 10*W))
+        composed_res = np.zeros((T, 3*H*num_row, max_col*W))
         for b in range(B):
             r = b//max_col
             c = b - r*max_col
