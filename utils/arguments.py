@@ -62,7 +62,7 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
     parser.add_argument("--with_timer", action="store_true", help='whether to train with timing')
  
     # loss, optimizer, and scheduler arguments
-    parser.add_argument("--optim", type=str, default="adamw", help='what optimizer to use, "adamw", "nadam", "sgd"')
+    parser.add_argument("--optim", type=str, default="adamw", help='what optimizer to use, "adamw", "nadam", "sgd", "sophia"')
     parser.add_argument("--global_lr", type=float, default=5e-4, help='step size for the optimizer')
     parser.add_argument("--beta1", type=float, default=0.90, help='beta1 for the default optimizer')
     parser.add_argument("--beta2", type=float, default=0.95, help='beta2 for the default optimizer')

@@ -12,6 +12,7 @@ from colorama import Fore, Style
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from Sophia import SophiaG 
 
 from pathlib import Path
 from argparse import Namespace
@@ -135,6 +136,8 @@ class STCNNT_Task_Base(nn.Module, ABC):
             self.optim = optim.SGD(optim_groups, lr=c.global_lr, momentum=0.9, weight_decay=c.weight_decay)
         elif c.optim == "nadam":
             self.optim = optim.NAdam(optim_groups, lr=c.global_lr, betas=(c.beta1, c.beta2), weight_decay=c.weight_decay)
+        elif c.optim == "sophia":
+            self.optim = SophiaG(optim_groups, lr=c.global_lr, betas=(0.965, 0.99), rho = 0.01, weight_decay=c.weight_decay)
         else:
             raise NotImplementedError(f"Optimizer not implemented: {c.optim}")
 

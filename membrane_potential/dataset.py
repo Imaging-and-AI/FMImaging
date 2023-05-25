@@ -72,7 +72,7 @@ class MembranePotentialDataset(Dataset):
         
         num_samples = len(sub_dirs)*num_starts
 
-        with tqdm(total=num_samples) as tq:
+        with tqdm(total=num_samples, bar_format=get_bar_format()) as tq:
             for case_dir in sub_dirs:
                 data_file_name = os.path.join(data_dir, case_dir, 'selected_data.mat')        
                 data = sio.loadmat(data_file_name)

@@ -81,7 +81,7 @@ def eval_test(model, config, test_set=None, device="cpu", id=""):
     num_processed = 0
 
     with torch.inference_mode():
-        with tqdm(total=total_iters) as pbar:
+        with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
             for idx in range(total_iters):
 
                 loader_ind = idx % len(test_loader_iter)

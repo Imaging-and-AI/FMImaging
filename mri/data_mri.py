@@ -66,7 +66,7 @@ def load_images_from_h5file(h5file, keys, max_load=100000):
             if max_load<=0:
                 logging.info(f"{h5file[i]}, data will not be pre-read ...")
             
-            with tqdm(total=len(keys[i])) as pbar:
+            with tqdm(total=len(keys[i]), bar_format=get_bar_format()) as pbar:
                 for n, key in enumerate(keys[i]):
                     if num_loaded < max_load:
                         images.append([np.array(h5file[i][key+"/image"]), np.array(h5file[i][key+"/gmap"]), i])
