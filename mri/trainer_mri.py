@@ -32,7 +32,7 @@ from utils.running_inference import running_inference
 from model_mri import STCNNT_MRI
 from data_mri import MRIDenoisingDatasetTrain, load_mri_data
 
-from colorama import Fore, Style
+from colorama import Fore, Back, Style
 
 # -------------------------------------------------------------------------------------------------
 # trainer
@@ -48,7 +48,7 @@ def create_log_str(config, epoch, rank, data_shape, loss, mse, l1, ssim, ssim3d,
     else:
         lr_str = ""
         
-    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {Fore.YELLOW}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.RED}loss {loss:.4f},{Style.RESET_ALL} {Fore.YELLOW}mse {mse:.4f}, l1 {l1:.4f}, ssim {ssim:.4f}, ssim3D {ssim3d:.4f}, psnr {psnr:.4f}{Style.RESET_ALL}{lr_str}"
+    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {Fore.YELLOW}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.RED}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.YELLOW}mse {mse:.4f}, l1 {l1:.4f}, ssim {ssim:.4f}, ssim3D {ssim3d:.4f}, psnr {psnr:.4f}{Style.RESET_ALL}{lr_str}"
         
     return str
 
@@ -148,9 +148,7 @@ def trainer(rank, config, wandb_run):
         loss_f = model.module.loss_f
         curr_epoch = model.module.curr_epoch
         samplers = [DistributedSampler(train_set_x, shuffle=True) for train_set_x in train_set]
-        shuffle = False
-        
-        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, {c.backbone}, C {c.backbone_hrnet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_hrnet.block_str}, {'-'*20}{Style.RESET_ALL}")
+        shuffle = False        
     else:
         # No init required if not ddp
         device = c.device
@@ -162,6 +160,11 @@ def trainer(rank, config, wandb_run):
         curr_epoch = model.curr_epoch
         samplers = [None for _ in train_set]
         shuffle = True
+        
+    if c.backbone == 'hrnet':
+        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, {c.backbone}, C {c.backbone_hrnet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_hrnet.block_str}, {'-'*20}{Style.RESET_ALL}")
+    elif c.backbone == 'unet':
+        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, {c.backbone}, C {c.backbone_unet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_unet.block_str}, {'-'*20}{Style.RESET_ALL}")
         
     # -----------------------------------------------
     
@@ -253,7 +256,7 @@ def trainer(rank, config, wandb_run):
         if c.ddp: [loader_x.sampler.set_epoch(epoch) for loader_x in train_loader]
 
         train_loader_iter = [iter(loader_x) for loader_x in train_loader]
-        with tqdm(total=total_iters) as pbar:
+        with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
 
             for idx in range(total_iters):
 
@@ -521,7 +524,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
     images_logged = 0
 
     with torch.inference_mode():
-        with tqdm(total=total_iters) as pbar:
+        with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
 
             for idx in range(total_iters):
 
@@ -567,7 +570,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                     title = f"{id.upper()}_rank_{rank}_image_{idx}_Noisy_Pred_GT_{x.shape}"
                     vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
                     wandb_run.log({title: wandb.Video(vid, caption=f"epoch {epoch}", fps=1, format="gif")})
-                    print(f"{Fore.YELLOW}---> Upload val sample - {title}")
+                    #print(f"{Fore.YELLOW}---> Upload val sample - {title}")
                     
                 loss = loss_f(output, y)
 

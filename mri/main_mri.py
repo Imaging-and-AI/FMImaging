@@ -96,6 +96,8 @@ class MriTrainer(Trainer_Base):
     def set_up_config_for_sweep(self, wandb_config):
         super().set_up_config_for_sweep(wandb_config=wandb_config)
         
+        self.config.backbone = wandb_config.backbone
+        
         self.config.height = wandb_config.width
         self.config.width = wandb_config.width
         

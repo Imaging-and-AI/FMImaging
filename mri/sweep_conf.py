@@ -11,8 +11,12 @@ sweep_config = {
     },
     'parameters': {
         
+        'backbone': {
+            'values': ["hrnet", "unet"]
+        },
+        
         'num_epochs': {
-            'values': [60, 100]
+            'values': [40, 60]
         },
         
         'batch_size': {
@@ -85,10 +89,10 @@ sweep_config = {
         
         'block_str': {
             'values': [
-                        ["T1L1G1", "T1L1G1", "T1L1G1"],
-                        ["T1T1T1", "T1T1T1", "T1T1T1"],
-                        ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"], 
-                        ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"]
+                        ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                        ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
+                        ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"], 
+                        ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"]
                     ]
         },
                 

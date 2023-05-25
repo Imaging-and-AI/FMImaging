@@ -27,32 +27,32 @@ class mri_ddp_base(run_ddp_base):
         self.cmd.extend([       
        
         "--num_epochs", "100",
-        "--batch_size", "32",
+        "--batch_size", "16",
 
         "--window_size", "8", "8",
-        "--patch_size", "4", "4",
+        "--patch_size", "2", "2",
 
         "--n_head", "32",
 
         "--global_lr", "1e-4",
 
         "--clip_grad_norm", "1.0",
-        "--weight_decay", "0.1",
+        "--weight_decay", "1.0",
 
-        #"--use_amp", 
+        "--use_amp", 
 
         "--iters_to_accumulate", "1",
 
         "--num_workers", f"{os.cpu_count()//(2*config.nproc_per_node)}",
         "--prefetch_factor", "4",
         
-        "--scheduler_type", "OneCycleLR",
+        "--scheduler_type", "ReduceLROnPlateau",
                       
         # hrnet
-        "--backbone_hrnet.num_resolution_levels", "2",
+        "--backbone_hrnet.num_resolution_levels", "3",
         
         # unet            
-        "--backbone_unet.num_resolution_levels", "2",
+        "--backbone_unet.num_resolution_levels", "3",
         
         # LLMs
         "--backbone_LLM.num_stages", "3",
@@ -67,8 +67,8 @@ class mri_ddp_base(run_ddp_base):
         "--residual",
         "--losses", "mse", "l1",
         "--loss_weights", "1.0", "1.0",
-        "--height", "32", "64",
-        "--width", "32", "64",
+        "--height", "48", "96",
+        "--width", "48", "96",
         "--time", "12",
         #"--max_load", "10000",
         
@@ -84,24 +84,28 @@ class mri_ddp_base(run_ddp_base):
     def set_up_variables(self, config):
         
         vars = dict()
+                
+        vars['optim'] = ['sophia', 'adamw']
         
         vars['backbone'] = ['unet']
-        vars['cell_types'] = ["parallel", "sequential"]
-        vars['Q_K_norm'] = [True]
-        vars['cosine_atts'] = ["1"]
+        vars['cell_types'] = ["sequential"]
+        vars['Q_K_norm'] = [False]
+        vars['cosine_atts'] = ["0"]
         vars['att_with_relative_postion_biases'] = ["1"]
-        vars['a_types'] = ["conv"]
+        vars['a_types'] = ["lin"]
 
         vars['larger_mixer_kernels'] = [False]
         vars['mixer_types'] = ["conv"]
         vars['shuffle_in_windows'] = ["0"]
-        vars['block_dense_connections'] = ["0", "1"]
-        vars['norm_modes'] = ["batch2d", "instance2d"]
-        vars['C'] = [32, 64]
-        vars['scale_ratio_in_mixers'] = [1.0, 4.0]
+        vars['block_dense_connections'] = ["0"]
+        vars['norm_modes'] = ["batch2d"]
+        vars['C'] = [32]
+        vars['scale_ratio_in_mixers'] = [1.0]
 
         vars['block_strs'] = [
-                        [["T1L1G1", "T1L1G1", "T1L1G1"], ["T1T1T1", "T1T1T1", "T1T1T1"]]
+                        [ 
+                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"] 
+                         ]
                     ]
 
         return vars

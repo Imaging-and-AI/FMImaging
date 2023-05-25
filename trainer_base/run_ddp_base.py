@@ -64,6 +64,7 @@ class run_ddp_base(object):
 
 
     def create_cmd_run(self, cmd_run, config, 
+                        optim='adamw',
                         bk='hrnet', 
                         a_type='conv', 
                         cell_type='sequential', 
@@ -81,11 +82,12 @@ class run_ddp_base(object):
                         load_path=None
                         ):
         
-        run_str = f"{a_type}-{cell_type}-{norm_mode}-C-{c}-MIXER-{mixer_type}-{larger_mixer_kernel}-{int(scale_ratio_in_mixer)}-BLOCK_DENSE-{block_dense_connection}-QKNORM-{q_k_norm}-CONSINE_ATT-{cosine_att}-shuffle_in_window-{shuffle_in_window}-att_with_relative_postion_bias-{att_with_relative_postion_bias}-BLOCK_STR-{'_'.join(bs)}"
+        run_str = f"{a_type}-{cell_type}-{norm_mode}-{optim}-C-{c}-MIXER-{mixer_type}-{larger_mixer_kernel}-{int(scale_ratio_in_mixer)}-BLOCK_DENSE-{block_dense_connection}-QKNORM-{q_k_norm}-CONSINE_ATT-{cosine_att}-shuffle_in_window-{shuffle_in_window}-att_with_relative_postion_bias-{att_with_relative_postion_bias}-BLOCK_STR-{'_'.join(bs)}"
                                             
         cmd_run.extend([
             "--run_name", f"{config.project}-{bk.upper()}-{run_str}",
             "--run_notes", f"{config.project}-{bk.upper()}-{run_str}",
+            "--optim", f"{optim}",
             "--backbone", f"{bk}",
             "--a_type", f"{a_type}",
             "--cell_type", f"{cell_type}",
@@ -142,6 +144,8 @@ class run_ddp_base(object):
         
         vars = dict()
         
+        vars['optim'] = ['sophia', 'adamw']
+        
         vars['backbone'] = ['hrnet']
         vars['cell_types'] = ["sequential"]
         vars['Q_K_norm'] = [True]
@@ -168,42 +172,44 @@ class run_ddp_base(object):
         for k, bk in enumerate(vars['backbone']):    
                 block_str = vars['block_strs'][k]
                 
-                for bs in block_str:
-                    for a_type, cell_type in itertools.product(vars['a_types'], vars['cell_types']):
-                        for q_k_norm in vars['Q_K_norm']:
-                            for cosine_att in vars['cosine_atts']:  
-                                for att_with_relative_postion_bias in vars['att_with_relative_postion_biases']:
-                                    for c in vars['C']:
-                                        for block_dense_connection in vars['block_dense_connections']:
-                                            for norm_mode in vars['norm_modes']:
-                                                for larger_mixer_kernel in vars['larger_mixer_kernels']:
-                                                    for shuffle_in_window in vars['shuffle_in_windows']:
-                                                        for mixer_type in vars['mixer_types']:
-                                                            for scale_ratio_in_mixer in vars['scale_ratio_in_mixers']:
-                                                                
-                                                                # -------------------------------------------------------------
-                                                                cmd_run = self.create_cmd_run(cmd_run=self.cmd.copy(), 
-                                                                                config=config,
-                                                                                bk=bk, 
-                                                                                a_type=a_type, 
-                                                                                cell_type=cell_type,
-                                                                                norm_mode=norm_mode, 
-                                                                                block_dense_connection=block_dense_connection,
-                                                                                c=c,
-                                                                                q_k_norm=q_k_norm, 
-                                                                                cosine_att=cosine_att, 
-                                                                                att_with_relative_postion_bias=att_with_relative_postion_bias, 
-                                                                                bs=bs,
-                                                                                larger_mixer_kernel=larger_mixer_kernel,
-                                                                                mixer_type=mixer_type,
-                                                                                shuffle_in_window=shuffle_in_window,
-                                                                                scale_ratio_in_mixer=scale_ratio_in_mixer,
-                                                                                load_path=config.load_path)
-                                                                
-                                                                print("---" * 20)
-                                                                print(cmd_run)
-                                                                print("---" * 20)
-                                                                subprocess.run(cmd_run)
+                for optim in vars['optim']:
+                    for bs in block_str:
+                        for a_type, cell_type in itertools.product(vars['a_types'], vars['cell_types']):
+                            for q_k_norm in vars['Q_K_norm']:
+                                for cosine_att in vars['cosine_atts']:  
+                                    for att_with_relative_postion_bias in vars['att_with_relative_postion_biases']:
+                                        for c in vars['C']:
+                                            for block_dense_connection in vars['block_dense_connections']:
+                                                for norm_mode in vars['norm_modes']:
+                                                    for larger_mixer_kernel in vars['larger_mixer_kernels']:
+                                                        for shuffle_in_window in vars['shuffle_in_windows']:
+                                                            for mixer_type in vars['mixer_types']:
+                                                                for scale_ratio_in_mixer in vars['scale_ratio_in_mixers']:
+                                                                    
+                                                                    # -------------------------------------------------------------
+                                                                    cmd_run = self.create_cmd_run(cmd_run=self.cmd.copy(), 
+                                                                                    config=config,
+                                                                                    optim=optim,
+                                                                                    bk=bk, 
+                                                                                    a_type=a_type, 
+                                                                                    cell_type=cell_type,
+                                                                                    norm_mode=norm_mode, 
+                                                                                    block_dense_connection=block_dense_connection,
+                                                                                    c=c,
+                                                                                    q_k_norm=q_k_norm, 
+                                                                                    cosine_att=cosine_att, 
+                                                                                    att_with_relative_postion_bias=att_with_relative_postion_bias, 
+                                                                                    bs=bs,
+                                                                                    larger_mixer_kernel=larger_mixer_kernel,
+                                                                                    mixer_type=mixer_type,
+                                                                                    shuffle_in_window=shuffle_in_window,
+                                                                                    scale_ratio_in_mixer=scale_ratio_in_mixer,
+                                                                                    load_path=config.load_path)
+                                                                    
+                                                                    print("---" * 20)
+                                                                    print(cmd_run)
+                                                                    print("---" * 20)
+                                                                    subprocess.run(cmd_run)
                                                             
     def arg_parser(self):
         """

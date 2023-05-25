@@ -268,7 +268,7 @@ def trainer(rank, config, wandb_run):
         train_loader_iter = iter(train_loader)
         total_iters = len(train_loader) if not c.debug else 10
         #with tqdm(total=total_iters, disable=rank>0) as pbar:
-        with tqdm(total=total_iters) as pbar:
+        with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
             for idx in range(total_iters):
                 
                 tm = start_timer(enable=c.with_timer)
@@ -434,7 +434,7 @@ def eval(rank, model, config, data_set, epoch, device, wandb_run, id="", run_mod
     total_iters = len(data_loader) if not c.debug else 10
     
     with torch.inference_mode():
-        with tqdm(total=total_iters) as pbar:
+        with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
 
             for idx in range(total_iters):
 

@@ -134,6 +134,10 @@ class Trainer_Base(ABC):
         self.config.backbone_hrnet.num_resolution_levels = wandb_config.num_resolution_levels
         self.config.backbone_hrnet.block_str = wandb_config.block_str
         
+        self.config.backbone_unet.C = wandb_config.C
+        self.config.backbone_unet.num_resolution_levels = wandb_config.num_resolution_levels
+        self.config.backbone_unet.block_str = wandb_config.block_str
+        
         return self.config
     
     def run_training(self):

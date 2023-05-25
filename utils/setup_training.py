@@ -33,6 +33,13 @@ def setup_logger(config):
     file_only_logger.propagate=False
 
 # -------------------------------------------------------------------------------------------------
+
+def get_bar_format():
+    """Get the default bar format
+    """
+    return '{desc}{percentage:3.0f}%|{bar:10}{r_bar}'
+
+# -------------------------------------------------------------------------------------------------
 # setup the run
 
 def setup_run(config, dirs=["log_path", "results_path", "model_path", "check_path"]):
