@@ -64,14 +64,19 @@ def setup_run(config, dirs=["log_path", "results_path", "model_path", "check_pat
     torch.manual_seed(config.seed)
 
     # setup dp/ddp
-    config.device = get_device(config.device)
-    world_size = torch.cuda.device_count()
-    
-    if config.ddp:
-        if config.device == torch.device('cpu') or world_size <= 1:
-            config.ddp = False
+    if not dist.is_initialized():
+        config.device = get_device(config.device)
+        world_size = torch.cuda.device_count()
         
-    config.world_size = world_size if config.ddp else -1
+        if config.ddp:
+            if config.device == torch.device('cpu') or world_size <= 1:
+                config.ddp = False
+            
+        config.world_size = world_size if config.ddp else -1
+    else:
+        world_size = int(os.environ["WORLD_SIZE"])
+        config.world_size = world_size
+        
     logging.info(f"Training on {config.device} with ddp set to {config.ddp}")
     # os.environ['MASTER_ADDR'] = 'localhost'
     # os.environ['MASTER_PORT'] = '12355'

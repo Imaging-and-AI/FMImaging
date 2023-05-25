@@ -4,6 +4,7 @@ A base model for training, supporting multi-node, multi-gpu training
 
 import os
 import sys
+import shutil
 import logging
 import argparse
 import pprint
@@ -167,21 +168,19 @@ class Trainer_Base(ABC):
             if rank<=0:
                 print(f"---> get the config from wandb on local rank {rank}", flush=True)
                 wandb_run = wandb.init()
-                config = self.set_up_config_for_sweep(wandb_run.config)   
-                #config.run_name = wandb_run.name
+                print(wandb_run.name)
+                self.set_up_config_for_sweep(wandb_run.config)   
+                self.config.run_name = wandb_run.name
                 print(f"---> wandb run is {wandb_run.name} on local rank {rank}", flush=True)
-            else:
-                config = self.config
         else:
             # if not sweep, use the inputted parameters
             # Config is a variable that holds and saves hyperparameters and inputs
-            config = self.config
             if rank<=0:
-                wandb_run = wandb.init(project=config.project, 
-                        entity=config.wandb_entity, 
-                        config=config, 
-                        name=config.run_name, 
-                        notes=config.run_notes)
+                wandb_run = wandb.init(project=self.config.project, 
+                        entity=self.config.wandb_entity, 
+                        config=self.config, 
+                        name=self.config.run_name, 
+                        notes=self.config.run_notes)
 
         # -------------------------------------------------------
         # if ddp is used, broadcast the parameters from rank0 to all other ranks
@@ -189,29 +188,35 @@ class Trainer_Base(ABC):
             if(self.config.sweep_id != 'none'):
                 
                 if rank<=0:
-                    c_list = [config]
+                    c_list = [self.config]
                     print(f"{Fore.RED}--->before, on local rank {rank}, {c_list[0].run_name}{Style.RESET_ALL}", flush=True)
                 else:
                     c_list = [None]
+                    print(f"{Fore.RED}--->before, on local rank {rank}, {self.config.run_name}{Style.RESET_ALL}", flush=True)
                 
                 if world_size > 1:
                     torch.distributed.broadcast_object_list(c_list, src=0, group=None, device=rank)
                     
                 print(f"{Fore.RED}--->after, on local rank {rank}, {c_list[0].run_name}{Style.RESET_ALL}", flush=True)
                 if rank>0:
-                    config = c_list[0]
+                    self.config = c_list[0]
                             
-            print(f"---> config synced for the local rank {rank}")                        
-            if world_size > 1: dist.barrier()        
-            print(f"{Fore.RED}---> Ready to run on local rank {rank}, {config.run_name}{Style.RESET_ALL}", flush=True)
+                print(f"---> config synced for the local rank {rank}")                        
+                if world_size > 1: dist.barrier()
+                     
+            print(f"{Fore.RED}---> Ready to run on local rank {rank}, {self.config.run_name}{Style.RESET_ALL}", flush=True)
             
+            if self.config.ddp:
+                self.config.device = torch.device(f'cuda:{rank}')
+                
         # -------------------------------------------------------
         # run the training for current rank and wandb run
         try: 
             self.run_task_trainer(rank=rank, wandb_run=wandb_run)
                                     
             if rank<=0:
-                wandb_run.finish()                                
+                wandb_run.finish()
+                shutil.rmtree(wandb_run.dir, ignore_errors=True)
                     
             print(f"{Fore.RED}---> Run finished on local rank {rank} <---{Style.RESET_ALL}", flush=True)
                     
@@ -225,21 +230,24 @@ class Trainer_Base(ABC):
             os.system("kill -9 $(ps aux | grep torchrun | grep -v grep | awk '{print $2}') ")
             os.system("kill -9 $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
             os.system("kill -9 $(ps aux | grep python3 | grep -v grep | awk '{print $2}') ")
+            
+            shutil.rmtree(wandb_run.dir, ignore_errors=True)
         
     def train(self):
            
         # -------------------------------------------------------
         # get the rank and runtime info
         if self.config.ddp:
-            if not dist.is_initialized():            
-                dist.init_process_group("nccl")
-                                
             rank = int(os.environ["LOCAL_RANK"])
             global_rank = int(os.environ["RANK"])
             world_size = int(os.environ["WORLD_SIZE"])
             local_world_size = int(os.environ["LOCAL_WORLD_SIZE"])
+
+            print(f"{Fore.YELLOW}---> dist.init_process_group on local rank {rank}, global rank {global_rank}, world size {world_size}, local World size {local_world_size} <---{Style.RESET_ALL}", flush=True)
             
-            print(f"{Fore.YELLOW}---> dist.init_process_group on local rank {rank}, global rank{global_rank}, world size {world_size}, local World size {local_world_size} <---{Style.RESET_ALL}", flush=True)
+            if not dist.is_initialized():
+                torch.cuda.set_device(torch.device(f'cuda:{rank}'))
+                dist.init_process_group("nccl", rank=global_rank, world_size=world_size)
         else:
             rank = -1
             global_rank = -1        
