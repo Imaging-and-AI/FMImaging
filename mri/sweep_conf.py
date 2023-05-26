@@ -23,6 +23,10 @@ sweep_config = {
             'values': [32]
         },
         
+        'optim': {
+            'values': ["sophia", "adamw"]
+        },
+        
         'global_lr': {
             'values': [1e-4, 2e-4]
         },

@@ -98,6 +98,8 @@ class MriTrainer(Trainer_Base):
         
         self.config.backbone = wandb_config.backbone
         
+        self.config.optim = wandb_config.optim
+        
         self.config.height = wandb_config.width
         self.config.width = wandb_config.width
         
