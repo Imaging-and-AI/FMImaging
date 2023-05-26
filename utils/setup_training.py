@@ -168,50 +168,6 @@ def create_generic_class_str(obj : object, exclusion_list=[torch.nn.Module, Orde
     return f'{name}({vars_str})'
 
 # -------------------------------------------------------------------------------------------------
-# model info
-
-def get_number_of_params(model):
-    """
-    Count the total number of parameters
-    @args:
-        - model (torch model): the model to check parameters of
-    @rets:
-        - trainable_params (int): the number of trainable params in the model
-        - total_params (int): the total number of params in the model
-    """
-    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    total_params = sum(param.numel() for param in model.parameters())
-
-    return trainable_params, total_params
-
-def model_info(model, config):
-    """
-    Prints model info and sets total and trainable parameters in the config
-    @args:
-        - model (torch model): the model to check parameters of
-        - config (Namespace): runtime namespace for setup
-    @rets:
-        - model_summary (ModelStatistics object): the model summary
-            see torchinfo/model_statistics.py for more information.
-    """
-    c = config
-    input_size = (c.batch_size, c.time, c.C_in, c.height[0], c.width[0])
-    col_names=("num_params", "params_percent", "mult_adds", "input_size", "output_size", "trainable")
-    row_settings=["var_names", "depth"]
-    dtypes=[torch.float32]
-
-    model_summary = summary(model, verbose=0, mode="train", depth=c.summary_depth,\
-                            input_size=input_size, col_names=col_names,\
-                            row_settings=row_settings, dtypes=dtypes,\
-                            device=config.device)
-
-    c.trainable_params = model_summary.trainable_params
-    c.total_params = model_summary.total_params
-    c.total_mult_adds = model_summary.total_mult_adds 
-    
-    torch.cuda.empty_cache()
-
-    return model_summary
 
 if __name__=="__main__":
     pass

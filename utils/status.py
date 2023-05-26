@@ -97,6 +97,7 @@ def model_info(model, config):
 
     c.trainable_params = model_summary.trainable_params
     c.total_params = model_summary.total_params
+    c.total_mult_adds = model_summary.total_mult_adds
 
     torch.cuda.empty_cache()
 
