@@ -47,7 +47,9 @@ class mri_ddp_base(run_ddp_base):
         "--prefetch_factor", "4",
         
         "--scheduler_type", "ReduceLROnPlateau",
-                      
+        "--scheduler.ReduceLROnPlateau.patience", "0",
+        "--scheduler.ReduceLROnPlateau.cooldown", "0",
+        
         # hrnet
         "--backbone_hrnet.num_resolution_levels", "3",
         
