@@ -239,7 +239,7 @@ class Trainer_Base(ABC):
             os.system("kill -9 $(ps aux | grep python3 | grep -v grep | awk '{print $2}') ")
             
             print(f"{Fore.YELLOW}Remove {wandb_run.name} ...{Style.RESET_ALL}", flush=True)
-            wandb_run.delete()
+            #wandb_run.delete()
         
     def train(self):
            
