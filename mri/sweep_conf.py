@@ -28,7 +28,7 @@ sweep_config = {
         },
         
         'global_lr': {
-            'values': [1e-4, 2e-4]
+            'values': [1e-4, 2e-4, 5e-4]
         },
         
         'window_size': {
@@ -44,7 +44,7 @@ sweep_config = {
         },
         
         'scheduler_type': {
-            'values': ["ReduceLROnPlateau", "OneCycleLR"]
+            'values': ["ReduceLROnPlateau"]
         },
                 
         'use_amp': {
