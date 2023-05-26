@@ -20,7 +20,7 @@ sweep_config = {
         },
         
         'batch_size': {
-            'values': [32]
+            'values': [16]
         },
         
         'optim': {

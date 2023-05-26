@@ -106,7 +106,7 @@ def add_shared_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for S
     
     parser.add_argument("--C_in", type=int, default=3, help='number of channels in the input')
     parser.add_argument("--C_out", type=int, default=16, help='number of channels in the output')
-    parser.add_argument("--time", type=int, default=16, help='training time series length')
+    parser.add_argument("--time", type=int, default=12, help='training time series length')
     parser.add_argument("--height", nargs='+', type=int, default=[64, 128], help='heights of the training images')
     parser.add_argument("--width", nargs='+', type=int, default=[64, 128], help='widths of the training images')
     
