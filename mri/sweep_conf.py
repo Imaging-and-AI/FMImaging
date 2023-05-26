@@ -24,7 +24,7 @@ sweep_config = {
         },
         
         'optim': {
-            'values': ["sophia", "adamw"]
+            'values': ["sophia"]
         },
         
         'global_lr': {
@@ -88,7 +88,7 @@ sweep_config = {
         },
         
         'C': {
-            'values': [64, 128, 32]
+            'values': [64, 32]
         },
         
         'block_str': {
