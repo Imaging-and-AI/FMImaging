@@ -83,6 +83,8 @@ class cifar_ddp_base(run_ddp_base):
         vars['C'] = [64]
         vars['scale_ratio_in_mixers'] = [4.0]
 
+        vars['optim'] = ['sophia']
+
         vars['block_strs'] = [
                         [["T1L1G1", "T1L1G1", "T1L1G1"], ["T1T1T1", "T1T1T1", "T1T1T1"] ]
                     ]

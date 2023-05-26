@@ -47,7 +47,7 @@ if config_default.ddp:
 
     # use rank=0 process as the master
     is_master = rank<=0
-    dist.init_process_group("nccl")   
+    dist.init_process_group("nccl"|"gloo")   
 
     # create a key-value store to sync processes     
     store=dist.TCPStore("localhost", 9001, dist.get_world_size(), is_master=is_master, timeout=timedelta(seconds=30), wait_for_workers=True)

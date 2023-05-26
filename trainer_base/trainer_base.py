@@ -255,7 +255,10 @@ class Trainer_Base(ABC):
             
             if not dist.is_initialized():
                 torch.cuda.set_device(torch.device(f'cuda:{rank}'))
-                dist.init_process_group("nccl", rank=global_rank, world_size=world_size)
+                if torch.cuda.is_available():
+                    dist.init_process_group(backend=torch.distributed.Backend.NCCL, rank=global_rank, world_size=world_size)
+                else:
+                    dist.init_process_group(backend=torch.distributed.Backend.GLOO, rank=global_rank, world_size=world_size)
         else:
             rank = -1
             global_rank = -1        

@@ -19,7 +19,7 @@ class run_ddp_base(object):
     def set_up_torchrun(self, config):
         self.cmd = ["torchrun"]
 
-        self.cmd.extend(["--nproc_per_node", f"{config.nproc_per_node}", "--max_restarts", "6"])
+        self.cmd.extend(["--nproc_per_node", f"{config.nproc_per_node}", "--max_restarts", "6", "--master_port", f"{config.master_port}"])
 
         if config.standalone:
             self.cmd.extend(["--standalone"])
@@ -226,6 +226,7 @@ class run_ddp_base(object):
         parser.add_argument("--nproc_per_node", type=int, default=2, help="number of processes per node")
         parser.add_argument("--nnodes", type=str, default="1", help="number of nodes")
         parser.add_argument("--node_rank", type=int, default=0, help="current node rank")
+        parser.add_argument("--master_port", type=int, default=9050, help="torchrun port")
         parser.add_argument("--rdzv_id", type=int, default=100, help="run id")
         parser.add_argument("--rdzv_backend", type=str, default="c10d", help="backend of torchrun")
         parser.add_argument("--rdzv_endpoint", type=str, default="localhost:9001", help="master node endpoint")

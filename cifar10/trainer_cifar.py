@@ -196,7 +196,6 @@ def trainer(rank, config, wandb_run):
         wandb_run.watch(model)
     
     if c.ddp:
-        #dist.init_process_group("nccl", rank=rank, world_size=c.world_size, timeout=timedelta(seconds=1800))
         device = torch.device(f"cuda:{rank}")
         model = model.to(device)
         model = DDP(model, device_ids=[rank], find_unused_parameters=True)
