@@ -43,8 +43,8 @@ for n in ${node_list[*]}
 do
     echo "copy data to $n ..."
     VM_name=$n.eastus2.cloudapp.azure.com    
-scp -i ~/.ssh/xueh2-a100.pem ~/.ssh/xueh2-a100.pem gtuser@$VM_name:/home/gtuser/.ssh/
-scp -i ~/.ssh/xueh2-a100.pem $HOME/mrprogs/STCNNT.git/doc/notes/set_up_VM.sh gtuser@$VM_name:/home/gtuser/
+    scp -i ~/.ssh/xueh2-a100.pem ~/.ssh/xueh2-a100.pem gtuser@$VM_name:/home/gtuser/.ssh/
+    scp -i ~/.ssh/xueh2-a100.pem $HOME/mrprogs/STCNNT.git/doc/notes/set_up_VM.sh gtuser@$VM_name:/home/gtuser/
 done
 
 # mount drive
