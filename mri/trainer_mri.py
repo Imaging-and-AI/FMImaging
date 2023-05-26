@@ -180,6 +180,7 @@ def trainer(rank, config, wandb_run):
         wandb_run.watch(model)
         wandb_run.summary["trainable_params"] = c.trainable_params
         wandb_run.summary["total_params"] = c.total_params
+        wandb_run.summary["total_mult_adds"] = c.total_mult_adds 
 
         wandb_run.define_metric("epoch")    
         wandb_run.define_metric("train_loss_avg", step_metric='epoch')

@@ -230,7 +230,8 @@ def trainer(rank, config, wandb_run):
         #wandb_run.init(project=c.project, entity=c.wandb_entity, config=c, name=c.run_name, notes=c.run_notes)        
         wandb_run.summary["trainable_params"] = c.trainable_params
         wandb_run.summary["total_params"] = c.total_params
-
+        wandb_run.summary["total_mult_adds"] = c.total_mult_adds 
+        
         # save best model to be saved at the end
         best_val_loss = numpy.inf
         best_val_acc = 0
