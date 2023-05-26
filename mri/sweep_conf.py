@@ -96,7 +96,7 @@ sweep_config = {
                         ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
                         ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
                         ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"], 
-                        ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"]
+                        ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"]
                     ]
         },
                 
