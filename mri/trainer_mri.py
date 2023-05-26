@@ -141,7 +141,7 @@ def trainer(rank, config, wandb_run):
     if c.ddp:
         device = torch.device(f"cuda:{rank}")
         model = model.to(device)
-        model = DDP(model, device_ids=[rank], find_unused_parameters=False)
+        model = DDP(model, device_ids=[rank], find_unused_parameters=True)
         optim = model.module.optim
         sched = model.module.sched
         stype = model.module.stype
@@ -450,7 +450,7 @@ def trainer(rank, config, wandb_run):
     model = model.to(device)
     
     if c.ddp:        
-        model = DDP(model, device_ids=[rank], find_unused_parameters=False)        
+        model = DDP(model, device_ids=[rank], find_unused_parameters=True)        
                 
     test_losses = eval_val(rank, model, config, test_set, epoch, device, wandb_run, id="test")
     if rank<=0:
