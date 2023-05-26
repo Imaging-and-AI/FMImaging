@@ -125,6 +125,8 @@ class Trainer_Base(ABC):
         self.config.n_head = wandb_config.n_head
         self.config.scale_ratio_in_mixer = wandb_config.scale_ratio_in_mixer
         
+        self.config.norm_mode = wandb_config.norm_mode
+        
         self.config.mixer_type = wandb_config.mixer_type
         self.config.normalize_Q_K = wandb_config.normalize_Q_K
         self.config.cosine_att = wandb_config.cosine_att

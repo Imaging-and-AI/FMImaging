@@ -39,6 +39,10 @@ sweep_config = {
             'values': ["ReduceLROnPlateau", "OneCycleLR"]
         },
         
+        'norm_mode': {
+            'values': ['batch2d', 'layer', 'instance2d']
+        },
+        
         'use_amp': {
             'values': [True, False]
         },

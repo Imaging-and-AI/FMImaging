@@ -16,7 +16,7 @@ sweep_config = {
         },
         
         'num_epochs': {
-            'values': [40, 60]
+            'values': [20, 40]
         },
         
         'batch_size': {
@@ -24,11 +24,11 @@ sweep_config = {
         },
         
         'optim': {
-            'values': ["sophia"]
+            'values': ["sophia", "adamw"]
         },
         
         'global_lr': {
-            'values': [1e-4, 2e-4, 5e-4]
+            'values': [1e-4]
         },
         
         'window_size': {
@@ -44,11 +44,15 @@ sweep_config = {
         },
         
         'scheduler_type': {
-            'values': ["ReduceLROnPlateau"]
+            'values': ["ReduceLROnPlateau", "OneCycleLR"]
+        },
+                
+        'norm_mode': {
+            'values': ['batch2d', 'layer', 'instance2d']
         },
                 
         'use_amp': {
-            'values': [False]
+            'values': [True]
         },
         
         'a_type': {
@@ -95,8 +99,8 @@ sweep_config = {
             'values': [
                         ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
                         ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
-                        ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"], 
-                        ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"]
+                        ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                        ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"]
                     ]
         },
                 
@@ -106,7 +110,7 @@ sweep_config = {
         
         'train_files': {
             'values': [
-                [ ["train_3D_3T_retro_cine_2018.h5", "train_3D_3T_perf_2021.h5"], ["2dt", "2dt"]] 
+                [ ["train_3D_3T_retro_cine_2018.h5", "train_3D_3T_perf_2021.h5"], ["2dt", "2dt"]]
                 #[ ["train_3D_3T_retro_cine_2018.h5", "train_3D_3T_retro_cine_2019.h5"], ["2dt", "3d"] ],
                 #[ ["train_3D_3T_retro_cine_2018.h5", "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5"], ["2dt", "3d", "2d"] ]  
             ]            

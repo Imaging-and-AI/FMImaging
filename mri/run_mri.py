@@ -51,7 +51,7 @@ class mri_ddp_base(run_ddp_base):
         "--scheduler.ReduceLROnPlateau.cooldown", "0",
         
         # hrnet
-        "--backbone_hrnet.num_resolution_levels", "3",
+        "--backbone_hrnet.num_resolution_levels", "2",
         
         # unet            
         "--backbone_unet.num_resolution_levels", "3",
@@ -89,12 +89,12 @@ class mri_ddp_base(run_ddp_base):
                 
         vars['optim'] = ['sophia', 'adamw']
         
-        vars['backbone'] = ['unet']
+        vars['backbone'] = ['hrnet']
         vars['cell_types'] = ["sequential"]
         vars['Q_K_norm'] = [False]
-        vars['cosine_atts'] = ["0"]
+        vars['cosine_atts'] = ["1"]
         vars['att_with_relative_postion_biases'] = ["1"]
-        vars['a_types'] = ["lin"]
+        vars['a_types'] = ["conv", "lin"]
 
         vars['larger_mixer_kernels'] = [False]
         vars['mixer_types'] = ["conv"]
@@ -106,8 +106,8 @@ class mri_ddp_base(run_ddp_base):
 
         vars['block_strs'] = [
                         [ 
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
                             ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],                            
                             ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
                             ["T1T1T1T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1"]
                          ]
