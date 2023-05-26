@@ -114,7 +114,16 @@ def get_device(device=None):
 
     return device if device is not None else \
             "cuda" if torch.cuda.is_available() else "cpu"
-            
+
+# -------------------------------------------------------------------------------------------------
+         
+def clean_after_training():
+    """Clean after the training
+    """
+    os.system("kill -9 $(ps aux | grep torchrun | grep -v grep | awk '{print $2}') ")
+    os.system("kill -9 $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
+    os.system("kill -9 $(ps aux | grep python3 | grep -v grep | awk '{print $2}') ")
+    
 # -------------------------------------------------------------------------------------------------
 
 def optimizer_to(optim, device):
