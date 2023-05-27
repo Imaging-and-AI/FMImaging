@@ -11,13 +11,12 @@ from skimage.util.shape import view_as_windows
 # -------------------------------------------------------------------------------------------------
 # Complete single image inference
 
-def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64),
-                        batch_size=8, device="cpu"):
+def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batch_size=8, device="cpu"):
     """
     Runs inference by breaking image into overlapping patches
     Runs the patches through the model and then stiches them back
     @args:
-        - model (torch model): the model to run inference with
+        - model (torch or onnx model): the model to run inference with
         - image (numpy.ndarray or torch.Tensor): the image to run inference on
             - requires the image to have ndim==3 or ndim==4 or ndim==5
                 [T,H,W] or [T,C,H,W] or [B,T,C,H,W]
@@ -30,13 +29,16 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64),
     @rets:
         - image_fin (4D numpy.ndarray): result as numpy array [T,C,H,W]
             if input image.ndim==3 then C=1, otw same as input
-        - image_fin (5D torch.Tensor): result as torch tensor [B,T,C,H,W]
+        - image_fin (5D torch.Tensor or numpy array): result as [B,T,C,H,W]
             always B=1. If input image.ndim==3 then C=1, otw same as input
     """
-    # ---------------------------------------------------------------------------------------------
+    # ---------------------------------------
     # setup the model and image
-    model = model.to(device)
-    model.eval()
+    is_torch_model = isinstance(model, torch.nn.Module)
+    
+    if is_torch_model:
+        model = model.to(device)
+        model.eval()
 
     try:
         image = image.cpu().detach().numpy()
@@ -81,8 +83,17 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64),
     image_batch = image_patches.reshape(-1,Tc,CO,Hc,Wc) # shape:(num_patches,T,C,H,W)
     # ---------------------------------------------------------------------------------------------
     # getting model output shape, specifically C_out
-    sample_in = torch.from_numpy(image_batch[:batch_size]).to(device)
-    sample_ot = model(sample_in).cpu().detach().numpy()
+        
+    if is_torch_model:
+        with torch.inference_mode():
+            sample_in = torch.from_numpy(image_batch[:batch_size]).to(device)
+            sample_ot = model(sample_in).cpu().detach().numpy()
+    else:
+        # onnx model
+        sample_in = image_batch[:batch_size]
+        ort_inputs = {model.get_inputs()[0].name: sample_in.astype('float32')}
+        sample_ot = model.run(None, ort_inputs)
+        
     _,_,C_out,_,_ = sample_ot.shape
     image_patches_ot_shape = (*image_patches.shape[:-3],C_out,*image_patches.shape[-2:])
     image_pad_ot_shape = (image_pad.shape[0], C_out, *image_pad.shape[2:])
@@ -90,10 +101,17 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64),
     # inferring each patch in length of batch_size
     image_batch_pred = np.zeros((image_batch.shape[0],Tc,C_out,Hc,Wc), dtype=d_type)
 
-    for i in range(0, image_batch.shape[0], batch_size):
-
-        x_in = torch.from_numpy(image_batch[i:i+batch_size]).to(device)
-        image_batch_pred[i:i+batch_size] = model(x_in).cpu().detach().numpy()
+    if is_torch_model:
+        with torch.inference_mode():
+            for i in range(0, image_batch.shape[0], batch_size):
+                x_in = torch.from_numpy(image_batch[i:i+batch_size]).to(device)
+                image_batch_pred[i:i+batch_size] = model(x_in).cpu().detach().numpy()
+    else:
+        for i in range(0, image_batch.shape[0], batch_size):
+            x_in = image_batch[i:i+batch_size]
+            ort_inputs = {model.get_inputs()[0].name: x_in.astype('float32')}
+            image_batch_pred[i:i+batch_size] = model.run(None, ort_inputs)
+            
     # ---------------------------------------------------------------------------------------------
     # setting up the weight matrix
     # matrix_weight defines how much a patch contributes to a pixel
@@ -133,7 +151,12 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64),
     image_fin = image_prd[To:To+TO, :, Ho:Ho+HO, Wo:Wo+WO]
 
     # return a 4D numpy and 5D torch.tensor for easier followups
-    return image_fin, torch.from_numpy(image_fin[np.newaxis]).to(device)
+    if is_torch_model:
+        res = image_fin, torch.from_numpy(image_fin[np.newaxis]).to(device)
+    else:
+        res = image_fin, image_fin[np.newaxis]
+
+    return res
 
 # -------------------------------------------------------------------------------------------------
 # Testing
@@ -143,6 +166,17 @@ if __name__ == "__main__":
 
     model = torch.nn.Identity()
 
+    # test 2D image
+    B,T,C,H,W = 1,1,5,3,1996
+    cutout = (1,226,7)
+    overlap = (0,158,4)
+    test_in = torch.rand(B,T,C,H,W)
+
+    test_n, test_t = running_inference(model, test_in, cutout=cutout, overlap=overlap)
+
+    np.testing.assert_allclose(test_n, test_in[0], rtol=1.3e-6, atol=1e-5)
+    torch.testing.assert_close(test_t, test_in, rtol=1.3e-6, atol=1e-5)
+    
     # test random input
     B,T,C,H,W = 1,63,5,3,1996
     cutout = (83,226,7)

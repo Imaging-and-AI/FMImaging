@@ -420,6 +420,7 @@ def trainer(rank, config, wandb_run):
     test_losses = eval_val(rank, model, config, test_set, epoch, device, wandb_run, id="test")
     if rank<=0:
         wandb_run.summary["best_val_loss"] = best_val_loss
+        wandb_run.summary["last_val_loss"] = val_losses[0]
         
         wandb_run.summary["test_loss_last"] = test_losses[0]
         wandb_run.summary["test_mse_last"] = test_losses[0]
@@ -436,14 +437,6 @@ def trainer(rank, config, wandb_run):
 
         logging.info(f"--> {Fore.YELLOW}Save last mode at {fname_last}{Style.RESET_ALL}")
         logging.info(f"--> {Fore.YELLOW}Save best mode at {fname_best}{Style.RESET_ALL}")
-
-        wandb_run.save(fname_last+'.pt')
-        wandb_run.save(fname_last+'.pts')
-        wandb_run.save(fname_last+'.onnx')
-        
-        wandb_run.save(fname_best+'.pt')
-        wandb_run.save(fname_best+'.pts')
-        wandb_run.save(fname_best+'.onnx')
         
     # test best model, reload the weights
     model = STCNNT_MRI(config=config, total_steps=total_steps)
@@ -462,6 +455,60 @@ def trainer(rank, config, wandb_run):
         wandb_run.summary["test_ssim3D_best"] = test_losses[0]
         wandb_run.summary["test_psnr_best"] = test_losses[0]
 
+        # test the best model, reloading the saved model
+        model_jit = load_model(model_dir=None, model_file=fname_best+'.pts')
+        model_onnx, _ = load_model_onnx(model_dir=None, model_file=fname_best+'.onnx', use_cpu=True)
+        
+        # pick a random case
+        a_test_set = test_set[np.random.randint(0, len(test_set))]
+        x, y, gmaps_median, noise_sigmas = a_test_set[np.random.randint(0, len(a_test_set))]
+        
+        print(f"x = {np.linalg.norm(x)}")
+        
+        x = np.expand_dims(x, axis=0)
+        y = np.expand_dims(y, axis=0)
+        
+        x_t = torch.from_numpy(x).to(device=device)    
+        y_t = torch.from_numpy(y).to(device=device)
+        
+        model = model.module if c.ddp else model
+        model.to(device=device)
+        model.eval()
+        
+        tm = start_timer()
+        with torch.inference_mode():
+            y_model = model(x_t)
+            y_model = y_model.cpu().numpy()
+        end_timer(t=tm, msg="torch model took")
+        
+        tm = start_timer()
+        model_jit.to(device=device)
+        model_jit.eval()
+        with torch.inference_mode():
+            y_model_jit = model_jit(x_t)
+            y_model_jit = y_model_jit.cpu().numpy()
+        end_timer(t=tm, msg="torch script model took")
+            
+        print(f"x = {np.linalg.norm(x)}")
+        tm = start_timer()
+        ort_inputs = {model_onnx.get_inputs()[0].name: x.astype('float32')}
+        y_model_onnx = model_onnx.run(None, ort_inputs)
+        end_timer(t=tm, msg="onnx model took")
+        
+        d1 = np.linalg.norm(y_model-y_model_jit) / np.linalg.norm(y_model)
+        logging.info(f"--> {Fore.GREEN}Jit model difference is {d1} ... {Style.RESET_ALL}")
+        
+        d2 = np.linalg.norm(y_model-y_model_onnx[0]) / np.linalg.norm(y_model)
+        logging.info(f"--> {Fore.GREEN}Onnx model difference is {d2} ... {Style.RESET_ALL}")
+    
+        wandb_run.save(fname_last+'.pt')
+        wandb_run.save(fname_last+'.pts')
+        wandb_run.save(fname_last+'.onnx')
+        
+        wandb_run.save(fname_best+'.pt')
+        wandb_run.save(fname_best+'.pts')
+        wandb_run.save(fname_best+'.onnx')
+    
 # -------------------------------------------------------------------------------------------------
 # evaluate the val set
 
