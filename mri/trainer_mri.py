@@ -48,7 +48,7 @@ def create_log_str(config, epoch, rank, data_shape, loss, mse, l1, ssim, ssim3d,
     else:
         lr_str = ""
         
-    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {Fore.YELLOW}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.RED}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.YELLOW}mse {mse:.4f}, l1 {l1:.4f}, ssim {ssim:.4f}, ssim3D {ssim3d:.4f}, psnr {psnr:.4f}{Style.RESET_ALL}{lr_str}"
+    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {Fore.YELLOW}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.YELLOW}mse {mse:.4f}, l1 {l1:.4f}, ssim {ssim:.4f}, ssim3D {ssim3d:.4f}, psnr {psnr:.4f}{Style.RESET_ALL}{lr_str}"
         
     return str
 
