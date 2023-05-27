@@ -177,6 +177,17 @@ if __name__ == "__main__":
     np.testing.assert_allclose(test_n, test_in[0], rtol=1.3e-6, atol=1e-5)
     torch.testing.assert_close(test_t, test_in, rtol=1.3e-6, atol=1e-5)
     
+    # test 2DT image
+    B,T,C,H,W = 1,128,5,256,256
+    cutout = (128,32,32)
+    overlap = (0,16,16)
+    test_in = torch.rand(B,T,C,H,W)
+
+    test_n, test_t = running_inference(model, test_in, cutout=cutout, overlap=overlap)
+
+    np.testing.assert_allclose(test_n, test_in[0], rtol=1.3e-6, atol=1e-5)
+    torch.testing.assert_close(test_t, test_in, rtol=1.3e-6, atol=1e-5)
+    
     # test random input
     B,T,C,H,W = 1,63,5,3,1996
     cutout = (83,226,7)

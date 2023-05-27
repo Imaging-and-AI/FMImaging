@@ -563,7 +563,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
     model.to(device)
 
     cutout = (c.time, c.height[-1], c.width[-1])
-    overlap = (c.time//4, c.height[-1]//4, c.width[-1]//4)
+    overlap = (c.time//2, c.height[-1]//4, c.width[-1]//4)
 
     val_loader_iter = [iter(val_loader_x) for val_loader_x in val_loader]
     total_iters = sum([len(loader_x) for loader_x in val_loader])
@@ -596,12 +596,17 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                     if x.shape[1]==1:
                         xy, og_shape, pt_shape = cut_into_patches([x,y], cutout=cutout[1:])
                         x, y = xy[0], xy[1]
-                        cutout_in = (c.twoD_num_patches_cutout, *cutout[1:])
-                        overlap_in = (c.twoD_num_patches_cutout//4, *overlap[1:])
+                        # cutout_in = (c.twoD_num_patches_cutout, *cutout[1:])
+                        # overlap_in = (c.twoD_num_patches_cutout//4, *overlap[1:])
                         two_D = True
 
                     x = x.to(device)
                     y = y.to(device)
+                    
+                    B, T, C, H, W = x.shape
+                    
+                    cutout = (T, c.height[-1], c.width[-1])
+                    overlap = (0, c.height[-1]//2, c.width[-1]//2)
                     
                     try:
                         _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device=device)
