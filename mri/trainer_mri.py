@@ -203,7 +203,7 @@ def trainer(rank, config, wandb_run):
             x = np.expand_dims(x, axis=0)
             y = np.expand_dims(y, axis=0)
             for ii in range(1, len(ind)):                
-                a_x, a_y, gmaps_median, noise_sigmas = train_set_x[ii]
+                a_x, a_y, gmaps_median, noise_sigmas = train_set_x[ind[ii]]
                 x = np.concatenate((x, np.expand_dims(a_x, axis=0)), axis=0)
                 y = np.concatenate((y, np.expand_dims(a_y, axis=0)), axis=0)
                 

@@ -222,8 +222,6 @@ class Trainer_Base(ABC):
                                     
             if rank<=0:
                 wandb_run.finish()
-                print(f"{Fore.YELLOW}Remove {wandb_run.name} ...{Style.RESET_ALL}", flush=True)
-                wandb_run.delete()
                     
             print(f"{Fore.RED}---> Run finished on local rank {rank} <---{Style.RESET_ALL}", flush=True)
                     

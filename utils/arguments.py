@@ -48,7 +48,7 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
     parser.add_argument("--sweep_count", type=int, default=50, help='number of sweep per agent to run')
 
     # dataset arguments
-    parser.add_argument("--ratio", nargs='+', type=int, default=[100,100,0], help='Ratio (as a percentage) for train/val/test divide of given data. Does allow for using partial dataset')    
+    parser.add_argument("--ratio", nargs='+', type=float, default=[100,100,0], help='Ratio (as a percentage) for train/val/test divide of given data. Does allow for using partial dataset')    
 
     # dataloader arguments
     parser.add_argument("--num_workers", type=int, default=8, help='number of workers for data loading')
