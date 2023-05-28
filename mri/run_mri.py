@@ -72,6 +72,7 @@ class mri_ddp_base(run_ddp_base):
         "--height", "32", "64",
         "--width", "32", "64",
         "--time", "12",
+        "--weighted_loss",
         #"--max_load", "10000",
         
         "--train_files", "train_3D_3T_retro_cine_2018.h5", "train_3D_3T_perf_2021.h5", "/export/Lab-Xue/projects/data/train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5",
