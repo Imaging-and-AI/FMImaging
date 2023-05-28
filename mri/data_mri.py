@@ -536,8 +536,13 @@ def load_mri_data(config):
     val_keys = []
     test_keys = []
 
-    train_paths = [os.path.join(c.data_root, path_x) for path_x in c.train_files]
-
+    train_paths = []
+    for path_x in c.train_files:
+        if os.path.isfile(path_x):
+            train_paths.append(path_x)
+        else:
+            train_paths.append(os.path.join(c.data_root, path_x))
+            
     for file in train_paths:
         if not os.path.exists(file):
             raise RuntimeError(f"File not found: {file}")
@@ -548,10 +553,17 @@ def load_mri_data(config):
 
         n = len(keys)
 
+        tra = int(ratio[0]*n)
+        tra = 1 if tra == 0 else tra
+
+        val = int((ratio[0]+ratio[1])*n)
+        val = tra + 1 if val<=tra else val        
+        val = n if val>n else val
+        
         h5files.append(h5file)
-        train_keys.append(keys[:int(ratio[0]*n)])
-        val_keys.append(keys[int(ratio[0]*n):int((ratio[0]+ratio[1])*n)])
-        test_keys.append(keys[int((ratio[0]+ratio[1])*n):int((ratio[0]+ratio[1]+ratio[2])*n)])
+        train_keys.append(keys[:tra])
+        val_keys.append(keys[tra:val])
+        test_keys.append(keys[val:])
 
         # make sure there is no empty testing
         if len(val_keys[-1])==0:
@@ -583,27 +595,27 @@ def load_mri_data(config):
             train_set.append(MRIDenoisingDatasetTrain(h5file=[h_file], keys=[train_keys[i]], max_load=-1, data_type=c.train_data_types[i], cutout_shape=hw, **kwargs))
             train_set[-1].images = images
         
+    val_set = [MRIDenoisingDatasetTrain(h5file=[h_file], keys=[val_keys[i]], max_load=c.max_load, 
+                                        data_type=c.train_data_types[i], cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
+                                            for (i,h_file) in enumerate(h5files)]
+        
     if c.test_files is None or c.test_files[0] is None: # no test case given so use some from train data
-        val_set = [MRIDenoisingDatasetTrain(h5file=[h_file], keys=[val_keys[i]], max_load=c.max_load, 
-                                            data_type=c.train_data_types[i], cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
-                                                for (i,h_file) in enumerate(h5files)]
-
         test_set = [MRIDenoisingDatasetTrain(h5file=[h_file], keys=[test_keys[i]], max_load=c.max_load, 
                                              data_type=c.train_data_types[i], cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
                                                 for (i,h_file) in enumerate(h5files)]
     else: # test case is given. take part of it as val set
         test_set, test_h5files = load_mri_test_data(config)
 
-        val_set = []
-        val_len = 0
-        val_len_lim = 12
-        per_file = 1 if len(test_h5files)>val_len_lim else val_len_lim//len(test_h5files)
-        # take 8 samples through all files for val set
-        for h_file,t_keys in test_h5files:
-            val_set.append(MRIDenoisingDatasetTest([h_file], keys=[t_keys[:per_file]], use_complex=c.complex_i))
-            val_len += per_file
-            if val_len > val_len_lim:
-                break
+        # val_set = []
+        # val_len = 0
+        # val_len_lim = 12
+        # per_file = 1 if len(test_h5files)>val_len_lim else val_len_lim//len(test_h5files)
+        # # take 8 samples through all files for val set
+        # for h_file,t_keys in test_h5files:
+        #     val_set.append(MRIDenoisingDatasetTest([h_file], keys=[t_keys[:per_file]], use_complex=c.complex_i))
+        #     val_len += per_file
+        #     if val_len > val_len_lim:
+        #         break
 
     total_tra = sum([len(d) for d in train_set])
     total_val = sum([len(d) for d in val_set])
