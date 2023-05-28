@@ -41,7 +41,7 @@ def arg_parser():
 
     parser.add_argument("--data_root", type=str, default="/export/Lab-Xue/projects/mri/data", help='root folder for the data')
     parser.add_argument("--results_path", type=str, default="/export/Lab-Xue/projects/mri/results", help='folder for results')
-    parser.add_argument("--test_files", type=str, nargs='+', default=["train_3D_3T_retro_cine_2020_small_test.h5"], help='list of test h5files')
+    parser.add_argument("--test_files", type=str, nargs='+', default=["train_3D_3T_retro_cine_2020_small_2DT_test.h5"], help='list of test h5files')
     parser.add_argument("--saved_model_path", type=str, default=None, help='model path. endswith ".pt" or ".pts"')
     parser.add_argument("--pad_time", action="store_true", help="with to pad along time")
     parser.add_argument("--patch_size_inference", type=int, default=-1, help='patch size for inference; if <=0, use the config setup')
@@ -132,10 +132,14 @@ def main():
     
     patch_size_inference = c.patch_size_inference
     
-    config_file = c.saved_model_config 
-    print(f"{Fore.YELLOW}Load in config file - {config_file}")
-    with open(config_file, 'rb') as f:
-        config = pickle.load(f)
+    config_file = c.saved_model_config
+    if os.path.isfile(config_file):
+        print(f"{Fore.YELLOW}Load in config file - {config_file}")
+        with open(config_file, 'rb') as f:
+            config = pickle.load(f)
+    else:
+        record = torch.load(c.saved_model_path)
+        config = record['config']        
     
     config.data_root = c.data_root
     config.results_path = c.results_path

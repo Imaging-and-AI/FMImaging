@@ -26,7 +26,7 @@ class mri_ddp_base(run_ddp_base):
         
         self.cmd.extend([       
        
-        "--num_epochs", "10",
+        "--num_epochs", "30",
         "--batch_size", "16",
 
         "--window_size", "8", "8",
@@ -69,13 +69,16 @@ class mri_ddp_base(run_ddp_base):
         "--residual",
         "--losses", "mse", "l1",
         "--loss_weights", "1.0", "1.0",
-        "--height", "48", "96",
-        "--width", "48", "96",
+        "--height", "32", "64",
+        "--width", "32", "64",
         "--time", "12",
         #"--max_load", "10000",
         
-        "--train_files", "train_3D_3T_retro_cine_2018.h5", "train_3D_3T_perf_2021.h5", 
-        "--train_data_types", "2dt", "2dt"
+        "--train_files", "train_3D_3T_retro_cine_2018.h5", "train_3D_3T_perf_2021.h5", "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5",
+        "--train_data_types", "2dt", "2dt", "3d", "2d",
+        
+        "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5",
+        "--test_data_types", "3d"
         ])
         
         if config.tra_ratio > 0 and config.tra_ratio<=100:
@@ -87,14 +90,14 @@ class mri_ddp_base(run_ddp_base):
         
         vars = dict()
                 
-        vars['optim'] = ['sophia', 'adamw']
+        vars['optim'] = ['sophia']
         
         vars['backbone'] = ['hrnet']
-        vars['cell_types'] = ["sequential"]
-        vars['Q_K_norm'] = [False]
+        vars['cell_types'] = ["parallel"]
+        vars['Q_K_norm'] = [True]
         vars['cosine_atts'] = ["1"]
         vars['att_with_relative_postion_biases'] = ["1"]
-        vars['a_types'] = ["conv", "lin"]
+        vars['a_types'] = ["conv"]
 
         vars['larger_mixer_kernels'] = [False]
         vars['mixer_types'] = ["conv"]

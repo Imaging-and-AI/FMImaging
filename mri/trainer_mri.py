@@ -567,6 +567,8 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
     model.eval()
     model.to(device)
 
+    print(f"Eval height and width is {c.height[-1]}, {c.width[-1]}")
+
     cutout = (c.time, c.height[-1], c.width[-1])
     overlap = (c.time//2, c.height[-1]//4, c.width[-1]//4)
 
