@@ -170,6 +170,22 @@
             ]
         },
         {
+            "name": "run_inference, mri",
+            "type": "python",
+            "request": "launch",
+            "program": "./mri/run_inference.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
+            "args": [
+                "--input_dir", "/export/Lab-Xue/mrprogs/gadgetron_CMR_ML-source/ut/data/denoising/snr_gmap_denoising/RT_Cine_R6/RT_Cine_LIN_42110_237143644_237143653_178_20220216-113149", 
+                "--output_dir", "/export/Lab-Xue/projects/mri/test/results",
+                "--scaling_factor", "1.0",
+                "--im_scaling", "10.0", "--gmap_scaling", "100.0",
+                "--saved_model_path", "/export/Lab-Xue/projects/mri/test/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-False-1-BLOCK_STR-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_05-27-2023.pt"
+            ]
+        },
+        {
             "name": "membrane potential",
             "type": "python",
             "request": "launch",
