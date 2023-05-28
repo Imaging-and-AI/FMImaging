@@ -158,6 +158,18 @@
             ]
         },
         {
+            "name": "eval_mri, debug",
+            "type": "python",
+            "request": "launch",
+            "program": "./mri/eval_mri.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "1"},
+            "args": [
+                "--data_root", "/data/mri/denoising/data", "--results_path", "/export/Lab-Xue/projects/mri/results", "--pad_time", "--saved_model_path", "/export/Lab-Xue/projects/mri/models/mri-UNET-conv-sequential-batch2d-C-32-MIXER-conv-False-1-BLOCK_DENSE-0-QKNORM-True-CONSINE_ATT-1-shuffle_in_window-0-att_with_relative_postion_bias-1-BLOCK_STR-T1L1G1_T1L1G1_T1L1G1_05-27-2023_best.pt"
+            ]
+        },
+        {
             "name": "membrane potential",
             "type": "python",
             "request": "launch",
