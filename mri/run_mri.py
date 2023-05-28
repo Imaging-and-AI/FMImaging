@@ -27,7 +27,7 @@ class mri_ddp_base(run_ddp_base):
         self.cmd.extend([       
        
         "--num_epochs", "30",
-        "--batch_size", "16",
+        "--batch_size", "32",
 
         "--window_size", "8", "8",
         "--patch_size", "2", "2",
@@ -77,8 +77,8 @@ class mri_ddp_base(run_ddp_base):
         "--train_files", "train_3D_3T_retro_cine_2018.h5", "train_3D_3T_perf_2021.h5", "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5",
         "--train_data_types", "2dt", "2dt", "3d", "2d",
         
-        "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5",
-        "--test_data_types", "3d"
+        "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", "train_3D_3T_retro_cine_2020_small_2DT_test.h5", "train_3D_3T_retro_cine_2020_small_2D_test.h5"
+        "--test_data_types", "3d", "2dt", "2d"
         ])
         
         if config.tra_ratio > 0 and config.tra_ratio<=100:
@@ -93,7 +93,7 @@ class mri_ddp_base(run_ddp_base):
         vars['optim'] = ['sophia']
         
         vars['backbone'] = ['hrnet']
-        vars['cell_types'] = ["parallel"]
+        vars['cell_types'] = ["parallel", "sequential"]
         vars['Q_K_norm'] = [True]
         vars['cosine_atts'] = ["1"]
         vars['att_with_relative_postion_biases'] = ["1"]
