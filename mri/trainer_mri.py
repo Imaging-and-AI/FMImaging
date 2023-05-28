@@ -67,7 +67,7 @@ def trainer(rank, config, wandb_run):
 
     start = time()
     train_set, val_set, test_set = load_mri_data(config=config)
-    print(f"load_mri_data took {time() - start} seconds ...")
+    logging.info(f"load_mri_data took {time() - start} seconds ...")
         
     # data_file = Path(config.log_path + f"/{config.run_name}__train.pkl")
     # if data_file.is_file():
@@ -197,7 +197,7 @@ def trainer(rank, config, wandb_run):
         
         # log a few training examples
         for i, train_set_x in enumerate(train_set):            
-            ind = np.random.randint(0, len(train_set_x), 8)
+            ind = np.random.randint(0, len(train_set_x), c.num_uploaded)
             x, y, gmaps_median, noise_sigmas = train_set_x[ind[0]]
             x = np.expand_dims(x, axis=0)
             y = np.expand_dims(y, axis=0)
@@ -209,7 +209,7 @@ def trainer(rank, config, wandb_run):
             title = f"Tra_samples_{i}_Noisy_Noisy_GT_{x.shape}"
             vid = save_image_batch(c.complex_i, x, np.copy(x), y)
             wandb_run.log({title:wandb.Video(vid, caption=f"Tra sample {i}", fps=1, format='gif')})
-            print(f"{Fore.YELLOW}---> Upload tra sample - {title}")
+            logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}")
                          
     # -----------------------------------------------
     # save best model to be saved at the end
@@ -278,7 +278,13 @@ def trainer(rank, config, wandb_run):
 
                 with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
                     output = model(x)
-                    loss = loss_f(output, y)
+                    
+                    if c.weighted_loss:
+                        weights=noise_sigmas*gmaps_median                    
+                        loss = loss_f(output, y, weights=weights.to(device))
+                    else:
+                        loss = loss_f(output, y)
+                        
                     loss = loss / c.iters_to_accumulate
                     
                 end_timer(enable=c.with_timer, t=tm, msg="---> forward pass took ")
@@ -461,9 +467,7 @@ def trainer(rank, config, wandb_run):
         # pick a random case
         a_test_set = test_set[np.random.randint(0, len(test_set))]
         x, y, gmaps_median, noise_sigmas = a_test_set[np.random.randint(0, len(a_test_set))]
-        
-        print(f"x = {np.linalg.norm(x)}")
-        
+               
         x = np.expand_dims(x, axis=0)
         y = np.expand_dims(y, axis=0)
         
@@ -488,7 +492,6 @@ def trainer(rank, config, wandb_run):
             y_model_jit = y_model_jit.cpu().numpy()
         end_timer(t=tm, msg="torch script model took")
             
-        print(f"x = {np.linalg.norm(x)}")
         tm = start_timer()
         ort_inputs = {model_onnx.get_inputs()[0].name: x.astype('float32')}
         y_model_onnx = model_onnx.run(None, ort_inputs)
@@ -567,7 +570,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
     model.eval()
     model.to(device)
 
-    print(f"Eval height and width is {c.height[-1]}, {c.width[-1]}")
+    logging.info(f"Eval height and width is {c.height[-1]}, {c.width[-1]}")
 
     cutout = (c.time, c.height[-1], c.width[-1])
     overlap = (c.time//2, c.height[-1]//4, c.width[-1]//4)
@@ -619,7 +622,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                     try:
                         _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device=device)
                     except:
-                        print(f"{Fore.YELLOW}---> call inference on cpu ...")
+                        logging.info(f"{Fore.YELLOW}---> call inference on cpu ...")
                         _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device="cpu")
                         y = y.to("cpu")
 
@@ -627,12 +630,11 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                         xy = repatch([x,output,y], og_shape, pt_shape)
                         x, output, y = xy[0], xy[1], xy[2]
 
-                if rank<=0 and images_logged < 8:
+                if rank<=0 and images_logged < config.num_uploaded:
                     images_logged += 1
                     title = f"{id.upper()}_rank_{rank}_image_{idx}_Noisy_Pred_GT_{x.shape}"
                     vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
                     wandb_run.log({title: wandb.Video(vid, caption=f"epoch {epoch}", fps=1, format="gif")})
-                    #print(f"{Fore.YELLOW}---> Upload val sample - {title}")
                 
                 total = x.shape[0]    
                     

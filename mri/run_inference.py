@@ -6,6 +6,7 @@ import wandb
 import logging
 import argparse
 import copy
+from time import time
 
 import torch
 from tqdm import tqdm
@@ -106,7 +107,7 @@ def apply_model(data, model, gmap, config, scaling_factor):
         scaling_factor : scaling factor to adjust denoising strength, smaller value is for higher strength (0.5 is more smoothing than 1.0)
     '''
 
-    t0 = time.time()
+    t0 = time()
 
     device = get_device()
 
@@ -124,10 +125,11 @@ def apply_model(data, model, gmap, config, scaling_factor):
     if(gmap.shape[0]!=RO or gmap.shape[1]!=E1 or gmap.shape[2]!=SLC):
         gmap = np.ones(RO, E1, SLC)
 
-    print(f"---> apply_model, preparation took {time.time()-t0} seconds ")
+    print(f"---> apply_model, preparation took {time()-t0} seconds ")
     print(f"---> apply_model, input array {data.shape}")
+    print(f"---> apply_model, gmap array {gmap.shape}")
     print(f"---> apply_model, pad_time {config.pad_time}")
-    print(f"---> apply_model, patch_size_inference {config.patch_size_inference}")
+    print(f"---> apply_model, height and width {config.height, config.width}")
     
     c = config
     
@@ -138,13 +140,12 @@ def apply_model(data, model, gmap, config, scaling_factor):
             
             H, W, T = imgslab.shape
             
-            x = np.transpose(imgslab, [2, 0, 1]).view([1, T, 1, H, W])
+            x = np.transpose(imgslab, [2, 0, 1]).reshape([1, T, 1, H, W])
             g = np.repeat(gmapslab[np.newaxis, np.newaxis, np.newaxis, :, :], T, axis=1)
             
             input = np.concatenate((x.real, x.imag, g), axis=2)
             
             with torch.inference_mode():
-                x = input.to(device)                
                 if not c.pad_time:
                     cutout = (T, c.height[-1], c.width[-1])
                     overlap = (0, c.height[-1]//2, c.width[-1]//2)
@@ -153,22 +154,22 @@ def apply_model(data, model, gmap, config, scaling_factor):
                     overlap = (c.time//2, c.height[-1]//4, c.width[-1]//4)
     
                 try:
-                    _, output = running_inference(model, x, cutout=cutout, overlap=overlap, device=device)
+                    _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device=device)
                 except:
                     print(f"{Fore.YELLOW}---> call inference on cpu ...")
-                    _, output = running_inference(model, x, cutout=cutout, overlap=overlap, device="cpu")
+                    _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device="cpu")
 
                 if isinstance(output, torch.Tensor):
                     output = output.cpu().numpy()            
             
+            output = np.transpose(output, (3, 4, 2, 1, 0)).squeeze()
+            
             if(k==0):
-                data_filtered = np.zeros((output.shape[1], output.shape[2], PHS, SLC), dtype=output.dtype)
-
-            output = np.transpose(output.squeeze(), [2, 3, 1, 0])
+                data_filtered = np.zeros((output.shape[0], output.shape[1], PHS, SLC), dtype=data.dtype)
             
             data_filtered[:,:,:,k] = output[:,:,0,:] + 1j*output[:,:,1,:]
 
-        t1 = time.time()
+        t1 = time()
         print(f"---> apply_model took {t1-t0} seconds ")
 
     except Exception as e:
@@ -183,6 +184,7 @@ def apply_model(data, model, gmap, config, scaling_factor):
 def main():
 
     args = check_args(arg_parser())
+    print(args)
     
     print(f"{Fore.YELLOW}Load in model file - {args.saved_model_path}")
     model, config = load_model(args)
@@ -219,9 +221,20 @@ def main():
 
     assert gmap.shape[2] == slices
            
-    output = apply_model(image, model, gmap, config=config, scaling_factor=args.scaling_factor)
+    output = apply_model(image.astype(np.complex64), model, gmap.astype(np.float32), config=config, scaling_factor=args.scaling_factor)
     
     os.makedirs(args.output_dir, exist_ok=True)
+    
+    res_name = os.path.join(args.output_dir, 'input_real.npy')
+    print(res_name)
+    np.save(res_name, image.real)
+    res_name = os.path.join(args.output_dir, 'input_imag.npy')
+    print(res_name)
+    np.save(res_name, image.imag)
+        
+    res_name = os.path.join(args.output_dir, 'gmap.npy')
+    print(res_name)
+    np.save(res_name, gmap)
     
     res_name = os.path.join(args.output_dir, 'output_real.npy')
     print(res_name)

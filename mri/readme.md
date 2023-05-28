@@ -101,3 +101,8 @@ sh /home/gtuser/mrprogs/STCNNT.git/mri/run_cloud.sh -d 16 -e 172.16.0.4 -n 4 -p 
 ```
 python3 ./mri/eval_mri.py --data_root /data/mri/denoising/data --test_files train_3D_3T_retro_cine_2020_small_test.h5 --results_path /export/Lab-Xue/projects/mri/results --pad_time --saved_model_path /export/Lab-Xue/projects/mri/test/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-False-1-BLOCK_DENSE-0-QKNORM-True-CONSINE_ATT-0-shuffle_in_window-0-att_with_relative_postion_bias-1-BLOCK_STR-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1.pts
 ```
+
+Run the inference call:
+```
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/mrprogs/gadgetron_CMR_ML-source/ut/data/denoising/snr_gmap_denoising/RT_Cine_R6/RT_Cine_LIN_42110_237143644_237143653_178_20220216-113149 --output_dir /export/Lab-Xue/projects/mri/test/results --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --saved_model_path /export/Lab-Xue/projects/mri/test/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-False-1-BLOCK_STR-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_05-27-2023.pt
+```
