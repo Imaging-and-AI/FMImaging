@@ -69,7 +69,7 @@ def save_final_model(model, config, best_model_wts):
 
     model.eval()
     
-    model_input = torch.randn(1, c.time, c.C_in, c.height[0], c.width[0], requires_grad=True)
+    model_input = torch.randn(1, c.time, c.C_in, c.height[-1], c.width[-1], requires_grad=False)
     model_input = model_input.to('cpu')
     model.to('cpu')
 
