@@ -47,7 +47,12 @@ def create_log_str(config, epoch, rank, data_shape, loss, mse, l1, ssim, ssim3d,
     else:
         lr_str = ""
         
-    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {Fore.YELLOW}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.YELLOW}mse {mse:.4f}, l1 {l1:.4f}, ssim {ssim:.4f}, ssim3D {ssim3d:.4f}, psnr {psnr:.4f}{Style.RESET_ALL}{lr_str}"
+    if role == 'tra':
+        C = Fore.YELLOW
+    else:
+        C = Fore.GREEN
+        
+    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {C}mse {mse:.4f}, l1 {l1:.4f}, ssim {ssim:.4f}, ssim3D {ssim3d:.4f}, psnr {psnr:.4f}{Style.RESET_ALL}{lr_str}"
         
     return str
 
@@ -570,7 +575,8 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
     model.eval()
     model.to(device)
 
-    logging.info(f"Eval height and width is {c.height[-1]}, {c.width[-1]}")
+    if rank <= 0:
+        logging.info(f"Eval height and width is {c.height[-1]}, {c.width[-1]}")
 
     cutout = (c.time, c.height[-1], c.width[-1])
     overlap = (c.time//2, c.height[-1]//4, c.width[-1]//4)
