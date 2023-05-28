@@ -127,6 +127,8 @@ class mri_ddp_base(run_ddp_base):
 
 def main():
     
+    os.system("ulimit -n 65536")
+    
     ddp_run = mri_ddp_base(project="mri", script_to_run='./mri/main_mri.py')
     ddp_run.run()
 
