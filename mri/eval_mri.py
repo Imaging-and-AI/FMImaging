@@ -44,7 +44,8 @@ def arg_parser():
     parser.add_argument("--test_files", type=str, nargs='+', default=["train_3D_3T_retro_cine_2020_small_test.h5"], help='list of test h5files')
     parser.add_argument("--saved_model_path", type=str, default=None, help='model path. endswith ".pt" or ".pts"')
     parser.add_argument("--pad_time", action="store_true", help="with to pad along time")
-
+    parser.add_argument("--patch_size_inference", type=int, default=-1, help='patch size for inference; if <=0, use the config setup')
+    
     #parser = add_shared_STCNNT_args(parser=parser)
 
     return parser.parse_args()
@@ -129,6 +130,8 @@ def main():
 
     c = check_args(arg_parser())
     
+    patch_size_inference = c.patch_size_inference
+    
     config_file = c.saved_model_config 
     print(f"{Fore.YELLOW}Load in config file - {config_file}")
     with open(config_file, 'rb') as f:
@@ -141,12 +144,16 @@ def main():
     config.pad_time = c.pad_time
     config.ddp = False
     
+    if patch_size_inference > 0:
+        config.height[-1] = patch_size_inference
+        config.width[-1] = patch_size_inference
+    
     setup_run(config, dirs=["log_path"])
 
     print(f"{Fore.YELLOW}Load in model file - {config.saved_model_path}")
     model = load_model(config)
     run = wandb.init(project=config.project, entity=config.wandb_entity, config=config,
-                        name=f"Test_{config.run_name}", notes=config.run_notes)
+                        name=f"Test_{config.run_name}_inference_{config.height[-1]}", notes=config.run_notes)
 
     print(f"Wandb name:\n{run.name}")
     
