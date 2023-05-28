@@ -7,6 +7,7 @@ provides the following functions:
 import os
 import sys
 import json
+import pickle
 import torch
 
 import logging
@@ -74,6 +75,7 @@ def save_final_model(model, config, best_model_wts):
 
     model_file_name = os.path.join(c.model_path, generate_model_file_name(config))
 
+    # -----------------------------------------------
     def save_model_instance(model, name):
         # save an instance of the model using the given name
         logging.info(f"Saving model weights and config at: {name}.pt")
@@ -82,6 +84,9 @@ def save_final_model(model, config, best_model_wts):
         logging.info(f"Saving torchscript model at: {name}.pts")
         model_scripted = torch.jit.trace(model, model_input, strict=False)
         model_scripted.save(f"{name}.pts")
+
+        with open(f"{name}.config", 'wb') as fid:
+            pickle.dump(config, fid)
 
         torch.onnx.export(model, model_input, f"{name}.onnx", 
                             export_params=True, 
@@ -95,8 +100,10 @@ def save_final_model(model, config, best_model_wts):
                                             }
                             )
 
+    # -----------------------------------------------
     last_model_name = f"{model_file_name}_last"
     save_model_instance(model, name=last_model_name)
+    
     best_model_name = f"{model_file_name}_best"
     model.load_state_dict(best_model_wts)
     save_model_instance(model, name=best_model_name)

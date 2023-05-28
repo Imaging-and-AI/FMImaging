@@ -592,23 +592,7 @@ def load_mri_data(config):
                                              data_type=c.train_data_types[i], cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
                                                 for (i,h_file) in enumerate(h5files)]
     else: # test case is given. take part of it as val set
-        test_h5files = []
-        test_paths = [os.path.join(c.data_root, path_x) for path_x in c.test_files]
-
-        cutout_shape=[c.height[-1], c.width[-1]]
-
-        for i, file in enumerate(test_paths):
-            if not os.path.exists(file):
-                raise RuntimeError(f"File not found: {file}")
-
-            logging.info(f"reading from file: {file}")
-            h5file = h5py.File(file, libver='earliest', mode='r')
-            keys = list(h5file.keys())
-
-            test_h5files.append((h5file,keys))
-
-        test_set = [MRIDenoisingDatasetTest([h_file], keys=[t_keys], use_complex=c.complex_i)\
-                        for (h_file,t_keys) in test_h5files]
+        test_set = load_mri_test_data(config)
 
         val_set = []
         val_len = 0
@@ -628,3 +612,26 @@ def load_mri_data(config):
     logging.info(f"--->{Fore.YELLOW}Number of samples for tra/val/test are {total_tra}/{total_val}/{total_test}{Style.RESET_ALL}")
 
     return train_set, val_set, test_set
+
+# -------------------------------------------------------------------------------------------------
+
+def load_mri_test_data(config):
+    c = config
+    test_h5files = []
+    test_paths = [os.path.join(c.data_root, path_x) for path_x in c.test_files]
+
+    cutout_shape=[c.height[-1], c.width[-1]]
+
+    for i, file in enumerate(test_paths):
+        if not os.path.exists(file):
+            raise RuntimeError(f"File not found: {file}")
+
+        logging.info(f"reading from file: {file}")
+        h5file = h5py.File(file, libver='earliest', mode='r')
+        keys = list(h5file.keys())
+
+        test_h5files.append((h5file,keys))
+
+    test_set = [MRIDenoisingDatasetTest([h_file], keys=[t_keys], use_complex=c.complex_i) for (h_file,t_keys) in test_h5files]
+    
+    return test_set

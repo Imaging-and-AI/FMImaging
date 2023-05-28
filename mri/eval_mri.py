@@ -23,154 +23,9 @@ from utils import *
 from utils.setup_training import get_bar_format
 from model_base.losses import *
 from model_mri import STCNNT_MRI
+from data_mri import load_mri_test_data
+from trainer_mri import eval_val
 from utils.running_inference import running_inference
-
-# -------------------------------------------------------------------------------------------------
-# main test function
-
-def eval_test(model, config, test_set=None, device="cpu", id=""):
-    """
-    The test evaluation.
-    @args:
-        - model (torch model): model to be tested
-        - config (Namespace): runtime namespace for setup
-        - test_set (torch Dataset list): the data to test on
-        - device (torch.device): the device to run the test on
-        - id (str): unique id to log and save results with
-    @rets:
-        - test_loss_avg (float): the average test loss
-        - test_mse_loss_avg (float): the average test mse loss
-        - test_l1_loss_avg (float): the average test l1 loss
-        - test_ssim_loss_avg (float): the average test ssim loss
-        - test_ssim3D_loss_avg (float): the average test ssim3D loss
-        - test_psnr_avg (float): the average test psnr
-    """
-    c = config # shortening due to numerous uses
-
-    test_loader = [DataLoader(dataset=test_set_x, batch_size=1, shuffle=False, sampler=None,
-                                num_workers=c.num_workers, prefetch_factor=c.prefetch_factor,
-                                persistent_workers=c.num_workers>0) for test_set_x in test_set]
-
-    loss_f = model.loss_f
-
-    test_results_dir = os.path.join(c.results_path, f"{c.run_name}_{c.date}_{id}_results")
-    os.makedirs(test_results_dir, exist_ok=True)
-
-    test_loss_meter = AverageMeter()
-    test_mse_meter = AverageMeter()
-    test_l1_meter = AverageMeter()
-    test_ssim_meter = AverageMeter()
-    test_ssim3D_meter = AverageMeter()
-    test_psnr_meter = AverageMeter()
-
-    mse_loss_func = MSE_Loss(complex_i=c.complex_i)
-    l1_loss_func = L1_Loss(complex_i=c.complex_i)
-    ssim_loss_func = SSIM_Loss(complex_i=c.complex_i, device=device)
-    ssim3D_loss_func = SSIM3D_Loss(complex_i=c.complex_i, device=device)
-    psnr_func = PSNR(range=1024)
-
-    model.eval()
-    model.to(device)
-
-    cutout = (c.time, c.height[-1], c.width[-1])
-    overlap = (c.time//4, c.height[-1]//4, c.width[-1]//4)
-
-    test_loader_iter = [iter(test_loader_x) for test_loader_x in test_loader]
-    total_iters = sum([len(loader_x) for loader_x in test_loader])
-    total_iters = total_iters if not c.debug else min(5, total_iters)
-
-    num_processed = 0
-
-    with torch.inference_mode():
-        with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
-            for idx in range(total_iters):
-
-                loader_ind = idx % len(test_loader_iter)
-                batch = next(test_loader_iter[loader_ind], None)
-                while batch is None:
-                    del test_loader_iter[loader_ind]
-                    loader_ind = idx % len(test_loader_iter)
-                    batch = next(test_loader_iter[loader_ind], None)
-                x, y, gmaps_median, noise_sigmas = batch
-
-                two_D = False
-                cutout_in = cutout
-                overlap_in = overlap
-                if x.shape[1]==1:
-                    xy, og_shape, pt_shape = cut_into_patches([x,y], cutout=cutout[1:])
-                    x, y = xy[0], xy[1]
-                    cutout_in = (c.twoD_num_patches_cutout, *cutout[1:])
-                    overlap_in = (c.twoD_num_patches_cutout//4, *overlap[1:])
-                    two_D = True
-
-                x = x.to(device)
-                y = y.to(device)
-
-                try:
-                    _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device=device)
-                except:
-                    _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device="cpu")
-                    y = y.to("cpu")
-
-                if two_D:
-                    xy = repatch([x,output,y], og_shape, pt_shape)
-                    x, output, y = xy[0], xy[1], xy[2]
-
-                loss = loss_f(output, y)
-
-                num_processed += 1
-                
-                mse_loss = mse_loss_func(output, y).item()
-                l1_loss = l1_loss_func(output, y).item()
-                ssim_loss = ssim_loss_func(output, y).item()
-                ssim3D_loss = ssim3D_loss_func(output, y).item()
-                psnr = psnr_func(output, y).item()
-
-                total = x.shape[0]
-
-                test_loss_meter.update(loss.item(), n=total)
-                test_mse_meter.update(mse_loss, n=total)
-                test_l1_meter.update(l1_loss, n=total)
-                test_ssim_meter.update(ssim_loss, n=total)
-                test_ssim3D_meter.update(ssim3D_loss, n=total)
-                test_psnr_meter.update(psnr, n=total)
-
-                wandb.log({f"running_test_loss_{id}": loss.item(),
-                            f"running_test_mse_loss_{id}": mse_loss,
-                            f"running_test_l1_loss_{id}": l1_loss,
-                            f"running_test_ssim_loss_{id}": ssim_loss,
-                            f"running_test_ssim3D_loss_{id}": ssim3D_loss,
-                            f"running_test_psnr_{id}": psnr})
-
-                pbar.update(1)
-                pbar.set_description(f"Test, {x.shape}, "+
-                                        f"{loss.item():.4f}, {mse_loss:.4f}, {l1_loss:.4f}, "+
-                                        f"{ssim_loss:.4f}, {ssim3D_loss:.4f}, {psnr:.4f},")
-
-                if num_processed <= 16:
-                    save_image_local(test_results_dir, c.complex_i, idx,\
-                                        x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
-
-            pbar.set_description(f"Test, {x.shape}, {test_loss_meter.avg:.4f}, "+
-                                    f"{test_mse_meter.avg:.4f}, {test_l1_meter.avg:.4f}, {test_ssim_meter.avg:.4f}, "+
-                                    f"{test_ssim3D_meter.avg:.4f}, {test_psnr_meter.avg:.4f}")
-
-    logging.getLogger("file_only").info(f"Test, {x.shape}, {test_loss_meter.avg:.4f}, "+
-                                        f"{test_mse_meter.avg:.4f}, {test_l1_meter.avg:.4f}, {test_ssim_meter.avg:.4f}, "+
-                                        f"{test_ssim3D_meter.avg:.4f}, {test_psnr_meter.avg:.4f}")
-
-    wandb.log({f"test_loss_{id}": test_loss_meter.avg,
-                f"test_mse_loss_{id}": test_mse_meter.avg,
-                f"test_l1_loss_{id}": test_l1_meter.avg,
-                f"test_ssim_loss_{id}": test_ssim_meter.avg,
-                f"test_ssim3D_loss_{id}": test_ssim3D_meter.avg,
-                f"test_psnr_{id}": test_psnr_meter.avg})
-
-    losses = test_loss_meter.avg, test_mse_meter.avg, test_l1_meter.avg, test_ssim_meter.avg, test_ssim3D_meter.avg, test_psnr_meter.avg
-
-    save_results(config, losses, id=id)
-
-    return losses
 
 # -------------------------------------------------------------------------------------------------
 # setup for testing from cmd
@@ -184,12 +39,13 @@ def arg_parser():
     """
     parser = argparse.ArgumentParser("Argument parser for STCNNT MRI test evaluation")
 
-    parser.add_argument("--data_root", type=str, default=None, help='root folder for the data')
+    parser.add_argument("--data_root", type=str, default="/export/Lab-Xue/projects/mri/data", help='root folder for the data')
+    parser.add_argument("--results_path", type=str, default="/export/Lab-Xue/projects/mri/results", help='folder for results')
     parser.add_argument("--test_files", type=str, nargs='+', default=["train_3D_3T_retro_cine_2020_small_test.h5"], help='list of test h5files')
     parser.add_argument("--saved_model_path", type=str, default=None, help='model path. endswith ".pt" or ".pts"')
-    parser.add_argument("--saved_model_config", type=str, default=None, help='the config of the model. endswith ".json"')
+    parser.add_argument("--pad_time", action="store_true", help="with to pad along time")
 
-    parser = add_shared_STCNNT_args(parser=parser)
+    #parser = add_shared_STCNNT_args(parser=parser)
 
     return parser.parse_args()
 
@@ -201,22 +57,17 @@ def check_args(config):
     @rets:
         - config (Namespace): the checked and updated argparse for MRI
     """
-    assert config.run_name is not None, f"Please provide a \"--run_name\" for wandb"
     assert config.data_root is not None, f"Please provide a \"--data_root\" to load the data"
     assert config.test_files is not None, f"Please provide a \"--test_files\" to load the data"
     assert config.results_path is not None, f"Please provide a \"--results_path\" to save the results in"
     assert config.saved_model_path is not None, f"Please provide a \"--saved_model_path\" for loading a checkpoint"
-    assert config.saved_model_config is not None, f"Please provide a \"--saved_model_config\" for loading a config"
 
     assert config.saved_model_path.endswith(".pt") or config.saved_model_path.endswith(".pts"),\
             f"Saved model should either be \"*.pt\" or \"*.pts\""
-    assert config.saved_model_config.endswith(".json"),\
-            f"Config should be \"*.json\""
 
-    config.C_in = 3 if config.complex_i else 2
-    config.C_out = 2 if config.complex_i else 1
-    config.load_path = config.saved_model_path
-    if config.log_path is None: config.log_path = config.results_path
+    # get the config path
+    fname = os.path.splitext(config.saved_model_path)[0]
+    config.saved_model_config  = fname + '.config'
 
     return config
 
@@ -233,8 +84,9 @@ def load_model(config):
         - model (torch model): the model ready for inference
     """
     if config.saved_model_path.endswith(".pt"):
-        config.load_path = config.saved_model_path
+        status = torch.load(config.saved_model_path, map_location=get_device())
         model = STCNNT_MRI(config=config)
+        model.load_state_dict(status['model'])
     else:
         model = torch.jit.load(config.saved_model_path)
 
@@ -275,14 +127,33 @@ def save_results(config, losses, id=""):
 
 def main():
 
-    config = check_args(arg_parser())
+    c = check_args(arg_parser())
+    
+    config_file = c.saved_model_config 
+    print(f"{Fore.YELLOW}Load in config file - {config_file}")
+    with open(config_file, 'rb') as f:
+        config = pickle.load(f)
+    
+    config.data_root = c.data_root
+    config.results_path = c.results_path
+    config.test_files = c.test_files
+    config.saved_model_path = c.saved_model_path
+    config.pad_time = c.pad_time
+    config.ddp = False
+    
     setup_run(config, dirs=["log_path"])
 
+    print(f"{Fore.YELLOW}Load in model file - {config.saved_model_path}")
     model = load_model(config)
-    wandb.init(project=config.project, entity=config.wandb_entity, config=config,
-                        name=config.run_name, notes=config.run_notes)
+    run = wandb.init(project=config.project, entity=config.wandb_entity, config=config,
+                        name=f"Test_{config.run_name}", notes=config.run_notes)
 
-    eval_test(model, config, test_set=None, device="cuda")
+    print(f"Wandb name:\n{run.name}")
+    
+    test_set = load_mri_test_data(config=config)
+    losses = eval_val(rank=-1, model=model, config=config, val_set=test_set, epoch=-1, device=get_device(), wandb_run=run, id="test")
 
+    save_results(config, losses, id="")
+        
 if __name__=="__main__":
     main()

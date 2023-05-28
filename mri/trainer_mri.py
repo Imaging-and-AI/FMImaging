@@ -24,7 +24,6 @@ Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
 from utils import *
-from eval_mri import eval_test
 from model_base.losses import *
 from utils.save_model import save_final_model
 from utils.running_inference import running_inference
@@ -532,12 +531,18 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
     c = config # shortening due to numerous uses
 
     shuffle = False
-    
+
+    try:    
+        if c.ddp:
+            loss_f = model.module.loss_f
+        else:
+            loss_f = model.loss_f
+    except:
+        loss_f = None
+        
     if c.ddp:
-        loss_f = model.module.loss_f
         sampler = [DistributedSampler(val_set_x, shuffle=False) for val_set_x in val_set]
     else:
-        loss_f = model.loss_f
         sampler = [None for _ in val_set]
         
     batch_size = c.batch_size if isinstance(val_set[0], MRIDenoisingDatasetTrain) else 1
@@ -570,7 +575,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
     total_iters = total_iters if not c.debug else min(2, total_iters)
 
     images_logged = 0
-
+    
     with torch.inference_mode():
         with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
 
@@ -596,8 +601,8 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                     if x.shape[1]==1:
                         xy, og_shape, pt_shape = cut_into_patches([x,y], cutout=cutout[1:])
                         x, y = xy[0], xy[1]
-                        # cutout_in = (c.twoD_num_patches_cutout, *cutout[1:])
-                        # overlap_in = (c.twoD_num_patches_cutout//4, *overlap[1:])
+                        cutout_in = (c.twoD_num_patches_cutout, *cutout[1:])
+                        overlap_in = (c.twoD_num_patches_cutout//4, *overlap[1:])
                         two_D = True
 
                     x = x.to(device)
@@ -605,12 +610,14 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                     
                     B, T, C, H, W = x.shape
                     
-                    cutout = (T, c.height[-1], c.width[-1])
-                    overlap = (0, c.height[-1]//2, c.width[-1]//2)
-                    
+                    if not config.pad_time:
+                        cutout_in = (T, c.height[-1], c.width[-1])
+                        overlap_in = (0, c.height[-1]//2, c.width[-1]//2)
+                        
                     try:
                         _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device=device)
                     except:
+                        print(f"{Fore.YELLOW}---> call inference on cpu ...")
                         _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device="cpu")
                         y = y.to("cpu")
 
@@ -624,18 +631,19 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                     vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
                     wandb_run.log({title: wandb.Video(vid, caption=f"epoch {epoch}", fps=1, format="gif")})
                     #print(f"{Fore.YELLOW}---> Upload val sample - {title}")
+                
+                total = x.shape[0]    
                     
-                loss = loss_f(output, y)
-
                 mse_loss = mse_loss_func(output, y).item()
                 l1_loss = l1_loss_func(output, y).item()
                 ssim_loss = ssim_loss_func(output, y).item()
                 ssim3D_loss = ssim3D_loss_func(output, y).item()
                 psnr = psnr_func(output, y).item()
 
-                total = x.shape[0]
+                if loss_f:
+                    loss = loss_f(output, y)
+                    val_loss_meter.update(loss.item(), n=total)
 
-                val_loss_meter.update(loss.item(), n=total)
                 val_mse_meter.update(mse_loss, n=total)
                 val_l1_meter.update(l1_loss, n=total)
                 val_ssim_meter.update(ssim_loss, n=total)
