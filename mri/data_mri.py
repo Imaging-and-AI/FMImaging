@@ -604,7 +604,7 @@ def load_mri_data(config):
                                              data_type=c.train_data_types[i], cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
                                                 for (i,h_file) in enumerate(h5files)]
     else: # test case is given. take part of it as val set
-        test_set, test_h5files = load_mri_test_data(config)
+        test_set, test_h5files = load_mri_test_data(config, ratio_test=ratio[2])
 
         # val_set = []
         # val_len = 0
@@ -627,7 +627,7 @@ def load_mri_data(config):
 
 # -------------------------------------------------------------------------------------------------
 
-def load_mri_test_data(config):
+def load_mri_test_data(config, ratio_test=1.0):
     c = config
     test_h5files = []
     test_paths = [os.path.join(c.data_root, path_x) for path_x in c.test_files]
@@ -642,6 +642,9 @@ def load_mri_test_data(config):
         h5file = h5py.File(file, libver='earliest', mode='r')
         keys = list(h5file.keys())
 
+        if ratio_test>0:
+            keys = keys[:int(len(keys)*ratio_test)]
+        
         test_h5files.append((h5file,keys))
 
     test_set = [MRIDenoisingDatasetTest([h_file], keys=[t_keys], use_complex=c.complex_i) for (h_file,t_keys) in test_h5files]

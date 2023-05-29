@@ -487,27 +487,25 @@ def trainer(rank, config, wandb_run):
         x_t = torch.from_numpy(x).to(device=device)    
         y_t = torch.from_numpy(y).to(device=device)
         
+        B, T, C, H, W = x_t.shape
+        
         model = model.module if c.ddp else model
         model.to(device=device)
         model.eval()
         
-        tm = start_timer()
-        with torch.inference_mode():
-            y_model = model(x_t)
-            y_model = y_model.cpu().numpy()
-        end_timer(t=tm, msg="torch model took")
+        cutout_in = (T, c.height[-1], c.width[-1])
+        overlap_in = (0, c.height[-1]//2, c.width[-1]//2)
         
+        tm = start_timer()    
+        _, y_model = running_inference(model, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
+        end_timer(t=tm, msg="torch model took")
+                          
         tm = start_timer()
-        model_jit.to(device=device)
-        model_jit.eval()
-        with torch.inference_mode():
-            y_model_jit = model_jit(x_t)
-            y_model_jit = y_model_jit.cpu().numpy()
+        y_model_jit = running_inference(model_jit, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
         end_timer(t=tm, msg="torch script model took")
             
-        tm = start_timer()
-        ort_inputs = {model_onnx.get_inputs()[0].name: x.astype('float32')}
-        y_model_onnx = model_onnx.run(None, ort_inputs)
+        tm = start_timer()        
+        y_model_onnx = running_inference(model_onnx, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
         end_timer(t=tm, msg="onnx model took")
         
         d1 = np.linalg.norm(y_model-y_model_jit) / np.linalg.norm(y_model)

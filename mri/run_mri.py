@@ -13,6 +13,8 @@ sys.path.insert(1, str(Project_DIR))
 
 from trainer_base import *
 
+import time
+
 # -------------------------------------------------------------
 
 class mri_ddp_base(run_ddp_base):
@@ -84,7 +86,7 @@ class mri_ddp_base(run_ddp_base):
         ])
         
         if config.tra_ratio > 0 and config.tra_ratio<=100:
-            self.cmd.extend(["--ratio", f"{int(config.tra_ratio)}", f"{int(config.val_ratio)}", "5"])
+            self.cmd.extend(["--ratio", f"{int(config.tra_ratio)}", f"{int(config.val_ratio)}", f"{int(config.test_ratio)}"])
             
         self.cmd.extend(["--max_load", f"{int(config.max_load)}"])
 
@@ -224,7 +226,8 @@ class mri_ddp_base(run_ddp_base):
                         shuffle_in_window, scale_ratio_in_mixer,
                         load_path)
         
-        run_str = f"{a_type}-{cell_type}-{norm_mode}-{optim}-C-{c}-MIXER-{mixer_type}-{int(scale_ratio_in_mixer)}-BLOCK_STR-{'_'.join(bs)}"
+        moment = time.strftime("%Y%m%d_%H%M%S", time.gmtime())
+        run_str = f"{a_type}-{cell_type}-{norm_mode}-{optim}-C-{c}-MIXER-{mixer_type}-{int(scale_ratio_in_mixer)}-{'_'.join(bs)}-{moment}"
         
         if complex_i:
             cmd_run.extend(["--complex_i"])
@@ -237,7 +240,15 @@ class mri_ddp_base(run_ddp_base):
         if weighted_loss:
             cmd_run.extend(["--weighted_loss"])
             run_str += "_weighted_loss"
-                                                           
+                 
+        ind = cmd_run.index("--run_name")
+        cmd_run.pop(ind)
+        cmd_run.pop(ind)
+        
+        ind = cmd_run.index("--run_notes")
+        cmd_run.pop(ind)
+        cmd_run.pop(ind)
+                                                  
         cmd_run.extend([
             "--run_name", f"{config.project}-{bk.upper()}-{run_str}",
             "--run_notes", f"{config.project}-{bk.upper()}-{run_str}"

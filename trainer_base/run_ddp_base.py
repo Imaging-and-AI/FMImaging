@@ -239,6 +239,7 @@ class run_ddp_base(object):
         parser.add_argument("--with_timer", action="store_true", help='whether to train with timing')
         parser.add_argument("--tra_ratio", type=float, default=95, help="percentage of training data used")
         parser.add_argument("--val_ratio", type=float, default=5, help="percentage of validation data used")
+        parser.add_argument("--test_ratio", type=float, default=100, help="percentage of test data used")
         
         return parser
 

@@ -22,7 +22,6 @@ from utils import *
 from utils.setup_training import get_bar_format
 from model_base.losses import *
 from model_mri import STCNNT_MRI
-from data_mri import load_mri_test_data
 from trainer_mri import eval_val
 from utils.running_inference import running_inference
 
