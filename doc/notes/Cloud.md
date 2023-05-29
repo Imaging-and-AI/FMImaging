@@ -39,12 +39,13 @@ do
 done
 
 # copy key
-for n in ${node_list[*]}
+for n in fsi{1..16}
 do
     echo "copy data to $n ..."
     VM_name=$n.eastus2.cloudapp.azure.com    
     scp -i ~/.ssh/xueh2-a100.pem ~/.ssh/xueh2-a100.pem gtuser@$VM_name:/home/gtuser/.ssh/
     scp -i ~/.ssh/xueh2-a100.pem $HOME/mrprogs/STCNNT.git/doc/notes/set_up_VM.sh gtuser@$VM_name:/home/gtuser/
+    scp -i ~/.ssh/xueh2-a100.pem $HOME/mrprogs/STCNNT.git/doc/notes/clean_VM.sh gtuser@$VM_name:/home/gtuser/
 done
 
 # mount drive
@@ -55,5 +56,12 @@ for n in fsi{1..16}
 do
     echo "update node $n ..."
     ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "cd /home/gtuser/mrprogs/STCNNT.git && git pull"
+done
+
+# clean nodes
+for n in fsi{1..16}
+do
+    echo "clean node $n ..."
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "bash ~/clean_VM.sh"
 done
 ```
