@@ -160,8 +160,10 @@ def apply_model(data, model, gmap, config, scaling_factor):
                     _, output = running_inference(model, input * scaling_factor, cutout=cutout, overlap=overlap, device="cpu")
 
                 if isinstance(output, torch.Tensor):
-                    output = output.cpu().numpy() / scaling_factor         
+                    output = output.cpu().numpy()      
             
+                output /= scaling_factor   
+                
             output = np.transpose(output, (3, 4, 2, 1, 0)).squeeze()
             
             if(k==0):

@@ -83,6 +83,7 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
     Ntme, _, Nrow, Ncol, _, _, _, _ = image_patches.shape
 
     image_batch = image_patches.reshape(-1,Tc,CO,Hc,Wc) # shape:(num_patches,T,C,H,W)
+    #print(f"norm = {np.linalg.norm(image_batch)}")
     #logging.info(f"-->running_inference, input image patches {image_batch.shape}")
     # ---------------------------------------------------------------------------------------------
     # getting model output shape, specifically C_out
