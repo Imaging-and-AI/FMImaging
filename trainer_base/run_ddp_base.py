@@ -82,7 +82,7 @@ class run_ddp_base(object):
                         load_path=None
                         ):
         
-        run_str = f"{a_type}-{cell_type}-{norm_mode}-{optim}-C-{c}-MIXER-{mixer_type}-{int(scale_ratio_in_mixer)}-BLOCK_STR-{'_'.join(bs)}"
+        run_str = f"{a_type}-{cell_type}-{norm_mode}-{optim}-C-{c}-MIXER-{mixer_type}-{int(scale_ratio_in_mixer)}-{'_'.join(bs)}"
                                             
         cmd_run.extend([
             "--run_name", f"{config.project}-{bk.upper()}-{run_str}",
