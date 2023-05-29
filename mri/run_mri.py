@@ -120,7 +120,7 @@ class mri_ddp_base(run_ddp_base):
 
         vars['complex_i'] = [True, False]
         vars['residual'] = [True, False]
-        vars['weighted_loss'] = [True, False]
+        vars['weighted_loss'] = [False, True]
         
         return vars
 
