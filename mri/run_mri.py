@@ -76,11 +76,11 @@ class mri_ddp_base(run_ddp_base):
         #"--weighted_loss",
         #"--max_load", "10000",
         
-        "--train_files", "train_3D_3T_retro_cine_2018.h5", "train_3D_3T_perf_2021.h5", "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5",
-        "--train_data_types", "2dt", "2dt", "2dt", "2d",
+        "--train_files", "train_3D_3T_retro_cine_2018.h5", "train_3D_3T_perf_2021.h5",# "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5",
+        "--train_data_types", "2dt", "2dt",# "2dt", "2dt",
         
-        "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", "train_3D_3T_retro_cine_2020_small_2DT_test.h5", "train_3D_3T_retro_cine_2020_small_2D_test.h5", "train_3D_3T_retro_cine_2020_500_test.h5",
-        "--test_data_types", "3d", "2dt", "2d", "2dt"
+        "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", "train_3D_3T_retro_cine_2020_small_2DT_test.h5", "train_3D_3T_retro_cine_2020_small_2D_test.h5", #"train_3D_3T_retro_cine_2020_500_test.h5",
+        "--test_data_types", "2dt", "2dt", "2dt"#, "2dt"
         ])
         
         if config.tra_ratio > 0 and config.tra_ratio<=100:
@@ -107,12 +107,12 @@ class mri_ddp_base(run_ddp_base):
         vars['block_dense_connections'] = ["0"]
         vars['norm_modes'] = ["batch2d", "instance2d"]
         vars['C'] = [32]
-        vars['scale_ratio_in_mixers'] = [4.0, 1.0]
+        vars['scale_ratio_in_mixers'] = [1.0, 4.0]
 
         vars['block_strs'] = [
-                        [ 
-                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                        [                             
                             ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],                            
+                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
                             ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
                             ["T1T1T1T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1"]
                          ]

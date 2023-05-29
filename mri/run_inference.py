@@ -130,6 +130,7 @@ def apply_model(data, model, gmap, config, scaling_factor):
     print(f"---> apply_model, gmap array {gmap.shape}")
     print(f"---> apply_model, pad_time {config.pad_time}")
     print(f"---> apply_model, height and width {config.height, config.width}")
+    print(f"---> apply_model, scaling_factor {scaling_factor}")
     
     c = config
     
@@ -154,13 +155,13 @@ def apply_model(data, model, gmap, config, scaling_factor):
                     overlap = (c.time//2, c.height[-1]//4, c.width[-1]//4)
     
                 try:
-                    _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device=device)
+                    _, output = running_inference(model, input * scaling_factor, cutout=cutout, overlap=overlap, device=device)
                 except:
                     print(f"{Fore.YELLOW}---> call inference on cpu ...")
-                    _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device="cpu")
+                    _, output = running_inference(model, input * scaling_factor, cutout=cutout, overlap=overlap, device="cpu")
 
                 if isinstance(output, torch.Tensor):
-                    output = output.cpu().numpy()            
+                    output = output.cpu().numpy() / scaling_factor         
             
             output = np.transpose(output, (3, 4, 2, 1, 0)).squeeze()
             

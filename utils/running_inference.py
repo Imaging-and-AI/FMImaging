@@ -5,6 +5,7 @@ patch size and overlap size
 """
 import torch
 import numpy as np
+import logging
 from tqdm import tqdm
 from skimage.util.shape import view_as_windows
 
@@ -81,13 +82,16 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
     Ntme, _, Nrow, Ncol, _, _, _, _ = image_patches.shape
 
     image_batch = image_patches.reshape(-1,Tc,CO,Hc,Wc) # shape:(num_patches,T,C,H,W)
+    logging.info(f"-->running_inference, input image patches {image_batch.shape}")
     # ---------------------------------------------------------------------------------------------
     # getting model output shape, specifically C_out
         
     if is_torch_model:
         with torch.inference_mode():
             sample_in = torch.from_numpy(image_batch[:batch_size]).to(device)
-            sample_ot = model(sample_in).cpu().detach().numpy()
+            with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
+                sample_ot = model(sample_in)
+            sample_ot = sample_ot.cpu().detach().numpy()
     else:
         # onnx model
         sample_in = image_batch[:batch_size]
@@ -103,9 +107,10 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
 
     if is_torch_model:
         with torch.inference_mode():
-            for i in range(0, image_batch.shape[0], batch_size):
-                x_in = torch.from_numpy(image_batch[i:i+batch_size]).to(device)
-                image_batch_pred[i:i+batch_size] = model(x_in).cpu().detach().numpy()
+            with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
+                for i in range(0, image_batch.shape[0], batch_size):
+                    x_in = torch.from_numpy(image_batch[i:i+batch_size]).to(device=device)
+                    image_batch_pred[i:i+batch_size] = model(x_in).cpu().detach().numpy()
     else:
         for i in range(0, image_batch.shape[0], batch_size):
             x_in = image_batch[i:i+batch_size]
