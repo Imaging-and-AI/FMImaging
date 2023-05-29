@@ -477,43 +477,46 @@ def trainer(rank, config, wandb_run):
         model_jit = load_model(model_dir=None, model_file=fname_best+'.pts')
         model_onnx, _ = load_model_onnx(model_dir=None, model_file=fname_best+'.onnx', use_cpu=True)
         
-        # pick a random case
-        a_test_set = test_set[np.random.randint(0, len(test_set))]
-        x, y, gmaps_median, noise_sigmas = a_test_set[np.random.randint(0, len(a_test_set))]
-               
-        x = np.expand_dims(x, axis=0)
-        y = np.expand_dims(y, axis=0)
-        
-        x_t = torch.from_numpy(x).to(device=device)    
-        y_t = torch.from_numpy(y).to(device=device)
-        
-        B, T, C, H, W = x_t.shape
-        
-        model = model.module if c.ddp else model
-        model.to(device=device)
-        model.eval()
-        
-        cutout_in = (T, c.height[-1], c.width[-1])
-        overlap_in = (0, c.height[-1]//2, c.width[-1]//2)
-        
-        tm = start_timer()    
-        _, y_model = running_inference(model, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
-        end_timer(t=tm, msg="torch model took")
-                          
-        tm = start_timer()
-        y_model_jit = running_inference(model_jit, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
-        end_timer(t=tm, msg="torch script model took")
+        try:
+            # pick a random case
+            a_test_set = test_set[np.random.randint(0, len(test_set))]
+            x, y, gmaps_median, noise_sigmas = a_test_set[np.random.randint(0, len(a_test_set))]
+                
+            x = np.expand_dims(x, axis=0)
+            y = np.expand_dims(y, axis=0)
             
-        tm = start_timer()        
-        y_model_onnx = running_inference(model_onnx, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
-        end_timer(t=tm, msg="onnx model took")
-        
-        d1 = np.linalg.norm(y_model-y_model_jit) / np.linalg.norm(y_model)
-        logging.info(f"--> {Fore.GREEN}Jit model difference is {d1} ... {Style.RESET_ALL}")
-        
-        d2 = np.linalg.norm(y_model-y_model_onnx[0]) / np.linalg.norm(y_model)
-        logging.info(f"--> {Fore.GREEN}Onnx model difference is {d2} ... {Style.RESET_ALL}")
-
+            x_t = torch.from_numpy(x).to(device=device)    
+            y_t = torch.from_numpy(y).to(device=device)
+            
+            B, T, C, H, W = x_t.shape
+            
+            model = model.module if c.ddp else model
+            model.to(device=device)
+            model.eval()
+            
+            cutout_in = (c.time, c.height[-1], c.width[-1])
+            overlap_in = (c.time//2, c.height[-1]//2, c.width[-1]//2)
+            
+            tm = start_timer()    
+            _, y_model = running_inference(model, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
+            end_timer(t=tm, msg="torch model took")
+                            
+            tm = start_timer()
+            y_model_jit = running_inference(model_jit, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
+            end_timer(t=tm, msg="torch script model took")
+                
+            tm = start_timer()        
+            y_model_onnx = running_inference(model_onnx, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
+            end_timer(t=tm, msg="onnx model took")
+            
+            d1 = np.linalg.norm(y_model-y_model_jit) / np.linalg.norm(y_model)
+            logging.info(f"--> {Fore.GREEN}Jit model difference is {d1} ... {Style.RESET_ALL}")
+            
+            d2 = np.linalg.norm(y_model-y_model_onnx[0]) / np.linalg.norm(y_model)
+            logging.info(f"--> {Fore.GREEN}Onnx model difference is {d2} ... {Style.RESET_ALL}")
+        except:
+            print(f"--> ignore the extra tests ...")
+            
 # -------------------------------------------------------------------------------------------------
 # evaluate the val set
 

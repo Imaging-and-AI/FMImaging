@@ -36,8 +36,9 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
     # ---------------------------------------
     # setup the model and image
     is_torch_model = isinstance(model, torch.nn.Module)
+    is_script_model = isinstance(model, torch.jit._script.RecursiveScriptModule)
     
-    if is_torch_model:
+    if is_torch_model or is_script_model:
         model = model.to(device)
         model.eval()
 
@@ -89,8 +90,9 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
     if is_torch_model:
         with torch.inference_mode():
             sample_in = torch.from_numpy(image_batch[:batch_size]).to(device)
-            with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
+            with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=(not is_script_model)):
                 sample_ot = model(sample_in)
+                
             sample_ot = sample_ot.cpu().detach().numpy()
     else:
         # onnx model
@@ -107,7 +109,7 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
 
     if is_torch_model:
         with torch.inference_mode():
-            with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
+            with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=(not is_script_model)):
                 for i in range(0, image_batch.shape[0], batch_size):
                     x_in = torch.from_numpy(image_batch[i:i+batch_size]).to(device=device)
                     image_batch_pred[i:i+batch_size] = model(x_in).cpu().detach().numpy()
