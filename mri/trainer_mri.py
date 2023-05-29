@@ -433,11 +433,11 @@ def trainer(rank, config, wandb_run):
         wandb_run.summary["last_val_loss"] = val_losses[0]
         
         wandb_run.summary["test_loss_last"] = test_losses[0]
-        wandb_run.summary["test_mse_last"] = test_losses[0]
-        wandb_run.summary["test_l1_last"] = test_losses[0]
-        wandb_run.summary["test_ssim_last"] = test_losses[0]
-        wandb_run.summary["test_ssim3D_last"] = test_losses[0]
-        wandb_run.summary["test_psnr_last"] = test_losses[0]
+        wandb_run.summary["test_mse_last"] = test_losses[1]
+        wandb_run.summary["test_l1_last"] = test_losses[2]
+        wandb_run.summary["test_ssim_last"] = test_losses[3]
+        wandb_run.summary["test_ssim3D_last"] = test_losses[4]
+        wandb_run.summary["test_psnr_last"] = test_losses[5]
         
         model = model.module if c.ddp else model
         model.save(epoch)
@@ -459,11 +459,11 @@ def trainer(rank, config, wandb_run):
     test_losses = eval_val(rank, model, config, test_set, epoch, device, wandb_run, id="test")
     if rank<=0:
         wandb_run.summary["test_loss_best"] = test_losses[0]
-        wandb_run.summary["test_mse_best"] = test_losses[0]
-        wandb_run.summary["test_l1_best"] = test_losses[0]
-        wandb_run.summary["test_ssim_best"] = test_losses[0]
-        wandb_run.summary["test_ssim3D_best"] = test_losses[0]
-        wandb_run.summary["test_psnr_best"] = test_losses[0]
+        wandb_run.summary["test_mse_best"] = test_losses[1]
+        wandb_run.summary["test_l1_best"] = test_losses[2]
+        wandb_run.summary["test_ssim_best"] = test_losses[3]
+        wandb_run.summary["test_ssim3D_best"] = test_losses[4]
+        wandb_run.summary["test_psnr_best"] = test_losses[5]
 
         wandb_run.save(fname_last+'.pt')
         wandb_run.save(fname_last+'.pts')
