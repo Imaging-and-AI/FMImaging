@@ -169,6 +169,8 @@ class run_ddp_base(object):
     
     def run_vars(self, config, vars):
         
+        cmd_runs = []
+        
         for k, bk in enumerate(vars['backbone']):    
                 block_str = vars['block_strs'][k]
                 
@@ -209,7 +211,9 @@ class run_ddp_base(object):
                                                                     print("---" * 20)
                                                                     print(cmd_run)
                                                                     print("---" * 20)
-                                                                    subprocess.run(cmd_run)
+                                                                    #subprocess.run(cmd_run)
+                                                                    cmd_runs.append(cmd_run)
+        return cmd_runs
                                                             
     def arg_parser(self):
         """
@@ -233,8 +237,8 @@ class run_ddp_base(object):
         parser.add_argument("--load_path", type=str, default=None, help="check point file to load if provided")
         parser.add_argument("--clean_checkpoints", action="store_true", help='whether to delete previous check point files')
         parser.add_argument("--with_timer", action="store_true", help='whether to train with timing')
-        parser.add_argument("--tra_ratio", type=float, default=100, help="percentage of training data used")
-        parser.add_argument("--val_ratio", type=float, default=10, help="percentage of validation data used")
+        parser.add_argument("--tra_ratio", type=float, default=95, help="percentage of training data used")
+        parser.add_argument("--val_ratio", type=float, default=5, help="percentage of validation data used")
         
         return parser
 
@@ -246,7 +250,13 @@ class run_ddp_base(object):
         self.set_up_run_path(config)
         self.set_up_constants(config)
         vars = self.set_up_variables(config)
-        self.run_vars(config, vars)
+        cmd_runs = self.run_vars(config, vars)
+        
+        for cmd_run in cmd_runs:
+            print("---" * 20)
+            print(cmd_run)
+            print("---" * 20)
+            subprocess.run(cmd_run)
 
 # -------------------------------------------------------------
 

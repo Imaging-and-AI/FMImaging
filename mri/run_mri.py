@@ -65,21 +65,22 @@ class mri_ddp_base(run_ddp_base):
         
         "--min_noise_level", "2.0",
         "--max_noise_level", "8.0",
-        "--complex_i",
-        "--residual",
+        #"--complex_i",
+        #"--residual",
         "--losses", "mse", "l1",
         "--loss_weights", "1.0", "1.0",
         "--height", "32", "64",
         "--width", "32", "64",
         "--time", "12",
-        "--weighted_loss",
+        "--num_uploaded", "4",
+        #"--weighted_loss",
         #"--max_load", "10000",
         
-        "--train_files", "train_3D_3T_retro_cine_2018.h5", "train_3D_3T_perf_2021.h5", "/export/Lab-Xue/projects/data/train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5",
+        "--train_files", "train_3D_3T_retro_cine_2018.h5", "train_3D_3T_perf_2021.h5", "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5",
         "--train_data_types", "2dt", "2dt", "3d", "2d",
         
-        "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", "train_3D_3T_retro_cine_2020_small_2DT_test.h5", "train_3D_3T_retro_cine_2020_small_2D_test.h5",
-        "--test_data_types", "3d", "2dt", "2d"
+        "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", "train_3D_3T_retro_cine_2020_small_2DT_test.h5", "train_3D_3T_retro_cine_2020_small_2D_test.h5", "train_3D_3T_retro_cine_2020_500_test.h5",
+        "--test_data_types", "3d", "2dt", "2d", "2dt"
         ])
         
         if config.tra_ratio > 0 and config.tra_ratio<=100:
@@ -106,7 +107,7 @@ class mri_ddp_base(run_ddp_base):
         vars['block_dense_connections'] = ["0"]
         vars['norm_modes'] = ["batch2d", "instance2d"]
         vars['C'] = [32]
-        vars['scale_ratio_in_mixers'] = [1.0]
+        vars['scale_ratio_in_mixers'] = [4.0, 1.0]
 
         vars['block_strs'] = [
                         [ 
@@ -117,8 +118,133 @@ class mri_ddp_base(run_ddp_base):
                          ]
                     ]
 
+        vars['complex_i'] = [True, False]
+        vars['residual'] = [True, False]
+        vars['weighted_loss'] = [True, False]
+        
         return vars
 
+    def run_vars(self, config, vars):
+        
+        cmd_runs = []
+        
+        for k, bk in enumerate(vars['backbone']):    
+                block_str = vars['block_strs'][k]
+                
+                for optim in vars['optim']:
+                    for bs in block_str:
+                        for scale_ratio_in_mixer, \
+                            mixer_type, \
+                            shuffle_in_window, \
+                            larger_mixer_kernel, \
+                            norm_mode, \
+                            block_dense_connection, \
+                            c, \
+                            att_with_relative_postion_bias, \
+                            cosine_att, \
+                            q_k_norm, \
+                            a_type, \
+                            cell_type,\
+                            complex_i,\
+                            residual, \
+                            weighted_loss \
+                                in itertools.product(vars['scale_ratio_in_mixers'], 
+                                                    vars['mixer_types'], 
+                                                    vars['shuffle_in_windows'], 
+                                                    vars['larger_mixer_kernels'],
+                                                    vars['norm_modes'],
+                                                    vars['block_dense_connections'],
+                                                    vars['C'],
+                                                    vars['att_with_relative_postion_biases'],
+                                                    vars['cosine_atts'],
+                                                    vars['Q_K_norm'],
+                                                    vars['a_types'], 
+                                                    vars['cell_types'],
+                                                    vars['complex_i'],
+                                                    vars['residual'],
+                                                    vars['weighted_loss']
+                                                    ):
+                                                                                                
+                                # -------------------------------------------------------------
+                                cmd_run = self.create_cmd_run(cmd_run=self.cmd.copy(), 
+                                                config=config,
+                                                optim=optim,
+                                                bk=bk, 
+                                                a_type=a_type, 
+                                                cell_type=cell_type,
+                                                norm_mode=norm_mode, 
+                                                block_dense_connection=block_dense_connection,
+                                                c=c,
+                                                q_k_norm=q_k_norm, 
+                                                cosine_att=cosine_att, 
+                                                att_with_relative_postion_bias=att_with_relative_postion_bias, 
+                                                bs=bs,
+                                                larger_mixer_kernel=larger_mixer_kernel,
+                                                mixer_type=mixer_type,
+                                                shuffle_in_window=shuffle_in_window,
+                                                scale_ratio_in_mixer=scale_ratio_in_mixer,
+                                                load_path=config.load_path,
+                                                complex_i=complex_i,
+                                                residual=residual,
+                                                weighted_loss=weighted_loss)
+                                
+                                print("---" * 20)
+                                print(cmd_run)
+                                print("---" * 20)
+                                cmd_runs.append(cmd_run)
+        return cmd_runs
+    
+    def create_cmd_run(self, cmd_run, config, 
+                        optim='adamw',
+                        bk='hrnet', 
+                        a_type='conv', 
+                        cell_type='sequential', 
+                        norm_mode='batch2d', 
+                        block_dense_connection=1, 
+                        c=32, 
+                        q_k_norm=True, 
+                        cosine_att=1, 
+                        att_with_relative_postion_bias=1, 
+                        bs=['T1G1L1', 'T1G1L1', 'T1G1L1', 'T1G1L1'],
+                        larger_mixer_kernel=True,
+                        mixer_type="conv",
+                        shuffle_in_window=0,
+                        scale_ratio_in_mixer=2.0,
+                        load_path=None,
+                        complex_i=True,
+                        residual=True,
+                        weighted_loss=True
+                        ):
+        
+        cmd_run = super().create_cmd_run(cmd_run, config, 
+                        optim, bk, a_type, cell_type, 
+                        norm_mode, block_dense_connection, 
+                        c, q_k_norm, cosine_att, att_with_relative_postion_bias, 
+                        bs, larger_mixer_kernel, mixer_type, 
+                        shuffle_in_window, scale_ratio_in_mixer,
+                        load_path)
+        
+        run_str = f"{a_type}-{cell_type}-{norm_mode}-{optim}-C-{c}-MIXER-{mixer_type}-{int(scale_ratio_in_mixer)}-BLOCK_STR-{'_'.join(bs)}"
+        
+        if complex_i:
+            cmd_run.extend(["--complex_i"])
+            run_str += "_complex"
+            
+        if residual:
+            cmd_run.extend(["--residual"])
+            run_str += "_residual"
+            
+        if weighted_loss:
+            cmd_run.extend(["--weighted_loss"])
+            run_str += "_weighted_loss"
+                                                           
+        cmd_run.extend([
+            "--run_name", f"{config.project}-{bk.upper()}-{run_str}",
+            "--run_notes", f"{config.project}-{bk.upper()}-{run_str}"
+        ])
+            
+        return cmd_run
+        
     def arg_parser(self):
         parser = super().arg_parser()
         parser.add_argument("--max_load", type=int, default=-1, help="number of max loaded samples into the RAM")
