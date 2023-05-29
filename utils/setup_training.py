@@ -51,7 +51,7 @@ def setup_run(config, dirs=["log_path", "results_path", "model_path", "check_pat
     """
     # get current date
     now = datetime.now()
-    now = now.strftime("%m-%d-%Y") # make sure in ddp, different nodes have the save file name
+    now = now.strftime("%H-%M-%S-%Y%m%d") # make sure in ddp, different nodes have the save file name
     config.date = now
 
     # setup logging
