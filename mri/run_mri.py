@@ -37,7 +37,7 @@ class mri_ddp_base(run_ddp_base):
         "--global_lr", "1e-4",
 
         "--clip_grad_norm", "1.0",
-        "--weight_decay", "1.0",
+        "--weight_decay", "0.1",
 
         "--use_amp", 
 

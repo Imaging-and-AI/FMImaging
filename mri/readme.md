@@ -112,4 +112,6 @@ python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/mrprogs/gadgetron_CMR
 
 
 python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/Share/data/FreeMax/SCMR/2022-08-23-HV-cardiac-SNR-DL/meas_MID00055_FID06126_MID_SAX_CINE_IPAT4_256Res_36ref/numpy --output_dir /export/Lab-Xue/projects/mri/test/results/2022-08-23-HV-cardiac-SNR-DL --scaling_factor 1.0 --im_scaling 1.0 --gmap_scaling 1.0 --saved_model_path /export/Lab-Xue/projects/mri/test/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-False-1-BLOCK_STR-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_05-27-2023.pt
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/mrprogs/gadgetron_CMR_ML-source/ut/data/denoising/snr_gmap_denoising/Perfusion_AIF_2E_NL_Cloud_66097_9478344_9478349_482_20181023-122206 --output_dir /export/Lab-Xue/projects/mri/test/results/Perfusion_AIF_2E_NL_Cloud_66097_9478344_9478349_482_20181023-122206 --scaling_factor 1.0 --im_scaling 1.0 --gmap_scaling 1.0 --saved_model_path /export/Lab-Xue/projects/mri/test/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-1-BLOCK_STR-T1L1G1_T1L1G1_T1L1G1_T1L1G1_05-28-2023_best.pt
 ```
