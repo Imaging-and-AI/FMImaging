@@ -576,7 +576,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
     model.eval()
     model.to(device)
 
-    if rank <= 0:
+    if rank <= 0 and epoch < 2:
         logging.info(f"Eval height and width is {c.height[-1]}, {c.width[-1]}")
 
     cutout = (c.time, c.height[-1], c.width[-1])
