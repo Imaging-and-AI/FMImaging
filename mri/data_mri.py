@@ -97,6 +97,8 @@ class MRIDenoisingDatasetTrain():
                     phase_resolution_ratio=[1.0, 0.75, 0.65, 0.55],
                     readout_resolution_ratio=[1.0, 0.75, 0.65, 0.55],
                     cutout_jitter=[-1, 0.5, 0.75, 1.0],
+                    snr_perturb_prob=0.0, 
+                    snr_perturb=0.15,
                     cutout_shuffle_time=True,
                     num_patches_cutout=8,
                     patches_shuffle=False):
@@ -148,6 +150,9 @@ class MRIDenoisingDatasetTrain():
         self.pf_filter_ratio = pf_filter_ratio
         self.phase_resolution_ratio = phase_resolution_ratio
         self.readout_resolution_ratio = readout_resolution_ratio
+
+        self.snr_perturb_prob = snr_perturb_prob
+        self.snr_perturb = snr_perturb
 
         self.cutout_jitter = cutout_jitter
         self.cutout_shuffle_time = cutout_shuffle_time
@@ -232,6 +237,12 @@ class MRIDenoisingDatasetTrain():
             data /= noise_sigma
             noisy_data /= noise_sigma
 
+            # give it a bit perturbation for noise level
+            if np.random.uniform(0, 1) < self.snr_perturb_prob:
+                noise_level_delta = np.random.normal(1.0, self.snr_perturb)
+                #data *= noise_level_delta
+                noisy_data *= noise_level_delta
+            
             gmap = np.repeat(gmap[None,:,:], T, axis=0)
 
             # cut out the patch on the original grid
@@ -584,6 +595,8 @@ def load_mri_data(config):
         "readout_resolution_ratio" : c.readout_resolution_ratio,
         "cutout_jitter" : c.threeD_cutout_jitter,
         "cutout_shuffle_time" : c.threeD_cutout_shuffle_time,
+        "snr_perturb_prob" : c.snr_perturb_prob,
+        "snr_perturb" : c.snr_perturb
     }
 
     train_set = []
@@ -595,6 +608,7 @@ def load_mri_data(config):
             train_set.append(MRIDenoisingDatasetTrain(h5file=[h_file], keys=[train_keys[i]], max_load=-1, data_type=c.train_data_types[i], cutout_shape=hw, **kwargs))
             train_set[-1].images = images
         
+    kwargs["snr_perturb_prob"] = 0
     val_set = [MRIDenoisingDatasetTrain(h5file=[h_file], keys=[val_keys[i]], max_load=c.max_load, 
                                         data_type=c.train_data_types[i], cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
                                             for (i,h_file) in enumerate(h5files)]

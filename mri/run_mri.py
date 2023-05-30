@@ -74,7 +74,9 @@ class mri_ddp_base(run_ddp_base):
         "--height", "32", "64",
         "--width", "32", "64",
         "--time", "12",
-        "--num_uploaded", "4",
+        "--num_uploaded", "16",
+        "--snr_perturb_prob", "0.25",
+        "--snr_perturb", "0.15",
         #"--weighted_loss",
         #"--max_load", "10000",
         

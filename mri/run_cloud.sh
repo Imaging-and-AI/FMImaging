@@ -34,6 +34,8 @@ echo "max_load: $max_load"
 node_rank=$(($(hostname | sed 's/[^0-9]*//g')-1)) 
 echo "node_rank: $node_rank"
 
+~/clear_VM.sh
+
 echo "python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node $nproc_per_node --nnodes $nnodes --node_rank $node_rank --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint $rdzv_endpoint:$port"
 
 WANDB_API_KEY=3420ade4920debef5eb73377a2bb8f600e26a2c8

@@ -202,7 +202,7 @@ def trainer(rank, config, wandb_run):
         
         # log a few training examples
         for i, train_set_x in enumerate(train_set):            
-            ind = np.random.randint(0, len(train_set_x), c.num_uploaded)
+            ind = np.random.randint(0, len(train_set_x), 4)
             x, y, gmaps_median, noise_sigmas = train_set_x[ind[0]]
             x = np.expand_dims(x, axis=0)
             y = np.expand_dims(y, axis=0)
