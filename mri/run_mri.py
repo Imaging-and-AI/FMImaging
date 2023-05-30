@@ -66,7 +66,7 @@ class mri_ddp_base(run_ddp_base):
         "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1",
         
         "--min_noise_level", "2.0",
-        "--max_noise_level", "8.0",
+        "--max_noise_level", "10.0",
         #"--complex_i",
         #"--residual",
         "--losses", "mse", "l1",
