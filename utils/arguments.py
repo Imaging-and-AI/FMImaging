@@ -75,7 +75,8 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
         
     parser.add_argument('--scheduler.StepLR.step_size', dest='scheduler.StepLR.step_size', type=int, default=5, help="number of epochs to reduce lr")
     parser.add_argument('--scheduler.StepLR.gamma', dest='scheduler.StepLR.gamma', type=float, default=0.8, help="multiplicative factor of learning rate decay")
-        
+    parser.add_argument('--scheduler.OneCycleLR.pct_start', dest='scheduler.OneCycleLR.pct_start', type=float, default=0.3, help="range of taking off to reach max learning rate")
+    
     parser.add_argument("--weight_decay", type=float, default=0.1, help='weight decay for regularization')
     parser.add_argument("--all_w_decay", action="store_true", help='option of having all params have weight decay. By default norms and embeddings do not')
     parser.add_argument("--use_amp", action="store_true", help='whether to train with mixed precision')

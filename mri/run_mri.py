@@ -36,7 +36,7 @@ class mri_ddp_base(run_ddp_base):
 
         "--n_head", "32",
 
-        "--global_lr", "1e-4",
+        "--global_lr", "0.00015",
 
         "--clip_grad_norm", "1.0",
         "--weight_decay", "0.1",
@@ -49,14 +49,18 @@ class mri_ddp_base(run_ddp_base):
         "--prefetch_factor", "4",
         
         "--scheduler_type", "ReduceLROnPlateau",
+        
         "--scheduler.ReduceLROnPlateau.patience", "0",
         "--scheduler.ReduceLROnPlateau.cooldown", "0",
+        "--scheduler.ReduceLROnPlateau.factor", "0.9",
+        
+        "--scheduler.OneCycleLR.pct_start", "0.2",
         
         # hrnet
         "--backbone_hrnet.num_resolution_levels", "2",
         
         # unet            
-        "--backbone_unet.num_resolution_levels", "3",
+        "--backbone_unet.num_resolution_levels", "2",
         
         # LLMs
         "--backbone_LLM.num_stages", "3",
@@ -69,8 +73,8 @@ class mri_ddp_base(run_ddp_base):
         "--max_noise_level", "10.0",
         #"--complex_i",
         #"--residual",
-        "--losses", "mse", "l1",
-        "--loss_weights", "1.0", "1.0",
+        "--losses", "mse", "l1", "ssim",
+        "--loss_weights", "1.0", "1.0", "0.1",
         "--height", "32", "64",
         "--width", "32", "64",
         "--time", "12",
@@ -98,7 +102,7 @@ class mri_ddp_base(run_ddp_base):
                 
         vars['optim'] = ['sophia']
         
-        vars['backbone'] = ['hrnet']
+        vars['backbone'] = ['hrnet', 'unet']
         vars['cell_types'] = ["parallel", "sequential"]
         vars['Q_K_norm'] = [True]
         vars['cosine_atts'] = ["0"]
@@ -110,7 +114,7 @@ class mri_ddp_base(run_ddp_base):
         vars['shuffle_in_windows'] = ["0"]
         vars['block_dense_connections'] = ["0"]
         vars['norm_modes'] = ["batch2d", "instance2d"]
-        vars['C'] = [32, 64]
+        vars['C'] = [32, 16, 64]
         vars['scale_ratio_in_mixers'] = [1.0, 4.0]
 
         vars['block_strs'] = [
