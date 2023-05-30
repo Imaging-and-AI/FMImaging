@@ -166,9 +166,9 @@ def trainer(rank, config, wandb_run):
         shuffle = True
         
     if c.backbone == 'hrnet':
-        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, {c.backbone}, {c.a_type}, {c.cell_type}, optim {c.optim}, {c.norm_mode}, C {c.backbone_hrnet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_hrnet.block_str}, {'-'*20}{Style.RESET_ALL}")
+        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, {c.backbone}, {c.a_type}, {c.cell_type}, snr perturb {c.snr_perturb_prob}, optim {c.optim}, {c.norm_mode}, C {c.backbone_hrnet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_hrnet.block_str}, {'-'*20}{Style.RESET_ALL}")
     elif c.backbone == 'unet':
-        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, {c.backbone}, {c.a_type}, {c.cell_type}, optim {c.optim}, {c.norm_mode}, C {c.backbone_unet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_unet.block_str}, {'-'*20}{Style.RESET_ALL}")
+        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, {c.backbone}, {c.a_type}, {c.cell_type}, snr perturb {c.snr_perturb_prob}, optim {c.optim}, {c.norm_mode}, C {c.backbone_unet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_unet.block_str}, {'-'*20}{Style.RESET_ALL}")
         
     # -----------------------------------------------
     
