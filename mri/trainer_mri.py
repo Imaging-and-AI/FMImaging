@@ -250,7 +250,7 @@ def trainer(rank, global_rank, config, wandb_run):
     # -----------------------------------------------
     
     for epoch in range(curr_epoch, c.num_epochs):
-        logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank} {'-'*20}{Style.RESET_ALL}")
+        logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank}, global rank {global_rank} {'-'*20}{Style.RESET_ALL}")
 
         train_loss.reset()
         train_mse_meter.reset()
