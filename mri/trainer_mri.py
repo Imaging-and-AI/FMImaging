@@ -448,7 +448,7 @@ def trainer(rank, global_rank, config, wandb_run):
             model.save(epoch)
             
             # save both models
-            fname_last, fname_best = save_final_model(model, config, best_model_wts)
+            fname_last, fname_best = save_final_model(model, config, best_model_wts, only_pt=True)
 
             logging.info(f"--> {Fore.YELLOW}Save last mode at {fname_last}{Style.RESET_ALL}")
             logging.info(f"--> {Fore.YELLOW}Save best mode at {fname_best}{Style.RESET_ALL}")
