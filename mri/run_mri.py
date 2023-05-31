@@ -29,14 +29,14 @@ class mri_ddp_base(run_ddp_base):
         self.cmd.extend([       
        
         "--num_epochs", "30",
-        "--batch_size", "32",
+        "--batch_size", "16",
 
         "--window_size", "8", "8",
         "--patch_size", "2", "2",
 
         "--n_head", "32",
 
-        "--global_lr", "0.00015",
+        "--global_lr", "0.0001",
 
         "--clip_grad_norm", "1.0",
         "--weight_decay", "0.1",
@@ -73,12 +73,12 @@ class mri_ddp_base(run_ddp_base):
         "--max_noise_level", "10.0",
         #"--complex_i",
         #"--residual",
-        "--losses", "mse", "l1", "ssim",
-        "--loss_weights", "1.0", "1.0", "0.1",
+        "--losses", "mse", "l1",
+        "--loss_weights", "1.0", "1.0",
         "--height", "32", "64",
         "--width", "32", "64",
         "--time", "12",
-        "--num_uploaded", "16",
+        "--num_uploaded", "1",
         "--snr_perturb_prob", "0.25",
         "--snr_perturb", "0.15",
         #"--weighted_loss",
@@ -88,7 +88,7 @@ class mri_ddp_base(run_ddp_base):
         "--train_data_types", "2dt", "2dt",# "2dt", "2dt",
         
         "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", "train_3D_3T_retro_cine_2020_small_2DT_test.h5", "train_3D_3T_retro_cine_2020_small_2D_test.h5", #"train_3D_3T_retro_cine_2020_500_test.h5",
-        "--test_data_types", "2dt", "2dt", "2dt"#, "2dt"
+        "--test_data_types", "2dt", 
         ])
         
         if config.tra_ratio > 0 and config.tra_ratio<=100:
@@ -117,7 +117,17 @@ class mri_ddp_base(run_ddp_base):
         vars['C'] = [32, 16, 64]
         vars['scale_ratio_in_mixers'] = [1.0, 4.0]
 
+        vars['snr_perturb_prob'] = [0.0, 0.25]
+
         vars['block_strs'] = [
+                        [                             
+                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],                            
+                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                            ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                            ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
+                            ["T1T1T1T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1"]
+                         ],
+                        
                         [                             
                             ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],                            
                             ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
@@ -156,7 +166,8 @@ class mri_ddp_base(run_ddp_base):
                             cell_type,\
                             complex_i,\
                             residual, \
-                            weighted_loss \
+                            weighted_loss, \
+                            snr_perturb_prob \
                                 in itertools.product(vars['scale_ratio_in_mixers'], 
                                                     vars['mixer_types'], 
                                                     vars['shuffle_in_windows'], 
@@ -171,7 +182,8 @@ class mri_ddp_base(run_ddp_base):
                                                     vars['cell_types'],
                                                     vars['complex_i'],
                                                     vars['residual'],
-                                                    vars['weighted_loss']
+                                                    vars['weighted_loss'],
+                                                    vars['snr_perturb_prob'] 
                                                     ):
                                                                                                 
                                 # -------------------------------------------------------------
@@ -195,7 +207,9 @@ class mri_ddp_base(run_ddp_base):
                                                 load_path=config.load_path,
                                                 complex_i=complex_i,
                                                 residual=residual,
-                                                weighted_loss=weighted_loss)
+                                                weighted_loss=weighted_loss,
+                                                snr_perturb_prob=snr_perturb_prob
+                                                )
                                 
                                 print("---" * 20)
                                 print(cmd_run)
@@ -222,7 +236,8 @@ class mri_ddp_base(run_ddp_base):
                         load_path=None,
                         complex_i=True,
                         residual=True,
-                        weighted_loss=True
+                        weighted_loss=True,
+                        snr_perturb_prob=0
                         ):
         
         cmd_run = super().create_cmd_run(cmd_run, config, 
@@ -258,7 +273,8 @@ class mri_ddp_base(run_ddp_base):
                                                   
         cmd_run.extend([
             "--run_name", f"{config.project}-{bk.upper()}-{run_str}",
-            "--run_notes", f"{config.project}-{bk.upper()}-{run_str}"
+            "--run_notes", f"{config.project}-{bk.upper()}-{run_str}",
+            "--snr_perturb_prob", f"{snr_perturb_prob}"
         ])
             
         return cmd_run
