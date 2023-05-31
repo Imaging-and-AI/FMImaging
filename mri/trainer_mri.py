@@ -472,12 +472,12 @@ def trainer(rank, global_rank, config, wandb_run):
             wandb_run.summary["test_psnr_best"] = test_losses[5]
 
             wandb_run.save(fname_last+'.pt')
-            wandb_run.save(fname_last+'.pts')
-            wandb_run.save(fname_last+'.onnx')
+            #wandb_run.save(fname_last+'.pts')
+            #wandb_run.save(fname_last+'.onnx')
             
             wandb_run.save(fname_best+'.pt')
-            wandb_run.save(fname_best+'.pts')
-            wandb_run.save(fname_best+'.onnx')
+            #wandb_run.save(fname_best+'.pts')
+            #wandb_run.save(fname_best+'.onnx')
         
             # test the best model, reloading the saved model
             model_jit = load_model(model_dir=None, model_file=fname_best+'.pts')
