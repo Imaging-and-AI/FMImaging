@@ -64,4 +64,11 @@ do
     echo "clean node $n ..."
     ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "bash ~/clean_VM.sh"
 done
+
+# update
+for n in fsi{1..16}
+do
+    echo "update node $n ..."
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "cd /home/gtuser/mrprogs/STCNNT.git && git pull && git checkout test_snr_perturb"
+done
 ```

@@ -86,8 +86,8 @@ class CifarTrainer(Trainer_Base):
             if self.config.data_root is None:
                 self.config.data_root = "/export/Lab-Xue/projects/imagenet/data"
    
-    def run_task_trainer(self, rank=-1, wandb_run=None):
-        trainer(rank=rank, config=self.config, wandb_run=wandb_run)
+    def run_task_trainer(self, rank=-1, global_rank=-1, wandb_run=None):
+        trainer(rank=rank, global_rank=global_rank, config=self.config, wandb_run=wandb_run)
 
 # -------------------------------------------------------------------------------------------------
 def main():

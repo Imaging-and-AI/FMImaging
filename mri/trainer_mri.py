@@ -56,7 +56,7 @@ def create_log_str(config, epoch, rank, data_shape, loss, mse, l1, ssim, ssim3d,
         
     return str
 
-def trainer(rank, config, wandb_run):
+def trainer(rank, global_rank, config, wandb_run):
     """
     The trainer cycle. Allows training on cpu/single gpu/multiple gpu(ddp)
     @args:
@@ -136,9 +136,10 @@ def trainer(rank, config, wandb_run):
         model_summary = model_info(model, config)
         logging.info(f"Configuration for this run:\n{config}")
         logging.info(f"Model Summary:\n{str(model_summary)}")
-        logging.info(f"Wandb name:\n{wandb_run.name}")
-                
-        wandb_run.watch(model)
+        
+        if wandb_run is not None:
+            logging.info(f"Wandb name:\n{wandb_run.name}")                
+            wandb_run.watch(model)
         
     # -----------------------------------------------
     
@@ -166,9 +167,9 @@ def trainer(rank, config, wandb_run):
         shuffle = True
         
     if c.backbone == 'hrnet':
-        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, {c.backbone}, {c.a_type}, {c.cell_type}, optim {c.optim}, {c.norm_mode}, C {c.backbone_hrnet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_hrnet.block_str}, {'-'*20}{Style.RESET_ALL}")
+        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, optim {c.optim}, {c.norm_mode}, C {c.backbone_hrnet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_hrnet.block_str}, {'-'*20}{Style.RESET_ALL}")
     elif c.backbone == 'unet':
-        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, {c.backbone}, {c.a_type}, {c.cell_type}, optim {c.optim}, {c.norm_mode}, C {c.backbone_unet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_unet.block_str}, {'-'*20}{Style.RESET_ALL}")
+        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, optim {c.optim}, {c.norm_mode}, C {c.backbone_unet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_unet.block_str}, {'-'*20}{Style.RESET_ALL}")
         
     # -----------------------------------------------
     
@@ -181,40 +182,41 @@ def trainer(rank, config, wandb_run):
     if rank<=0: # main or master process
         if c.ddp: setup_logger(config) # setup master process logging
 
-        wandb_run.watch(model)
-        wandb_run.summary["trainable_params"] = c.trainable_params
-        wandb_run.summary["total_params"] = c.total_params
-        wandb_run.summary["total_mult_adds"] = c.total_mult_adds 
+        if wandb_run is not None:
+            wandb_run.watch(model)
+            wandb_run.summary["trainable_params"] = c.trainable_params
+            wandb_run.summary["total_params"] = c.total_params
+            wandb_run.summary["total_mult_adds"] = c.total_mult_adds 
 
-        wandb_run.define_metric("epoch")    
-        wandb_run.define_metric("train_loss_avg", step_metric='epoch')
-        wandb_run.define_metric("train_mse_loss", step_metric='epoch')
-        wandb_run.define_metric("train_l1_loss", step_metric='epoch')
-        wandb_run.define_metric("train_ssim_loss", step_metric='epoch')
-        wandb_run.define_metric("train_ssim3D_loss", step_metric='epoch')
-        wandb_run.define_metric("train_psnr", step_metric='epoch')
-        wandb_run.define_metric("val_loss_avg", step_metric='epoch')
-        wandb_run.define_metric("val_mse_loss", step_metric='epoch')
-        wandb_run.define_metric("val_l1_loss", step_metric='epoch')
-        wandb_run.define_metric("val_ssim_loss", step_metric='epoch')
-        wandb_run.define_metric("val_ssim3D_loss", step_metric='epoch')
-        wandb_run.define_metric("val_psnr", step_metric='epoch')                            
-        
-        # log a few training examples
-        for i, train_set_x in enumerate(train_set):            
-            ind = np.random.randint(0, len(train_set_x), 4)
-            x, y, gmaps_median, noise_sigmas = train_set_x[ind[0]]
-            x = np.expand_dims(x, axis=0)
-            y = np.expand_dims(y, axis=0)
-            for ii in range(1, len(ind)):                
-                a_x, a_y, gmaps_median, noise_sigmas = train_set_x[ind[ii]]
-                x = np.concatenate((x, np.expand_dims(a_x, axis=0)), axis=0)
-                y = np.concatenate((y, np.expand_dims(a_y, axis=0)), axis=0)
-                
-            title = f"Tra_samples_{i}_Noisy_Noisy_GT_{x.shape}"
-            vid = save_image_batch(c.complex_i, x, np.copy(x), y)
-            wandb_run.log({title:wandb.Video(vid, caption=f"Tra sample {i}", fps=1, format='gif')})
-            logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}")
+            wandb_run.define_metric("epoch")    
+            wandb_run.define_metric("train_loss_avg", step_metric='epoch')
+            wandb_run.define_metric("train_mse_loss", step_metric='epoch')
+            wandb_run.define_metric("train_l1_loss", step_metric='epoch')
+            wandb_run.define_metric("train_ssim_loss", step_metric='epoch')
+            wandb_run.define_metric("train_ssim3D_loss", step_metric='epoch')
+            wandb_run.define_metric("train_psnr", step_metric='epoch')
+            wandb_run.define_metric("val_loss_avg", step_metric='epoch')
+            wandb_run.define_metric("val_mse_loss", step_metric='epoch')
+            wandb_run.define_metric("val_l1_loss", step_metric='epoch')
+            wandb_run.define_metric("val_ssim_loss", step_metric='epoch')
+            wandb_run.define_metric("val_ssim3D_loss", step_metric='epoch')
+            wandb_run.define_metric("val_psnr", step_metric='epoch')                            
+            
+            # log a few training examples
+            for i, train_set_x in enumerate(train_set):            
+                ind = np.random.randint(0, len(train_set_x), 4)
+                x, y, gmaps_median, noise_sigmas = train_set_x[ind[0]]
+                x = np.expand_dims(x, axis=0)
+                y = np.expand_dims(y, axis=0)
+                for ii in range(1, len(ind)):                
+                    a_x, a_y, gmaps_median, noise_sigmas = train_set_x[ind[ii]]
+                    x = np.concatenate((x, np.expand_dims(a_x, axis=0)), axis=0)
+                    y = np.concatenate((y, np.expand_dims(a_y, axis=0)), axis=0)
+                    
+                title = f"Tra_samples_{i}_Noisy_Noisy_GT_{x.shape}"
+                vid = save_image_batch(c.complex_i, x, np.copy(x), y)
+                wandb_run.log({title:wandb.Video(vid, caption=f"Tra sample {i}", fps=1, format='gif')})
+                logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}")
                          
     # -----------------------------------------------
     # save best model to be saved at the end
@@ -346,7 +348,7 @@ def trainer(rank, config, wandb_run):
                 
                 pbar.set_description_str(log_str)                
 
-                if rank<=0:
+                if wandb_run is not None:
                     wandb_run.log({"running_train_loss": loss.item()})
                     wandb_run.log({"lr": curr_lr})
                 
@@ -377,7 +379,8 @@ def trainer(rank, config, wandb_run):
                 best_val_loss = val_losses[0]
                 best_model_wts = copy.deepcopy(model_e.state_dict())
                 model_e.save(epoch)
-                wandb_run.log({"epoch": epoch, "best_val_loss":best_val_loss})
+                if wandb_run is not None:
+                    wandb_run.log({"epoch": epoch, "best_val_loss":best_val_loss})
                 
             # silently log to only the file as well
             logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, tra, {x.shape}, {train_loss.avg:.4f}, "+
@@ -387,19 +390,20 @@ def trainer(rank, config, wandb_run):
                                                 f"{val_losses[1]:.4f}, {val_losses[2]:.4f}, {val_losses[3]:.4f}, "+
                                                 f"{val_losses[4]:.4f}, {val_losses[5]:.4f}, lr {curr_lr:.8f}")
         
-            wandb_run.log({"epoch": epoch,
-                        "train_loss_avg": train_loss.avg,
-                        "train_mse_loss": train_mse_meter.avg,
-                        "train_l1_loss": train_l1_meter.avg,
-                        "train_ssim_loss": train_ssim_meter.avg,
-                        "train_ssim3D_loss": train_ssim3D_meter.avg,
-                        "train_psnr": train_psnr_meter.avg,
-                        "val_loss_avg": val_losses[0],
-                        "val_mse_loss": val_losses[1],
-                        "val_l1_loss": val_losses[2],
-                        "val_ssim_loss": val_losses[3],
-                        "val_ssim3D_loss": val_losses[4],
-                        "val_psnr": val_losses[5],})
+            if wandb_run is not None:
+                wandb_run.log({"epoch": epoch,
+                            "train_loss_avg": train_loss.avg,
+                            "train_mse_loss": train_mse_meter.avg,
+                            "train_l1_loss": train_l1_meter.avg,
+                            "train_ssim_loss": train_ssim_meter.avg,
+                            "train_ssim3D_loss": train_ssim3D_meter.avg,
+                            "train_psnr": train_psnr_meter.avg,
+                            "val_loss_avg": val_losses[0],
+                            "val_mse_loss": val_losses[1],
+                            "val_l1_loss": val_losses[2],
+                            "val_ssim_loss": val_losses[3],
+                            "val_ssim3D_loss": val_losses[4],
+                            "val_psnr": val_losses[5],})
 
             if stype == "ReduceLROnPlateau":
                 sched.step(val_losses[0])
@@ -429,15 +433,16 @@ def trainer(rank, config, wandb_run):
     # test last model
     test_losses = eval_val(rank, model, config, test_set, epoch, device, wandb_run, id="test")
     if rank<=0:
-        wandb_run.summary["best_val_loss"] = best_val_loss
-        wandb_run.summary["last_val_loss"] = val_losses[0]
-        
-        wandb_run.summary["test_loss_last"] = test_losses[0]
-        wandb_run.summary["test_mse_last"] = test_losses[1]
-        wandb_run.summary["test_l1_last"] = test_losses[2]
-        wandb_run.summary["test_ssim_last"] = test_losses[3]
-        wandb_run.summary["test_ssim3D_last"] = test_losses[4]
-        wandb_run.summary["test_psnr_last"] = test_losses[5]
+        if wandb_run is not None:
+            wandb_run.summary["best_val_loss"] = best_val_loss
+            wandb_run.summary["last_val_loss"] = val_losses[0]
+            
+            wandb_run.summary["test_loss_last"] = test_losses[0]
+            wandb_run.summary["test_mse_last"] = test_losses[1]
+            wandb_run.summary["test_l1_last"] = test_losses[2]
+            wandb_run.summary["test_ssim_last"] = test_losses[3]
+            wandb_run.summary["test_ssim3D_last"] = test_losses[4]
+            wandb_run.summary["test_psnr_last"] = test_losses[5]
         
         model = model.module if c.ddp else model
         model.save(epoch)
@@ -458,20 +463,21 @@ def trainer(rank, config, wandb_run):
                 
     test_losses = eval_val(rank, model, config, test_set, epoch, device, wandb_run, id="test")
     if rank<=0:
-        wandb_run.summary["test_loss_best"] = test_losses[0]
-        wandb_run.summary["test_mse_best"] = test_losses[1]
-        wandb_run.summary["test_l1_best"] = test_losses[2]
-        wandb_run.summary["test_ssim_best"] = test_losses[3]
-        wandb_run.summary["test_ssim3D_best"] = test_losses[4]
-        wandb_run.summary["test_psnr_best"] = test_losses[5]
+        if wandb_run is not None:
+            wandb_run.summary["test_loss_best"] = test_losses[0]
+            wandb_run.summary["test_mse_best"] = test_losses[1]
+            wandb_run.summary["test_l1_best"] = test_losses[2]
+            wandb_run.summary["test_ssim_best"] = test_losses[3]
+            wandb_run.summary["test_ssim3D_best"] = test_losses[4]
+            wandb_run.summary["test_psnr_best"] = test_losses[5]
 
-        wandb_run.save(fname_last+'.pt')
-        wandb_run.save(fname_last+'.pts')
-        wandb_run.save(fname_last+'.onnx')
-        
-        wandb_run.save(fname_best+'.pt')
-        wandb_run.save(fname_best+'.pts')
-        wandb_run.save(fname_best+'.onnx')
+            wandb_run.save(fname_last+'.pt')
+            wandb_run.save(fname_last+'.pts')
+            wandb_run.save(fname_last+'.onnx')
+            
+            wandb_run.save(fname_best+'.pt')
+            wandb_run.save(fname_best+'.pts')
+            wandb_run.save(fname_best+'.onnx')
         
         # test the best model, reloading the saved model
         model_jit = load_model(model_dir=None, model_file=fname_best+'.pts')
@@ -637,7 +643,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                         xy = repatch([x,output,y], og_shape, pt_shape)
                         x, output, y = xy[0], xy[1], xy[2]
 
-                if rank<=0 and images_logged < config.num_uploaded:
+                if rank<=0 and images_logged < config.num_uploaded and wandb_run is not None:
                     images_logged += 1
                     title = f"{id.upper()}_rank_{rank}_image_{idx}_Noisy_Pred_GT_{x.shape}"
                     vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
