@@ -94,9 +94,9 @@ class STCNNT_MRI(STCNNT_Task_Base):
 
         if self.residual:
             C = 2 if self.complex_i else 1
-            output = x[:,:,:C] - logits
+            logits = x[:,:,:C] - logits
 
-        return output
+        return logits
     
     def set_up_loss(self, device="cpu"):
         """
