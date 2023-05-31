@@ -250,7 +250,7 @@ def trainer(rank, global_rank, config, wandb_run):
     # -----------------------------------------------
     
     for epoch in range(curr_epoch, c.num_epochs):
-        logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank} {'-'*20}{Style.RESET_ALL}")
+        logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank}, global rank {global_rank} {'-'*20}{Style.RESET_ALL}")
 
         train_loss.reset()
         train_mse_meter.reset()
@@ -444,14 +444,14 @@ def trainer(rank, global_rank, config, wandb_run):
             wandb_run.summary["test_ssim3D_last"] = test_losses[4]
             wandb_run.summary["test_psnr_last"] = test_losses[5]
         
-        model = model.module if c.ddp else model
-        model.save(epoch)
-        
-        # save both models
-        fname_last, fname_best = save_final_model(model, config, best_model_wts)
+            model = model.module if c.ddp else model
+            model.save(epoch)
+            
+            # save both models
+            fname_last, fname_best = save_final_model(model, config, best_model_wts, only_pt=True)
 
-        logging.info(f"--> {Fore.YELLOW}Save last mode at {fname_last}{Style.RESET_ALL}")
-        logging.info(f"--> {Fore.YELLOW}Save best mode at {fname_best}{Style.RESET_ALL}")
+            logging.info(f"--> {Fore.YELLOW}Save last mode at {fname_last}{Style.RESET_ALL}")
+            logging.info(f"--> {Fore.YELLOW}Save best mode at {fname_best}{Style.RESET_ALL}")
         
     # test best model, reload the weights
     model = STCNNT_MRI(config=config, total_steps=total_steps)
@@ -472,56 +472,59 @@ def trainer(rank, global_rank, config, wandb_run):
             wandb_run.summary["test_psnr_best"] = test_losses[5]
 
             wandb_run.save(fname_last+'.pt')
-            wandb_run.save(fname_last+'.pts')
-            wandb_run.save(fname_last+'.onnx')
+            #wandb_run.save(fname_last+'.pts')
+            #wandb_run.save(fname_last+'.onnx')
             
             wandb_run.save(fname_best+'.pt')
-            wandb_run.save(fname_best+'.pts')
-            wandb_run.save(fname_best+'.onnx')
+            #wandb_run.save(fname_best+'.pts')
+            #wandb_run.save(fname_best+'.onnx')
         
-        # test the best model, reloading the saved model
-        model_jit = load_model(model_dir=None, model_file=fname_best+'.pts')
-        model_onnx, _ = load_model_onnx(model_dir=None, model_file=fname_best+'.onnx', use_cpu=True)
+            # test the best model, reloading the saved model
+            model_jit = load_model(model_dir=None, model_file=fname_best+'.pts')
+            model_onnx, _ = load_model_onnx(model_dir=None, model_file=fname_best+'.onnx', use_cpu=True)
         
-        try:
-            # pick a random case
-            a_test_set = test_set[np.random.randint(0, len(test_set))]
-            x, y, gmaps_median, noise_sigmas = a_test_set[np.random.randint(0, len(a_test_set))]
+            try:
+                # pick a random case
+                a_test_set = test_set[np.random.randint(0, len(test_set))]
+                x, y, gmaps_median, noise_sigmas = a_test_set[np.random.randint(0, len(a_test_set))]
+                    
+                x = np.expand_dims(x, axis=0)
+                y = np.expand_dims(y, axis=0)
                 
-            x = np.expand_dims(x, axis=0)
-            y = np.expand_dims(y, axis=0)
-            
-            x_t = torch.from_numpy(x).to(device=device)    
-            y_t = torch.from_numpy(y).to(device=device)
-            
-            B, T, C, H, W = x_t.shape
-            
-            model = model.module if c.ddp else model
-            model.to(device=device)
-            model.eval()
-            
-            cutout_in = (c.time, c.height[-1], c.width[-1])
-            overlap_in = (c.time//2, c.height[-1]//2, c.width[-1]//2)
-            
-            tm = start_timer()    
-            _, y_model = running_inference(model, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
-            end_timer(t=tm, msg="torch model took")
-                            
-            tm = start_timer()
-            y_model_jit = running_inference(model_jit, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
-            end_timer(t=tm, msg="torch script model took")
+                x_t = torch.from_numpy(x).to(device=device)    
+                y_t = torch.from_numpy(y).to(device=device)
                 
-            tm = start_timer()        
-            y_model_onnx = running_inference(model_onnx, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
-            end_timer(t=tm, msg="onnx model took")
-            
-            d1 = np.linalg.norm(y_model-y_model_jit) / np.linalg.norm(y_model)
-            logging.info(f"--> {Fore.GREEN}Jit model difference is {d1} ... {Style.RESET_ALL}")
-            
-            d2 = np.linalg.norm(y_model-y_model_onnx[0]) / np.linalg.norm(y_model)
-            logging.info(f"--> {Fore.GREEN}Onnx model difference is {d2} ... {Style.RESET_ALL}")
-        except:
-            print(f"--> ignore the extra tests ...")
+                B, T, C, H, W = x_t.shape
+                
+                model = model.module if c.ddp else model
+                model.to(device=device)
+                model.eval()
+                
+                cutout_in = (c.time, c.height[-1], c.width[-1])
+                overlap_in = (c.time//2, c.height[-1]//2, c.width[-1]//2)
+                
+                tm = start_timer()    
+                _, y_model = running_inference(model, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
+                end_timer(t=tm, msg="torch model took")
+                                
+                tm = start_timer()
+                y_model_jit = running_inference(model_jit, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
+                end_timer(t=tm, msg="torch script model took")
+                    
+                tm = start_timer()        
+                y_model_onnx = running_inference(model_onnx, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
+                end_timer(t=tm, msg="onnx model took")
+                
+                d1 = np.linalg.norm(y_model-y_model_jit) / np.linalg.norm(y_model)
+                logging.info(f"--> {Fore.GREEN}Jit model difference is {d1} ... {Style.RESET_ALL}")
+                
+                d2 = np.linalg.norm(y_model-y_model_onnx[0]) / np.linalg.norm(y_model)
+                logging.info(f"--> {Fore.GREEN}Onnx model difference is {d2} ... {Style.RESET_ALL}")
+            except:
+                print(f"--> ignore the extra tests ...")
+    
+    dist.barrier()
+    print(f"--> run finished ...")
             
 # -------------------------------------------------------------------------------------------------
 # evaluate the val set
