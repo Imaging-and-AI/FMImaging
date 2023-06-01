@@ -79,7 +79,7 @@ class mri_ddp_base(run_ddp_base):
         "--width", "32", "64",
         "--time", "12",
         "--num_uploaded", "12",
-        "--snr_perturb_prob", "0.25",
+        #"--snr_perturb_prob", "0.25",
         "--snr_perturb", "0.15",
         #"--weighted_loss",
         #"--max_load", "10000",
@@ -114,32 +114,26 @@ class mri_ddp_base(run_ddp_base):
         vars['shuffle_in_windows'] = ["0"]
         vars['block_dense_connections'] = ["0"]
         vars['norm_modes'] = ["batch2d"]
-        vars['C'] = [32]
+        vars['C'] = [32, 16]
         vars['scale_ratio_in_mixers'] = [1.0]
 
-        vars['snr_perturb_prob'] = [0.0, 0.25]
+        vars['snr_perturb_prob'] = [0.0]
 
         vars['block_strs'] = [
                         [                             
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],                            
                             ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
-                            ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
-                            ["T1T1T1T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1"]
+                            ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"]
                          ],
                         
                         [                             
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],                            
                             ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
-                            ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
-                            ["T1T1T1T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1"]
+                            ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"]
                          ]
                     ]
 
         vars['complex_i'] = [True, False]
-        vars['residual'] = [True, False]
-        vars['weighted_loss'] = [False, True]
+        vars['residual'] = [True]
+        vars['weighted_loss'] = [False]
         
         return vars
 

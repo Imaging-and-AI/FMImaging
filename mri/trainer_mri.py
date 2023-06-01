@@ -478,12 +478,12 @@ def trainer(rank, global_rank, config, wandb_run):
             wandb_run.save(fname_best+'.pt')
             #wandb_run.save(fname_best+'.pts')
             #wandb_run.save(fname_best+'.onnx')
-        
-            # test the best model, reloading the saved model
-            model_jit = load_model(model_dir=None, model_file=fname_best+'.pts')
-            model_onnx, _ = load_model_onnx(model_dir=None, model_file=fname_best+'.onnx', use_cpu=True)
-        
+                            
             try:
+                # test the best model, reloading the saved model
+                model_jit = load_model(model_dir=None, model_file=fname_best+'.pts')
+                model_onnx, _ = load_model_onnx(model_dir=None, model_file=fname_best+'.onnx', use_cpu=True)
+
                 # pick a random case
                 a_test_set = test_set[np.random.randint(0, len(test_set))]
                 x, y, gmaps_median, noise_sigmas = a_test_set[np.random.randint(0, len(a_test_set))]

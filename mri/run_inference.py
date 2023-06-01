@@ -129,6 +129,7 @@ def apply_model(data, model, gmap, config, scaling_factor):
     print(f"---> apply_model, gmap array {gmap.shape}")
     print(f"---> apply_model, pad_time {config.pad_time}")
     print(f"---> apply_model, height and width {config.height, config.width}")
+    print(f"---> apply_model, complex_i {config.complex_i}")
     print(f"---> apply_model, scaling_factor {scaling_factor}")
     
     c = config
@@ -143,7 +144,12 @@ def apply_model(data, model, gmap, config, scaling_factor):
             x = np.transpose(imgslab, [2, 0, 1]).reshape([1, T, 1, H, W])
             g = np.repeat(gmapslab[np.newaxis, np.newaxis, np.newaxis, :, :], T, axis=1)
             
-            input = np.concatenate((x.real, x.imag, g), axis=2)
+            x *= scaling_factor
+            
+            if config.complex_i:
+                input = np.concatenate((x.real, x.imag, g), axis=2)
+            else:
+                input = np.concatenate((np.abs(x.real + 1j*x.imag), g), axis=2)
             
             with torch.inference_mode():
                 if not c.pad_time:
@@ -154,10 +160,10 @@ def apply_model(data, model, gmap, config, scaling_factor):
                     overlap = (c.time//2, c.height[-1]//4, c.width[-1]//4)
     
                 try:
-                    _, output = running_inference(model, input * scaling_factor, cutout=cutout, overlap=overlap, device=device)
+                    _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device=device)
                 except:
                     print(f"{Fore.YELLOW}---> call inference on cpu ...")
-                    _, output = running_inference(model, input * scaling_factor, cutout=cutout, overlap=overlap, device="cpu")
+                    _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device="cpu")
 
                 if isinstance(output, torch.Tensor):
                     output = output.cpu().numpy()      
@@ -169,7 +175,10 @@ def apply_model(data, model, gmap, config, scaling_factor):
             if(k==0):
                 data_filtered = np.zeros((output.shape[0], output.shape[1], PHS, SLC), dtype=data.dtype)
             
-            data_filtered[:,:,:,k] = output[:,:,0,:] + 1j*output[:,:,1,:]
+            if config.complex_i:
+                data_filtered[:,:,:,k] = output[:,:,0,:] + 1j*output[:,:,1,:]
+            else:
+                data_filtered[:,:,:,k] = output
 
         t1 = time()
         print(f"---> apply_model took {t1-t0} seconds ")
@@ -238,12 +247,18 @@ def main():
     print(res_name)
     np.save(res_name, gmap)
     
-    res_name = os.path.join(args.output_dir, 'output_real.npy')
-    print(res_name)
-    np.save(res_name, output.real)
-    res_name = os.path.join(args.output_dir, 'output_imag.npy')
-    print(res_name)
-    np.save(res_name, output.imag)
-            
+    if config.complex_i:
+        res_name = os.path.join(args.output_dir, 'output_real.npy')
+        print(res_name)
+        np.save(res_name, output.real)
+    
+        res_name = os.path.join(args.output_dir, 'output_imag.npy')
+        print(res_name)
+        np.save(res_name, output.imag)
+    else:
+        res_name = os.path.join(args.output_dir, 'output.npy')
+        print(res_name)
+        np.save(res_name, output.real)
+        
 if __name__=="__main__":
     main()
