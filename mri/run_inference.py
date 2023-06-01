@@ -144,6 +144,8 @@ def apply_model(data, model, gmap, config, scaling_factor):
             x = np.transpose(imgslab, [2, 0, 1]).reshape([1, T, 1, H, W])
             g = np.repeat(gmapslab[np.newaxis, np.newaxis, np.newaxis, :, :], T, axis=1)
             
+            x *= scaling_factor
+            
             if config.complex_i:
                 input = np.concatenate((x.real, x.imag, g), axis=2)
             else:
@@ -158,10 +160,10 @@ def apply_model(data, model, gmap, config, scaling_factor):
                     overlap = (c.time//2, c.height[-1]//4, c.width[-1]//4)
     
                 try:
-                    _, output = running_inference(model, input * scaling_factor, cutout=cutout, overlap=overlap, device=device)
+                    _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device=device)
                 except:
                     print(f"{Fore.YELLOW}---> call inference on cpu ...")
-                    _, output = running_inference(model, input * scaling_factor, cutout=cutout, overlap=overlap, device="cpu")
+                    _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device="cpu")
 
                 if isinstance(output, torch.Tensor):
                     output = output.cpu().numpy()      
