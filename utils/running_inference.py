@@ -39,7 +39,10 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
     is_script_model = isinstance(model, torch.jit._script.RecursiveScriptModule)
     
     if is_torch_model or is_script_model:
-        model = model.to(device)
+        if is_script_model:
+            model.cuda()
+        else:
+            model = model.to(device)
         model.eval()
 
     try:
@@ -91,7 +94,10 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
     if is_torch_model:
         with torch.inference_mode():
             sample_in = torch.from_numpy(image_batch[:batch_size]).to(device)
-            with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=(not is_script_model)):
+            # if is_script_model:
+            #     sample_ot = model(sample_in)
+            # else:
+            with torch.autocast(device_type=device, dtype=torch.bfloat16, enabled=True):
                 sample_ot = model(sample_in)
                 
             sample_ot = sample_ot.cpu().detach().numpy()
@@ -100,6 +106,7 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
         sample_in = image_batch[:batch_size]
         ort_inputs = {model.get_inputs()[0].name: sample_in.astype('float32')}
         sample_ot = model.run(None, ort_inputs)
+        sample_ot = sample_ot[0]
         
     _,_,C_out,_,_ = sample_ot.shape
     image_patches_ot_shape = (*image_patches.shape[:-3],C_out,*image_patches.shape[-2:])
@@ -109,16 +116,20 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
     image_batch_pred = np.zeros((image_batch.shape[0],Tc,C_out,Hc,Wc), dtype=d_type)
 
     if is_torch_model:
-        with torch.inference_mode():
-            with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=(not is_script_model)):
-                for i in range(0, image_batch.shape[0], batch_size):
-                    x_in = torch.from_numpy(image_batch[i:i+batch_size]).to(device=device)
+        with torch.inference_mode():                        
+            for i in range(0, image_batch.shape[0], batch_size):
+                x_in = torch.from_numpy(image_batch[i:i+batch_size]).to(device=device)
+                # if is_script_model:
+                #     image_batch_pred[i:i+batch_size] = model(x_in).cpu().detach().numpy()
+                # else:
+                with torch.autocast(device_type=device, dtype=torch.bfloat16, enabled=(not is_script_model)):
                     image_batch_pred[i:i+batch_size] = model(x_in).cpu().detach().numpy()
+
     else:
         for i in range(0, image_batch.shape[0], batch_size):
             x_in = image_batch[i:i+batch_size]
             ort_inputs = {model.get_inputs()[0].name: x_in.astype('float32')}
-            image_batch_pred[i:i+batch_size] = model.run(None, ort_inputs)
+            image_batch_pred[i:i+batch_size] = model.run(None, ort_inputs)[0]
             
     # ---------------------------------------------------------------------------------------------
     # setting up the weight matrix

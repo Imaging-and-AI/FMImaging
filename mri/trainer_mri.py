@@ -73,49 +73,6 @@ def trainer(rank, global_rank, config, wandb_run):
     start = time()
     train_set, val_set, test_set = load_mri_data(config=config)
     logging.info(f"load_mri_data took {time() - start} seconds ...")
-        
-    # data_file = Path(config.log_path + f"/{config.run_name}__train.pkl")
-    # if data_file.is_file():
-    #     print(f"--> find the stored train, val and test data file ... ")
-        
-    #     start = time()
-    #     with open(data_file, 'rb') as f:
-    #         train_set = pickle.load(f)
-    #     print(f"load train set took {time() - start} seconds ...")
-            
-    #     start = time()
-    #     data_file = Path(config.log_path + f"{config.run_name}__val.pkl")
-    #     with open(data_file, 'rb') as f:
-    #         val_set = pickle.load(f)        
-    #     print(f"load val set took {time() - start} seconds ...")
-            
-    #     start = time()
-    #     data_file = Path(config.log_path + f"{config.run_name}__test.pkl")
-    #     with open(data_file, 'rb') as f:
-    #         test_set = pickle.load(f)
-    #     print(f"load test set took {time() - start} seconds ...")
-    # else:
-    #     start = time()
-    #     train_set, val_set, test_set = load_mri_data(config=config)
-    #     print(f"load_mri_data took {time() - start} seconds ...")
-        
-    #     if rank <=0:
-    #         start = time()
-    #         with open(data_file, 'wb') as f:
-    #             pickle.dump(train_set, f)
-    #         print(f"pickle train set took {time() - start} seconds ...")
-                
-    #         start = time()
-    #         data_file = Path(config.log_path + f"{config.run_name}__val.pkl")
-    #         with open(data_file, 'wb') as f:
-    #             pickle.dump(val_set, f)
-    #         print(f"pickle val set took {time() - start} seconds ...")
-                    
-    #         start = time()
-    #         data_file = Path(config.log_path + f"{config.run_name}__test.pkl")
-    #         with open(data_file, 'wb') as f:
-    #             pickle.dump(test_set, f)
-    #         print(f"pickle test set took {time() - start} seconds ...")
     
     total_num_samples = sum([len(s) for s in train_set])
     
@@ -151,6 +108,7 @@ def trainer(rank, global_rank, config, wandb_run):
         sched = model.module.sched
         stype = model.module.stype
         loss_f = model.module.loss_f
+        ssim_loss_f = model.module.ssim_loss_f
         curr_epoch = model.module.curr_epoch
         samplers = [DistributedSampler(train_set_x, shuffle=True) for train_set_x in train_set]
         shuffle = False        
@@ -162,6 +120,7 @@ def trainer(rank, global_rank, config, wandb_run):
         sched = model.sched
         stype = model.stype
         loss_f = model.loss_f
+        ssim_loss_f = model.ssim_loss_f
         curr_epoch = model.curr_epoch
         samplers = [None for _ in train_set]
         shuffle = True
@@ -286,11 +245,14 @@ def trainer(rank, global_rank, config, wandb_run):
                 with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
                     output = model(x)
                     
-                    if c.weighted_loss:
-                        weights=noise_sigmas*gmaps_median                    
-                        loss = loss_f(output, y, weights=weights.to(device))
+                    if epoch <= 0.9*c.num_epochs:
+                        if c.weighted_loss:
+                            weights=noise_sigmas*gmaps_median                    
+                            loss = loss_f(output, y, weights=weights.to(device))
+                        else:
+                            loss = loss_f(output, y)
                     else:
-                        loss = loss_f(output, y)
+                        loss = ssim_loss_f(output, y)
                         
                     loss = loss / c.iters_to_accumulate
                     
@@ -448,7 +410,7 @@ def trainer(rank, global_rank, config, wandb_run):
             model.save(epoch)
             
             # save both models
-            fname_last, fname_best = save_final_model(model, config, best_model_wts, only_pt=True)
+            fname_last, fname_best = save_final_model(model, config, best_model_wts, only_pt=False)
 
             logging.info(f"--> {Fore.YELLOW}Save last mode at {fname_last}{Style.RESET_ALL}")
             logging.info(f"--> {Fore.YELLOW}Save best mode at {fname_best}{Style.RESET_ALL}")
@@ -490,40 +452,13 @@ def trainer(rank, global_rank, config, wandb_run):
                     
                 x = np.expand_dims(x, axis=0)
                 y = np.expand_dims(y, axis=0)
-                
-                x_t = torch.from_numpy(x).to(device=device)    
-                y_t = torch.from_numpy(y).to(device=device)
-                
-                B, T, C, H, W = x_t.shape
-                
-                model = model.module if c.ddp else model
-                model.to(device=device)
-                model.eval()
-                
-                cutout_in = (c.time, c.height[-1], c.width[-1])
-                overlap_in = (c.time//2, c.height[-1]//2, c.width[-1]//2)
-                
-                tm = start_timer()    
-                _, y_model = running_inference(model, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
-                end_timer(t=tm, msg="torch model took")
-                                
-                tm = start_timer()
-                y_model_jit = running_inference(model_jit, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
-                end_timer(t=tm, msg="torch script model took")
-                    
-                tm = start_timer()        
-                y_model_onnx = running_inference(model_onnx, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
-                end_timer(t=tm, msg="onnx model took")
-                
-                d1 = np.linalg.norm(y_model-y_model_jit) / np.linalg.norm(y_model)
-                logging.info(f"--> {Fore.GREEN}Jit model difference is {d1} ... {Style.RESET_ALL}")
-                
-                d2 = np.linalg.norm(y_model-y_model_onnx[0]) / np.linalg.norm(y_model)
-                logging.info(f"--> {Fore.GREEN}Onnx model difference is {d2} ... {Style.RESET_ALL}")
+
+                compare_model(config=config, model=model, model_jit=model_jit, model_onnx=model_onnx, device=device, x=x)
             except:
                 print(f"--> ignore the extra tests ...")
     
-    dist.barrier()
+    if c.ddp:
+        dist.barrier()
     print(f"--> run finished ...")
             
 # -------------------------------------------------------------------------------------------------
@@ -740,3 +675,137 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
         logging.info(log_str)
     
     return val_loss, val_mse, val_l1, val_ssim, val_ssim3D, val_psnr
+
+# -------------------------------------------------------------------------------------------------
+
+def apply_model(data, model, gmap, config, scaling_factor):
+    '''
+    Input 
+        data : [RO E1 N SLC], remove any extra scaling
+        gmap : [RO E1 SLC], no scaling added
+        scaling_factor : scaling factor to adjust denoising strength, smaller value is for higher strength (0.5 is more smoothing than 1.0)
+    '''
+
+    t0 = time()
+
+    device = get_device()
+
+    if(data.ndim==2):
+        data = data[:,:,np.newaxis,np.newaxis]
+
+    if(data.ndim<4):
+        data = np.expand_dims(data, axis=3)
+
+    RO, E1, PHS, SLC = data.shape
+
+    if(gmap.ndim==2):
+        gmap = np.expand_dims(gmap, axis=2)
+
+    if(gmap.shape[0]!=RO or gmap.shape[1]!=E1 or gmap.shape[2]!=SLC):
+        gmap = np.ones(RO, E1, SLC)
+
+    print(f"---> apply_model, preparation took {time()-t0} seconds ")
+    print(f"---> apply_model, input array {data.shape}")
+    print(f"---> apply_model, gmap array {gmap.shape}")
+    print(f"---> apply_model, pad_time {config.pad_time}")
+    print(f"---> apply_model, height and width {config.height, config.width}")
+    print(f"---> apply_model, complex_i {config.complex_i}")
+    print(f"---> apply_model, scaling_factor {scaling_factor}")
+    
+    c = config
+    
+    try:
+        for k in range(SLC):
+            imgslab = data[:,:,:,k]
+            gmapslab = gmap[:,:,k]
+            
+            H, W, T = imgslab.shape
+            
+            x = np.transpose(imgslab, [2, 0, 1]).reshape([1, T, 1, H, W])
+            g = np.repeat(gmapslab[np.newaxis, np.newaxis, np.newaxis, :, :], T, axis=1)
+            
+            x *= scaling_factor
+            
+            if config.complex_i:
+                input = np.concatenate((x.real, x.imag, g), axis=2)
+            else:
+                input = np.concatenate((np.abs(x.real + 1j*x.imag), g), axis=2)
+            
+            if not c.pad_time:
+                cutout = (T, c.height[-1], c.width[-1])
+                overlap = (0, c.height[-1]//2, c.width[-1]//2)
+            else:
+                cutout = (c.time, c.height[-1], c.width[-1])
+                overlap = (c.time//2, c.height[-1]//4, c.width[-1]//4)
+
+            try:
+                _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device=device)
+            except:
+                print(f"{Fore.YELLOW}---> call inference on cpu ...")
+                _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device="cpu")
+            
+            output /= scaling_factor   
+                
+            if isinstance(output, torch.Tensor):
+                output = output.cpu().numpy()
+
+            output = np.transpose(output, (3, 4, 2, 1, 0)).squeeze()
+            
+            if(k==0):
+                data_filtered = np.zeros((output.shape[0], output.shape[1], PHS, SLC), dtype=data.dtype)
+            
+            if config.complex_i:
+                data_filtered[:,:,:,k] = output[:,:,0,:] + 1j*output[:,:,1,:]
+            else:
+                data_filtered[:,:,:,k] = output
+
+        t1 = time()
+        print(f"---> apply_model took {t1-t0} seconds ")
+
+    except Exception as e:
+        print(e)
+        data_filtered = copy.deepcopy(data)
+
+    return data_filtered
+
+# -------------------------------------------------------------------------------------------------
+
+def compare_model(config, model, model_jit, model_onnx, device='cpu', x=None):
+    """
+    Compare onnx, pts and pt models
+    """
+    c = config
+
+    C = 3 if config.complex_i else 2
+
+    if x is None:
+        x = np.random.randn(1, 12, C, 128, 128).astype(np.float32)
+
+    B, T, C, H, W = x.shape
+    
+    model.to(device=device)
+    model.eval()
+    
+    cutout_in = (c.time, c.height[-1], c.width[-1])
+    overlap_in = (c.time//2, c.height[-1]//2, c.width[-1]//2)
+    
+    tm = start_timer(enable=True)    
+    y, y_model = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device=device)
+    end_timer(enable=True, t=tm, msg="torch model took")
+                            
+    tm = start_timer(enable=True)        
+    y_onnx, y_model_onnx = running_inference(model_onnx, x, cutout=cutout_in, overlap=overlap_in, device=device)
+    end_timer(enable=True, t=tm, msg="onnx model took")
+
+    diff = np.linalg.norm(y-y_onnx)
+    print(f"--> {Fore.GREEN}Onnx model difference is {diff} ... {Style.RESET_ALL}")
+
+    tm = start_timer(enable=True)
+    y_jit, y_model_jit = running_inference(model_jit, x, cutout=cutout_in, overlap=overlap_in, device=device)
+    end_timer(enable=True, t=tm, msg="torch script model took")
+
+    diff = np.linalg.norm(y-y_jit)
+    print(f"--> {Fore.GREEN}Jit model difference is {diff} ... {Style.RESET_ALL}")
+
+    diff = np.linalg.norm(y_onnx-y_jit)
+    print(f"--> {Fore.GREEN}Jit - onnx model difference is {diff} ... {Style.RESET_ALL}")

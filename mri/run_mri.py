@@ -105,7 +105,7 @@ class mri_ddp_base(run_ddp_base):
         vars['backbone'] = ['hrnet', 'unet']
         vars['cell_types'] = ["parallel"]
         vars['Q_K_norm'] = [True]
-        vars['cosine_atts'] = ["0"]
+        vars['cosine_atts'] = ["1"]
         vars['att_with_relative_postion_biases'] = ["1"]
         vars['a_types'] = ["conv"]
 
@@ -132,7 +132,7 @@ class mri_ddp_base(run_ddp_base):
                     ]
 
         vars['complex_i'] = [True, False]
-        vars['residual'] = [True]
+        vars['residual'] = [True ]
         vars['weighted_loss'] = [False]
         
         return vars

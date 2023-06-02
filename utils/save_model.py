@@ -115,7 +115,7 @@ def save_final_model(model, config, best_model_wts, only_pt=False):
     return last_model_name, best_model_name
 
 # -------------------------------------------------------------------------------------------------
-def load_model(model_dir, model_file):
+def load_model(model_dir, model_file, map_location='cpu'):
     '''
     model_name: NN model
     '''
@@ -128,7 +128,7 @@ def load_model(model_dir, model_file):
     try:
         print("---> Load model  ", model_file_name, file=sys.stderr)
         t0 = time()
-        model = torch.jit.load(model_file_name)
+        model = torch.jit.load(model_file_name, map_location=map_location)
         t1 = time()
         print("---> Model loading took %f seconds " % (t1-t0), file=sys.stderr)
 
@@ -199,7 +199,14 @@ def load_model_onnx(model_dir, model_file, use_cpu=False):
             m = ort.InferenceSession(model_full_file, providers=providers)
             logger.info("model is loaded into the onnx GPU ...")
         else:
-            m = ort.InferenceSession(model_full_file, providers=['CPUExecutionProvider'])
+
+            sess_options = ort.SessionOptions()
+            sess_options.intra_op_num_threads = os.cpu_count() // 2
+            sess_options.inter_op_num_threads = os.cpu_count() // 2
+            sess_options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
+            sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+
+            m = ort.InferenceSession(model_full_file, sess_options=sess_options, providers=['CPUExecutionProvider'])
             logger.info("model is loaded into the onnx CPU ...")
         t1 = time()
         logger.info("Model loading took %f seconds " % (t1-t0))

@@ -158,7 +158,12 @@ with h5py.File(filename , mode="w",libver='earliest') as h5file:
         gmap = np.load(f"{case_dir}/gfactor.npy")
         gmap /= gmap_scaling
 
-        print(f"{case_dir}, images - {image.shape}, gmap - {gmap.shape}")
+        if image.ndim==4 and gmap.ndim==3:
+            if image.shape[2]==gmap.shape[-1] and gmap.shape[-1]<image.shape[3]:
+                print(f"--> permute T and SLC ...")
+                image = np.transpose(image, [0, 1, 3, 2])
+
+        print(f"{case_dir.replace('/', '_')}, images - {image.shape}, gmap - {gmap.shape}")
         
         data_folder = h5file.create_group(case_dir)
         data_folder["image"] = image
