@@ -324,6 +324,17 @@ class Combined_Loss:
  
 def tests():
 
+    import numpy as np
+
+    clean_a = np.load('../data/microscopy/clean1.npy')
+    clean_b = np.load('../data/microscopy/clean2.npy')
+    noisy_a = np.load('../data/microscopy/noisy.npy')
+
+    H, W = clean_a.shape
+    clean_a.view([1, 1, 1, H, W])
+    clean_b.view([1, 1, 1, H, W])
+    noisy_a.view([1, 1, 1, H, W])
+
     B,T,C,H,W = 4,8,3,32,32
 
     im_1 = torch.rand(B,T,C,H,W)
@@ -347,6 +358,14 @@ def tests():
     assert 0<=fsim_4<=1
 
     assert fsim_3==fsim_4
+
+    f1 = fsim_loss_f(clean_a, clean_b)
+    assert 0<=f1<=1
+
+    f2 = fsim_loss_f(clean_a, noisy_a)
+    assert 0<=f2<=1
+
+    assert f2<=f1
 
     print("Passed fsim")    
 
