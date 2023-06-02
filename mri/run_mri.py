@@ -34,8 +34,6 @@ class mri_ddp_base(run_ddp_base):
         "--window_size", "8", "8",
         "--patch_size", "2", "2",
 
-        "--n_head", "32",
-
         "--global_lr", "0.0001",
 
         "--clip_grad_norm", "1.0",
@@ -114,7 +112,7 @@ class mri_ddp_base(run_ddp_base):
         vars['shuffle_in_windows'] = ["0"]
         vars['block_dense_connections'] = ["0"]
         vars['norm_modes'] = ["batch2d"]
-        vars['C'] = [32, 16]
+        vars['C'] = [32, 16, 64]
         vars['scale_ratio_in_mixers'] = [1.0]
 
         vars['snr_perturb_prob'] = [0.0]
@@ -134,6 +132,8 @@ class mri_ddp_base(run_ddp_base):
         vars['complex_i'] = [True, False]
         vars['residual'] = [True ]
         vars['weighted_loss'] = [False]
+
+        vars['n_heads'] = [16, 32]
         
         return vars
 
@@ -161,7 +161,8 @@ class mri_ddp_base(run_ddp_base):
                     complex_i,\
                     residual, \
                     weighted_loss, \
-                    snr_perturb_prob \
+                    snr_perturb_prob, \
+                    n_heads \
                         in itertools.product(block_str, 
                                             vars['optim'],
                                             vars['scale_ratio_in_mixers'], 
@@ -179,7 +180,8 @@ class mri_ddp_base(run_ddp_base):
                                             vars['complex_i'],
                                             vars['residual'],
                                             vars['weighted_loss'],
-                                            vars['snr_perturb_prob'] 
+                                            vars['snr_perturb_prob'],
+                                            vars['n_heads']
                                             ):
                                                                                         
                         # -------------------------------------------------------------
@@ -204,13 +206,15 @@ class mri_ddp_base(run_ddp_base):
                                         complex_i=complex_i,
                                         residual=residual,
                                         weighted_loss=weighted_loss,
-                                        snr_perturb_prob=snr_perturb_prob
+                                        snr_perturb_prob=snr_perturb_prob,
+                                        n_heads=n_heads
                                         )
                         
-                        print("---" * 20)
-                        print(cmd_run)
-                        print("---" * 20)
-                        cmd_runs.append(cmd_run)
+                        if cmd_run:
+                            print("---" * 20)
+                            print(cmd_run)
+                            print("---" * 20)
+                            cmd_runs.append(cmd_run)
         return cmd_runs
     
     def create_cmd_run(self, cmd_run, config, 
@@ -233,9 +237,13 @@ class mri_ddp_base(run_ddp_base):
                         complex_i=True,
                         residual=True,
                         weighted_loss=True,
-                        snr_perturb_prob=0
+                        snr_perturb_prob=0,
+                        n_heads=32
                         ):
-        
+
+        if c < n_heads:
+             return None
+
         cmd_run = super().create_cmd_run(cmd_run, config, 
                         optim, bk, a_type, cell_type, 
                         norm_mode, block_dense_connection, 
@@ -266,11 +274,12 @@ class mri_ddp_base(run_ddp_base):
         ind = cmd_run.index("--run_notes")
         cmd_run.pop(ind)
         cmd_run.pop(ind)
-                                                  
+
         cmd_run.extend([
             "--run_name", f"{config.project}-{bk.upper()}-{run_str}",
             "--run_notes", f"{config.project}-{bk.upper()}-{run_str}",
-            "--snr_perturb_prob", f"{snr_perturb_prob}"
+            "--snr_perturb_prob", f"{snr_perturb_prob}",
+            "--n_heads", f"{n_heads}"
         ])
             
         return cmd_run

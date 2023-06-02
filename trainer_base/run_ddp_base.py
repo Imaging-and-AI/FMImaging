@@ -208,11 +208,12 @@ class run_ddp_base(object):
                                                                                     scale_ratio_in_mixer=scale_ratio_in_mixer,
                                                                                     load_path=config.load_path)
                                                                     
-                                                                    print("---" * 20)
-                                                                    print(cmd_run)
-                                                                    print("---" * 20)
-                                                                    #subprocess.run(cmd_run)
-                                                                    cmd_runs.append(cmd_run)
+                                                                    if cmd_run:
+                                                                        print("---" * 20)
+                                                                        print(cmd_run)
+                                                                        print("---" * 20)
+                                                                        #subprocess.run(cmd_run)
+                                                                        cmd_runs.append(cmd_run)
         return cmd_runs
                                                             
     def arg_parser(self):
