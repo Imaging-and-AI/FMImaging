@@ -19,11 +19,9 @@ Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
 from utils import *
-from utils.setup_training import get_bar_format
 from model_base.losses import *
 from model_mri import STCNNT_MRI
-from trainer_mri import eval_val
-from utils.running_inference import running_inference
+from trainer_mri import apply_model
 
 # -------------------------------------------------------------------------------------------------
 # setup for testing from cmd
@@ -91,103 +89,10 @@ def load_model(args):
         model = STCNNT_MRI(config=config)
         model.load_state_dict(status['model'])
     elif args.saved_model_path.endswith(".pts"):
-        model = torch.jit.load(args.saved_model_path)
+        model = torch.jit.load(args.saved_model_path, map_location=get_device())
     else:
-        model = load_model_onnx(model_dir="", model_file=args.saved_model_path, use_cpu=True)
+        model, _ = load_model_onnx(model_dir="", model_file=args.saved_model_path, use_cpu=True)
     return model, config
-
-# -------------------------------------------------------------------------------------------------
-
-def apply_model(data, model, gmap, config, scaling_factor):
-    '''
-    Input 
-        data : [RO E1 N SLC], remove any extra scaling
-        gmap : [RO E1 SLC], no scaling added
-        scaling_factor : scaling factor to adjust denoising strength, smaller value is for higher strength (0.5 is more smoothing than 1.0)
-    '''
-
-    t0 = time()
-
-    device = get_device()
-
-    if(data.ndim==2):
-        data = data[:,:,np.newaxis,np.newaxis]
-
-    if(data.ndim<4):
-        data = np.expand_dims(data, axis=3)
-
-    RO, E1, PHS, SLC = data.shape
-
-    if(gmap.ndim==2):
-        gmap = np.expand_dims(gmap, axis=2)
-
-    if(gmap.shape[0]!=RO or gmap.shape[1]!=E1 or gmap.shape[2]!=SLC):
-        gmap = np.ones(RO, E1, SLC)
-
-    print(f"---> apply_model, preparation took {time()-t0} seconds ")
-    print(f"---> apply_model, input array {data.shape}")
-    print(f"---> apply_model, gmap array {gmap.shape}")
-    print(f"---> apply_model, pad_time {config.pad_time}")
-    print(f"---> apply_model, height and width {config.height, config.width}")
-    print(f"---> apply_model, complex_i {config.complex_i}")
-    print(f"---> apply_model, scaling_factor {scaling_factor}")
-    
-    c = config
-    
-    try:
-        for k in range(SLC):
-            imgslab = data[:,:,:,k]
-            gmapslab = gmap[:,:,k]
-            
-            H, W, T = imgslab.shape
-            
-            x = np.transpose(imgslab, [2, 0, 1]).reshape([1, T, 1, H, W])
-            g = np.repeat(gmapslab[np.newaxis, np.newaxis, np.newaxis, :, :], T, axis=1)
-            
-            x *= scaling_factor
-            
-            if config.complex_i:
-                input = np.concatenate((x.real, x.imag, g), axis=2)
-            else:
-                input = np.concatenate((np.abs(x.real + 1j*x.imag), g), axis=2)
-            
-            with torch.inference_mode():
-                if not c.pad_time:
-                    cutout = (T, c.height[-1], c.width[-1])
-                    overlap = (0, c.height[-1]//2, c.width[-1]//2)
-                else:
-                    cutout = (c.time, c.height[-1], c.width[-1])
-                    overlap = (c.time//2, c.height[-1]//4, c.width[-1]//4)
-    
-                try:
-                    _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device=device)
-                except:
-                    print(f"{Fore.YELLOW}---> call inference on cpu ...")
-                    _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device="cpu")
-
-                if isinstance(output, torch.Tensor):
-                    output = output.cpu().numpy()      
-            
-                output /= scaling_factor   
-                
-            output = np.transpose(output, (3, 4, 2, 1, 0)).squeeze()
-            
-            if(k==0):
-                data_filtered = np.zeros((output.shape[0], output.shape[1], PHS, SLC), dtype=data.dtype)
-            
-            if config.complex_i:
-                data_filtered[:,:,:,k] = output[:,:,0,:] + 1j*output[:,:,1,:]
-            else:
-                data_filtered[:,:,:,k] = output
-
-        t1 = time()
-        print(f"---> apply_model took {t1-t0} seconds ")
-
-    except Exception as e:
-        print(e)
-        data_filtered = copy.deepcopy(data)
-
-    return data_filtered
 
 # -------------------------------------------------------------------------------------------------
 # the main function for setup, eval call and saving results
