@@ -11,6 +11,7 @@ Provides implmentation of the following types of losses:
 Allows custom weights for each indvidual loss calculation as well
 """
 
+import os
 import sys
 import torch
 from pathlib import Path
@@ -28,7 +29,7 @@ class FSIM_Loss:
     """
     Weighted FSIM loss
     """
-    def __init__(self, chromatic=True, data_range=None, complex_i=False, device='cpu'):
+    def __init__(self, chromatic=False, data_range=None, complex_i=False, device='cpu'):
         """
         @args:
             - chromatic (bool) : flag to compute FSIMc, which also takes into account chromatic components
@@ -326,14 +327,16 @@ def tests():
 
     import numpy as np
 
-    clean_a = np.load('../data/microscopy/clean1.npy')
-    clean_b = np.load('../data/microscopy/clean2.npy')
-    noisy_a = np.load('../data/microscopy/noisy.npy')
+    Project_DIR = Path(__file__).parents[1].resolve()
+    
+    clean_a = np.load(os.path.join(Project_DIR, 'data/microscopy/clean1.npy'))
+    clean_b = np.load(os.path.join(Project_DIR, 'data/microscopy/clean2.npy'))
+    noisy_a = np.load(os.path.join(Project_DIR, 'data/microscopy/noisy.npy'))
 
     H, W = clean_a.shape
-    clean_a.view([1, 1, 1, H, W])
-    clean_b.view([1, 1, 1, H, W])
-    noisy_a.view([1, 1, 1, H, W])
+    clean_a = torch.from_numpy(clean_a.reshape((1, 1, 1, H ,W)))
+    clean_b = torch.from_numpy(clean_b.reshape((1, 1, 1, H ,W)))
+    noisy_a = torch.from_numpy(noisy_a.reshape((1, 1, 1, H ,W)))
 
     B,T,C,H,W = 4,8,3,32,32
 
@@ -365,7 +368,7 @@ def tests():
     f2 = fsim_loss_f(clean_a, noisy_a)
     assert 0<=f2<=1
 
-    assert f2<=f1
+    assert f2>f1
 
     print("Passed fsim")    
 

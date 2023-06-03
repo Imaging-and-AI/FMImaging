@@ -141,6 +141,7 @@ model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-ba
 model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-1-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1-20230531_030804_complex_residual_03-08-11-20230531_best.pt
 # fast model
 model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-batch2d-sophia-C-16-MIXER-conv-1-T1L1G1_T1L1G1_T1L1G1_T1L1G1-20230601_141534_complex_residual_14-15-40-20230601_best.pt
+
 model=/export/Lab-Xue/projects/mri/test/complex_model/mri-UNET-conv-parallel-instance2d-sophia-C-16-MIXER-conv-1-T1T1T1_T1T1T1_T1T1T1_T1T1T1-20230601_141534_complex_residual_09-49-23-20230602_best.pt
 
 model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-1-T1L1G1_T1L1G1_T1L1G1_T1L1G1-20230531_175035_complex_residual_13-50-40-20230531_best.onnx

@@ -183,7 +183,7 @@
                 "--output_dir", "/export/Lab-Xue/projects/mri/test/results",
                 "--scaling_factor", "1.0",
                 "--im_scaling", "10.0", "--gmap_scaling", "100.0",
-                "--saved_model_path", "/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-1-T1L1G1_T1L1G1_T1L1G1_T1L1G1-20230531_175035_complex_residual_13-50-40-20230531_best.onnx"
+                "--saved_model_path", "/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-1-T1L1G1_T1L1G1_T1L1G1_T1L1G1-20230531_175035_complex_residual_13-50-40-20230531_best.pt"
             ]
         },
         {
