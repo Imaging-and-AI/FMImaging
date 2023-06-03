@@ -23,7 +23,7 @@ def end_timer(enable=False, t=None, msg=""):
     if enable:
         t[1].record()
         torch.cuda.synchronize()
-        print(f"{Fore.LIGHTBLUE_EX}{msg} {t[0].elapsed_time(t[1])} ms ...{Style.RESET_ALL}")
+        print(f"{Fore.LIGHTBLUE_EX}{msg} {t[0].elapsed_time(t[1])} ms ...{Style.RESET_ALL}", flush=True)
                                
 # -------------------------------------------------------------------------------------------------
 

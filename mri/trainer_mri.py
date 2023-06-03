@@ -245,15 +245,23 @@ def trainer(rank, global_rank, config, wandb_run):
                 with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
                     output = model(x)
                     
-                    if epoch <= 0.9*c.num_epochs:
-                        if c.weighted_loss:
-                            weights=noise_sigmas*gmaps_median                    
-                            loss = loss_f(output, y, weights=weights.to(device))
-                        else:
-                            loss = loss_f(output, y)
+                    if c.weighted_loss:
+                        weights=noise_sigmas*gmaps_median                    
+                        loss = loss_f(output, y, weights=weights.to(device))
                     else:
-                        loss = ssim_loss_f(output, y)
+                        loss = loss_f(output, y)
+                            
+                    # if epoch <= 0.9*c.num_epochs:
+                    #     if c.weighted_loss:
+                    #         weights=noise_sigmas*gmaps_median                    
+                    #         loss = loss_f(output, y, weights=weights.to(device))
+                    #     else:
+                    #         loss = loss_f(output, y)
+                    # else:
+                    #     loss = ssim_loss_f(output, y)
                         
+                    #loss = ssim_loss_f(output, y)
+                    
                     loss = loss / c.iters_to_accumulate
                     
                 end_timer(enable=c.with_timer, t=tm, msg="---> forward pass took ")
@@ -798,14 +806,14 @@ def compare_model(config, model, model_jit, model_onnx, device='cpu', x=None):
     end_timer(enable=True, t=tm, msg="onnx model took")
 
     diff = np.linalg.norm(y-y_onnx)
-    print(f"--> {Fore.GREEN}Onnx model difference is {diff} ... {Style.RESET_ALL}")
+    print(f"--> {Fore.GREEN}Onnx model difference is {diff} ... {Style.RESET_ALL}", flush=True)
 
     tm = start_timer(enable=True)
     y_jit, y_model_jit = running_inference(model_jit, x, cutout=cutout_in, overlap=overlap_in, device=device)
     end_timer(enable=True, t=tm, msg="torch script model took")
 
     diff = np.linalg.norm(y-y_jit)
-    print(f"--> {Fore.GREEN}Jit model difference is {diff} ... {Style.RESET_ALL}")
+    print(f"--> {Fore.GREEN}Jit model difference is {diff} ... {Style.RESET_ALL}", flush=True)
 
     diff = np.linalg.norm(y_onnx-y_jit)
-    print(f"--> {Fore.GREEN}Jit - onnx model difference is {diff} ... {Style.RESET_ALL}")
+    print(f"--> {Fore.GREEN}Jit - onnx model difference is {diff} ... {Style.RESET_ALL}", flush=True)

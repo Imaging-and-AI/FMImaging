@@ -104,13 +104,13 @@ class mri_ddp_base(run_ddp_base):
         vars['cell_types'] = ["parallel"]
         vars['Q_K_norm'] = [True]
         vars['cosine_atts'] = ["1"]
-        vars['att_with_relative_postion_biases'] = ["1"]
+        vars['att_with_relative_postion_biases'] = ["0"]
         vars['a_types'] = ["conv"]
 
         vars['larger_mixer_kernels'] = [False]
         vars['mixer_types'] = ["conv"]
         vars['shuffle_in_windows'] = ["0"]
-        vars['block_dense_connections'] = ["0"]
+        vars['block_dense_connections'] = ["0", "1"]
         vars['norm_modes'] = ["batch2d"]
         vars['C'] = [32, 16, 64]
         vars['scale_ratio_in_mixers'] = [1.0]
@@ -129,7 +129,7 @@ class mri_ddp_base(run_ddp_base):
                          ]
                     ]
 
-        vars['complex_i'] = [True, False]
+        vars['complex_i'] = [True]
         vars['residual'] = [True ]
         vars['weighted_loss'] = [False]
 
@@ -253,7 +253,7 @@ class mri_ddp_base(run_ddp_base):
                         load_path)
         
         moment = time.strftime("%Y%m%d_%H%M%S", time.gmtime())
-        run_str = f"{a_type}-{cell_type}-{norm_mode}-{optim}-C-{c}-MIXER-{mixer_type}-{int(scale_ratio_in_mixer)}-{'_'.join(bs)}-{moment}"
+        run_str = f"{a_type}-{cell_type}-{norm_mode}-{optim}-C-{c}-H-{n_heads}-MIXER-{mixer_type}-{int(scale_ratio_in_mixer)}-{'_'.join(bs)}-{moment}"
         
         if complex_i:
             cmd_run.extend(["--complex_i"])
@@ -279,7 +279,7 @@ class mri_ddp_base(run_ddp_base):
             "--run_name", f"{config.project}-{bk.upper()}-{run_str}",
             "--run_notes", f"{config.project}-{bk.upper()}-{run_str}",
             "--snr_perturb_prob", f"{snr_perturb_prob}",
-            "--n_heads", f"{n_heads}"
+            "--n_head", f"{n_heads}"
         ])
             
         return cmd_run
