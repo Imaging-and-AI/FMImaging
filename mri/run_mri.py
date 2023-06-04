@@ -28,7 +28,7 @@ class mri_ddp_base(run_ddp_base):
         
         self.cmd.extend([       
        
-        "--num_epochs", "30",
+        "--num_epochs", "40",
         "--batch_size", "16",
 
         "--window_size", "8", "8",
@@ -50,7 +50,7 @@ class mri_ddp_base(run_ddp_base):
         
         "--scheduler.ReduceLROnPlateau.patience", "0",
         "--scheduler.ReduceLROnPlateau.cooldown", "0",
-        "--scheduler.ReduceLROnPlateau.factor", "0.9",
+        "--scheduler.ReduceLROnPlateau.factor", "0.95",
         
         "--scheduler.OneCycleLR.pct_start", "0.2",
         
@@ -82,8 +82,8 @@ class mri_ddp_base(run_ddp_base):
         #"--weighted_loss",
         #"--max_load", "10000",
         
-        "--train_files", "train_3D_3T_retro_cine_2018.h5", "train_3D_3T_perf_2021.h5",# "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5",
-        "--train_data_types", "2dt", "2dt",# "2dt", "2dt",
+        "--train_files", "train_3D_3T_retro_cine_2018.h5", "train_3D_3T_perf_2021.h5", "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5",
+        "--train_data_types", "2dt", "2dt", "2dt", "2dt",
         
         "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", "train_3D_3T_retro_cine_2020_small_2DT_test.h5", "train_3D_3T_retro_cine_2020_small_2D_test.h5", "train_3D_3T_retro_cine_2020_500_test.h5",
         "--test_data_types", "2dt", "2dt", "2dt", "2dt" 
@@ -103,33 +103,35 @@ class mri_ddp_base(run_ddp_base):
         vars['backbone'] = ['hrnet', 'unet']
         vars['cell_types'] = ["parallel"]
         vars['Q_K_norm'] = [True]
-        vars['cosine_atts'] = ["1"]
+        vars['cosine_atts'] = ["1", "0"]
         vars['att_with_relative_postion_biases'] = ["0"]
-        vars['a_types'] = ["conv", "lin"]
+        vars['a_types'] = ["conv"]
 
         vars['larger_mixer_kernels'] = [False]
-        vars['mixer_types'] = ["conv", "lin"]
+        vars['mixer_types'] = ["conv"]
         vars['shuffle_in_windows'] = ["0"]
-        vars['block_dense_connections'] = ["0", "1"]
-        vars['norm_modes'] = ["batch2d"]
-        vars['C'] = [32, 16, 64]
-        vars['scale_ratio_in_mixers'] = [1.0, 4.0]
+        vars['block_dense_connections'] = ["1"]
+        vars['norm_modes'] = ["batch2d", "instance2d"]
+        vars['C'] = [32, 64]
+        vars['scale_ratio_in_mixers'] = [1.0]
 
         vars['snr_perturb_prob'] = [0.0]
 
         vars['block_strs'] = [
                         [                             
-                            ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
-                            ["T1V1T1", "V1T1T1", "T1V1T1", "V1T1T1"],
-                            ["T1T1T1", "T1T1T1", "T1L1G1", "T1T1T1"],
-                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"]
+                            ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
+                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                            ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"]
                          ],
                         
                         [                             
-                            ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
-                            ["T1V1T1", "V1T1T1", "T1V1T1", "V1T1T1"],
-                            ["T1T1T1", "T1T1T1", "T1L1G1", "T1T1T1"],
-                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"]
+                            ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
+                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                            ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"]
                          ]
                     ]
 
@@ -137,7 +139,7 @@ class mri_ddp_base(run_ddp_base):
         vars['residual'] = [True ]
         vars['weighted_loss'] = [False]
 
-        vars['n_heads'] = [16, 32]
+        vars['n_heads'] = [32]
         
         return vars
 
