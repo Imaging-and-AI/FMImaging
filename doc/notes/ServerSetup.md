@@ -19,6 +19,7 @@ sudo apt-get -y install cuda
 
 cp /export/Lab-Xue/software/*.deb ~/software
 cd ~/software
+sudo apt install libfreeimage3 libfreeimage-dev
 ```
 
 ### Install docker
@@ -37,6 +38,7 @@ apt update
 apt -y install nvidia-container-toolkit
 systemctl restart docker
 exit
+docker run --rm --gpus all gadgetronnhlbi/test nvidia-smi
 ```
 
 ### Install tensorRT
@@ -45,3 +47,8 @@ exit
 sudo apt-get install tensorrt
 pip3 install --upgrade tensorrt
 ```
+
+### Example to use tensorRT
+
+https://github.com/pytorch/TensorRT.git
+
