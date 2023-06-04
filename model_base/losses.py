@@ -11,6 +11,7 @@ Provides implmentation of the following types of losses:
 Allows custom weights for each indvidual loss calculation as well
 """
 
+import os
 import sys
 import torch
 from pathlib import Path
@@ -19,7 +20,67 @@ Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
 from utils.pytorch_ssim import SSIM, SSIM3D
+import piq
 
+# -------------------------------------------------------------------------------------------------
+# Feature Similarity Index Measure (FSIM) loss
+
+class FSIM_Loss:
+    """
+    Weighted FSIM loss
+    """
+    def __init__(self, chromatic=False, data_range=None, complex_i=False, device='cpu'):
+        """
+        @args:
+            - chromatic (bool) : flag to compute FSIMc, which also takes into account chromatic components
+            - data_range (float): max data value in the training; if none, determine from data
+            - complex_i (bool): whether images are 2 channelled for complex data
+            - device (torch.device): device to run the loss on
+        """
+        self.complex_i = complex_i
+        self.chromatic = chromatic
+        self.data_range = data_range
+
+
+    def __call__(self, outputs, targets, weights=None):
+
+        B, T, C, H, W = targets.shape
+        if(self.complex_i):
+            assert C==2, f"Complex type requires image to have C=2, given C={C}"
+            outputs_im = torch.sqrt(outputs[:,:,:1]*outputs[:,:,:1] + outputs[:,:,1:]*outputs[:,:,1:])
+            targets_im = torch.sqrt(targets[:,:,:1]*targets[:,:,:1] + targets[:,:,1:]*targets[:,:,1:])
+        else:
+            outputs_im = outputs
+            targets_im = targets
+
+        B, T, C, H, W = targets_im.shape
+        outputs_im = torch.reshape(outputs_im, (B*T, C, H, W))
+        targets_im = torch.reshape(targets_im, (B*T, C, H, W))
+
+        data_range = self.data_range
+        if self.data_range is None:
+            data_range = torch.max(torch.cat((targets_im, outputs_im), dim=0))
+
+        loss = piq.fsim(outputs_im, targets_im, reduction='none', data_range=data_range, chromatic=self.chromatic)
+
+        if weights is not None:
+
+            if weights.ndim==1:
+                weights_used = weights.expand(T,B).permute(1,0).reshape(B*T)
+            elif weights.ndim==2:
+                weights_used = weights.reshape(B*T)
+            else:
+                raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for FSIM_Loss")
+            
+            v = torch.sum(weights_used*loss) / torch.sum(weights_used)
+        else:
+            v = torch.mean(loss)
+
+        if(torch.any(torch.isnan(v))):
+            v = 1.0
+
+        return (1.0-v)
+    
 # -------------------------------------------------------------------------------------------------
 # SSIM loss
 
@@ -264,6 +325,19 @@ class Combined_Loss:
  
 def tests():
 
+    import numpy as np
+
+    Project_DIR = Path(__file__).parents[1].resolve()
+    
+    clean_a = np.load(os.path.join(Project_DIR, 'data/microscopy/clean1.npy'))
+    clean_b = np.load(os.path.join(Project_DIR, 'data/microscopy/clean2.npy'))
+    noisy_a = np.load(os.path.join(Project_DIR, 'data/microscopy/noisy.npy'))
+
+    H, W = clean_a.shape
+    clean_a = torch.from_numpy(clean_a.reshape((1, 1, 1, H ,W)))
+    clean_b = torch.from_numpy(clean_b.reshape((1, 1, 1, H ,W)))
+    noisy_a = torch.from_numpy(noisy_a.reshape((1, 1, 1, H ,W)))
+
     B,T,C,H,W = 4,8,3,32,32
 
     im_1 = torch.rand(B,T,C,H,W)
@@ -272,6 +346,31 @@ def tests():
     im_3[0,0,0,0,0]+=0.1
     wt_1 = torch.rand(B)
     wt_2 = torch.rand(B,T)
+
+    fsim_loss_f = FSIM_Loss()
+    fsim_1 = fsim_loss_f(im_1, im_1)
+    assert fsim_1==0
+
+    fsim_2 = fsim_loss_f(im_2, im_2)
+    assert fsim_2==0
+
+    fsim_3 = fsim_loss_f(im_1, im_2)
+    assert 0<=fsim_3<=1
+
+    fsim_4 = fsim_loss_f(im_2, im_1)
+    assert 0<=fsim_4<=1
+
+    assert fsim_3==fsim_4
+
+    f1 = fsim_loss_f(clean_a, clean_b)
+    assert 0<=f1<=1
+
+    f2 = fsim_loss_f(clean_a, noisy_a)
+    assert 0<=f2<=1
+
+    assert f2>f1
+
+    print("Passed fsim")    
 
     ssim_loss_f = SSIM_Loss()
 

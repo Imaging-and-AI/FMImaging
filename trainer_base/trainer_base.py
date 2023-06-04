@@ -69,7 +69,7 @@ class Trainer_Base(ABC):
 
     
     @abc.abstractmethod
-    def run_task_trainer(self, rank=-1, wandb_run=None):
+    def run_task_trainer(self, rank=-1, global_rank=-1, wandb_run=None):
         """
         Main training function
         @args:
@@ -181,7 +181,7 @@ class Trainer_Base(ABC):
         else:
             # if not sweep, use the inputted parameters
             # Config is a variable that holds and saves hyperparameters and inputs
-            if rank<=0:
+            if global_rank<=0:
                 wandb_run = wandb.init(project=self.config.project, 
                         entity=self.config.wandb_entity, 
                         config=self.config, 
@@ -218,9 +218,9 @@ class Trainer_Base(ABC):
         # -------------------------------------------------------
         # run the training for current rank and wandb run
         try: 
-            self.run_task_trainer(rank=rank, wandb_run=wandb_run)
+            self.run_task_trainer(rank=rank, global_rank=global_rank, wandb_run=wandb_run)
                                     
-            if rank<=0:
+            if wandb_run is not None:
                 wandb_run.finish()
                     
             print(f"{Fore.RED}---> Run finished on local rank {rank} <---{Style.RESET_ALL}", flush=True)

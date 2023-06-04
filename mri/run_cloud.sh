@@ -39,4 +39,7 @@ echo "node_rank: $node_rank"
 echo "python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node $nproc_per_node --nnodes $nnodes --node_rank $node_rank --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint $rdzv_endpoint:$port"
 
 WANDB_API_KEY=3420ade4920debef5eb73377a2bb8f600e26a2c8
+WANDB_MODE=offline
 python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node $nproc_per_node --nnodes $nnodes --node_rank $node_rank --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint $rdzv_endpoint:$port --tra_ratio $tra_ratio --max_load $max_load --val_ratio 2 --test_ratio 100
+WANDB_MODE=online
+cd $HOME/mrprogs/STCNNT.git/wandb && wandb sync --sync-all

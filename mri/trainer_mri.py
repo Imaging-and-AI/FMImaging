@@ -56,7 +56,7 @@ def create_log_str(config, epoch, rank, data_shape, loss, mse, l1, ssim, ssim3d,
         
     return str
 
-def trainer(rank, config, wandb_run):
+def trainer(rank, global_rank, config, wandb_run):
     """
     The trainer cycle. Allows training on cpu/single gpu/multiple gpu(ddp)
     @args:
@@ -73,49 +73,6 @@ def trainer(rank, config, wandb_run):
     start = time()
     train_set, val_set, test_set = load_mri_data(config=config)
     logging.info(f"load_mri_data took {time() - start} seconds ...")
-        
-    # data_file = Path(config.log_path + f"/{config.run_name}__train.pkl")
-    # if data_file.is_file():
-    #     print(f"--> find the stored train, val and test data file ... ")
-        
-    #     start = time()
-    #     with open(data_file, 'rb') as f:
-    #         train_set = pickle.load(f)
-    #     print(f"load train set took {time() - start} seconds ...")
-            
-    #     start = time()
-    #     data_file = Path(config.log_path + f"{config.run_name}__val.pkl")
-    #     with open(data_file, 'rb') as f:
-    #         val_set = pickle.load(f)        
-    #     print(f"load val set took {time() - start} seconds ...")
-            
-    #     start = time()
-    #     data_file = Path(config.log_path + f"{config.run_name}__test.pkl")
-    #     with open(data_file, 'rb') as f:
-    #         test_set = pickle.load(f)
-    #     print(f"load test set took {time() - start} seconds ...")
-    # else:
-    #     start = time()
-    #     train_set, val_set, test_set = load_mri_data(config=config)
-    #     print(f"load_mri_data took {time() - start} seconds ...")
-        
-    #     if rank <=0:
-    #         start = time()
-    #         with open(data_file, 'wb') as f:
-    #             pickle.dump(train_set, f)
-    #         print(f"pickle train set took {time() - start} seconds ...")
-                
-    #         start = time()
-    #         data_file = Path(config.log_path + f"{config.run_name}__val.pkl")
-    #         with open(data_file, 'wb') as f:
-    #             pickle.dump(val_set, f)
-    #         print(f"pickle val set took {time() - start} seconds ...")
-                    
-    #         start = time()
-    #         data_file = Path(config.log_path + f"{config.run_name}__test.pkl")
-    #         with open(data_file, 'wb') as f:
-    #             pickle.dump(test_set, f)
-    #         print(f"pickle test set took {time() - start} seconds ...")
     
     total_num_samples = sum([len(s) for s in train_set])
     
@@ -136,9 +93,10 @@ def trainer(rank, config, wandb_run):
         model_summary = model_info(model, config)
         logging.info(f"Configuration for this run:\n{config}")
         logging.info(f"Model Summary:\n{str(model_summary)}")
-        logging.info(f"Wandb name:\n{wandb_run.name}")
-                
-        wandb_run.watch(model)
+        
+        if wandb_run is not None:
+            logging.info(f"Wandb name:\n{wandb_run.name}")                
+            wandb_run.watch(model)
         
     # -----------------------------------------------
     
@@ -150,6 +108,7 @@ def trainer(rank, config, wandb_run):
         sched = model.module.sched
         stype = model.module.stype
         loss_f = model.module.loss_f
+        ssim_loss_f = model.module.ssim_loss_f
         curr_epoch = model.module.curr_epoch
         samplers = [DistributedSampler(train_set_x, shuffle=True) for train_set_x in train_set]
         shuffle = False        
@@ -161,14 +120,15 @@ def trainer(rank, config, wandb_run):
         sched = model.sched
         stype = model.stype
         loss_f = model.loss_f
+        ssim_loss_f = model.ssim_loss_f
         curr_epoch = model.curr_epoch
         samplers = [None for _ in train_set]
         shuffle = True
         
     if c.backbone == 'hrnet':
-        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, {c.backbone}, {c.a_type}, {c.cell_type}, optim {c.optim}, {c.norm_mode}, C {c.backbone_hrnet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_hrnet.block_str}, {'-'*20}{Style.RESET_ALL}")
+        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, snr perturb {c.snr_perturb_prob}, optim {c.optim}, {c.norm_mode}, C {c.backbone_hrnet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_hrnet.block_str}, {'-'*20}{Style.RESET_ALL}")
     elif c.backbone == 'unet':
-        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, {c.backbone}, {c.a_type}, {c.cell_type}, optim {c.optim}, {c.norm_mode}, C {c.backbone_unet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_unet.block_str}, {'-'*20}{Style.RESET_ALL}")
+        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, snr perturb {c.snr_perturb_prob}, optim {c.optim}, {c.norm_mode}, C {c.backbone_unet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_unet.block_str}, {'-'*20}{Style.RESET_ALL}")
         
     # -----------------------------------------------
     
@@ -181,40 +141,41 @@ def trainer(rank, config, wandb_run):
     if rank<=0: # main or master process
         if c.ddp: setup_logger(config) # setup master process logging
 
-        wandb_run.watch(model)
-        wandb_run.summary["trainable_params"] = c.trainable_params
-        wandb_run.summary["total_params"] = c.total_params
-        wandb_run.summary["total_mult_adds"] = c.total_mult_adds 
+        if wandb_run is not None:
+            wandb_run.watch(model)
+            wandb_run.summary["trainable_params"] = c.trainable_params
+            wandb_run.summary["total_params"] = c.total_params
+            wandb_run.summary["total_mult_adds"] = c.total_mult_adds 
 
-        wandb_run.define_metric("epoch")    
-        wandb_run.define_metric("train_loss_avg", step_metric='epoch')
-        wandb_run.define_metric("train_mse_loss", step_metric='epoch')
-        wandb_run.define_metric("train_l1_loss", step_metric='epoch')
-        wandb_run.define_metric("train_ssim_loss", step_metric='epoch')
-        wandb_run.define_metric("train_ssim3D_loss", step_metric='epoch')
-        wandb_run.define_metric("train_psnr", step_metric='epoch')
-        wandb_run.define_metric("val_loss_avg", step_metric='epoch')
-        wandb_run.define_metric("val_mse_loss", step_metric='epoch')
-        wandb_run.define_metric("val_l1_loss", step_metric='epoch')
-        wandb_run.define_metric("val_ssim_loss", step_metric='epoch')
-        wandb_run.define_metric("val_ssim3D_loss", step_metric='epoch')
-        wandb_run.define_metric("val_psnr", step_metric='epoch')                            
-        
-        # log a few training examples
-        for i, train_set_x in enumerate(train_set):            
-            ind = np.random.randint(0, len(train_set_x), 4)
-            x, y, gmaps_median, noise_sigmas = train_set_x[ind[0]]
-            x = np.expand_dims(x, axis=0)
-            y = np.expand_dims(y, axis=0)
-            for ii in range(1, len(ind)):                
-                a_x, a_y, gmaps_median, noise_sigmas = train_set_x[ind[ii]]
-                x = np.concatenate((x, np.expand_dims(a_x, axis=0)), axis=0)
-                y = np.concatenate((y, np.expand_dims(a_y, axis=0)), axis=0)
-                
-            title = f"Tra_samples_{i}_Noisy_Noisy_GT_{x.shape}"
-            vid = save_image_batch(c.complex_i, x, np.copy(x), y)
-            wandb_run.log({title:wandb.Video(vid, caption=f"Tra sample {i}", fps=1, format='gif')})
-            logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}")
+            wandb_run.define_metric("epoch")    
+            wandb_run.define_metric("train_loss_avg", step_metric='epoch')
+            wandb_run.define_metric("train_mse_loss", step_metric='epoch')
+            wandb_run.define_metric("train_l1_loss", step_metric='epoch')
+            wandb_run.define_metric("train_ssim_loss", step_metric='epoch')
+            wandb_run.define_metric("train_ssim3D_loss", step_metric='epoch')
+            wandb_run.define_metric("train_psnr", step_metric='epoch')
+            wandb_run.define_metric("val_loss_avg", step_metric='epoch')
+            wandb_run.define_metric("val_mse_loss", step_metric='epoch')
+            wandb_run.define_metric("val_l1_loss", step_metric='epoch')
+            wandb_run.define_metric("val_ssim_loss", step_metric='epoch')
+            wandb_run.define_metric("val_ssim3D_loss", step_metric='epoch')
+            wandb_run.define_metric("val_psnr", step_metric='epoch')                            
+            
+            # log a few training examples
+            for i, train_set_x in enumerate(train_set):            
+                ind = np.random.randint(0, len(train_set_x), 4)
+                x, y, gmaps_median, noise_sigmas = train_set_x[ind[0]]
+                x = np.expand_dims(x, axis=0)
+                y = np.expand_dims(y, axis=0)
+                for ii in range(1, len(ind)):                
+                    a_x, a_y, gmaps_median, noise_sigmas = train_set_x[ind[ii]]
+                    x = np.concatenate((x, np.expand_dims(a_x, axis=0)), axis=0)
+                    y = np.concatenate((y, np.expand_dims(a_y, axis=0)), axis=0)
+                    
+                title = f"Tra_samples_{i}_Noisy_Noisy_GT_{x.shape}"
+                vid = save_image_batch(c.complex_i, x, np.copy(x), y)
+                wandb_run.log({title:wandb.Video(vid, caption=f"Tra sample {i}", fps=1, format='gif')})
+                logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}")
                          
     # -----------------------------------------------
     # save best model to be saved at the end
@@ -248,7 +209,7 @@ def trainer(rank, config, wandb_run):
     # -----------------------------------------------
     
     for epoch in range(curr_epoch, c.num_epochs):
-        logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank} {'-'*20}{Style.RESET_ALL}")
+        logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank}, global rank {global_rank} {'-'*20}{Style.RESET_ALL}")
 
         train_loss.reset()
         train_mse_meter.reset()
@@ -289,7 +250,18 @@ def trainer(rank, config, wandb_run):
                         loss = loss_f(output, y, weights=weights.to(device))
                     else:
                         loss = loss_f(output, y)
+                            
+                    # if epoch <= 0.9*c.num_epochs:
+                    #     if c.weighted_loss:
+                    #         weights=noise_sigmas*gmaps_median                    
+                    #         loss = loss_f(output, y, weights=weights.to(device))
+                    #     else:
+                    #         loss = loss_f(output, y)
+                    # else:
+                    #     loss = ssim_loss_f(output, y)
                         
+                    #loss = ssim_loss_f(output, y)
+                    
                     loss = loss / c.iters_to_accumulate
                     
                 end_timer(enable=c.with_timer, t=tm, msg="---> forward pass took ")
@@ -346,7 +318,7 @@ def trainer(rank, config, wandb_run):
                 
                 pbar.set_description_str(log_str)                
 
-                if rank<=0:
+                if wandb_run is not None:
                     wandb_run.log({"running_train_loss": loss.item()})
                     wandb_run.log({"lr": curr_lr})
                 
@@ -377,7 +349,8 @@ def trainer(rank, config, wandb_run):
                 best_val_loss = val_losses[0]
                 best_model_wts = copy.deepcopy(model_e.state_dict())
                 model_e.save(epoch)
-                wandb_run.log({"epoch": epoch, "best_val_loss":best_val_loss})
+                if wandb_run is not None:
+                    wandb_run.log({"epoch": epoch, "best_val_loss":best_val_loss})
                 
             # silently log to only the file as well
             logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, tra, {x.shape}, {train_loss.avg:.4f}, "+
@@ -387,19 +360,20 @@ def trainer(rank, config, wandb_run):
                                                 f"{val_losses[1]:.4f}, {val_losses[2]:.4f}, {val_losses[3]:.4f}, "+
                                                 f"{val_losses[4]:.4f}, {val_losses[5]:.4f}, lr {curr_lr:.8f}")
         
-            wandb_run.log({"epoch": epoch,
-                        "train_loss_avg": train_loss.avg,
-                        "train_mse_loss": train_mse_meter.avg,
-                        "train_l1_loss": train_l1_meter.avg,
-                        "train_ssim_loss": train_ssim_meter.avg,
-                        "train_ssim3D_loss": train_ssim3D_meter.avg,
-                        "train_psnr": train_psnr_meter.avg,
-                        "val_loss_avg": val_losses[0],
-                        "val_mse_loss": val_losses[1],
-                        "val_l1_loss": val_losses[2],
-                        "val_ssim_loss": val_losses[3],
-                        "val_ssim3D_loss": val_losses[4],
-                        "val_psnr": val_losses[5],})
+            if wandb_run is not None:
+                wandb_run.log({"epoch": epoch,
+                            "train_loss_avg": train_loss.avg,
+                            "train_mse_loss": train_mse_meter.avg,
+                            "train_l1_loss": train_l1_meter.avg,
+                            "train_ssim_loss": train_ssim_meter.avg,
+                            "train_ssim3D_loss": train_ssim3D_meter.avg,
+                            "train_psnr": train_psnr_meter.avg,
+                            "val_loss_avg": val_losses[0],
+                            "val_mse_loss": val_losses[1],
+                            "val_l1_loss": val_losses[2],
+                            "val_ssim_loss": val_losses[3],
+                            "val_ssim3D_loss": val_losses[4],
+                            "val_psnr": val_losses[5],})
 
             if stype == "ReduceLROnPlateau":
                 sched.step(val_losses[0])
@@ -429,24 +403,25 @@ def trainer(rank, config, wandb_run):
     # test last model
     test_losses = eval_val(rank, model, config, test_set, epoch, device, wandb_run, id="test")
     if rank<=0:
-        wandb_run.summary["best_val_loss"] = best_val_loss
-        wandb_run.summary["last_val_loss"] = val_losses[0]
+        if wandb_run is not None:
+            wandb_run.summary["best_val_loss"] = best_val_loss
+            wandb_run.summary["last_val_loss"] = val_losses[0]
+            
+            wandb_run.summary["test_loss_last"] = test_losses[0]
+            wandb_run.summary["test_mse_last"] = test_losses[1]
+            wandb_run.summary["test_l1_last"] = test_losses[2]
+            wandb_run.summary["test_ssim_last"] = test_losses[3]
+            wandb_run.summary["test_ssim3D_last"] = test_losses[4]
+            wandb_run.summary["test_psnr_last"] = test_losses[5]
         
-        wandb_run.summary["test_loss_last"] = test_losses[0]
-        wandb_run.summary["test_mse_last"] = test_losses[1]
-        wandb_run.summary["test_l1_last"] = test_losses[2]
-        wandb_run.summary["test_ssim_last"] = test_losses[3]
-        wandb_run.summary["test_ssim3D_last"] = test_losses[4]
-        wandb_run.summary["test_psnr_last"] = test_losses[5]
-        
-        model = model.module if c.ddp else model
-        model.save(epoch)
-        
-        # save both models
-        fname_last, fname_best = save_final_model(model, config, best_model_wts)
+            model = model.module if c.ddp else model
+            model.save(epoch)
+            
+            # save both models
+            fname_last, fname_best = save_final_model(model, config, best_model_wts, only_pt=False)
 
-        logging.info(f"--> {Fore.YELLOW}Save last mode at {fname_last}{Style.RESET_ALL}")
-        logging.info(f"--> {Fore.YELLOW}Save best mode at {fname_best}{Style.RESET_ALL}")
+            logging.info(f"--> {Fore.YELLOW}Save last mode at {fname_last}{Style.RESET_ALL}")
+            logging.info(f"--> {Fore.YELLOW}Save best mode at {fname_best}{Style.RESET_ALL}")
         
     # test best model, reload the weights
     model = STCNNT_MRI(config=config, total_steps=total_steps)
@@ -458,64 +433,41 @@ def trainer(rank, config, wandb_run):
                 
     test_losses = eval_val(rank, model, config, test_set, epoch, device, wandb_run, id="test")
     if rank<=0:
-        wandb_run.summary["test_loss_best"] = test_losses[0]
-        wandb_run.summary["test_mse_best"] = test_losses[1]
-        wandb_run.summary["test_l1_best"] = test_losses[2]
-        wandb_run.summary["test_ssim_best"] = test_losses[3]
-        wandb_run.summary["test_ssim3D_best"] = test_losses[4]
-        wandb_run.summary["test_psnr_best"] = test_losses[5]
+        if wandb_run is not None:
+            wandb_run.summary["test_loss_best"] = test_losses[0]
+            wandb_run.summary["test_mse_best"] = test_losses[1]
+            wandb_run.summary["test_l1_best"] = test_losses[2]
+            wandb_run.summary["test_ssim_best"] = test_losses[3]
+            wandb_run.summary["test_ssim3D_best"] = test_losses[4]
+            wandb_run.summary["test_psnr_best"] = test_losses[5]
 
-        wandb_run.save(fname_last+'.pt')
-        wandb_run.save(fname_last+'.pts')
-        wandb_run.save(fname_last+'.onnx')
-        
-        wandb_run.save(fname_best+'.pt')
-        wandb_run.save(fname_best+'.pts')
-        wandb_run.save(fname_best+'.onnx')
-        
-        # test the best model, reloading the saved model
-        model_jit = load_model(model_dir=None, model_file=fname_best+'.pts')
-        model_onnx, _ = load_model_onnx(model_dir=None, model_file=fname_best+'.onnx', use_cpu=True)
-        
-        try:
-            # pick a random case
-            a_test_set = test_set[np.random.randint(0, len(test_set))]
-            x, y, gmaps_median, noise_sigmas = a_test_set[np.random.randint(0, len(a_test_set))]
-                
-            x = np.expand_dims(x, axis=0)
-            y = np.expand_dims(y, axis=0)
+            wandb_run.save(fname_last+'.pt')
+            #wandb_run.save(fname_last+'.pts')
+            #wandb_run.save(fname_last+'.onnx')
             
-            x_t = torch.from_numpy(x).to(device=device)    
-            y_t = torch.from_numpy(y).to(device=device)
-            
-            B, T, C, H, W = x_t.shape
-            
-            model = model.module if c.ddp else model
-            model.to(device=device)
-            model.eval()
-            
-            cutout_in = (c.time, c.height[-1], c.width[-1])
-            overlap_in = (c.time//2, c.height[-1]//2, c.width[-1]//2)
-            
-            tm = start_timer()    
-            _, y_model = running_inference(model, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
-            end_timer(t=tm, msg="torch model took")
+            wandb_run.save(fname_best+'.pt')
+            #wandb_run.save(fname_best+'.pts')
+            #wandb_run.save(fname_best+'.onnx')
                             
-            tm = start_timer()
-            y_model_jit = running_inference(model_jit, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
-            end_timer(t=tm, msg="torch script model took")
-                
-            tm = start_timer()        
-            y_model_onnx = running_inference(model_onnx, x_t, cutout=cutout_in, overlap=overlap_in, device=device)
-            end_timer(t=tm, msg="onnx model took")
-            
-            d1 = np.linalg.norm(y_model-y_model_jit) / np.linalg.norm(y_model)
-            logging.info(f"--> {Fore.GREEN}Jit model difference is {d1} ... {Style.RESET_ALL}")
-            
-            d2 = np.linalg.norm(y_model-y_model_onnx[0]) / np.linalg.norm(y_model)
-            logging.info(f"--> {Fore.GREEN}Onnx model difference is {d2} ... {Style.RESET_ALL}")
-        except:
-            print(f"--> ignore the extra tests ...")
+            try:
+                # test the best model, reloading the saved model
+                model_jit = load_model(model_dir=None, model_file=fname_best+'.pts')
+                model_onnx, _ = load_model_onnx(model_dir=None, model_file=fname_best+'.onnx', use_cpu=True)
+
+                # pick a random case
+                a_test_set = test_set[np.random.randint(0, len(test_set))]
+                x, y, gmaps_median, noise_sigmas = a_test_set[np.random.randint(0, len(a_test_set))]
+                    
+                x = np.expand_dims(x, axis=0)
+                y = np.expand_dims(y, axis=0)
+
+                compare_model(config=config, model=model, model_jit=model_jit, model_onnx=model_onnx, device=device, x=x)
+            except:
+                print(f"--> ignore the extra tests ...")
+    
+    if c.ddp:
+        dist.barrier()
+    print(f"--> run finished ...")
             
 # -------------------------------------------------------------------------------------------------
 # evaluate the val set
@@ -637,7 +589,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                         xy = repatch([x,output,y], og_shape, pt_shape)
                         x, output, y = xy[0], xy[1], xy[2]
 
-                if rank<=0 and images_logged < config.num_uploaded:
+                if rank<=0 and images_logged < config.num_uploaded and wandb_run is not None:
                     images_logged += 1
                     title = f"{id.upper()}_rank_{rank}_image_{idx}_Noisy_Pred_GT_{x.shape}"
                     vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
@@ -731,3 +683,137 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
         logging.info(log_str)
     
     return val_loss, val_mse, val_l1, val_ssim, val_ssim3D, val_psnr
+
+# -------------------------------------------------------------------------------------------------
+
+def apply_model(data, model, gmap, config, scaling_factor):
+    '''
+    Input 
+        data : [RO E1 N SLC], remove any extra scaling
+        gmap : [RO E1 SLC], no scaling added
+        scaling_factor : scaling factor to adjust denoising strength, smaller value is for higher strength (0.5 is more smoothing than 1.0)
+    '''
+
+    t0 = time()
+
+    device = get_device()
+
+    if(data.ndim==2):
+        data = data[:,:,np.newaxis,np.newaxis]
+
+    if(data.ndim<4):
+        data = np.expand_dims(data, axis=3)
+
+    RO, E1, PHS, SLC = data.shape
+
+    if(gmap.ndim==2):
+        gmap = np.expand_dims(gmap, axis=2)
+
+    if(gmap.shape[0]!=RO or gmap.shape[1]!=E1 or gmap.shape[2]!=SLC):
+        gmap = np.ones(RO, E1, SLC)
+
+    print(f"---> apply_model, preparation took {time()-t0} seconds ")
+    print(f"---> apply_model, input array {data.shape}")
+    print(f"---> apply_model, gmap array {gmap.shape}")
+    print(f"---> apply_model, pad_time {config.pad_time}")
+    print(f"---> apply_model, height and width {config.height, config.width}")
+    print(f"---> apply_model, complex_i {config.complex_i}")
+    print(f"---> apply_model, scaling_factor {scaling_factor}")
+    
+    c = config
+    
+    try:
+        for k in range(SLC):
+            imgslab = data[:,:,:,k]
+            gmapslab = gmap[:,:,k]
+            
+            H, W, T = imgslab.shape
+            
+            x = np.transpose(imgslab, [2, 0, 1]).reshape([1, T, 1, H, W])
+            g = np.repeat(gmapslab[np.newaxis, np.newaxis, np.newaxis, :, :], T, axis=1)
+            
+            x *= scaling_factor
+            
+            if config.complex_i:
+                input = np.concatenate((x.real, x.imag, g), axis=2)
+            else:
+                input = np.concatenate((np.abs(x.real + 1j*x.imag), g), axis=2)
+            
+            if not c.pad_time:
+                cutout = (T, c.height[-1], c.width[-1])
+                overlap = (0, c.height[-1]//2, c.width[-1]//2)
+            else:
+                cutout = (c.time, c.height[-1], c.width[-1])
+                overlap = (c.time//2, c.height[-1]//4, c.width[-1]//4)
+
+            try:
+                _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device=device)
+            except:
+                print(f"{Fore.YELLOW}---> call inference on cpu ...")
+                _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device="cpu")
+            
+            output /= scaling_factor   
+                
+            if isinstance(output, torch.Tensor):
+                output = output.cpu().numpy()
+
+            output = np.transpose(output, (3, 4, 2, 1, 0)).squeeze()
+            
+            if(k==0):
+                data_filtered = np.zeros((output.shape[0], output.shape[1], PHS, SLC), dtype=data.dtype)
+            
+            if config.complex_i:
+                data_filtered[:,:,:,k] = output[:,:,0,:] + 1j*output[:,:,1,:]
+            else:
+                data_filtered[:,:,:,k] = output
+
+        t1 = time()
+        print(f"---> apply_model took {t1-t0} seconds ")
+
+    except Exception as e:
+        print(e)
+        data_filtered = copy.deepcopy(data)
+
+    return data_filtered
+
+# -------------------------------------------------------------------------------------------------
+
+def compare_model(config, model, model_jit, model_onnx, device='cpu', x=None):
+    """
+    Compare onnx, pts and pt models
+    """
+    c = config
+
+    C = 3 if config.complex_i else 2
+
+    if x is None:
+        x = np.random.randn(1, 12, C, 128, 128).astype(np.float32)
+
+    B, T, C, H, W = x.shape
+    
+    model.to(device=device)
+    model.eval()
+    
+    cutout_in = (c.time, c.height[-1], c.width[-1])
+    overlap_in = (c.time//2, c.height[-1]//2, c.width[-1]//2)
+    
+    tm = start_timer(enable=True)    
+    y, y_model = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device=device)
+    end_timer(enable=True, t=tm, msg="torch model took")
+                            
+    tm = start_timer(enable=True)        
+    y_onnx, y_model_onnx = running_inference(model_onnx, x, cutout=cutout_in, overlap=overlap_in, device=device)
+    end_timer(enable=True, t=tm, msg="onnx model took")
+
+    diff = np.linalg.norm(y-y_onnx)
+    print(f"--> {Fore.GREEN}Onnx model difference is {diff} ... {Style.RESET_ALL}", flush=True)
+
+    tm = start_timer(enable=True)
+    y_jit, y_model_jit = running_inference(model_jit, x, cutout=cutout_in, overlap=overlap_in, device=device)
+    end_timer(enable=True, t=tm, msg="torch script model took")
+
+    diff = np.linalg.norm(y-y_jit)
+    print(f"--> {Fore.GREEN}Jit model difference is {diff} ... {Style.RESET_ALL}", flush=True)
+
+    diff = np.linalg.norm(y_onnx-y_jit)
+    print(f"--> {Fore.GREEN}Jit - onnx model difference is {diff} ... {Style.RESET_ALL}", flush=True)

@@ -157,7 +157,7 @@ class STCNNT_Task_Base(nn.Module, ABC):
             self.stype = "StepLR"
         elif c.scheduler_type == "OneCycleLR":
             self.sched = optim.lr_scheduler.OneCycleLR(self.optim, max_lr=c.global_lr, total_steps=total_steps,
-                                                            pct_start=0.3, anneal_strategy="cos", verbose=False)
+                                                            pct_start=0.2, anneal_strategy="cos", verbose=False)
             self.stype = "OneCycleLR"
         else:
             raise NotImplementedError(f"Scheduler not implemented: {c.scheduler_type}")

@@ -121,6 +121,8 @@ class SSIM(torch.nn.Module):
             self.window = window
             self.channel = channel
 
+        self.window = self.window.to(device=img1.device, dtype=img1.dtype)
+
         return _ssim(img1, img2, window, self.window_size, channel, self.size_average)
 
 class SSIM3D(torch.nn.Module):
@@ -158,6 +160,7 @@ class SSIM3D(torch.nn.Module):
             self.window = window
             self.channel = channel
 
+        self.window = self.window.to(device=img1.device, dtype=img1.dtype)
         return _ssim_3D(img1, img2, window, self.window_size, channel, self.size_average)
 
 # -------------------------------------------------------------------------------------------------

@@ -50,7 +50,7 @@ def generate_model_file_name(config):
 # -------------------------------------------------------------------------------------------------
 # function to save generic model
 
-def save_final_model(model, config, best_model_wts):
+def save_final_model(model, config, best_model_wts, only_pt=False):
     """
     save the model as ".pt+.json" and ".pts", and save again after loading the best_model_wts
     @args:
@@ -76,44 +76,48 @@ def save_final_model(model, config, best_model_wts):
     model_file_name = os.path.join(c.model_path, generate_model_file_name(config))
 
     # -----------------------------------------------
-    def save_model_instance(model, name):
+    def save_model_instance(model, name, only_pt=False):
         # save an instance of the model using the given name
         logging.info(f"Saving model weights and config at: {name}.pt")
         torch.save({"model":model.state_dict(), "config":config}, f"{name}.pt")
 
-        logging.info(f"Saving torchscript model at: {name}.pts")
-        model_scripted = torch.jit.trace(model, model_input, strict=False)
-        model_scripted.save(f"{name}.pts")
+        if not only_pt:
+            logging.info(f"Saving torchscript model at: {name}.pts")
+            model_scripted = torch.jit.trace(model, model_input, strict=False)
+            model_scripted.save(f"{name}.pts")
 
         with open(f"{name}.config", 'wb') as fid:
             pickle.dump(config, fid)
 
-        torch.onnx.export(model, model_input, f"{name}.onnx", 
-                            export_params=True, 
-                            opset_version=16, 
-                            training =torch.onnx.TrainingMode.TRAINING,
-                            do_constant_folding=False,
-                            input_names = ['input'], 
-                            output_names = ['output'], 
-                            dynamic_axes={'input' : {0:'batch_size', 1: 'time', 3: 'H', 4: 'W'}, 
-                                            'input' : {0:'batch_size', 1: 'time', 3: 'H', 4: 'W'}
-                                            }
-                            )
+        if not only_pt:
+            torch.onnx.export(model, model_input, f"{name}.onnx", 
+                                export_params=True, 
+                                opset_version=16, 
+                                operator_export_type=torch.onnx.OperatorExportTypes.ONNX_ATEN_FALLBACK,
+                                training =torch.onnx.TrainingMode.EVAL,
+                                do_constant_folding=True,
+                                keep_initializers_as_inputs=True,
+                                input_names = ['input'], 
+                                output_names = ['output'], 
+                                dynamic_axes={'input' : {0:'batch_size', 1: 'time', 3: 'H', 4: 'W'}, 
+                                                'input' : {0:'batch_size', 1: 'time', 3: 'H', 4: 'W'}
+                                                }
+                                )
 
     # -----------------------------------------------
     last_model_name = f"{model_file_name}_last"
-    save_model_instance(model, name=last_model_name)
+    save_model_instance(model, name=last_model_name, only_pt=only_pt)
     
     best_model_name = f"{model_file_name}_best"
     model.load_state_dict(best_model_wts)
-    save_model_instance(model, name=best_model_name)
+    save_model_instance(model, name=best_model_name, only_pt=only_pt)
 
     logging.info(f"All saving complete")
 
     return last_model_name, best_model_name
 
 # -------------------------------------------------------------------------------------------------
-def load_model(model_dir, model_file):
+def load_model(model_dir, model_file, map_location='cpu'):
     '''
     model_name: NN model
     '''
@@ -126,7 +130,7 @@ def load_model(model_dir, model_file):
     try:
         print("---> Load model  ", model_file_name, file=sys.stderr)
         t0 = time()
-        model = torch.jit.load(model_file_name)
+        model = torch.jit.load(model_file_name, map_location=map_location)
         t1 = time()
         print("---> Model loading took %f seconds " % (t1-t0), file=sys.stderr)
 
@@ -197,7 +201,14 @@ def load_model_onnx(model_dir, model_file, use_cpu=False):
             m = ort.InferenceSession(model_full_file, providers=providers)
             logger.info("model is loaded into the onnx GPU ...")
         else:
-            m = ort.InferenceSession(model_full_file, providers=['CPUExecutionProvider'])
+
+            sess_options = ort.SessionOptions()
+            sess_options.intra_op_num_threads = os.cpu_count() // 2
+            sess_options.inter_op_num_threads = os.cpu_count() // 2
+            sess_options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
+            sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+
+            m = ort.InferenceSession(model_full_file, sess_options=sess_options, providers=['CPUExecutionProvider'])
             logger.info("model is loaded into the onnx CPU ...")
         t1 = time()
         logger.info("Model loading took %f seconds " % (t1-t0))

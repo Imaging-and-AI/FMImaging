@@ -163,7 +163,7 @@ def set_up_config_for_sweep(wandb_config, config):
 
 # trainer
 
-def trainer(rank, config, wandb_run):
+def trainer(rank, global_rank, config, wandb_run):
     """
     The trainer cycle. Allows training on cpu/single gpu/multiple gpu(ddp)
     @args:
@@ -207,7 +207,7 @@ def trainer(rank, config, wandb_run):
         sampler = DistributedSampler(train_set)
         shuffle = False
         
-        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, {c.backbone}, C {c.backbone_hrnet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_hrnet.block_str}, {'-'*20}{Style.RESET_ALL}")
+        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, global rank {global_rank}, {c.backbone}, C {c.backbone_hrnet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_hrnet.block_str}, {'-'*20}{Style.RESET_ALL}")
     else:
         # No init required if not ddp
         device = c.device

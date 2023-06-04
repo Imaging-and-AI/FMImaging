@@ -114,7 +114,55 @@ python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/mrprogs/gadgetron_CMR
 python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/Share/data/FreeMax/SCMR/2022-08-23-HV-cardiac-SNR-DL/meas_MID00055_FID06126_MID_SAX_CINE_IPAT4_256Res_36ref/numpy --output_dir /export/Lab-Xue/projects/mri/test/results/2022-08-23-HV-cardiac-SNR-DL --scaling_factor 1.0 --im_scaling 1.0 --gmap_scaling 1.0 --saved_model_path /export/Lab-Xue/projects/mri/test/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-1-BLOCK_STR-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_complex_residual_20-37-44-20230529_best.pt
 
 
-python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/mrprogs/gadgetron_CMR_ML-source/ut/data/denoising/snr_gmap_denoising/RT_Cine_R6/RT_Cine_LIN_42110_237143644_237143653_178_20220216-113149 --output_dir /export/Lab-Xue/projects/mri/test/results/RT_Cine_LIN_42110_237143644_237143653_178_20220216-113149 --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --saved_model_path /export/Lab-Xue/projects/mri/test/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-1-BLOCK_STR-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_complex_residual_20-37-44-20230529_best.pt
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/mrprogs/gadgetron_CMR_ML-source/ut/data/denoising/snr_gmap_denoising/RT_Cine_R6/RT_Cine_LIN_42110_237143644_237143653_178_20220216-113149 --output_dir /export/Lab-Xue/projects/mri/test/results/RT_Cine_LIN_42110_237143644_237143653_178_20220216-113149 --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --saved_model_path /export/Lab-Xue/projects/mri/test/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-1-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1-20230529_230547_complex_residual_23-06-13-20230529_best.pt
 
-python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/mrprogs/gadgetron_CMR_ML-source/ut/data/denoising/snr_gmap_denoising/Perfusion_AIF_2E_NL_Cloud_66097_9478344_9478349_482_20181023-122206 --output_dir /export/Lab-Xue/projects/mri/test/results/Perfusion_AIF_2E_NL_Cloud_66097_9478344_9478349_482_20181023-122206 --scaling_factor 1.0 --im_scaling 1.0 --gmap_scaling 1.0 --saved_model_path /export/Lab-Xue/projects/mri/test/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-1-BLOCK_STR-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_complex_residual_20-37-44-20230529_best.pt
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/mrprogs/gadgetron_CMR_ML-source/ut/data/denoising/snr_gmap_denoising/Perfusion_AIF_2E_NL_Cloud_66097_9478344_9478349_482_20181023-122206 --output_dir /export/Lab-Xue/projects/mri/test/results/Perfusion_AIF_2E_NL_Cloud_66097_9478344_9478349_482_20181023-122206 --scaling_factor 1.0 --im_scaling 1.0 --gmap_scaling 1.0 --saved_model_path /export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-1-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1-20230531_001857_complex_residual_00-19-29-20230531_best.pt
+
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/mrprogs/gadgetron_CMR_ML-source/ut/data/denoising/snr_gmap_denoising/RT_Cine_R6/RT_Cine_LIN_42110_237143644_237143653_178_20220216-113149 --output_dir /export/Lab-Xue/projects/mri/test/results/RT_Cine_LIN_42110_237143644_237143653_178_20220216-113149 --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --saved_model_path /export/Lab-Xue/projects/mri/test/mag_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-1-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1-20230530_021440_residual_08-52-03-20230530_best.pt
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/mrprogs/gadgetron_CMR_ML-source/ut/data/denoising/snr_gmap_denoising/Perfusion_AIF_2E_NL_Cloud_66097_9478344_9478349_482_20181023-122206 --output_dir /export/Lab-Xue/projects/mri/test/results/Perfusion_AIF_2E_NL_Cloud_66097_9478344_9478349_482_20181023-122206 --scaling_factor 1.0 --im_scaling 1.0 --gmap_scaling 1.0 --saved_model_path /export/Lab-Xue/projects/mri/test/mag_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-1-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1-20230530_021440_residual_08-52-03-20230530_best.pt
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/Share/data/FreeMax/SCMR/2022-08-23-HV-cardiac-SNR-DL/meas_MID00055_FID06126_MID_SAX_CINE_IPAT4_256Res_36ref/numpy --output_dir /export/Lab-Xue/projects/mri/test/results/2022-08-23-HV-cardiac-SNR-DL --scaling_factor 1.0 --im_scaling 1.0 --gmap_scaling 1.0 --saved_model_path /export/Lab-Xue/projects/mri/test/mag_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-1-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1-20230530_021440_residual_08-52-03-20230530_best.pt
 ```
+
+```
+model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-False-1-BLOCK_DENSE-0-QKNORM-True-CONSINE_ATT-0-shuffle_in_window-0-att_with_relative_postion_bias-1-BLOCK_STR-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1.pt
+
+model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-1-T1L1G1_T1L1G1_T1L1G1_T1L1G1-20230601_010244_complex_residual_01-02-49-20230601_best.pt
+
+model=/export/Lab-Xue/projects/mri/test/mag_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-1-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1-20230531_030804_residual_08-20-49-20230531_best.pt
+
+model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-batch2d-sophia-C-16-MIXER-conv-1-T1L1G1_T1L1G1_T1L1G1_T1L1G1-20230601_141534_residual_15-44-12-20230601_best.pt
+
+# small model picked
+model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-1-T1L1G1_T1L1G1_T1L1G1_T1L1G1-20230531_175035_complex_residual_13-50-40-20230531_best.pt
+# large model picked
+model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-1-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1-20230531_030804_complex_residual_03-08-11-20230531_best.pt
+# fast model
+model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-batch2d-sophia-C-16-MIXER-conv-1-T1L1G1_T1L1G1_T1L1G1_T1L1G1-20230601_141534_complex_residual_14-15-40-20230601_best.pt
+
+model=/export/Lab-Xue/projects/mri/test/complex_model/mri-UNET-conv-parallel-instance2d-sophia-C-16-MIXER-conv-1-T1T1T1_T1T1T1_T1T1T1_T1T1T1-20230601_141534_complex_residual_09-49-23-20230602_best.pt
+
+model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-1-T1L1G1_T1L1G1_T1L1G1_T1L1G1-20230531_175035_complex_residual_13-50-40-20230531_best.onnx
+
+# hybrid loss
+model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-1-T1L1G1_T1L1G1_T1L1G1_T1L1G1-20230603_012008_complex_residual_21-20-11-20230602_best.pt
+
+model=/export/Lab-Xue/projects/mri/test/complex_model/mri-UNET-conv-parallel-batch2d-sophia-C-16-MIXER-conv-1-T1T1T1_T1T1T1_T1T1T1_T1T1T1-20230601_141534_complex_residual_weighted_loss_07-48-30-20230602_best
+
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/Share/data/FreeMax/SCMR/2022-08-23-HV-cardiac-SNR-DL/meas_MID00055_FID06126_MID_SAX_CINE_IPAT4_256Res_36ref/numpy --output_dir /export/Lab-Xue/projects/mri/test/results/2022-08-23-HV-cardiac-SNR-DL --scaling_factor 2.0 --im_scaling 1.0 --gmap_scaling 1.0 --saved_model_path $model
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/mrprogs/gadgetron_CMR_ML-source/ut/data/denoising/snr_gmap_denoising/RT_Cine_R6/RT_Cine_LIN_42110_237143644_237143653_178_20220216-113149 --output_dir /export/Lab-Xue/projects/mri/test/results/RT_Cine_LIN_42110_237143644_237143653_178_20220216-113149 --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --saved_model_path $model
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/mrprogs/gadgetron_CMR_ML-source/ut/data/denoising/snr_gmap_denoising/Perfusion_AIF_2E_NL_Cloud_66097_9478344_9478349_482_20181023-122206 --output_dir /export/Lab-Xue/projects/mri/test/results/Perfusion_AIF_2E_NL_Cloud_66097_9478344_9478349_482_20181023-122206 --scaling_factor 1.0 --im_scaling 1.0 --gmap_scaling 1.0 --saved_model_path $model
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/mrprogs/gadgetron_CMR_ML-source/ut/data/denoising/snr_gmap_denoising/Perfusion_AIF_TwoEchoes_Interleaved_R2_42110_7065950_7065959_2582_20210120-123912 --output_dir /export/Lab-Xue/projects/mri/test/results/Perfusion_AIF_TwoEchoes_Interleaved_R2_42110_7065950_7065959_2582_20210120-123912 --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --saved_model_path $model
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/mrprogs/gadgetron_CMR_ML-source/ut/data/denoising/snr_gmap_denoising/WB_LGE_MOCO_AVE_OnTheFly_42110_7066558_7066567_3672_20210125-140041 --output_dir /export/Lab-Xue/projects/mri/test/results/WB_LGE_MOCO_AVE_OnTheFly_42110_7066558_7066567_3672_20210125-140041 --scaling_factor 1.0 --im_scaling 1.0 --gmap_scaling 1.0 --saved_model_path $model
+
+```
+
+python3 ./mri/save_pt_as_onnx.py --input /export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-1-T
+1L1G1_T1L1G1_T1L1G1_T1L1G1-20230531_175035_complex_residual_13-50-40-20230531_best.pt

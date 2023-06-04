@@ -29,14 +29,12 @@ class mri_ddp_base(run_ddp_base):
         self.cmd.extend([       
        
         "--num_epochs", "30",
-        "--batch_size", "32",
+        "--batch_size", "16",
 
         "--window_size", "8", "8",
         "--patch_size", "2", "2",
 
-        "--n_head", "32",
-
-        "--global_lr", "1e-4",
+        "--global_lr", "0.0001",
 
         "--clip_grad_norm", "1.0",
         "--weight_decay", "0.1",
@@ -49,14 +47,18 @@ class mri_ddp_base(run_ddp_base):
         "--prefetch_factor", "4",
         
         "--scheduler_type", "ReduceLROnPlateau",
+        
         "--scheduler.ReduceLROnPlateau.patience", "0",
         "--scheduler.ReduceLROnPlateau.cooldown", "0",
+        "--scheduler.ReduceLROnPlateau.factor", "0.9",
+        
+        "--scheduler.OneCycleLR.pct_start", "0.2",
         
         # hrnet
         "--backbone_hrnet.num_resolution_levels", "2",
         
         # unet            
-        "--backbone_unet.num_resolution_levels", "3",
+        "--backbone_unet.num_resolution_levels", "2",
         
         # LLMs
         "--backbone_LLM.num_stages", "3",
@@ -74,8 +76,8 @@ class mri_ddp_base(run_ddp_base):
         "--height", "32", "64",
         "--width", "32", "64",
         "--time", "12",
-        "--num_uploaded", "16",
-        "--snr_perturb_prob", "0.25",
+        "--num_uploaded", "12",
+        #"--snr_perturb_prob", "0.25",
         "--snr_perturb", "0.15",
         #"--weighted_loss",
         #"--max_load", "10000",
@@ -83,8 +85,8 @@ class mri_ddp_base(run_ddp_base):
         "--train_files", "train_3D_3T_retro_cine_2018.h5", "train_3D_3T_perf_2021.h5",# "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5",
         "--train_data_types", "2dt", "2dt",# "2dt", "2dt",
         
-        "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", "train_3D_3T_retro_cine_2020_small_2DT_test.h5", "train_3D_3T_retro_cine_2020_small_2D_test.h5", #"train_3D_3T_retro_cine_2020_500_test.h5",
-        "--test_data_types", "2dt", "2dt", "2dt"#, "2dt"
+        "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", "train_3D_3T_retro_cine_2020_small_2DT_test.h5", "train_3D_3T_retro_cine_2020_small_2D_test.h5", "train_3D_3T_retro_cine_2020_500_test.h5",
+        "--test_data_types", "2dt", "2dt", "2dt", "2dt" 
         ])
         
         if config.tra_ratio > 0 and config.tra_ratio<=100:
@@ -98,34 +100,44 @@ class mri_ddp_base(run_ddp_base):
                 
         vars['optim'] = ['sophia']
         
-        vars['backbone'] = ['hrnet']
-        vars['cell_types'] = ["parallel", "sequential"]
+        vars['backbone'] = ['hrnet', 'unet']
+        vars['cell_types'] = ["parallel"]
         vars['Q_K_norm'] = [True]
-        vars['cosine_atts'] = ["0"]
-        vars['att_with_relative_postion_biases'] = ["1"]
-        vars['a_types'] = ["conv"]
+        vars['cosine_atts'] = ["1"]
+        vars['att_with_relative_postion_biases'] = ["0"]
+        vars['a_types'] = ["conv", "lin"]
 
         vars['larger_mixer_kernels'] = [False]
-        vars['mixer_types'] = ["conv"]
+        vars['mixer_types'] = ["conv", "lin"]
         vars['shuffle_in_windows'] = ["0"]
-        vars['block_dense_connections'] = ["0"]
-        vars['norm_modes'] = ["batch2d", "instance2d"]
-        vars['C'] = [32, 64]
+        vars['block_dense_connections'] = ["0", "1"]
+        vars['norm_modes'] = ["batch2d"]
+        vars['C'] = [32, 16, 64]
         vars['scale_ratio_in_mixers'] = [1.0, 4.0]
+
+        vars['snr_perturb_prob'] = [0.0]
 
         vars['block_strs'] = [
                         [                             
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],                            
-                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
-                            ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
                             ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
-                            ["T1T1T1T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1"]
+                            ["T1V1T1", "V1T1T1", "T1V1T1", "V1T1T1"],
+                            ["T1T1T1", "T1T1T1", "T1L1G1", "T1T1T1"],
+                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"]
+                         ],
+                        
+                        [                             
+                            ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
+                            ["T1V1T1", "V1T1T1", "T1V1T1", "V1T1T1"],
+                            ["T1T1T1", "T1T1T1", "T1L1G1", "T1T1T1"],
+                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"]
                          ]
                     ]
 
-        vars['complex_i'] = [True, False]
-        vars['residual'] = [True, False]
-        vars['weighted_loss'] = [False, True]
+        vars['complex_i'] = [True]
+        vars['residual'] = [True ]
+        vars['weighted_loss'] = [False]
+
+        vars['n_heads'] = [16, 32]
         
         return vars
 
@@ -136,67 +148,77 @@ class mri_ddp_base(run_ddp_base):
         for k, bk in enumerate(vars['backbone']):    
                 block_str = vars['block_strs'][k]
                 
-                for optim in vars['optim']:
-                    for bs in block_str:
-                        for scale_ratio_in_mixer, \
-                            mixer_type, \
-                            shuffle_in_window, \
-                            larger_mixer_kernel, \
-                            norm_mode, \
-                            block_dense_connection, \
-                            c, \
-                            att_with_relative_postion_bias, \
-                            cosine_att, \
-                            q_k_norm, \
-                            a_type, \
-                            cell_type,\
-                            complex_i,\
-                            residual, \
-                            weighted_loss \
-                                in itertools.product(vars['scale_ratio_in_mixers'], 
-                                                    vars['mixer_types'], 
-                                                    vars['shuffle_in_windows'], 
-                                                    vars['larger_mixer_kernels'],
-                                                    vars['norm_modes'],
-                                                    vars['block_dense_connections'],
-                                                    vars['C'],
-                                                    vars['att_with_relative_postion_biases'],
-                                                    vars['cosine_atts'],
-                                                    vars['Q_K_norm'],
-                                                    vars['a_types'], 
-                                                    vars['cell_types'],
-                                                    vars['complex_i'],
-                                                    vars['residual'],
-                                                    vars['weighted_loss']
-                                                    ):
-                                                                                                
-                                # -------------------------------------------------------------
-                                cmd_run = self.create_cmd_run(cmd_run=self.cmd.copy(), 
-                                                config=config,
-                                                optim=optim,
-                                                bk=bk, 
-                                                a_type=a_type, 
-                                                cell_type=cell_type,
-                                                norm_mode=norm_mode, 
-                                                block_dense_connection=block_dense_connection,
-                                                c=c,
-                                                q_k_norm=q_k_norm, 
-                                                cosine_att=cosine_att, 
-                                                att_with_relative_postion_bias=att_with_relative_postion_bias, 
-                                                bs=bs,
-                                                larger_mixer_kernel=larger_mixer_kernel,
-                                                mixer_type=mixer_type,
-                                                shuffle_in_window=shuffle_in_window,
-                                                scale_ratio_in_mixer=scale_ratio_in_mixer,
-                                                load_path=config.load_path,
-                                                complex_i=complex_i,
-                                                residual=residual,
-                                                weighted_loss=weighted_loss)
-                                
-                                print("---" * 20)
-                                print(cmd_run)
-                                print("---" * 20)
-                                cmd_runs.append(cmd_run)
+                for bs, \
+                    optim, \
+                    scale_ratio_in_mixer, \
+                    mixer_type, \
+                    shuffle_in_window, \
+                    larger_mixer_kernel, \
+                    norm_mode, \
+                    block_dense_connection, \
+                    c, \
+                    att_with_relative_postion_bias, \
+                    cosine_att, \
+                    q_k_norm, \
+                    a_type, \
+                    cell_type,\
+                    complex_i,\
+                    residual, \
+                    weighted_loss, \
+                    snr_perturb_prob, \
+                    n_heads \
+                        in itertools.product(block_str, 
+                                            vars['optim'],
+                                            vars['scale_ratio_in_mixers'], 
+                                            vars['mixer_types'], 
+                                            vars['shuffle_in_windows'], 
+                                            vars['larger_mixer_kernels'],
+                                            vars['norm_modes'],
+                                            vars['block_dense_connections'],
+                                            vars['C'],
+                                            vars['att_with_relative_postion_biases'],
+                                            vars['cosine_atts'],
+                                            vars['Q_K_norm'],
+                                            vars['a_types'], 
+                                            vars['cell_types'],
+                                            vars['complex_i'],
+                                            vars['residual'],
+                                            vars['weighted_loss'],
+                                            vars['snr_perturb_prob'],
+                                            vars['n_heads']
+                                            ):
+                                                                                        
+                        # -------------------------------------------------------------
+                        cmd_run = self.create_cmd_run(cmd_run=self.cmd.copy(), 
+                                        config=config,
+                                        optim=optim,
+                                        bk=bk, 
+                                        a_type=a_type, 
+                                        cell_type=cell_type,
+                                        norm_mode=norm_mode, 
+                                        block_dense_connection=block_dense_connection,
+                                        c=c,
+                                        q_k_norm=q_k_norm, 
+                                        cosine_att=cosine_att, 
+                                        att_with_relative_postion_bias=att_with_relative_postion_bias, 
+                                        bs=bs,
+                                        larger_mixer_kernel=larger_mixer_kernel,
+                                        mixer_type=mixer_type,
+                                        shuffle_in_window=shuffle_in_window,
+                                        scale_ratio_in_mixer=scale_ratio_in_mixer,
+                                        load_path=config.load_path,
+                                        complex_i=complex_i,
+                                        residual=residual,
+                                        weighted_loss=weighted_loss,
+                                        snr_perturb_prob=snr_perturb_prob,
+                                        n_heads=n_heads
+                                        )
+                        
+                        if cmd_run:
+                            print("---" * 20)
+                            print(cmd_run)
+                            print("---" * 20)
+                            cmd_runs.append(cmd_run)
         return cmd_runs
     
     def create_cmd_run(self, cmd_run, config, 
@@ -218,9 +240,14 @@ class mri_ddp_base(run_ddp_base):
                         load_path=None,
                         complex_i=True,
                         residual=True,
-                        weighted_loss=True
+                        weighted_loss=True,
+                        snr_perturb_prob=0,
+                        n_heads=32
                         ):
-        
+
+        if c < n_heads:
+             return None
+
         cmd_run = super().create_cmd_run(cmd_run, config, 
                         optim, bk, a_type, cell_type, 
                         norm_mode, block_dense_connection, 
@@ -230,7 +257,7 @@ class mri_ddp_base(run_ddp_base):
                         load_path)
         
         moment = time.strftime("%Y%m%d_%H%M%S", time.gmtime())
-        run_str = f"{a_type}-{cell_type}-{norm_mode}-{optim}-C-{c}-MIXER-{mixer_type}-{int(scale_ratio_in_mixer)}-{'_'.join(bs)}-{moment}"
+        run_str = f"{a_type}-{cell_type}-{norm_mode}-{optim}-C-{c}-H-{n_heads}-MIXER-{mixer_type}-{int(scale_ratio_in_mixer)}-{'_'.join(bs)}-{moment}"
         
         if complex_i:
             cmd_run.extend(["--complex_i"])
@@ -251,10 +278,12 @@ class mri_ddp_base(run_ddp_base):
         ind = cmd_run.index("--run_notes")
         cmd_run.pop(ind)
         cmd_run.pop(ind)
-                                                  
+
         cmd_run.extend([
             "--run_name", f"{config.project}-{bk.upper()}-{run_str}",
-            "--run_notes", f"{config.project}-{bk.upper()}-{run_str}"
+            "--run_notes", f"{config.project}-{bk.upper()}-{run_str}",
+            "--snr_perturb_prob", f"{snr_perturb_prob}",
+            "--n_head", f"{n_heads}"
         ])
             
         return cmd_run
