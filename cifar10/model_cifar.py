@@ -66,6 +66,7 @@ class STCNNT_Cifar(STCNNT_Task_Base):
         if config.backbone == "hrnet":
             
             hrnet_C_out = config.backbone_hrnet.C * sum([np.power(2, k) for k in range(config.backbone_hrnet.num_resolution_levels)])
+            hrnet_C_out = int(hrnet_C_out)
             
             if config.data_set == "imagenet":
                 self.pre = nn.Sequential(
@@ -131,7 +132,8 @@ class STCNNT_Cifar(STCNNT_Task_Base):
             self.backbone = STCNNT_LLMnet(config=config)       
             
             output_C = np.power(2, config.backbone_LLM.num_stages-2) if config.backbone_LLM.num_stages>2 else config.backbone_LLM.C
-                 
+            output_C = int(output_C)
+            
             self.post = nn.Sequential(AvgPool2DExt(kernel_size=[config.height[0], config.width[0]]), 
                                       nn.Flatten(start_dim=1, end_dim=-1),
                                       nn.Linear(output_C, final_c))

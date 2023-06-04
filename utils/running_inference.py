@@ -10,9 +10,24 @@ from tqdm import tqdm
 from skimage.util.shape import view_as_windows
 
 # -------------------------------------------------------------------------------------------------
+# def prep_tensorrt(model, input_size):
+
+#     import torch.backends.cudnn as cudnn
+#     cudnn.benchmark = True
+
+#     import torch_tensorrt
+
+#     torch._dynamo.config.suppress_errors = True
+#     opt_model = torch.compile(model, dynamic=True, mode="reduce-overhead", backend='eager')
+    
+#     #opt_model = torch_tensorrt.compile(model, inputs = [torch_tensorrt.Input(input_size, dtype=torch.float16)], enabled_precisions = torch.float16, workspace_size = 1 << 22)
+
+#     return opt_model
+
+# -------------------------------------------------------------------------------------------------
 # Complete single image inference
 
-def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batch_size=8, device="cpu"):
+def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batch_size=8, device=torch.device('cpu')):
     """
     Runs inference by breaking image into overlapping patches
     Runs the patches through the model and then stiches them back
@@ -37,6 +52,9 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
     # setup the model and image
     is_torch_model = isinstance(model, torch.nn.Module)
     is_script_model = isinstance(model, torch.jit._script.RecursiveScriptModule)
+    
+    if device == torch.device('cpu'):
+        batch_size = 32
     
     if is_torch_model or is_script_model:
         if is_script_model:
@@ -87,44 +105,37 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
 
     image_batch = image_patches.reshape(-1,Tc,CO,Hc,Wc) # shape:(num_patches,T,C,H,W)
     #print(f"norm = {np.linalg.norm(image_batch)}")
-    #logging.info(f"-->running_inference, input image patches {image_batch.shape}")
-    # ---------------------------------------------------------------------------------------------
-    # getting model output shape, specifically C_out
-        
-    if is_torch_model:
-        with torch.inference_mode():
-            sample_in = torch.from_numpy(image_batch[:batch_size]).to(torch.float32).to(device)
-            with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=(not is_script_model)):
-                sample_ot = model(sample_in)
-                
-            sample_ot = sample_ot.cpu().detach().numpy()
-    else:
-        # onnx model
-        sample_in = image_batch[:batch_size]
-        ort_inputs = {model.get_inputs()[0].name: sample_in.astype('float32')}
-        sample_ot = model.run(None, ort_inputs)
-        sample_ot = sample_ot[0]
-        
-    _,_,C_out,_,_ = sample_ot.shape
-    image_patches_ot_shape = (*image_patches.shape[:-3],C_out,*image_patches.shape[-2:])
-    image_pad_ot_shape = (image_pad.shape[0], C_out, *image_pad.shape[2:])
+    
     # ---------------------------------------------------------------------------------------------
     # inferring each patch in length of batch_size
-    image_batch_pred = np.zeros((image_batch.shape[0],Tc,C_out,Hc,Wc), dtype=d_type)
+    image_batch_pred = None
 
     if is_torch_model:
         with torch.inference_mode():
-            with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=(not is_script_model)):
-                for i in range(0, image_batch.shape[0], batch_size):
-                    x_in = torch.from_numpy(image_batch[i:i+batch_size]).to(torch.float32).to(device=device)
-                    image_batch_pred[i:i+batch_size] = model(x_in).cpu().detach().numpy()
-
+            for i in range(0, image_batch.shape[0], batch_size):
+                x_in = torch.from_numpy(image_batch[i:i+batch_size]).to(device=device)
+                
+                with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=(not is_script_model)):
+                    res = model(x_in).cpu().detach().numpy()
+                    
+                if image_batch_pred is None:
+                    image_batch_pred = np.zeros((image_batch.shape[0], Tc, res.shape[2], Hc, Wc), dtype=d_type)
+                    
+                image_batch_pred[i:i+batch_size] = res
     else:
         for i in range(0, image_batch.shape[0], batch_size):
             x_in = image_batch[i:i+batch_size]
             ort_inputs = {model.get_inputs()[0].name: x_in.astype('float32')}
-            image_batch_pred[i:i+batch_size] = model.run(None, ort_inputs)[0]
+            res = model.run(None, ort_inputs)[0]
+            if image_batch_pred is None:
+                    image_batch_pred = np.zeros((image_batch.shape[0], Tc, res.shape[2], Hc, Wc), dtype=d_type)
+                    
+            image_batch_pred[i:i+batch_size] = res
             
+    C_out = image_batch_pred.shape[2]
+    image_patches_ot_shape = (*image_patches.shape[:-3],C_out,*image_patches.shape[-2:])
+    image_pad_ot_shape = (image_pad.shape[0], C_out, *image_pad.shape[2:])
+    
     # ---------------------------------------------------------------------------------------------
     # setting up the weight matrix
     # matrix_weight defines how much a patch contributes to a pixel

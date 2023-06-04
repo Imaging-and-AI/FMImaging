@@ -163,7 +163,7 @@ class SpatialGlobalAttention(CnnAttentionBase):
             att = F.normalize(q, dim=-1) @ F.normalize(k, dim=-1).transpose(-2, -1)
         else:
             if self.normalize_Q_K:
-                eps = torch.finfo(k.dtype).eps
+                eps = 1e-8
                 k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
                 q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
                             

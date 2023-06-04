@@ -748,9 +748,10 @@ def apply_model(data, model, gmap, config, scaling_factor):
 
             try:
                 _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device=device)
-            except:
+            except Exception as e:
+                print(e)
                 print(f"{Fore.YELLOW}---> call inference on cpu ...")
-                _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device="cpu")
+                _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device=torch.device('cpu'))
             
             output /= scaling_factor   
                 

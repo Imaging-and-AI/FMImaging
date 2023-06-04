@@ -114,7 +114,7 @@ def main():
         config.height[-1] = patch_size_inference
         config.width[-1] = patch_size_inference
     
-    setup_run(config, dirs=["log_path"])
+    #setup_run(config, dirs=["log_path"])
 
     # load the data
     image = np.load(os.path.join(args.input_dir, f"im_real.npy")) + np.load(os.path.join(args.input_dir, f"im_imag.npy")) * 1j
