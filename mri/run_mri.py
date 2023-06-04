@@ -105,10 +105,10 @@ class mri_ddp_base(run_ddp_base):
         vars['Q_K_norm'] = [True]
         vars['cosine_atts'] = ["1"]
         vars['att_with_relative_postion_biases'] = ["0"]
-        vars['a_types'] = ["conv"]
+        vars['a_types'] = ["conv", "lin"]
 
         vars['larger_mixer_kernels'] = [False]
-        vars['mixer_types'] = ["conv"]
+        vars['mixer_types'] = ["conv", "lin"]
         vars['shuffle_in_windows'] = ["0"]
         vars['block_dense_connections'] = ["0", "1"]
         vars['norm_modes'] = ["batch2d"]
