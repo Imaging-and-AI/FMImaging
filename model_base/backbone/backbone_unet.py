@@ -634,7 +634,7 @@ def tests():
     config.batch_size = B
     config.time = T
     config.norm_mode = "instance3d"
-    config.a_type = "conv"
+    config.a_type = "lin"
 
     config.window_size = [H//8, W//8]
     config.patch_size = [H//32, W//32]
@@ -656,6 +656,12 @@ def tests():
     config.all_w_decay = True
     config.optim = "adamw"
     config.scheduler = "StepLR"
+
+    config.backbone_unet.block_str = ["T1V1L1G1",
+                        "T1V1L1G1",
+                        "T1V1L1G1",
+                        "T1V1L1G1",
+                        "T1V1L1G1"]
 
     config.complex_i = False
             

@@ -830,7 +830,7 @@ def tests():
     config.batch_size = B
     config.time = T
     config.norm_mode = "instance2d"
-    config.a_type = "conv"
+    config.a_type = "lin"
     config.is_causal = False
     config.n_head = 8
     config.interp_align_c = True
@@ -863,11 +863,11 @@ def tests():
     config.backbone_hrnet = Namespace()
     config.backbone_hrnet.C = 16
     config.backbone_hrnet.num_resolution_levels = 4
-    config.backbone_hrnet.block_str = ["T0L0G1T0L0G1",
-                        "T0L0G1T0L0G1",
-                        "T1L1G1T1L1G1T1L1G1",
-                        "T1L1G1T1L1G1T1L1G1T1L1G1",
-                        "T1L1G1T1L1G1T1L1G1T1L1G1"]
+    config.backbone_hrnet.block_str = ["T1V1L1G1",
+                        "T1V1L1G1",
+                        "T1V1L1G1",
+                        "T1V1L1G1",
+                        "T1V1L1G1"]
 
     config.backbone_hrnet.use_interpolation = True
 

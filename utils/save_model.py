@@ -90,6 +90,7 @@ def save_final_model(model, config, best_model_wts, only_pt=False):
             pickle.dump(config, fid)
 
         if not only_pt:
+            logging.info(f"Saving onnx model at: {name}.onnx")
             torch.onnx.export(model, model_input, f"{name}.onnx", 
                                 export_params=True, 
                                 opset_version=16, 

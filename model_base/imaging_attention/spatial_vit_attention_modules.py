@@ -267,7 +267,7 @@ def tests():
 
                             Bo, To, Co, Ho, Wo = test_out.shape
                             assert B==Bo and T==To and Co==C_out and H2==Ho and W2==Wo
-                
+
     print("Passed SpatialViTAttention tests")
     
     print("Passed all tests")
