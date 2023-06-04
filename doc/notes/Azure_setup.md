@@ -149,5 +149,5 @@ sudo apt update
 sudo apt upgrade -y
 
 sudo apt-get install ubuntu-drivers-common -y
-sudo ubuntu-drivers install 525 -y
+sudo ubuntu-drivers install 535
 ```
