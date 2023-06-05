@@ -747,7 +747,7 @@ def apply_model(data, model, gmap, config, scaling_factor):
                 overlap = (c.time//2, c.height[-1]//4, c.width[-1]//4)
 
             try:
-                _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device=device)
+                _, output = running_inference(model, input, cutout=cutout, overlap=overlap, batch_size=4, device=device)
             except Exception as e:
                 print(e)
                 print(f"{Fore.YELLOW}---> call inference on cpu ...")
