@@ -6,6 +6,7 @@ from collections import OrderedDict
 from datetime import datetime
 from torchinfo import summary
 from colorama import Fore, Style
+import numpy as np
 
 # -------------------------------------------------------------------------------------------------
     
@@ -110,7 +111,7 @@ class AverageMeter(object):
     """
     Computes and stores the average and current value
     """
-    def __init__(self):
+    def __init__(self):        
         self.reset()
 
     def reset(self):
@@ -118,12 +119,20 @@ class AverageMeter(object):
         self.avg = 0
         self.sum = 0
         self.count = 0
+        self.vals = []
+        self.counts = []
 
     def update(self, val, n=1):
         self.val = val
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+        
+        self.vals.append(val)
+        self.counts.append(n)
+
+    def status(self):
+        return np.array(self.vals), np.array(self.counts)
 
 if __name__=="__main__":
     pass

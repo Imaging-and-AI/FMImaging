@@ -143,7 +143,7 @@
             "console": "integratedTerminal",
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
             "args": [
-                "--nnodes", "1", "--node_rank", "8", "--rdzv_id", "100", "--rdzv_backend", "c10d", "--rdzv_endpoint", "localhost:9001", "--nproc_per_node", "2", "--data_root", "/data/mri/denoising", "--tra_ratio", "1"
+                "--nnodes", "1", "--node_rank", "0", "--rdzv_id", "100", "--rdzv_backend", "c10d", "--rdzv_endpoint", "localhost:9001", "--nproc_per_node", "2", "--data_root", "/data/mri/denoising", "--tra_ratio", "1"
             ]
         },
         {

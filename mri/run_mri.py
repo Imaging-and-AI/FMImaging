@@ -112,17 +112,17 @@ class mri_ddp_base(run_ddp_base):
         vars['shuffle_in_windows'] = ["0"]
         vars['block_dense_connections'] = ["1"]
         vars['norm_modes'] = ["batch2d", "instance2d"]
-        vars['C'] = [32, 64]
+        vars['C'] = [32, 64, 16]
         vars['scale_ratio_in_mixers'] = [1.0]
 
         vars['snr_perturb_prob'] = [0.0]
 
         vars['block_strs'] = [
-                        [                             
+                        [                                                         
                             ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                             ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],                            
                             ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"]
                          ],
                         

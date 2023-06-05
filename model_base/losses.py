@@ -77,7 +77,7 @@ class FSIM_Loss:
             v = torch.mean(loss)
 
         if(torch.any(torch.isnan(v))):
-            v = 1.0
+            v = torch.tensor(1.0, requires_grad=True)
 
         return (1.0-v)
     
@@ -127,7 +127,7 @@ class SSIM_Loss:
             v_ssim = torch.mean(self.ssim_loss(outputs_im, targets_im))
 
         if(torch.any(torch.isnan(v_ssim))):
-            v_ssim = 1.0
+            v_ssim = torch.tensor(1.0, requires_grad=True)
 
         return (1.0-v_ssim)
 
@@ -171,7 +171,7 @@ class SSIM3D_Loss:
             v_ssim = torch.mean(self.ssim_loss(outputs_im, targets_im))
 
         if(torch.any(torch.isnan(v_ssim))):
-            v_ssim = 1.0
+            v_ssim = torch.tensor(1.0, requires_grad=True)
 
         return (1.0-v_ssim)
 
