@@ -85,7 +85,9 @@ def load_model(args):
 
     if args.saved_model_path.endswith(".pt"):
         status = torch.load(args.saved_model_path, map_location=get_device())
-        config = status['config']        
+        config = status['config']
+        if not torch.cuda.is_available():
+            config.device = torch.device('cpu')
         model = STCNNT_MRI(config=config)
         model.load_state_dict(status['model'])
     elif args.saved_model_path.endswith(".pts"):
