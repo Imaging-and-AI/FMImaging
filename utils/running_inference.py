@@ -27,7 +27,7 @@ from skimage.util.shape import view_as_windows
 # -------------------------------------------------------------------------------------------------
 # Complete single image inference
 
-def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batch_size=8, device=torch.device('cpu')):
+def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batch_size=4, device=torch.device('cpu')):
     """
     Runs inference by breaking image into overlapping patches
     Runs the patches through the model and then stiches them back
@@ -119,7 +119,7 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
                     res = model(x_in).cpu().detach().numpy()
                     
                 if image_batch_pred is None:
-                    image_batch_pred = np.zeros((image_batch.shape[0], Tc, res.shape[2], Hc, Wc), dtype=d_type)
+                    image_batch_pred = np.empty((image_batch.shape[0], Tc, res.shape[2], Hc, Wc), dtype=d_type)
                     
                 image_batch_pred[i:i+batch_size] = res
     else:
@@ -128,7 +128,7 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
             ort_inputs = {model.get_inputs()[0].name: x_in.astype('float32')}
             res = model.run(None, ort_inputs)[0]
             if image_batch_pred is None:
-                    image_batch_pred = np.zeros((image_batch.shape[0], Tc, res.shape[2], Hc, Wc), dtype=d_type)
+                    image_batch_pred = np.empty((image_batch.shape[0], Tc, res.shape[2], Hc, Wc), dtype=d_type)
                     
             image_batch_pred[i:i+batch_size] = res
             

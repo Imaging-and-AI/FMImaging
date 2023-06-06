@@ -72,3 +72,25 @@ do
     ssh -i ~/.ssh/xueh2-a100.pem gtuser@$n.eastus2.cloudapp.azure.com "cd /home/gtuser/mrprogs/STCNNT.git && git pull && git checkout test_snr_perturb"
 done
 ```
+## Cluster ssh configuration
+
+Create the cluster configuration file as ~/.clusterssh/clusters
+```
+# cloud cluster
+fsi  gtuser@fsi{1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}
+fsi-quarter-1st gtuser@fsi{1,2,3,4}
+fsi-quarter-2nd gtuser@fsi{5,6,7,8}
+fsi-quarter-3rd gtuser@fsi{9,10,11,12}
+fsi-quarter-4th gtuser@fsi{13,14,15,16}
+fsi-half-1st gtuser@fsi{1,2,3,4,5,6,7,8}
+fsi-half-2nd gtuser@fsi{9,10,11,12,13,14,15,16}
+fsi-1 gtuser@fsi1
+fsi-2 gtuser@fsi2
+fsi-3 gtuser@fsi3
+fsi-4 gtuser@fsi4
+```
+
+Then the cloud cluster can be opened as :
+```
+cssh --fillscreen fsi-quarter-1st
+```
