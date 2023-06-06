@@ -115,7 +115,7 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
             for i in range(0, image_batch.shape[0], batch_size):
                 x_in = torch.from_numpy(image_batch[i:i+batch_size]).to(device=device)
                 
-                with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=(not is_script_model)):
+                with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=(not is_script_model)):
                     res = model(x_in).cpu().detach().numpy()
                     
                 if image_batch_pred is None:
