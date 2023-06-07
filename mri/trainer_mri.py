@@ -737,7 +737,7 @@ def apply_model(data, model, gmap, config, scaling_factor):
             if config.complex_i:
                 input = np.concatenate((x.real, x.imag, g), axis=2)
             else:
-                input = np.concatenate((np.abs(x.real + 1j*x.imag), g), axis=2)
+                input = np.concatenate((np.abs(x), g), axis=2)
             
             if not c.pad_time:
                 cutout = (T, c.height[-1], c.width[-1])

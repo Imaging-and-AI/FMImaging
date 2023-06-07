@@ -187,6 +187,22 @@
             ]
         },
         {
+            "name": "run_inference_batch, mri",
+            "type": "python",
+            "request": "launch",
+            "program": "./mri/run_inference_batch.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
+            "args": [
+                "--input_dir", "/export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising", 
+                "--output_dir", "/export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI",
+                "--scaling_factor", "1.0",
+                "--im_scaling", "10.0", "--gmap_scaling", "1.0", "--input_fname", "raw_im",
+                "--saved_model_path", "/export/Lab-Xue/projects/mri/test/mag_model/mri-HRNET-conv-parallel-batch2d-sophia-C-64-H-32-MIXER-conv-1-T1L1G1_T1L1G1_T1L1G1_T1L1G1-20230606_000026_residual_19-13-33-20230606_best.pt"
+            ]
+        },
+        {
             "name": "mri, save_pt_as_onnx",
             "type": "python",
             "request": "launch",
