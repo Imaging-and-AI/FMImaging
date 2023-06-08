@@ -44,6 +44,8 @@ def arg_parser():
     parser.add_argument("--pad_time", action="store_true", help="with to pad along time")
     parser.add_argument("--patch_size_inference", type=int, default=-1, help='patch size for inference; if <=0, use the config setup')
     
+    parser.add_argument("--input_fname", type=str, default="im", help='input file name')
+
     return parser.parse_args()
 
 def check_args(args):
@@ -119,8 +121,11 @@ def main():
     #setup_run(config, dirs=["log_path"])
 
     # load the data
-    image = np.load(os.path.join(args.input_dir, f"im_real.npy")) + np.load(os.path.join(args.input_dir, f"im_imag.npy")) * 1j
+    image = np.load(os.path.join(args.input_dir, f"{args.input_fname}_real.npy")) + np.load(os.path.join(args.input_dir, f"{args.input_fname}_imag.npy")) * 1j
     image /= args.im_scaling
+
+    if len(image.shape) == 2:
+        image = image[:,:,np.newaxis,np.newaxis]
 
     if len(image.shape) == 3:
         image = image[:,:,:,np.newaxis]
@@ -134,11 +139,15 @@ def main():
     gmap = np.load(f"{args.input_dir}/gfactor.npy")
     gmap /= args.gmap_scaling
 
+    print(f"{args.input_dir}, median gmap {np.median(gmap)}")
+
     if(gmap.ndim==2):
         gmap = np.expand_dims(gmap, axis=2)
 
-    assert gmap.shape[2] == slices
-           
+    if gmap.shape[2] >= slices and gmap.shape[2] == frames:
+        image = np.transpose(image, (0, 1, 3, 2))
+        RO, E1, frames, slices = image.shape
+        
     output = apply_model(image.astype(np.complex64), model, gmap.astype(np.float32), config=config, scaling_factor=args.scaling_factor)
     
     os.makedirs(args.output_dir, exist_ok=True)

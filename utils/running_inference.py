@@ -8,6 +8,7 @@ import numpy as np
 import logging
 from tqdm import tqdm
 from skimage.util.shape import view_as_windows
+from .status import support_bfloat16
 
 # -------------------------------------------------------------------------------------------------
 # def prep_tensorrt(model, input_size):
@@ -56,12 +57,18 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
     if device == torch.device('cpu'):
         batch_size = 32
     
+    dtype = torch.float32
     if is_torch_model or is_script_model:
         if is_script_model:
             model.cuda()
         else:
             model = model.to(device)
         model.eval()
+
+        if support_bfloat16(device):
+            dtype = torch.bfloat16
+        else:
+            dtype = torch.float32
 
     try:
         image = image.cpu().detach().numpy()
@@ -101,11 +108,20 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
     # breaking the image down into patches
     # and remembering the length in each dimension
     image_patches = view_as_windows(image_pad, (Tc,CO,Hc,Wc), (Ts, 1, Hs, Ws))
-    Ntme, _, Nrow, Ncol, _, _, _, _ = image_patches.shape
+    Ntme, K, Nrow, Ncol, _, _, _, _ = image_patches.shape
+
+    is_2d_mode = False
+    if Tc == 1: # 2D model
+        image_patches = np.transpose(image_patches, (0, 1, 4, 2, 3, 5, 6, 7))
+        image_patches = np.reshape(image_patches, (Ntme, K, 1, 1, 1, Nrow*Ncol, CO, Hc, Wc))
+        Tc = Nrow*Ncol
+        is_2d_mode = True
 
     image_batch = image_patches.reshape(-1,Tc,CO,Hc,Wc) # shape:(num_patches,T,C,H,W)
     #print(f"norm = {np.linalg.norm(image_batch)}")
     
+    print(f"processing tensor size {image_batch.shape}")
+
     # ---------------------------------------------------------------------------------------------
     # inferring each patch in length of batch_size
     image_batch_pred = None
@@ -115,7 +131,7 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
             for i in range(0, image_batch.shape[0], batch_size):
                 x_in = torch.from_numpy(image_batch[i:i+batch_size]).to(device=device)
                 
-                with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=(not is_script_model)):
+                with torch.autocast(device_type='cuda', dtype=dtype, enabled=(not is_script_model)):
                     res = model(x_in).cpu().detach().numpy()
                     
                 if image_batch_pred is None:
@@ -131,9 +147,14 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
                     image_batch_pred = np.empty((image_batch.shape[0], Tc, res.shape[2], Hc, Wc), dtype=d_type)
                     
             image_batch_pred[i:i+batch_size] = res
-            
+
     C_out = image_batch_pred.shape[2]
-    image_patches_ot_shape = (*image_patches.shape[:-3],C_out,*image_patches.shape[-2:])
+
+    if is_2d_mode:
+        image_batch_pred = np.reshape(image_batch_pred, (Ntme*K*Nrow*Ncol, 1, C_out, Hc, Wc))
+        Tc = 1
+    
+    image_patches_ot_shape = (Ntme, K, Nrow, Ncol, Tc, C_out, Hc, Wc)
     image_pad_ot_shape = (image_pad.shape[0], C_out, *image_pad.shape[2:])
     
     # ---------------------------------------------------------------------------------------------

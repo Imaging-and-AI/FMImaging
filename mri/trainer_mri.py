@@ -746,6 +746,7 @@ def apply_model(data, model, gmap, config, scaling_factor):
                 cutout = (c.time, c.height[-1], c.width[-1])
                 overlap = (c.time//2, c.height[-1]//4, c.width[-1]//4)
 
+            print(f"---> running_inference, input {input.shape} for slice {k}")
             try:
                 _, output = running_inference(model, input, cutout=cutout, overlap=overlap, batch_size=4, device=device)
             except Exception as e:
@@ -758,15 +759,15 @@ def apply_model(data, model, gmap, config, scaling_factor):
             if isinstance(output, torch.Tensor):
                 output = output.cpu().numpy()
 
-            output = np.transpose(output, (3, 4, 2, 1, 0)).squeeze()
+            output = np.transpose(output, (3, 4, 2, 1, 0))
             
             if(k==0):
                 data_filtered = np.zeros((output.shape[0], output.shape[1], PHS, SLC), dtype=data.dtype)
             
             if config.complex_i:
-                data_filtered[:,:,:,k] = output[:,:,0,:] + 1j*output[:,:,1,:]
+                data_filtered[:,:,:,k] = output[:,:,0,:,0] + 1j*output[:,:,1,:,0]
             else:
-                data_filtered[:,:,:,k] = output
+                data_filtered[:,:,:,k] = output[:,:,0,:,k]
 
         t1 = time()
         print(f"---> apply_model took {t1-t0} seconds ")

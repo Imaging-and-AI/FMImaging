@@ -41,8 +41,17 @@ def get_cuda_info(device):
 		"device_properties": torch.cuda.get_device_properties(device=device),
 		"reserved_memory": torch.cuda.memory_reserved(device=device) / 1024**3,
 		"allocated_memory": torch.cuda.memory_allocated(device=device) / 1024**3,
-		"max_allocated_memory": torch.cuda.max_memory_allocated(device=device) / 1024**3
+		"max_allocated_memory": torch.cuda.max_memory_allocated(device=device) / 1024**3,
+        "gpu_name": torch.cuda.get_device_name()
 	}
+
+def support_bfloat16(device):
+    info =  get_cuda_info(device)
+    if info["gpu_name"].find("A100") >= 0:
+        return True
+    else:
+        return False
+
 # -------------------------------------------------------------------------------------------------
 def get_gpu_ram_usage(device='cuda:0'):
     """
