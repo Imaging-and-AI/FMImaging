@@ -15,6 +15,8 @@ from torch.utils.data.dataloader import DataLoader
 import sys
 from pathlib import Path
 
+import nibabel as nib
+
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
@@ -148,33 +150,53 @@ def main():
         image = np.transpose(image, (0, 1, 3, 2))
         RO, E1, frames, slices = image.shape
         
-    output = apply_model(image.astype(np.complex64), model, gmap.astype(np.float32), config=config, scaling_factor=args.scaling_factor)
+    output = apply_model(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device())
+    print(f"{args.output_dir}, images - {image.shape}, {output.shape}")    
+    
+    output = np.squeeze(output)
     
     os.makedirs(args.output_dir, exist_ok=True)
     
     res_name = os.path.join(args.output_dir, 'input_real.npy')
     print(res_name)
     np.save(res_name, image.real)
+    nib.save(nib.Nifti1Image(image.real, affine=np.eye(4)), os.path.join(args.output_dir, 'input_real.nii'))
+    
     res_name = os.path.join(args.output_dir, 'input_imag.npy')
     print(res_name)
     np.save(res_name, image.imag)
+    nib.save(nib.Nifti1Image(image.imag, affine=np.eye(4)), os.path.join(args.output_dir, 'input_imag.nii'))
+    
+    res_name = os.path.join(args.output_dir, 'input.npy')
+    print(res_name)
+    np.save(res_name, np.abs(image))
+    nib.save(nib.Nifti1Image(np.abs(image), affine=np.eye(4)), os.path.join(args.output_dir, 'input.nii'))
         
     res_name = os.path.join(args.output_dir, 'gmap.npy')
     print(res_name)
     np.save(res_name, gmap)
+    nib.save(nib.Nifti1Image(gmap, affine=np.eye(4)), os.path.join(args.output_dir, 'gmap.nii'))
     
     if config.complex_i:
         res_name = os.path.join(args.output_dir, 'output_real.npy')
         print(res_name)
         np.save(res_name, output.real)
-    
+        nib.save(nib.Nifti1Image(output.real, affine=np.eye(4)), os.path.join(args.output_dir, 'output_real.nii'))
+        
         res_name = os.path.join(args.output_dir, 'output_imag.npy')
         print(res_name)
         np.save(res_name, output.imag)
+        nib.save(nib.Nifti1Image(output.imag, affine=np.eye(4)), os.path.join(args.output_dir, 'output_imag.nii'))
+        
+        res_name = os.path.join(args.output_dir, 'output.npy')
+        print(res_name)
+        np.save(res_name, np.abs(output))
+        nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4)), os.path.join(args.output_dir, 'output.nii'))
     else:
         res_name = os.path.join(args.output_dir, 'output.npy')
         print(res_name)
         np.save(res_name, output.real)
+        nib.save(nib.Nifti1Image(output, affine=np.eye(4)), os.path.join(args.output_dir, 'output.nii'))
         
 if __name__=="__main__":
     main()

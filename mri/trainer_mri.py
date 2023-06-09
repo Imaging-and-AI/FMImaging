@@ -685,18 +685,61 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
     return val_loss, val_mse, val_l1, val_ssim, val_ssim3D, val_psnr
 
 # -------------------------------------------------------------------------------------------------
+def _apply_model(model, x, g, scaling_factor, config, device):
+    """Apply the inference
+    
+    Input
+        x : [1, T, 1, H, W], attention is alone T
+        g : [1, T, 1, H, W]
+        
+    Output
+        res : [1, T, Cout, H, W]
+    """
+    c = config
+    
+    x *= scaling_factor
+        
+    B, T, C, H, W = x.shape
+        
+    if config.complex_i:
+        input = np.concatenate((x.real, x.imag, g), axis=2)
+    else:
+        input = np.concatenate((np.abs(x), g), axis=2)
+    
+    if not c.pad_time:
+        cutout = (T, c.height[-1], c.width[-1])
+        overlap = (0, c.height[-1]//2, c.width[-1]//2)
+    else:
+        cutout = (c.time, c.height[-1], c.width[-1])
+        overlap = (c.time//2, c.height[-1]//4, c.width[-1]//4)
 
-def apply_model(data, model, gmap, config, scaling_factor):
+    try:
+        _, output = running_inference(model, input, cutout=cutout, overlap=overlap, batch_size=4, device=device)
+    except Exception as e:
+        print(e)
+        print(f"{Fore.YELLOW}---> call inference on cpu ...")
+        _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device=torch.device('cpu'))
+    
+    output /= scaling_factor   
+        
+    if isinstance(output, torch.Tensor):
+        output = output.cpu().numpy()
+
+    return output
+
+# -------------------------------------------------------------------------------------------------
+
+def apply_model(data, model, gmap, config, scaling_factor, device='cpu'):
     '''
     Input 
-        data : [RO E1 N SLC], remove any extra scaling
-        gmap : [RO E1 SLC], no scaling added
+        data : [H, W, T, SLC], remove any extra scaling
+        gmap : [H, W, SLC], no scaling added
         scaling_factor : scaling factor to adjust denoising strength, smaller value is for higher strength (0.5 is more smoothing than 1.0)
+    Output
+        res: [H, W, T, SLC]
     '''
 
     t0 = time()
-
-    device = get_device()
 
     if(data.ndim==2):
         data = data[:,:,np.newaxis,np.newaxis]
@@ -704,13 +747,13 @@ def apply_model(data, model, gmap, config, scaling_factor):
     if(data.ndim<4):
         data = np.expand_dims(data, axis=3)
 
-    RO, E1, PHS, SLC = data.shape
+    H, W, T, SLC = data.shape
 
     if(gmap.ndim==2):
         gmap = np.expand_dims(gmap, axis=2)
 
-    if(gmap.shape[0]!=RO or gmap.shape[1]!=E1 or gmap.shape[2]!=SLC):
-        gmap = np.ones(RO, E1, SLC)
+    if(gmap.shape[0]!=H or gmap.shape[1]!=W or gmap.shape[2]!=SLC):
+        gmap = np.ones(H, W, SLC)
 
     print(f"---> apply_model, preparation took {time()-t0} seconds ")
     print(f"---> apply_model, input array {data.shape}")
@@ -732,49 +775,138 @@ def apply_model(data, model, gmap, config, scaling_factor):
             x = np.transpose(imgslab, [2, 0, 1]).reshape([1, T, 1, H, W])
             g = np.repeat(gmapslab[np.newaxis, np.newaxis, np.newaxis, :, :], T, axis=1)
             
-            x *= scaling_factor
+            print(f"---> running_inference, input {x.shape} for slice {k}")
+            output = _apply_model(model, x, g, scaling_factor, config, device)
             
-            if config.complex_i:
-                input = np.concatenate((x.real, x.imag, g), axis=2)
-            else:
-                input = np.concatenate((np.abs(x), g), axis=2)
-            
-            if not c.pad_time:
-                cutout = (T, c.height[-1], c.width[-1])
-                overlap = (0, c.height[-1]//2, c.width[-1]//2)
-            else:
-                cutout = (c.time, c.height[-1], c.width[-1])
-                overlap = (c.time//2, c.height[-1]//4, c.width[-1]//4)
-
-            print(f"---> running_inference, input {input.shape} for slice {k}")
-            try:
-                _, output = running_inference(model, input, cutout=cutout, overlap=overlap, batch_size=4, device=device)
-            except Exception as e:
-                print(e)
-                print(f"{Fore.YELLOW}---> call inference on cpu ...")
-                _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device=torch.device('cpu'))
-            
-            output /= scaling_factor   
-                
-            if isinstance(output, torch.Tensor):
-                output = output.cpu().numpy()
-
             output = np.transpose(output, (3, 4, 2, 1, 0))
             
             if(k==0):
-                data_filtered = np.zeros((output.shape[0], output.shape[1], PHS, SLC), dtype=data.dtype)
+                data_filtered = np.zeros((output.shape[0], output.shape[1], T, SLC), dtype=data.dtype)
             
             if config.complex_i:
                 data_filtered[:,:,:,k] = output[:,:,0,:,0] + 1j*output[:,:,1,:,0]
             else:
                 data_filtered[:,:,:,k] = output[:,:,0,:,k]
 
-        t1 = time()
-        print(f"---> apply_model took {t1-t0} seconds ")
-
     except Exception as e:
         print(e)
         data_filtered = copy.deepcopy(data)
+
+    t1 = time()
+    print(f"---> apply_model took {t1-t0} seconds ")
+        
+    return data_filtered
+
+# -------------------------------------------------------------------------------------------------
+
+def apply_model_3D(data, model, gmap, config, scaling_factor, device='cpu'):
+    '''
+    Input 
+        data : [H W SLC], remove any extra scaling
+        gmap : [H W SLC], no scaling added
+        scaling_factor : scaling factor to adjust denoising strength, smaller value is for higher strength (0.5 is more smoothing than 1.0)
+    Output
+        res : [H W SLC]
+    '''
+
+    t0 = time()
+
+    H, W, SLC = data.shape
+
+    if(gmap.shape[0]!=H or gmap.shape[1]!=W or gmap.shape[2]!=SLC):
+        gmap = np.ones(H, W, SLC)
+
+    print(f"---> apply_model_3D, preparation took {time()-t0} seconds ")
+    print(f"---> apply_model_3D, input array {data.shape}")
+    print(f"---> apply_model_3D, gmap array {gmap.shape}")
+    print(f"---> apply_model_3D, pad_time {config.pad_time}")
+    print(f"---> apply_model_3D, height and width {config.height, config.width}")
+    print(f"---> apply_model_3D, complex_i {config.complex_i}")
+    print(f"---> apply_model_3D, scaling_factor {scaling_factor}")
+    
+    c = config
+    
+    try:           
+        x = np.transpose(data, [2, 0, 1]).reshape([1, SLC, 1, H, W])
+        g = np.transpose(gmap, [2, 0, 1]).reshape([1, SLC, 1, H, W])
+        
+        print(f"---> running_inference, input {x.shape} for volume")
+        output = _apply_model(model, x, g, scaling_factor, config, device)
+            
+        output = np.transpose(output, (3, 4, 2, 1, 0)) # [H, W, Cout, SLC, 1]
+                
+        if config.complex_i:
+            data_filtered = output[:,:,0,:,0] + 1j*output[:,:,1,:,0]
+        else:
+            data_filtered = output
+
+        data_filtered = np.reshape(data_filtered, (H, W, SLC))
+        
+    except Exception as e:
+        print(e)
+        data_filtered = copy.deepcopy(data)
+
+    t1 = time()
+    print(f"---> apply_model_3D took {t1-t0} seconds ")
+
+    return data_filtered
+
+# -------------------------------------------------------------------------------------------------
+
+def apply_model_2D(data, model, gmap, config, scaling_factor, device='cpu'):
+    '''
+    Input 
+        data : [H W SLC], remove any extra scaling
+        gmap : [H W SLC], no scaling added
+        scaling_factor : scaling factor to adjust denoising strength, smaller value is for higher strength (0.5 is more smoothing than 1.0)
+    Output
+        res : [H W SLC]
+        
+    Attention is performed within every 2D image.
+    '''
+
+    t0 = time()
+
+    H, W, SLC = data.shape
+
+    if(gmap.shape[0]!=H or gmap.shape[1]!=W or gmap.shape[2]!=SLC):
+        gmap = np.ones(H, W, SLC)
+
+    print(f"---> apply_model_2D, preparation took {time()-t0} seconds ")
+    print(f"---> apply_model_2D, input array {data.shape}")
+    print(f"---> apply_model_2D, gmap array {gmap.shape}")
+    print(f"---> apply_model_2D, pad_time {config.pad_time}")
+    print(f"---> apply_model_2D, height and width {config.height, config.width}")
+    print(f"---> apply_model_2D, complex_i {config.complex_i}")
+    print(f"---> apply_model_2D, scaling_factor {scaling_factor}")
+    
+    c = config
+    
+    try:           
+        x = np.transpose(data, [2, 0, 1]).reshape([SLC, 1, 1, H, W])
+        g = np.transpose(gmap, [2, 0, 1]).reshape([SLC, 1, 1, H, W])
+        
+        output = np.zeros([SLC, 1, 1, H, W])
+        
+        print(f"---> running_inference, input {x.shape} for 2D")
+        for slc in range(SLC):
+            output[slc] = _apply_model(model, x[slc], g[slc], scaling_factor, config, device)
+            
+        output = np.transpose(output, (3, 4, 2, 1, 0)) # [H, W, Cout, 1, SLC]
+                
+        if config.complex_i:
+            data_filtered = output[:,:,0,:,:] + 1j*output[:,:,1,:,:]
+        else:
+            data_filtered = output
+
+        data_filtered = np.reshape(data_filtered, (H, W, SLC))
+        
+    except Exception as e:
+        print(e)
+        data_filtered = copy.deepcopy(data)
+
+    t1 = time()
+    print(f"---> apply_model_2D took {t1-t0} seconds ")
 
     return data_filtered
 
