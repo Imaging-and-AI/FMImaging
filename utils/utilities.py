@@ -191,8 +191,8 @@ def save_image_batch(complex_i, noisy, predi, clean):
 
     if complex_i:
         save_x = np.sqrt(np.square(noisy[:,:,0,:,:]) + np.square(noisy[:,:,1,:,:]))
-        save_p = np.sqrt(np.square(predi[:,:,0,:,:]) + np.square(predi[:,:,0,:,:]))
-        save_y = np.sqrt(np.square(clean[:,:,0,:,:]) + np.square(clean[:,:,0,:,:]))
+        save_p = np.sqrt(np.square(predi[:,:,0,:,:]) + np.square(predi[:,:,1,:,:]))
+        save_y = np.sqrt(np.square(clean[:,:,0,:,:]) + np.square(clean[:,:,1,:,:]))
     else:
         save_x = noisy[:,:,0,:,:]
         save_p = predi[:,:,0,:,:]
