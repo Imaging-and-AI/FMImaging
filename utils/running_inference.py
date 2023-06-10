@@ -70,6 +70,7 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
         else:
             dtype = torch.float32
 
+        print(f"processing tensor dtype {dtype}")
     try:
         image = image.cpu().detach().numpy()
     except:
