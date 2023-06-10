@@ -48,11 +48,13 @@ azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/train_3D_3T
 
 azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/train_3D_3T_perf_2020.h5?${SAS}" /export/Lab-Xue/projects/data
 
-azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/train_3D_3T_perf_2021.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/train_3D_3T_perf_2021.h5?${SAS}" /export/Lab-Xue/projects/data
 
 ln -s /export/Lab-Xue/projects/data/train_3D_3T_perf_2019.h5 /export/Lab-Xue/projects/mri/data/train_3D_3T_perf_2019.h5
 
 ln -s /export/Lab-Xue/projects/data/train_3D_3T_perf_2020.h5 /export/Lab-Xue/projects/mri/data/train_3D_3T_perf_2020.h5
+
+ln -s /export/Lab-Xue/projects/data/train_3D_3T_perf_2021.h5 /export/Lab-Xue/projects/mri/data/train_3D_3T_perf_2021.h5
 
 # test data
 azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/train_3D_3T_retro_cine_2020_small_2DT_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
