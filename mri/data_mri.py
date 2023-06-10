@@ -549,10 +549,7 @@ def load_mri_data(config):
 
     train_paths = []
     for path_x in c.train_files:
-        if os.path.isfile(path_x):
-            train_paths.append(path_x)
-        else:
-            train_paths.append(os.path.join(c.data_root, path_x))
+        train_paths.append(os.path.join(c.data_root, path_x))
 
     # check file
     for file in train_paths:

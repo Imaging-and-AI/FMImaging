@@ -148,7 +148,7 @@ class mri_ddp_base(run_ddp_base):
         
         cmd_runs = []
         
-        for k, bk in enumerate(vars['backbone']):    
+        for k, bk in enumerate(vars['backbone']):
                 block_str = vars['block_strs'][k]
                 
                 for bs, \
