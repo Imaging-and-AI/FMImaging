@@ -83,7 +83,8 @@ class mri_ddp_base(run_ddp_base):
         #"--max_load", "10000",
         
         "--train_files", "train_3D_3T_retro_cine_2018.h5",  "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5", "train_3D_3T_retro_cine_2021.h5", "train_3D_3T_perf_2018.h5","train_3D_3T_perf_2019.h5", "train_3D_3T_perf_2020.h5","train_3D_3T_perf_2021.h5", 
-            "--train_data_types", "2dt", "2dt", "2d", "2dt", "2dt", "2dt", "2dt", "2d"
+        
+        "--train_data_types", "2dt", "2dt", "2d", "2dt", "2dt", "2dt", "2dt", "2d",
         
         "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", "train_3D_3T_retro_cine_2020_small_2DT_test.h5", "train_3D_3T_retro_cine_2020_small_2D_test.h5", "train_3D_3T_retro_cine_2020_500_test.h5",
         "--test_data_types", "3d", "2dt", "2d", "2dt" 

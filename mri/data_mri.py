@@ -553,7 +553,13 @@ def load_mri_data(config):
             train_paths.append(path_x)
         else:
             train_paths.append(os.path.join(c.data_root, path_x))
-            
+
+    # check file
+    for file in train_paths:
+        if not os.path.exists(file):
+            raise RuntimeError(f"File not found: {file}")
+        print(f"file exist - {file}")
+
     for file in train_paths:
         if not os.path.exists(file):
             raise RuntimeError(f"File not found: {file}")
@@ -568,9 +574,9 @@ def load_mri_data(config):
         tra = 1 if tra == 0 else tra
 
         val = int((ratio[0]+ratio[1])*n)
-        val = tra + 1 if val<=tra else val        
+        val = tra + 1 if val<=tra else val
         val = n if val>n else val
-        
+
         h5files.append(h5file)
         train_keys.append(keys[:tra])
         val_keys.append(keys[tra:val])
@@ -581,6 +587,11 @@ def load_mri_data(config):
             val_keys[-1] = keys[-1:]
         if len(test_keys[-1])==0:
             test_keys[-1] = keys[-1:]
+
+        logging.info(f"Done - reading from file: {file}, \
+                     tra {sum([len(v) for v in train_keys])},\
+                     val {sum([len(v) for v in val_keys])}, \
+                     test {sum([len(v) for v in test_keys])}")
 
     # common kwargs
     kwargs = {
