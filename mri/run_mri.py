@@ -37,7 +37,7 @@ class mri_ddp_base(run_ddp_base):
         "--global_lr", "0.0001",
 
         "--clip_grad_norm", "1.0",
-        "--weight_decay", "0.1",
+        "--weight_decay", "1",
 
         "--use_amp", 
 
@@ -72,7 +72,7 @@ class mri_ddp_base(run_ddp_base):
         #"--complex_i",
         #"--residual",
         "--losses", "mse", "l1",
-        "--loss_weights", "1.0", "1.0",
+        "--loss_weights", "1.0", "2.0",
         "--height", "32", "64",
         "--width", "32", "64",
         "--time", "12",
@@ -82,11 +82,11 @@ class mri_ddp_base(run_ddp_base):
         #"--weighted_loss",
         #"--max_load", "10000",
         
-        "--train_files", "train_3D_3T_retro_cine_2018.h5", "train_3D_3T_perf_2021.h5", "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5",
-        "--train_data_types", "2dt", "2dt", "2dt", "2dt",
+        "--train_files", "train_3D_3T_retro_cine_2018.h5",  "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5", "train_3D_3T_retro_cine_2021.h5", "train_3D_3T_perf_2018.h5","train_3D_3T_perf_2019.h5", "train_3D_3T_perf_2020.h5","train_3D_3T_perf_2021.h5", 
+            "--train_data_types", "2dt", "2dt", "2d", "2dt", "2dt", "2dt", "2dt", "2d"
         
         "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", "train_3D_3T_retro_cine_2020_small_2DT_test.h5", "train_3D_3T_retro_cine_2020_small_2D_test.h5", "train_3D_3T_retro_cine_2020_500_test.h5",
-        "--test_data_types", "2dt", "2dt", "2dt", "2dt" 
+        "--test_data_types", "3d", "2dt", "2d", "2dt" 
         ])
         
         if config.tra_ratio > 0 and config.tra_ratio<=100:
@@ -103,7 +103,7 @@ class mri_ddp_base(run_ddp_base):
         vars['backbone'] = ['hrnet', 'unet']
         vars['cell_types'] = ["parallel"]
         vars['Q_K_norm'] = [True]
-        vars['cosine_atts'] = ["1", "0"]
+        vars['cosine_atts'] = ["1"]
         vars['att_with_relative_postion_biases'] = ["0"]
         vars['a_types'] = ["conv"]
 
@@ -112,8 +112,8 @@ class mri_ddp_base(run_ddp_base):
         vars['shuffle_in_windows'] = ["0"]
         vars['block_dense_connections'] = ["1"]
         vars['norm_modes'] = ["batch2d", "instance2d"]
-        vars['C'] = [32, 16]
-        vars['scale_ratio_in_mixers'] = [1.0]
+        vars['C'] = [32, 64]
+        vars['scale_ratio_in_mixers'] = [1.0, 4.0]
 
         vars['snr_perturb_prob'] = [0.0]
 
@@ -135,7 +135,7 @@ class mri_ddp_base(run_ddp_base):
                          ]
                     ]
 
-        vars['complex_i'] = [False]
+        vars['complex_i'] = [True]
         vars['residual'] = [True ]
         vars['weighted_loss'] = [False]
 
