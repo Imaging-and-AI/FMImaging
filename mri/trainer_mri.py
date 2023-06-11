@@ -96,8 +96,8 @@ def trainer(rank, global_rank, config, wandb_run):
         
         if wandb_run is not None:
             logging.info(f"Wandb name:\n{wandb_run.name}")                
-            wandb_run.watch(model)
-        
+            wandb_run.watch(model, log="parameters")
+
     # -----------------------------------------------
     
     if c.ddp:
@@ -142,7 +142,6 @@ def trainer(rank, global_rank, config, wandb_run):
         if c.ddp: setup_logger(config) # setup master process logging
 
         if wandb_run is not None:
-            wandb_run.watch(model)
             wandb_run.summary["trainable_params"] = c.trainable_params
             wandb_run.summary["total_params"] = c.total_params
             wandb_run.summary["total_mult_adds"] = c.total_mult_adds 
