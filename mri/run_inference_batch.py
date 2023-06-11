@@ -15,6 +15,8 @@ from torch.utils.data.dataloader import DataLoader
 import sys
 from pathlib import Path
 
+import nibabel as nib
+
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
@@ -172,44 +174,18 @@ def main():
     for ind in range(len(images)):
         case_dir = selected_cases[ind]
         print(f"-----------> Process {selected_cases[ind]} <-----------")
-        
+
         image = images[ind]
         gmap = gmaps[ind]
         output = apply_model(image.astype(np.complex64), model, gmap.astype(np.float32), config=config, scaling_factor=args.scaling_factor)
-               
-        case = os.path.basename(case_dir)                
-        output_dir = os.path.join(args.output_dir, case)        
+
+        case = os.path.basename(case_dir)
+        output_dir = os.path.join(args.output_dir, case)
         os.makedirs(output_dir, exist_ok=True)
-            
-        res_name = os.path.join(output_dir, 'input_real.npy')
-        print(res_name)
-        np.save(res_name, image.real)
-        res_name = os.path.join(output_dir, 'input_imag.npy')
-        print(res_name)
-        np.save(res_name, image.imag)
-        
-        res_name = os.path.join(output_dir, 'input.npy')
-        print(res_name)
-        np.save(res_name, np.abs(image))
-            
-        res_name = os.path.join(output_dir, 'gmap.npy')
-        print(res_name)
-        np.save(res_name, gmap)
-        
-        if config.complex_i:
-            res_name = os.path.join(output_dir, 'output_real.npy')
-            print(res_name)
-            np.save(res_name, output.real)
-        
-            res_name = os.path.join(output_dir, 'output_imag.npy')
-            print(res_name)
-            np.save(res_name, output.imag)
-        else:
-            res_name = os.path.join(output_dir, 'output.npy')
-            print(res_name)
-            np.save(res_name, output.real)
-        
+
+        save_inference_results(image, output, gmap, output_dir)
+
         print("--" * 30)
-        
+
 if __name__=="__main__":
     main()

@@ -18,6 +18,7 @@ from torchinfo import summary
 
 import torch.distributed as dist
 from colorama import Fore, Style
+import nibabel as nib
 
 # -------------------------------------------------------------------------------------------------
 # 2D image patch and repatch
@@ -234,6 +235,50 @@ def save_image_batch(complex_i, noisy, predi, clean):
     composed_res = cv2.normalize(composed_res, temp, 0, 255, norm_type=cv2.NORM_MINMAX)
 
     return np.repeat(composed_res[:,np.newaxis,:,:].astype('uint8'), 3, axis=1)
+
+def save_inference_results(input, output, gmap, output_dir):
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    if input is not None:
+        if np.any(np.iscomplex(input)):
+            res_name = os.path.join(output_dir, 'input_real.npy')
+            print(res_name)
+            np.save(res_name, input.real)
+            nib.save(nib.Nifti1Image(input.real, affine=np.eye(4)), os.path.join(output_dir, 'input_real.nii'))
+
+            res_name = os.path.join(output_dir, 'input_imag.npy')
+            print(res_name)
+            np.save(res_name, input.imag)
+            nib.save(nib.Nifti1Image(input.imag, affine=np.eye(4)), os.path.join(output_dir, 'input_imag.nii'))
+        else:
+            res_name = os.path.join(output_dir, 'input.npy')
+            print(res_name)
+            np.save(res_name, input)
+            nib.save(nib.Nifti1Image(input, affine=np.eye(4)), os.path.join(output_dir, 'input.nii'))
+
+    if gmap is not None:
+        res_name = os.path.join(output_dir, 'gmap.npy')
+        print(res_name)
+        np.save(res_name, gmap)
+        nib.save(nib.Nifti1Image(gmap, affine=np.eye(4)), os.path.join(output_dir, 'gmap.nii'))
+
+    if output is not None:
+        if np.any(np.iscomplex(output)):
+            res_name = os.path.join(output_dir, 'output_real.npy')
+            print(res_name)
+            np.save(res_name, output.real)
+            nib.save(nib.Nifti1Image(output.real, affine=np.eye(4)), os.path.join(output_dir, 'output_real.nii'))
+
+            res_name = os.path.join(output_dir, 'output_imag.npy')
+            print(res_name)
+            np.save(res_name, output.imag)
+            nib.save(nib.Nifti1Image(output.imag, affine=np.eye(4)), os.path.join(output_dir, 'output_imag.nii'))
+        else:
+            res_name = os.path.join(output_dir, 'output.npy')
+            print(res_name)
+            np.save(res_name, output)
+            nib.save(nib.Nifti1Image(output, affine=np.eye(4)), os.path.join(output_dir, 'output.nii'))
 
 # -------------------------------------------------------------------------------------------------
 
