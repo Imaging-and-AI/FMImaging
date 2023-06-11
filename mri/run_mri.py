@@ -136,7 +136,7 @@ class mri_ddp_base(run_ddp_base):
                          ]
                     ]
 
-        vars['complex_i'] = [True]
+        vars['complex_i'] = [True, False]
         vars['residual'] = [True ]
         vars['weighted_loss'] = [False]
 
@@ -170,25 +170,26 @@ class mri_ddp_base(run_ddp_base):
                     weighted_loss, \
                     snr_perturb_prob, \
                     n_heads \
-                        in itertools.product(block_str, 
+                        in itertools.product( 
                                             vars['optim'],
-                                            vars['scale_ratio_in_mixers'], 
                                             vars['mixer_types'], 
                                             vars['shuffle_in_windows'], 
                                             vars['larger_mixer_kernels'],
                                             vars['norm_modes'],
                                             vars['block_dense_connections'],
-                                            vars['C'],
                                             vars['att_with_relative_postion_biases'],
                                             vars['cosine_atts'],
                                             vars['Q_K_norm'],
                                             vars['a_types'], 
                                             vars['cell_types'],
-                                            vars['complex_i'],
                                             vars['residual'],
                                             vars['weighted_loss'],
                                             vars['snr_perturb_prob'],
-                                            vars['n_heads']
+                                            vars['n_heads'],
+                                            block_str,
+                                            vars['C'],
+                                            vars['scale_ratio_in_mixers'],
+                                            vars['complex_i']
                                             ):
                                                                                         
                         # -------------------------------------------------------------
