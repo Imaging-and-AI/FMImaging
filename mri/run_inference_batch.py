@@ -170,14 +170,15 @@ def main():
             pbar.update(1)
                 
     print(f"Loaded {len(images)} samples ... ")
-    
+
+    device=get_device()
     for ind in range(len(images)):
         case_dir = selected_cases[ind]
         print(f"-----------> Process {selected_cases[ind]} <-----------")
 
         image = images[ind]
         gmap = gmaps[ind]
-        output = apply_model(image.astype(np.complex64), model, gmap.astype(np.float32), config=config, scaling_factor=args.scaling_factor)
+        output = apply_model(image.astype(np.complex64), model, gmap.astype(np.float32), config=config, scaling_factor=args.scaling_factor, device=device)
 
         case = os.path.basename(case_dir)
         output_dir = os.path.join(args.output_dir, case)

@@ -251,11 +251,13 @@ def save_inference_results(input, output, gmap, output_dir):
             print(res_name)
             np.save(res_name, input.imag)
             nib.save(nib.Nifti1Image(input.imag, affine=np.eye(4)), os.path.join(output_dir, 'input_imag.nii'))
-        else:
-            res_name = os.path.join(output_dir, 'input.npy')
-            print(res_name)
-            np.save(res_name, input)
-            nib.save(nib.Nifti1Image(input, affine=np.eye(4)), os.path.join(output_dir, 'input.nii'))
+
+            input = np.abs(input)
+
+        res_name = os.path.join(output_dir, 'input.npy')
+        print(res_name)
+        np.save(res_name, input)
+        nib.save(nib.Nifti1Image(input, affine=np.eye(4)), os.path.join(output_dir, 'input.nii'))
 
     if gmap is not None:
         res_name = os.path.join(output_dir, 'gmap.npy')
@@ -274,11 +276,13 @@ def save_inference_results(input, output, gmap, output_dir):
             print(res_name)
             np.save(res_name, output.imag)
             nib.save(nib.Nifti1Image(output.imag, affine=np.eye(4)), os.path.join(output_dir, 'output_imag.nii'))
-        else:
-            res_name = os.path.join(output_dir, 'output.npy')
-            print(res_name)
-            np.save(res_name, output)
-            nib.save(nib.Nifti1Image(output, affine=np.eye(4)), os.path.join(output_dir, 'output.nii'))
+
+            output = np.abs(output)
+
+        res_name = os.path.join(output_dir, 'output.npy')
+        print(res_name)
+        np.save(res_name, output)
+        nib.save(nib.Nifti1Image(output, affine=np.eye(4)), os.path.join(output_dir, 'output.nii'))
 
 # -------------------------------------------------------------------------------------------------
 
