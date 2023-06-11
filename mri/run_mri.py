@@ -151,25 +151,25 @@ class mri_ddp_base(run_ddp_base):
         for k, bk in enumerate(vars['backbone']):
                 block_str = vars['block_strs'][k]
                 
-                for bs, \
-                    optim, \
-                    scale_ratio_in_mixer, \
+                for optim, \
                     mixer_type, \
                     shuffle_in_window, \
                     larger_mixer_kernel, \
                     norm_mode, \
                     block_dense_connection, \
-                    c, \
                     att_with_relative_postion_bias, \
                     cosine_att, \
                     q_k_norm, \
                     a_type, \
                     cell_type,\
-                    complex_i,\
                     residual, \
                     weighted_loss, \
                     snr_perturb_prob, \
-                    n_heads \
+                    n_heads, \
+                    bs, \
+                    c, \
+                    scale_ratio_in_mixer, \
+                    complex_i,\
                         in itertools.product( 
                                             vars['optim'],
                                             vars['mixer_types'], 
