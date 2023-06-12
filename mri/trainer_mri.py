@@ -97,7 +97,8 @@ def trainer(rank, global_rank, config, wandb_run):
         if wandb_run is not None:
             logging.info(f"Wandb name:\n{wandb_run.name}")                
             wandb_run.watch(model, log="parameters")
-
+            wandb_run.log_code(".")
+            
     # -----------------------------------------------
     
     if c.ddp:

@@ -222,6 +222,36 @@ python3 ./mri/run_inference_batch.py --input_dir /export/Lab-Kellman/ReconResult
 
 ```
 
+### Perfusion
+```
+# new training, with more data
+model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-H-32-MIXER-conv-1-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1-20230611_034255_complex_residual_03-43-00-20230611_best.pt
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_Perf_Denoising_2021_AI_denoising/20210507/Perfusion_AIF_TwoEchoes_Interleaved_R2_66016_21149167_21149176_1466_20210507-111038 --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_Perf_Denoising_2021_AI_denoising_AI/Perfusion_AIF_TwoEchoes_Interleaved_R2_66016_21149167_21149176_1466_20210507-111038 --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model
+
+# 3T
+python3 ./mri/run_inference_batch.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_Perf_Denoising_2021_AI_denoising --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_Perf_Denoising_2021_AI_denoising_AI --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model
+
+# 1.5T
+python3 ./mri/run_inference_batch.py --input_dir /export/Lab-Kellman/ReconResults/denoising/1p5T_for_testing/Barts_Perf_Denoising_2021_AI_denoising --output_dir /export/Lab-Kellman/ReconResults/denoising/1p5T_for_testing/Barts_Perf_Denoising_2021_AI_denoising_AI --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model
+
+```
+
+### RT Cine
+```
+# new training, with more data
+model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-H-32-MIXER-conv-1-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1-20230611_034255_complex_residual_03-43-00-20230611_best.pt
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_RTCine_Denoising_2021_AI_denoising/20210420/RT_Cine_LIN_66016_8309249_8309258_3405_20210420-104004 --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_RTCine_Denoising_2021_AI_denoising_AI/RT_Cine_LIN_66016_8309249_8309258_3405_20210420-104004 --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model
+
+# on the raw images
+python3 ./mri/run_inference_batch.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_RTCine_Denoising_2021_AI_denoising --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_RTCine_Denoising_2021_AI_denoising_AI --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model
+
+# 1.5T
+python3 ./mri/run_inference_batch.py --input_dir /export/Lab-Kellman/ReconResults/denoising/1p5T_for_testing/Barts_RTCine_Denoising_2021_AI_denoising --output_dir /export/Lab-Kellman/ReconResults/denoising/1p5T_for_testing/Barts_RTCine_Denoising_2021_AI_denoising_AI --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model
+
+```
+
 # other models
 
 # smaller model

@@ -67,6 +67,9 @@ def setup_run(config, dirs=["log_path", "results_path", "model_path", "check_pat
         logging.info(f"Run:{config.run_name}, {dir} is {config_dict[dir]}")
     
     # set seed
+    if config.seed is None:
+        config.seed = np.random.randint(2000, 1000000)
+    
     np.random.seed(config.seed)
     torch.manual_seed(config.seed)
 

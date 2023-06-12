@@ -85,7 +85,8 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
     parser.add_argument("--iters_to_accumulate", type=int, default=1, help='Number of iterations to accumulate gradients; if >1, gradient accumulation')
 
     # misc arguments
-    parser.add_argument("--seed", type=int, default=3407, help='seed for randomization')
+    #parser.add_argument("--seed", type=int, default=3407, help='seed for randomization')
+    parser.add_argument("--seed", type=int, default=None, help='seed for randomization')
     parser.add_argument("--device", type=str, default=None, help='device to train on')
     parser.add_argument("--load_path", type=str, default=None, help='path to load model weights from')
     parser.add_argument("--debug", "-D", action="store_true", help='option to run in debug mode')
