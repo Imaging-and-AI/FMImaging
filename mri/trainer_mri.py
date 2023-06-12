@@ -781,12 +781,15 @@ def apply_model(data, model, gmap, config, scaling_factor, device='cpu'):
             output = np.transpose(output, (3, 4, 2, 1, 0))
             
             if(k==0):
-                data_filtered = np.zeros((output.shape[0], output.shape[1], T, SLC), dtype=data.dtype)
+                if config.complex_i:
+                    data_filtered = np.zeros((output.shape[0], output.shape[1], T, SLC), dtype=data.dtype)
+                else:
+                    data_filtered = np.zeros((output.shape[0], output.shape[1], T, SLC), dtype=np.float32)
             
             if config.complex_i:
                 data_filtered[:,:,:,k] = output[:,:,0,:,0] + 1j*output[:,:,1,:,0]
             else:
-                data_filtered[:,:,:,k] = output[:,:,0,:,k]
+                data_filtered[:,:,:,k] = output.squeeze()
 
     except Exception as e:
         print(e)

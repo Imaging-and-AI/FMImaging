@@ -180,10 +180,7 @@
             "console": "integratedTerminal",
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
             "args": [
-                "--input_dir", "/export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising/20230112/WB_LGE_MOCO_AVE_OnTheFly_42110_39422929_39422938_1805_20230112-133112/", 
-                "--output_dir", "/export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI/WB_LGE_MOCO_AVE_OnTheFly_42110_39422929_39422938_1805_20230112-133112", 
-                "--scaling_factor", "1.0", "--im_scaling", "1", "--gmap_scaling", "1", 
-                "--saved_model_path", "/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-instance2d-sophia-C-32-H-32-MIXER-conv-4-T1L1G1_T1L1G1_T1L1G1_T1L1G1-20230607_134035_complex_residual_18-48-18-20230607_best.pt"
+                "--input_dir", "/export/Lab-Kellman/ReconResults/denoising/Barts_RTCine_Denoising_2021_AI_denoising/20210420/RT_Cine_LIN_66016_8309249_8309258_3405_20210420-104004", "--output_dir", "/export/Lab-Kellman/ReconResults/denoising/Barts_RTCine_Denoising_2021_AI_denoising_AI/RT_Cine_LIN_66016_8309249_8309258_3405_20210420-104004", "--scaling_factor", "1.0", "--im_scaling", "10.0", "--gmap_scaling", "100.0", "--input_fname", "im", "--saved_model_path", "/export/Lab-Xue/projects/mri/test/mag_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-H-32-MIXER-conv-1-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1-20230611_194153_residual_02-48-28-20230612_last.pt"
             ]
         },
         {

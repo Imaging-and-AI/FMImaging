@@ -242,6 +242,9 @@ python3 ./mri/run_inference_batch.py --input_dir /export/Lab-Kellman/ReconResult
 # new training, with more data
 model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-H-32-MIXER-conv-1-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1-20230611_034255_complex_residual_03-43-00-20230611_best.pt
 
+# mag model
+model=/export/Lab-Xue/projects/mri/test/mag_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-H-32-MIXER-conv-1-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1-20230611_194153_residual_02-48-28-20230612_last.pt
+
 python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_RTCine_Denoising_2021_AI_denoising/20210420/RT_Cine_LIN_66016_8309249_8309258_3405_20210420-104004 --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_RTCine_Denoising_2021_AI_denoising_AI/RT_Cine_LIN_66016_8309249_8309258_3405_20210420-104004 --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model
 
 # on the raw images
