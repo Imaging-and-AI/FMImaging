@@ -45,6 +45,7 @@ def arg_parser():
     parser.add_argument("--saved_model_path", type=str, default=None, help='model path. endswith ".pt" or ".pts"')
     parser.add_argument("--pad_time", action="store_true", help="with to pad along time")
     parser.add_argument("--patch_size_inference", type=int, default=-1, help='patch size for inference; if <=0, use the config setup')
+    parser.add_argument("--batch_size", type=int, default=16, help='after loading a batch, start processing')
     
     parser.add_argument("--input_fname", type=str, default="im", help='input file name')
     
@@ -108,6 +109,23 @@ def fast_scandir(dirname):
         subfolders.extend(fast_scandir(dirname))
     return subfolders
 
+def process_a_batch(args, model, config, images, selected_cases, gmaps, device):
+    for ind in range(len(images)):
+        case_dir = selected_cases[ind]
+        print(f"-----------> Process {selected_cases[ind]} <-----------")
+
+        image = images[ind]
+        gmap = gmaps[ind]
+        output = apply_model(image.astype(np.complex64), model, gmap.astype(np.float32), config=config, scaling_factor=args.scaling_factor, device=device)
+
+        case = os.path.basename(case_dir)
+        output_dir = os.path.join(args.output_dir, case)
+        os.makedirs(output_dir, exist_ok=True)
+
+        save_inference_results(image, output, gmap, output_dir)
+
+        print("--" * 30)
+
 def main():
 
     args = check_args(arg_parser())
@@ -125,8 +143,8 @@ def main():
         config.height[-1] = patch_size_inference
         config.width[-1] = patch_size_inference
     
-    #setup_run(config, dirs=["log_path"])
-
+    device=get_device()
+    
     os.makedirs(args.output_dir, exist_ok=True)
     
     # load the cases
@@ -167,26 +185,17 @@ def main():
                     gmaps.append(gmap)
                     selected_cases.append(c)
             
-            pbar.update(1)
-                
-    print(f"Loaded {len(images)} samples ... ")
+            if len(images)>0 and len(images)%args.batch_size==0:                
+                process_a_batch(args, model, config, images, selected_cases, gmaps, device)            
+                selected_cases = []
+                images = []
+                gmaps = []
+    
+            pbar.update(1)                
 
-    device=get_device()
-    for ind in range(len(images)):
-        case_dir = selected_cases[ind]
-        print(f"-----------> Process {selected_cases[ind]} <-----------")
-
-        image = images[ind]
-        gmap = gmaps[ind]
-        output = apply_model(image.astype(np.complex64), model, gmap.astype(np.float32), config=config, scaling_factor=args.scaling_factor, device=device)
-
-        case = os.path.basename(case_dir)
-        output_dir = os.path.join(args.output_dir, case)
-        os.makedirs(output_dir, exist_ok=True)
-
-        save_inference_results(image, output, gmap, output_dir)
-
-        print("--" * 30)
+    # process left over cases
+    if len(images) > 0:
+        process_a_batch(args, model, config, images, selected_cases, gmaps, device)
 
 if __name__=="__main__":
     main()
