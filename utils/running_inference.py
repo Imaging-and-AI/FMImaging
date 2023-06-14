@@ -65,12 +65,13 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
             model = model.to(device)
         model.eval()
 
-        if support_bfloat16(device):
-            dtype = torch.bfloat16
-        else:
-            dtype = torch.float32
+        if device != torch.device('cpu'):
+            if support_bfloat16(device):
+                dtype = torch.bfloat16
+            else:
+                dtype = torch.float32
 
-        print(f"processing tensor dtype {dtype}")
+        print(f"processing tensor dtype {dtype}, device {device}")
     try:
         image = image.cpu().detach().numpy()
     except:

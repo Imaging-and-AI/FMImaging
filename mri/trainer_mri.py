@@ -729,7 +729,7 @@ def _apply_model(model, x, g, scaling_factor, config, device):
 
 # -------------------------------------------------------------------------------------------------
 
-def apply_model(data, model, gmap, config, scaling_factor, device='cpu'):
+def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('cpu')):
     '''
     Input 
         data : [H, W, T, SLC], remove any extra scaling
