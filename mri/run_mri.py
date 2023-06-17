@@ -139,10 +139,10 @@ class mri_ddp_base(run_ddp_base):
                     ]
 
         vars['losses'] = [
-            [['ssim', 'mse', 'l1'], ['1.0', '1.0', '1.0']], 
-            [['ssim'], ['1.0']],
             [['mse', 'l1'], ['1.0', '1.0']], 
-            [['ssim', 'mse'], ['1.0', '1.0']], 
+            [['ssim', 'mse', 'l1'], ['0.1', '1.0', '1.0']], 
+            #[['ssim'], ['1.0']],
+            [['ssim', 'mse'], ['0.1', '1.0']], 
         ]
 
         vars['complex_i'] = [True, False]
