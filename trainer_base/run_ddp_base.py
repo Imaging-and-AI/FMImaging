@@ -304,7 +304,7 @@ class run_ddp_base(object):
         for cmd_run in valid_cmd_runs:
             print("---" * 20)
             print(cmd_run)
-            #subprocess.run(cmd_run)
+            subprocess.run(cmd_run)
             print("---" * 20)
 
             run_completed = []
