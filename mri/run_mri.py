@@ -43,7 +43,7 @@ class mri_ddp_base(run_ddp_base):
 
         "--iters_to_accumulate", "1",
 
-        "--num_workers", f"{os.cpu_count()//(2*config.nproc_per_node)}",
+        "--num_workers", "64",
         "--prefetch_factor", "4",
         
         "--scheduler_type", "ReduceLROnPlateau",
