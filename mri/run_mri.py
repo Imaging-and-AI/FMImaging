@@ -116,7 +116,7 @@ class mri_ddp_base(run_ddp_base):
         vars['C'] = [32, 64]
         vars['scale_ratio_in_mixers'] = [1.0]
 
-        vars['snr_perturb_prob'] = [0.1, 0.0]
+        vars['snr_perturb_prob'] = [0.0]
 
         vars['block_strs'] = [
                         [
@@ -137,8 +137,8 @@ class mri_ddp_base(run_ddp_base):
                     ]
 
         vars['losses'] = [
-            [['mse', 'l1'], ['1.0', '1.0']], 
             [['ssim'], ['1.0']],
+            [['mse', 'l1'], ['1.0', '1.0']], 
             [['ssim', 'mse'], ['1.0', '1.0']], 
             [['ssim', 'mse', 'l1'], ['1.0', '1.0', '1.0']], 
         ]
