@@ -149,7 +149,23 @@ def main():
         RO, E1, frames, slices = image.shape
 
     output = apply_model(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device())
-    print(f"{args.output_dir}, images - {image.shape}, {output.shape}")    
+
+    input = np.flip(image, axis=0)
+    output2 = apply_model(input, model, np.flip(gmap, axis=0), config=config, scaling_factor=args.scaling_factor, device=get_device())
+    output2 = np.flip(output2, axis=0)
+
+    input = np.flip(image, axis=1)
+    output3 = apply_model(input, model, np.flip(gmap, axis=1), config=config, scaling_factor=args.scaling_factor, device=get_device())
+    output3 = np.flip(output3, axis=1)
+
+    input = np.transpose(image, axes=(1, 0, 2, 3))
+    output4 = apply_model(input, model, np.transpose(gmap, axes=(1, 0, 2)), config=config, scaling_factor=args.scaling_factor, device=get_device())
+    output4 = np.transpose(output4, axes=(1, 0, 2, 3))
+
+    res = output + output2 + output3 + output4
+    output = res / 4
+
+    print(f"{args.output_dir}, images - {image.shape}, {output.shape}")
 
     output = np.squeeze(output)
 

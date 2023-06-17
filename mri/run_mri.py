@@ -29,7 +29,7 @@ class mri_ddp_base(run_ddp_base):
         self.cmd.extend([       
        
         "--num_epochs", "60",
-        "--batch_size", "16",
+        "--batch_size", "32",
 
         "--window_size", "8", "8",
         "--patch_size", "2", "2",
@@ -67,8 +67,8 @@ class mri_ddp_base(run_ddp_base):
         "--backbone_small_unet.channels", "16", "32", "64",   
         "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1",
         
-        "--min_noise_level", "2.0",
-        "--max_noise_level", "10.0",
+        "--min_noise_level", "0.1",
+        "--max_noise_level", "12.0",
         #"--complex_i",
         #"--residual",
         #"--losses", "mse", "l1",
@@ -81,11 +81,13 @@ class mri_ddp_base(run_ddp_base):
         "--snr_perturb", "0.15",
         #"--weighted_loss",
         #"--max_load", "10000",
-        
-        "--train_files", "train_3D_3T_retro_cine_2018.h5",  "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5", "train_3D_3T_perf_2018.h5","train_3D_3T_perf_2019.h5", "train_3D_3T_perf_2020.h5","train_3D_3T_perf_2021.h5", 
-        
-        "--train_data_types", "2dt", "2dt", "2d", "2dt", "2dt", "2dt", "2d",
-        
+
+        # "--train_files", "train_3D_3T_retro_cine_2018.h5",  "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5", "train_3D_3T_perf_2018.h5","train_3D_3T_perf_2019.h5", "train_3D_3T_perf_2020.h5","train_3D_3T_perf_2021.h5", 
+        # "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2d",
+
+        "--train_files", "train_3D_3T_retro_cine_2018.h5",  "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5", 
+        "--train_data_types", "2dt", "2dt", "2dt",
+
         "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", "train_3D_3T_retro_cine_2020_small_2DT_test.h5", "train_3D_3T_retro_cine_2020_small_2D_test.h5", "train_3D_3T_retro_cine_2020_500_test.h5",
         "--test_data_types", "3d", "2dt", "2d", "2dt" 
         ])
@@ -137,10 +139,10 @@ class mri_ddp_base(run_ddp_base):
                     ]
 
         vars['losses'] = [
+            [['ssim', 'mse', 'l1'], ['1.0', '1.0', '1.0']], 
             [['ssim'], ['1.0']],
             [['mse', 'l1'], ['1.0', '1.0']], 
             [['ssim', 'mse'], ['1.0', '1.0']], 
-            [['ssim', 'mse', 'l1'], ['1.0', '1.0', '1.0']], 
         ]
 
         vars['complex_i'] = [True, False]

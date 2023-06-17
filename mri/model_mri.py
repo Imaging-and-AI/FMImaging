@@ -104,7 +104,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
         @args:
             - device (torch.device): device to setup the loss on
         @args (from config):
-            - losses (list of "ssim", "ssim3D", "l1", "mse"):
+            - losses (list of "ssim", "ssim3D", "l1", "mse", "psnr"):
                 list of losses to be combined
             - loss_weights (list of floats)
                 weights of the losses in the combined loss
@@ -112,5 +112,5 @@ class STCNNT_MRI(STCNNT_Task_Base):
         """
         self.loss_f = Combined_Loss(self.config.losses, self.config.loss_weights,
                                     complex_i=self.config.complex_i, device=device)
-        
+
         self.ssim_loss_f = SSIM_Loss(window_size=11, complex_i=self.complex_i, device=device)
