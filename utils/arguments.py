@@ -51,7 +51,7 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
     parser.add_argument("--ratio", nargs='+', type=float, default=[100,100,0], help='Ratio (as a percentage) for train/val/test divide of given data. Does allow for using partial dataset')    
 
     # dataloader arguments
-    parser.add_argument("--num_workers", type=int, default=8, help='number of workers for data loading')
+    parser.add_argument("--num_workers", type=int, default=64, help='number of total workers for data loading')
     parser.add_argument("--prefetch_factor", type=int, default=8, help='number of batches loaded in advance by each worker')
 
     # trainer arguments

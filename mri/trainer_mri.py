@@ -41,19 +41,19 @@ def create_log_str(config, epoch, rank, data_shape, loss, mse, l1, ssim, ssim3d,
         data_shape_str = f"{data_shape} "
     else:
         data_shape_str = ""
-        
+
     if curr_lr >=0:
         lr_str = f", lr {curr_lr:.8f}"
     else:
         lr_str = ""
-        
+
     if role == 'tra':
         C = Fore.YELLOW
     else:
         C = Fore.GREEN
-        
+
     str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {C}mse {mse:.4f}, l1 {l1:.4f}, ssim {ssim:.4f}, ssim3D {ssim3d:.4f}, psnr {psnr:.4f}{Style.RESET_ALL}{lr_str}"
-        
+
     return str
 
 def trainer(rank, global_rank, config, wandb_run):
@@ -68,8 +68,6 @@ def trainer(rank, global_rank, config, wandb_run):
         - val_set (torch Dataset list): the data to validate each epoch
         - test_set (torch Dataset list): the data to test model at the end
     """
-    c = config # shortening due to numerous uses
-
     start = time()
     train_set, val_set, test_set = load_mri_data(config=config)
     logging.info(f"load_mri_data took {time() - start} seconds ...")
@@ -78,29 +76,59 @@ def trainer(rank, global_rank, config, wandb_run):
     
     total_steps = compute_total_steps(config, total_num_samples)
     logging.info(f"total_steps for this run: {total_steps}, len(train_set) {[len(s) for s in train_set]}, batch {config.batch_size}")
-    
-    if config.ddp:
+
+    num_epochs = config.num_epochs
+    batch_size = config.batch_size
+    lr = config.global_lr
+    losses = config.losses
+    loss_weights = config.loss_weights
+    optim = config.optim
+    scheduler_type = config.scheduler_type
+    weighted_loss = config.weighted_loss
+
+    ddp = config.ddp
+    if ddp:
         config.device = torch.device(f'cuda:{rank}')
-    
-    model = STCNNT_MRI(config=config, total_steps=total_steps)
-    
+
+    if config.load_path is not None:
+        load_path = config.load_path
+        status = torch.load(config.load_path)
+        config = status['config']
+        config.losses = losses
+        config.loss_weights = loss_weights
+        config.optim = optim
+        config.scheduler_type = scheduler_type
+        config.global_lr = lr
+        config.num_epochs = num_epochs
+        config.batch_size = batch_size
+        config.weighted_loss = weighted_loss
+        if ddp:
+            config.device = torch.device(f'cuda:{rank}')
+        model = STCNNT_MRI(config=config, total_steps=total_steps)
+        model.load_state_dict(status['model'])
+        config.ddp = ddp
+    else:
+        model = STCNNT_MRI(config=config, total_steps=total_steps)
+
     if config.ddp:
         dist.barrier()
 
+    c = config
+
     if rank<=0:
-                        
+
         # model summary
         model_summary = model_info(model, config)
         logging.info(f"Configuration for this run:\n{config}")
         logging.info(f"Model Summary:\n{str(model_summary)}")
-        
+
         if wandb_run is not None:
-            logging.info(f"Wandb name:\n{wandb_run.name}")                
+            logging.info(f"Wandb name:\n{wandb_run.name}")
             wandb_run.watch(model, log="parameters")
             wandb_run.log_code(".")
-            
+
     # -----------------------------------------------
-    
+
     if c.ddp:
         device = torch.device(f"cuda:{rank}")
         model = model.to(device)
@@ -112,7 +140,7 @@ def trainer(rank, global_rank, config, wandb_run):
         ssim_loss_f = model.module.ssim_loss_f
         curr_epoch = model.module.curr_epoch
         samplers = [DistributedSampler(train_set_x, shuffle=True) for train_set_x in train_set]
-        shuffle = False        
+        shuffle = False
     else:
         # No init required if not ddp
         device = c.device
@@ -125,16 +153,16 @@ def trainer(rank, global_rank, config, wandb_run):
         curr_epoch = model.curr_epoch
         samplers = [None for _ in train_set]
         shuffle = True
-        
+
     if c.backbone == 'hrnet':
         logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, snr perturb {c.snr_perturb_prob}, optim {c.optim}, {c.norm_mode}, C {c.backbone_hrnet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_hrnet.block_str}, {'-'*20}{Style.RESET_ALL}")
     elif c.backbone == 'unet':
         logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, snr perturb {c.snr_perturb_prob}, optim {c.optim}, {c.norm_mode}, C {c.backbone_unet.C}, {c.n_head} heads, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {c.backbone_unet.block_str}, {'-'*20}{Style.RESET_ALL}")
-        
+
     # -----------------------------------------------
-    
+
     train_loader = [DataLoader(dataset=train_set_x, batch_size=c.batch_size, shuffle=shuffle, sampler=samplers[i],
-                                num_workers=c.num_workers, prefetch_factor=c.prefetch_factor, drop_last=True,
+                                num_workers=c.num_workers//len(train_set), prefetch_factor=c.prefetch_factor, drop_last=True,
                                 persistent_workers=c.num_workers>0) for i, train_set_x in enumerate(train_set)]
 
     # -----------------------------------------------
@@ -159,24 +187,24 @@ def trainer(rank, global_rank, config, wandb_run):
             wandb_run.define_metric("val_l1_loss", step_metric='epoch')
             wandb_run.define_metric("val_ssim_loss", step_metric='epoch')
             wandb_run.define_metric("val_ssim3D_loss", step_metric='epoch')
-            wandb_run.define_metric("val_psnr", step_metric='epoch')                            
-            
+            wandb_run.define_metric("val_psnr", step_metric='epoch')
+
             # log a few training examples
-            for i, train_set_x in enumerate(train_set):            
+            for i, train_set_x in enumerate(train_set):
                 ind = np.random.randint(0, len(train_set_x), 4)
                 x, y, gmaps_median, noise_sigmas = train_set_x[ind[0]]
                 x = np.expand_dims(x, axis=0)
                 y = np.expand_dims(y, axis=0)
-                for ii in range(1, len(ind)):                
+                for ii in range(1, len(ind)):
                     a_x, a_y, gmaps_median, noise_sigmas = train_set_x[ind[ii]]
                     x = np.concatenate((x, np.expand_dims(a_x, axis=0)), axis=0)
                     y = np.concatenate((y, np.expand_dims(a_y, axis=0)), axis=0)
-                    
+
                 title = f"Tra_samples_{i}_Noisy_Noisy_GT_{x.shape}"
                 vid = save_image_batch(c.complex_i, x, np.copy(x), y)
                 wandb_run.log({title:wandb.Video(vid, caption=f"Tra sample {i}", fps=1, format='gif')})
                 logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}")
-                         
+
     # -----------------------------------------------
     # save best model to be saved at the end
     best_val_loss = np.inf
@@ -189,6 +217,7 @@ def trainer(rank, global_rank, config, wandb_run):
     train_ssim_meter = AverageMeter()
     train_ssim3D_meter = AverageMeter()
     train_psnr_meter = AverageMeter()
+    train_snr_meter = AverageMeter()
 
     mse_loss_func = MSE_Loss(complex_i=c.complex_i)
     l1_loss_func = L1_Loss(complex_i=c.complex_i)
@@ -203,11 +232,13 @@ def trainer(rank, global_rank, config, wandb_run):
 
     # mix precision training
     scaler = torch.cuda.amp.GradScaler(enabled=c.use_amp)
-    
+
     optim.zero_grad(set_to_none=True)
-    
+
     # -----------------------------------------------
-    
+
+    base_snr = 5.0
+
     for epoch in range(curr_epoch, c.num_epochs):
         logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank}, global rank {global_rank} {'-'*20}{Style.RESET_ALL}")
 
@@ -217,6 +248,7 @@ def trainer(rank, global_rank, config, wandb_run):
         train_ssim_meter.reset()
         train_ssim3D_meter.reset()
         train_psnr_meter.reset()
+        train_snr_meter.reset()
 
         model.train()
         if c.ddp: [loader_x.sampler.set_epoch(epoch) for loader_x in train_loader]
@@ -227,70 +259,77 @@ def trainer(rank, global_rank, config, wandb_run):
             for idx in range(total_iters):
 
                 loader_ind = idx % len(train_loader_iter)
-                
+
                 tm = start_timer(enable=c.with_timer)
                 stuff = next(train_loader_iter[loader_ind], None)
                 while stuff is None:
                     del train_loader_iter[loader_ind]
                     loader_ind = idx % len(train_loader_iter)
                     stuff = next(train_loader_iter[loader_ind], None)
-                x, y, gmaps_median, noise_sigmas = stuff                
+                x, y, gmaps_median, noise_sigmas = stuff
                 end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
-                
-                
+
+
                 tm = start_timer(enable=c.with_timer)
                 x = x.to(device)
                 y = y.to(device)
+                noise_sigmas = noise_sigmas.to(device)
+                gmaps_median = gmaps_median.to(device)
+
+                signal = torch.mean(torch.linalg.norm(y, dim=2, keepdim=True), dim=(1, 2, 3, 4))
+                snr = signal / (noise_sigmas*gmaps_median)
 
                 with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
                     output = model(x)
-                    
+
                     if c.weighted_loss:
-                        weights=noise_sigmas*gmaps_median                    
+                        weights = 5.0 - 4.0 * torch.sigmoid(snr-base_snr) # give low SNR patches more weights
                         loss = loss_f(output, y, weights=weights.to(device))
                     else:
                         loss = loss_f(output, y)
-                            
+
                     # if epoch <= 0.9*c.num_epochs:
                     #     if c.weighted_loss:
-                    #         weights=noise_sigmas*gmaps_median                    
+                    #         weights=noise_sigmas*gmaps_median
                     #         loss = loss_f(output, y, weights=weights.to(device))
                     #     else:
                     #         loss = loss_f(output, y)
                     # else:
                     #     loss = ssim_loss_f(output, y)
-                        
+
                     #loss = ssim_loss_f(output, y)
-                    
+
                     loss = loss / c.iters_to_accumulate
-                    
+
                 end_timer(enable=c.with_timer, t=tm, msg="---> forward pass took ")
-                
-                
+
+
                 tm = start_timer(enable=c.with_timer)
                 scaler.scale(loss).backward()
                 end_timer(enable=c.with_timer, t=tm, msg="---> backward pass took ")
-                
-                
+
+
                 tm = start_timer(enable=c.with_timer)
                 if (idx + 1) % c.iters_to_accumulate == 0 or (idx + 1 == total_iters):
                     if(c.clip_grad_norm>0):
                         scaler.unscale_(optim)
                         nn.utils.clip_grad_norm_(model.parameters(), c.clip_grad_norm)
-                    
-                    scaler.step(optim)                    
+
+                    scaler.step(optim)
                     optim.zero_grad(set_to_none=True)
                     scaler.update()
-                
+
                     if stype == "OneCycleLR": sched.step()
                 end_timer(enable=c.with_timer, t=tm, msg="---> other steps took ")
-                
-                
+
+
                 tm = start_timer(enable=c.with_timer)
                 curr_lr = optim.param_groups[0]['lr']
-                
+
                 total=x.shape[0]
                 train_loss.update(loss.item(), n=total)
+
+                train_snr_meter.update(torch.mean(snr), n=total)
 
                 mse_loss = mse_loss_func(output, y).item()
                 l1_loss = l1_loss_func(output, y).item()
@@ -315,15 +354,15 @@ def trainer(rank, global_rank, config, wandb_run):
                                          train_psnr_meter.avg, 
                                          curr_lr, 
                                          "tra")
-                
-                pbar.set_description_str(log_str)                
+
+                pbar.set_description_str(log_str)
 
                 if wandb_run is not None:
                     wandb_run.log({"running_train_loss": loss.item()})
                     wandb_run.log({"lr": curr_lr})
-                
+
                 end_timer(enable=c.with_timer, t=tm, msg="---> logging and measuring took ")
-                
+
             # ---------------------------------------
             log_str = create_log_str(c, epoch, rank, 
                                          None, 
@@ -335,13 +374,16 @@ def trainer(rank, global_rank, config, wandb_run):
                                          train_psnr_meter.avg, 
                                          curr_lr, 
                                          "tra")
-            
+
             pbar.set_description_str(log_str)
 
+            print(f"--> mean SNR is {train_snr_meter.avg:.4f}")
+            base_snr = train_snr_meter.avg
+
         # -------------------------------------------------------
-       
+
         val_losses = eval_val(rank, model, c, val_set, epoch, device, wandb_run)
-            
+
         # -------------------------------------------------------
         if rank<=0: # main or master process
             if val_losses[0] < best_val_loss:
@@ -351,7 +393,7 @@ def trainer(rank, global_rank, config, wandb_run):
                 model_e.save(epoch)
                 if wandb_run is not None:
                     wandb_run.log({"epoch": epoch, "best_val_loss":best_val_loss})
-                
+
             # silently log to only the file as well
             logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, tra, {x.shape}, {train_loss.avg:.4f}, "+
                                                 f"{train_mse_meter.avg:.4f}, {train_l1_meter.avg:.4f}, {train_ssim_meter.avg:.4f}, "+
@@ -359,7 +401,7 @@ def trainer(rank, global_rank, config, wandb_run):
             logging.getLogger("file_only").info(f"Epoch {epoch}/{c.num_epochs}, val, {x.shape}, {val_losses[0]:.4f}, "+
                                                 f"{val_losses[1]:.4f}, {val_losses[2]:.4f}, {val_losses[3]:.4f}, "+
                                                 f"{val_losses[4]:.4f}, {val_losses[5]:.4f}, lr {curr_lr:.8f}")
-        
+
             if wandb_run is not None:
                 wandb_run.log({"epoch": epoch,
                             "train_loss_avg": train_loss.avg,
@@ -406,31 +448,31 @@ def trainer(rank, global_rank, config, wandb_run):
         if wandb_run is not None:
             wandb_run.summary["best_val_loss"] = best_val_loss
             wandb_run.summary["last_val_loss"] = val_losses[0]
-            
+
             wandb_run.summary["test_loss_last"] = test_losses[0]
             wandb_run.summary["test_mse_last"] = test_losses[1]
             wandb_run.summary["test_l1_last"] = test_losses[2]
             wandb_run.summary["test_ssim_last"] = test_losses[3]
             wandb_run.summary["test_ssim3D_last"] = test_losses[4]
             wandb_run.summary["test_psnr_last"] = test_losses[5]
-        
+
             model = model.module if c.ddp else model
             model.save(epoch)
-            
+
             # save both models
             fname_last, fname_best = save_final_model(model, config, best_model_wts, only_pt=False)
 
             logging.info(f"--> {Fore.YELLOW}Save last mode at {fname_last}{Style.RESET_ALL}")
             logging.info(f"--> {Fore.YELLOW}Save best mode at {fname_best}{Style.RESET_ALL}")
-        
+
     # test best model, reload the weights
     model = STCNNT_MRI(config=config, total_steps=total_steps)
     model.load_state_dict(best_model_wts)
     model = model.to(device)
-    
-    if c.ddp:        
-        model = DDP(model, device_ids=[rank], find_unused_parameters=True)        
-                
+
+    if c.ddp:
+        model = DDP(model, device_ids=[rank], find_unused_parameters=True)
+
     test_losses = eval_val(rank, model, config, test_set, epoch, device, wandb_run, id="test")
     if rank<=0:
         if wandb_run is not None:
@@ -444,11 +486,11 @@ def trainer(rank, global_rank, config, wandb_run):
             wandb_run.save(fname_last+'.pt')
             #wandb_run.save(fname_last+'.pts')
             #wandb_run.save(fname_last+'.onnx')
-            
+
             wandb_run.save(fname_best+'.pt')
             #wandb_run.save(fname_best+'.pts')
             #wandb_run.save(fname_best+'.onnx')
-                            
+
             try:
                 # test the best model, reloading the saved model
                 model_jit = load_model(model_dir=None, model_file=fname_best+'.pts')
@@ -457,18 +499,18 @@ def trainer(rank, global_rank, config, wandb_run):
                 # pick a random case
                 a_test_set = test_set[np.random.randint(0, len(test_set))]
                 x, y, gmaps_median, noise_sigmas = a_test_set[np.random.randint(0, len(a_test_set))]
-                    
+
                 x = np.expand_dims(x, axis=0)
                 y = np.expand_dims(y, axis=0)
 
                 compare_model(config=config, model=model, model_jit=model_jit, model_onnx=model_onnx, device=device, x=x)
             except:
                 print(f"--> ignore the extra tests ...")
-    
+
     if c.ddp:
         dist.barrier()
     print(f"--> run finished ...")
-            
+
 # -------------------------------------------------------------------------------------------------
 # evaluate the val set
 
@@ -556,7 +598,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                 if batch_size >1 and x.shape[-1]==c.width[-1]:
                     # run normal inference
                     x = x.to(device)
-                    y = y.to(device)                    
+                    y = y.to(device)
                     output = model(x)
                 else:
                     two_D = False

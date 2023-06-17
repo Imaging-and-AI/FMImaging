@@ -666,9 +666,11 @@ def load_mri_test_data(config, ratio_test=1.0):
 
         if ratio_test>0:
             keys = keys[:int(len(keys)*ratio_test)]
-        
+
         test_h5files.append((h5file,keys))
 
+    logging.info(f"loading in test data ...")
     test_set = [MRIDenoisingDatasetTest([h_file], keys=[t_keys], use_complex=c.complex_i) for (h_file,t_keys) in test_h5files]
-    
+    logging.info(f"loading in test data --- completed")
+
     return test_set, test_h5files

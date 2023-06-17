@@ -114,16 +114,16 @@ class mri_ddp_base(run_ddp_base):
         vars['block_dense_connections'] = ["1"]
         vars['norm_modes'] = ["batch2d", "instance2d"]
         vars['C'] = [32, 64]
-        vars['scale_ratio_in_mixers'] = [1.0, 4.0]
+        vars['scale_ratio_in_mixers'] = [1.0]
 
         vars['snr_perturb_prob'] = [0.0]
 
         vars['block_strs'] = [
-                        [                                                         
-                            ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                        [
                             ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                            ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
                             ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],                            
+                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                             ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"]
                          ],
                         
@@ -138,7 +138,7 @@ class mri_ddp_base(run_ddp_base):
 
         vars['complex_i'] = [True, False]
         vars['residual'] = [True ]
-        vars['weighted_loss'] = [False]
+        vars['weighted_loss'] = [True, False]
 
         vars['n_heads'] = [32]
         
@@ -163,13 +163,13 @@ class mri_ddp_base(run_ddp_base):
                     a_type, \
                     cell_type,\
                     residual, \
-                    weighted_loss, \
                     snr_perturb_prob, \
                     n_heads, \
                     bs, \
                     c, \
                     scale_ratio_in_mixer, \
                     complex_i,\
+                    weighted_loss, \
                         in itertools.product( 
                                             vars['optim'],
                                             vars['mixer_types'], 
@@ -183,13 +183,13 @@ class mri_ddp_base(run_ddp_base):
                                             vars['a_types'], 
                                             vars['cell_types'],
                                             vars['residual'],
-                                            vars['weighted_loss'],
                                             vars['snr_perturb_prob'],
                                             vars['n_heads'],
                                             block_str,
                                             vars['C'],
                                             vars['scale_ratio_in_mixers'],
-                                            vars['complex_i']
+                                            vars['complex_i'],
+                                            vars['weighted_loss']
                                             ):
                                                                                         
                         # -------------------------------------------------------------

@@ -205,19 +205,29 @@ class STCNNT_Task_Base(nn.Module, ABC):
             - load_path (str): path to load the weights from
         """
         logging.info(f"{Fore.YELLOW}Loading model from {self.config.load_path}{Style.RESET_ALL}")
-        
+
         device = get_device(device=device)
-        
-        status = torch.load(self.config.load_path, map_location=self.config.device)        
-        self.load_state_dict(status['model_state'])
-        
-        self.optim.load_state_dict(status['optimizer_state'])   
-        optimizer_to(self.optim, device=self.config.device)
-             
-        self.sched.load_state_dict(status['scheduler_state'])        
+
+        status = torch.load(self.config.load_path, map_location=self.config.device)
         self.config = status['config']
-        self.stype = status['scheduler_type']
-        self.curr_epoch = status['epoch']
+
+        if 'model_state' in status:
+            self.load_state_dict(status['model_state'])
+        else:
+            self.load_state_dict(status['model'])
+
+        if 'optimizer_state' in status:
+            self.optim.load_state_dict(status['optimizer_state'])
+            optimizer_to(self.optim, device=self.config.device)
+
+        if 'scheduler_state' in status:
+            self.sched.load_state_dict(status['scheduler_state'])
+
+        if 'scheduler_type' in status:
+            self.stype = status['scheduler_type']
+
+        if 'epoch' in status:
+            self.curr_epoch = status['epoch']
 
 # -------------------------------------------------------------------------------------------------
 
