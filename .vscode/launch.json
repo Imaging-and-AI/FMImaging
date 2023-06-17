@@ -224,6 +224,19 @@
             ]
         },
         {
+            "name": "mri, create data",
+            "type": "python",
+            "request": "launch",
+            "program": "./mri/create_hdf5_3D_dataset.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "1"},
+            "args": [
+                "/export/Lab-Kellman/ReconResults/denoising/BWH/BWH_RTCine_2023_AI_denoising", "--output", "/export/Lab-Kellman/ReconResults/denoising/data_prepared/BWH_RTCine_3T_2023.h5", 
+                "--only_3T", "--im_scaling", "10.0"
+            ]
+        },
+        {
             "name": "membrane potential",
             "type": "python",
             "request": "launch",
