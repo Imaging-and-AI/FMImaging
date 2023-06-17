@@ -28,7 +28,7 @@ class mri_ddp_base(run_ddp_base):
         
         self.cmd.extend([       
        
-        "--num_epochs", "40",
+        "--num_epochs", "60",
         "--batch_size", "16",
 
         "--window_size", "8", "8",
@@ -50,7 +50,7 @@ class mri_ddp_base(run_ddp_base):
         
         "--scheduler.ReduceLROnPlateau.patience", "0",
         "--scheduler.ReduceLROnPlateau.cooldown", "0",
-        "--scheduler.ReduceLROnPlateau.factor", "0.95",
+        "--scheduler.ReduceLROnPlateau.factor", "0.9",
         
         "--scheduler.OneCycleLR.pct_start", "0.2",
         
@@ -71,8 +71,8 @@ class mri_ddp_base(run_ddp_base):
         "--max_noise_level", "10.0",
         #"--complex_i",
         #"--residual",
-        "--losses", "mse", "l1",
-        "--loss_weights", "1.0", "2.0",
+        #"--losses", "mse", "l1",
+        #"--loss_weights", "1.0", "1.0",
         "--height", "32", "64",
         "--width", "32", "64",
         "--time", "12",
@@ -116,7 +116,7 @@ class mri_ddp_base(run_ddp_base):
         vars['C'] = [32, 64]
         vars['scale_ratio_in_mixers'] = [1.0]
 
-        vars['snr_perturb_prob'] = [0.0]
+        vars['snr_perturb_prob'] = [0.1, 0.0]
 
         vars['block_strs'] = [
                         [
@@ -135,6 +135,13 @@ class mri_ddp_base(run_ddp_base):
                             ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"]
                          ]
                     ]
+
+        vars['losses'] = [
+            [['mse', 'l1'], ['1.0', '1.0']], 
+            [['ssim'], ['1.0']],
+            [['ssim', 'mse'], ['1.0', '1.0']], 
+            [['ssim', 'mse', 'l1'], ['1.0', '1.0', '1.0']], 
+        ]
 
         vars['complex_i'] = [True, False]
         vars['residual'] = [True ]
@@ -170,6 +177,7 @@ class mri_ddp_base(run_ddp_base):
                     scale_ratio_in_mixer, \
                     complex_i,\
                     weighted_loss, \
+                    loss_and_weights, \
                         in itertools.product( 
                                             vars['optim'],
                                             vars['mixer_types'], 
@@ -189,7 +197,8 @@ class mri_ddp_base(run_ddp_base):
                                             vars['C'],
                                             vars['scale_ratio_in_mixers'],
                                             vars['complex_i'],
-                                            vars['weighted_loss']
+                                            vars['weighted_loss'],
+                                            vars['losses']
                                             ):
                                                                                         
                         # -------------------------------------------------------------
@@ -215,7 +224,9 @@ class mri_ddp_base(run_ddp_base):
                                         residual=residual,
                                         weighted_loss=weighted_loss,
                                         snr_perturb_prob=snr_perturb_prob,
-                                        n_heads=n_heads
+                                        n_heads=n_heads,
+                                        losses=loss_and_weights[0],
+                                        loss_weights=loss_and_weights[1]
                                         )
                         
                         if cmd_run:
@@ -246,7 +257,9 @@ class mri_ddp_base(run_ddp_base):
                         residual=True,
                         weighted_loss=True,
                         snr_perturb_prob=0,
-                        n_heads=32
+                        n_heads=32,
+                        losses=['mse', 'l1'],
+                        loss_weights=['1.0', '1.0']
                         ):
 
         if c < n_heads:
@@ -266,15 +279,21 @@ class mri_ddp_base(run_ddp_base):
         if complex_i:
             cmd_run.extend(["--complex_i"])
             run_str += "_complex"
-            
+
         if residual:
             cmd_run.extend(["--residual"])
             run_str += "_residual"
-            
+
         if weighted_loss:
             cmd_run.extend(["--weighted_loss"])
             run_str += "_weighted_loss"
-                 
+
+        cmd_run.extend(["--losses"])
+        cmd_run.extend(losses)
+
+        cmd_run.extend(["--loss_weights"])
+        cmd_run.extend(loss_weights)
+
         ind = cmd_run.index("--run_name")
         cmd_run.pop(ind)
         cmd_run.pop(ind)
@@ -289,9 +308,9 @@ class mri_ddp_base(run_ddp_base):
             "--snr_perturb_prob", f"{snr_perturb_prob}",
             "--n_head", f"{n_heads}"
         ])
-            
+
         return cmd_run
-        
+
     def arg_parser(self):
         parser = super().arg_parser()
         parser.add_argument("--max_load", type=int, default=-1, help="number of max loaded samples into the RAM")

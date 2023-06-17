@@ -260,10 +260,10 @@ def save_inference_results(input, output, gmap, output_dir):
         nib.save(nib.Nifti1Image(input, affine=np.eye(4)), os.path.join(output_dir, 'input.nii'))
 
     if gmap is not None:
-        res_name = os.path.join(output_dir, 'gmap.npy')
+        res_name = os.path.join(output_dir, 'gfactor.npy')
         print(res_name)
         np.save(res_name, gmap)
-        nib.save(nib.Nifti1Image(gmap, affine=np.eye(4)), os.path.join(output_dir, 'gmap.nii'))
+        nib.save(nib.Nifti1Image(gmap, affine=np.eye(4)), os.path.join(output_dir, 'gfactor.nii'))
 
     if output is not None:
         if np.any(np.iscomplex(output)):

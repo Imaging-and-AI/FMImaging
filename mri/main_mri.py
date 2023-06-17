@@ -45,9 +45,9 @@ def arg_parser():
 
     # Noise Augmentation arguments
     parser.add_argument("--min_noise_level", type=float, default=1.0, help='minimum noise sigma to add')
-    parser.add_argument("--max_noise_level", type=float, default=10.0, help='maximum noise sigma to add')
-    parser.add_argument('--matrix_size_adjust_ratio', type=float, nargs='+', default=[0.5, 0.75, 1.0, 1.25, 1.5], help='down/upsample the image, keeping the fov')
-    parser.add_argument('--kspace_filter_sigma', type=float, nargs='+', default=[0.8, 1.0, 1.5, 2.0, 2.25], help='sigma for kspace filter')
+    parser.add_argument("--max_noise_level", type=float, default=12.0, help='maximum noise sigma to add')
+    parser.add_argument('--matrix_size_adjust_ratio', type=float, nargs='+', default=[0.35, 0.5, 0.75, 1.0, 1.25, 1.5], help='down/upsample the image, keeping the fov')
+    parser.add_argument('--kspace_filter_sigma', type=float, nargs='+', default=[0.8, 1.0, 1.5, 1.75, 2.0, 2.25, 2.5], help='sigma for kspace filter')
     parser.add_argument('--pf_filter_ratio', type=float, nargs='+', default=[1.0, 0.875, 0.75, 0.625], help='pf filter ratio')
     parser.add_argument('--phase_resolution_ratio', type=float, nargs='+', default=[1.0, 0.75, 0.65, 0.55], help='phase resolution ratio')
     parser.add_argument('--readout_resolution_ratio', type=float, nargs='+', default=[1.0, 0.75, 0.65, 0.55], help='readout resolution ratio')
