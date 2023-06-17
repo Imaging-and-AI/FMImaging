@@ -270,8 +270,8 @@ class run_ddp_base(object):
             compare = lambda a,b: len(a)==len(b) and len(a)==sum([1 for i,j in zip(a,b) if i==j])
 
             valid_cmd_runs = []
-            for run in cmd_runs:
-                run = copy.deepcopy(run)
+            for cmd_run in cmd_runs:
+                run = copy.deepcopy(cmd_run)
                 ind = run.index("--run_name")
                 run.pop(ind)
                 run.pop(ind)
@@ -299,7 +299,7 @@ class run_ddp_base(object):
                         break
 
                 if not already_processed:
-                    valid_cmd_runs.append(run)
+                    valid_cmd_runs.append(cmd_run)
 
         for cmd_run in valid_cmd_runs:
             print("---" * 20)
