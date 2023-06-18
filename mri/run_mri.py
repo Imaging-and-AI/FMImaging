@@ -28,7 +28,7 @@ class mri_ddp_base(run_ddp_base):
         
         self.cmd.extend([
        
-        "--num_epochs", "60",
+        "--num_epochs", "100",
         "--batch_size", "32",
 
         "--window_size", "8", "8",
@@ -50,7 +50,7 @@ class mri_ddp_base(run_ddp_base):
         
         "--scheduler.ReduceLROnPlateau.patience", "0",
         "--scheduler.ReduceLROnPlateau.cooldown", "0",
-        "--scheduler.ReduceLROnPlateau.factor", "0.9",
+        "--scheduler.ReduceLROnPlateau.factor", "0.95",
         
         "--scheduler.OneCycleLR.pct_start", "0.2",
         
