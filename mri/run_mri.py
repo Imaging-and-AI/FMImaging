@@ -26,7 +26,7 @@ class mri_ddp_base(run_ddp_base):
         
         super().set_up_constants(config)
         
-        self.cmd.extend([       
+        self.cmd.extend([
        
         "--num_epochs", "60",
         "--batch_size", "32",
@@ -139,6 +139,7 @@ class mri_ddp_base(run_ddp_base):
                     ]
 
         vars['losses'] = [
+            [['psnr','l1', 'mse'], ['1.0', '1.0', '1.0']],
             [['mse', 'l1'], ['1.0', '1.0']], 
             [['ssim', 'mse', 'l1'], ['0.1', '1.0', '1.0']], 
             #[['ssim'], ['1.0']],

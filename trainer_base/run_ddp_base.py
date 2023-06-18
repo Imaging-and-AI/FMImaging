@@ -9,6 +9,7 @@ import os
 import shutil
 import pickle
 import copy
+import time
 
 class run_ddp_base(object):
     
@@ -250,11 +251,11 @@ class run_ddp_base(object):
         parser.add_argument("--val_ratio", type=float, default=5, help="percentage of validation data used")
         parser.add_argument("--test_ratio", type=float, default=100, help="percentage of test data used")
 
+        parser.add_argument("--run_list", type=int, nargs='+', default=-1, help="run list")
+
         return parser
 
-    def run(self):
-        parser = self.arg_parser()
-        config = parser.parse_args()
+    def get_valid_runs(self, config):
         config.project = self.project
         self.set_up_torchrun(config)
         self.set_up_run_path(config)
@@ -306,8 +307,23 @@ class run_ddp_base(object):
                 if not already_processed:
                     valid_cmd_runs.append(cmd_run)
 
-        for cmd_run in valid_cmd_runs:
+        return valid_cmd_runs
+
+    def run(self):
+        parser = self.arg_parser()
+        config = parser.parse_args()
+        valid_cmd_runs = self.get_valid_runs(config)
+
+        run_lists = config.run_list
+
+        if run_lists[0] < 0:
+            run_lists = range(len(valid_cmd_runs))
+
+        for run_ind in run_lists:
+            cmd_run = valid_cmd_runs[run_ind]
             print("---" * 20)
+            print(f"Run - {run_ind} ...")
+            time.sleep(3)
             print(cmd_run)
             subprocess.run(cmd_run)
             print("---" * 20)
@@ -323,9 +339,9 @@ class run_ddp_base(object):
 
 # -------------------------------------------------------------
 
-def main():    
+def main():
     pass
-         
+
 # -------------------------------------------------------------
 
 if __name__=="__main__":
