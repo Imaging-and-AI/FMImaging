@@ -272,26 +272,31 @@ class run_ddp_base(object):
             valid_cmd_runs = []
             for cmd_run in cmd_runs:
                 run = copy.deepcopy(cmd_run)
-                ind = run.index("--run_name")
-                run.pop(ind)
-                run.pop(ind)
 
-                ind = run.index("--run_notes")
-                run.pop(ind)
-                run.pop(ind)
+                if "--run_name" in run:
+                    ind = run.index("--run_name")
+                    run.pop(ind)
+                    run.pop(ind)
+
+                if "--run_notes" in run:
+                    ind = run.index("--run_notes")
+                    run.pop(ind)
+                    run.pop(ind)
 
                 already_processed = False
                 for pre_run in run_completed:
 
                     pre_run = copy.deepcopy(pre_run)
 
-                    ind = pre_run.index("--run_name")
-                    pre_run.pop(ind)
-                    pre_run.pop(ind)
+                    if "--run_name" in pre_run:
+                        ind = pre_run.index("--run_name")
+                        pre_run.pop(ind)
+                        pre_run.pop(ind)
 
-                    ind = pre_run.index("--run_notes")
-                    pre_run.pop(ind)
-                    pre_run.pop(ind)
+                    if "--run_notes" in pre_run:
+                        ind = pre_run.index("--run_notes")
+                        pre_run.pop(ind)
+                        pre_run.pop(ind)
 
                     if compare(run, pre_run):
                         already_processed = True
