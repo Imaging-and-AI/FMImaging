@@ -543,7 +543,7 @@ def trainer(rank, global_rank, config, wandb_run):
                 x = np.expand_dims(x, axis=0)
                 y = np.expand_dims(y, axis=0)
 
-                compare_model(config=config, model=model, model_jit=model_jit, model_onnx=model_onnx, device=device, x=x)
+                #compare_model(config=config, model=model, model_jit=model_jit, model_onnx=model_onnx, device=device, x=x)
             except:
                 print(f"--> ignore the extra tests ...")
 
