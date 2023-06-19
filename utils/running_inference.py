@@ -121,7 +121,7 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
 
     image_batch = image_patches.reshape(-1,Tc,CO,Hc,Wc) # shape:(num_patches,T,C,H,W)
     #print(f"norm = {np.linalg.norm(image_batch)}")
-    
+
     print(f"processing tensor size {image_batch.shape}")
 
     # ---------------------------------------------------------------------------------------------

@@ -465,6 +465,31 @@ class MRIDenoisingDatasetTrain():
 # -------------------------------------------------------------------------------------------------
 # test dataset class
 
+def load_test_images_from_h5file(h5file, keys):
+        """
+        Load images from h5 file objects
+        @args:
+            - h5file (h5File list): list of h5files to load images from
+            - keys (key list list): list of list of keys. One for each h5file
+            
+        @outputs:
+            - images : list of image and gmap pairs as a list
+        """
+        images = []
+
+        num_loaded = 0
+        for i in range(len(h5file)):
+            with tqdm(total=len(keys[i]), bar_format=get_bar_format()) as pbar:
+                for n, key in enumerate(keys[i]):
+                    images.append([key+"/noisy", key+"/clean", key+"/gmap", key+"/noise_sigma", i])
+                    num_loaded += 1
+
+                    if n>0 and n%100 == 0:
+                        pbar.update(100)
+                        pbar.set_description_str(f"{h5file}, {n} in {len(keys[i])}, total {len(images)}")
+
+        return images
+
 class MRIDenoisingDatasetTest():
     """
     Dataset for MRI denoising testing.
@@ -484,14 +509,16 @@ class MRIDenoisingDatasetTest():
         """
         self.use_gmap = use_gmap
         self.use_complex = use_complex
+        self.h5file = h5file
+        self.keys = keys
 
-        self.images = []
+        self.images = load_test_images_from_h5file(h5file, keys)
 
-        for i in range(len(h5file)):
-            self.images.extend([(np.array(h5file[i][key+"/noisy"]),
-                                    np.array(h5file[i][key+"/clean"]),
-                                    np.array(h5file[i][key+"/gmap"]),
-                                    np.array(h5file[i][key+"/noise_sigma"])) for key in keys[i]])
+        # for i in range(len(h5file)):
+        #     self.images.extend([(np.array(h5file[i][key+"/noisy"]),
+        #                             np.array(h5file[i][key+"/clean"]),
+        #                             np.array(h5file[i][key+"/gmap"]),
+        #                             np.array(h5file[i][key+"/noise_sigma"])) for key in keys[i]])
 
     def load_one_sample(self, i):
         """
@@ -506,16 +533,22 @@ class MRIDenoisingDatasetTest():
             - noise_sigma (0D torch.Tensor): noise sigma added to the image patch
         """
         # get the image
-        noisy = (self.images[i][0])
-        clean = (self.images[i][1])
+        # noisy = (self.images[i][0])
+        # clean = (self.images[i][1])
+        # gmap = self.images[i][2]
+        # noise_sigma = self.images[i][3]
+        ind = self.images[i][4]
+        noisy = np.array(self.h5file[ind][self.images[i][0]])
+        clean = np.array(self.h5file[ind][self.images[i][1]])
+        gmap = np.array(self.h5file[ind][self.images[i][2]])
+        noise_sigma = np.array(self.h5file[ind][self.images[i][3]])
+
         if noisy.ndim==2:
             noisy = noisy[np.newaxis,np.newaxis,:,:]
             clean = clean[np.newaxis,np.newaxis,:,:]
         else: # ndim==3
             noisy = noisy[:,np.newaxis,:,:]
             clean = clean[:,np.newaxis,:,:]
-        gmap = self.images[i][2]
-        noise_sigma = self.images[i][3]
 
         assert gmap.ndim==2, f"gmap for testing should only be 2 dimensional"
 
