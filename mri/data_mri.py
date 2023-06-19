@@ -93,6 +93,7 @@ class MRIDenoisingDatasetTrain():
                     use_complex=True, min_noise_level=1.0, max_noise_level=6.0,
                     matrix_size_adjust_ratio=[0.5, 0.75, 1.0, 1.25, 1.5],
                     kspace_filter_sigma=[0.8, 1.0, 1.5, 2.0, 2.25],
+                    kspace_filter_T_sigma=[0.25, 0.5, 0.65, 0.85, 1.0, 1.5, 2.0, 2.25],
                     pf_filter_ratio=[1.0, 0.875, 0.75, 0.625],
                     phase_resolution_ratio=[1.0, 0.75, 0.65, 0.55],
                     readout_resolution_ratio=[1.0, 0.75, 0.65, 0.55],
@@ -147,6 +148,7 @@ class MRIDenoisingDatasetTrain():
         self.max_noise_level = max_noise_level
         self.matrix_size_adjust_ratio = matrix_size_adjust_ratio
         self.kspace_filter_sigma = kspace_filter_sigma
+        self.kspace_filter_T_sigma = kspace_filter_T_sigma
         self.pf_filter_ratio = pf_filter_ratio
         self.phase_resolution_ratio = phase_resolution_ratio
         self.readout_resolution_ratio = readout_resolution_ratio
@@ -223,6 +225,7 @@ class MRIDenoisingDatasetTrain():
                                                                 min_noise_level=self.min_noise_level,
                                                                 max_noise_level=self.max_noise_level,
                                                                 kspace_filter_sigma=self.kspace_filter_sigma,
+                                                                kspace_filter_T_sigma=self.kspace_filter_T_sigma,
                                                                 pf_filter_ratio=self.pf_filter_ratio,
                                                                 phase_resolution_ratio=[ratio_E1],
                                                                 readout_resolution_ratio=[ratio_RO],

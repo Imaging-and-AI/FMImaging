@@ -10,6 +10,8 @@ import glob
 from functools import reduce
 np.seterr(all='raise')
 
+import scipy.io as sio
+
 import sys
 from pathlib import Path
 Project_DIR = Path(__file__).parents[0].resolve()
@@ -27,12 +29,17 @@ def add_image_to_h5group(args, folder, h5_group, only_3T=True):
     if(only_3T):
         # get the field strength
         ismrmrd_file = os.path.join(folder, f"ismrmrd_hdr.mat")
-        a = h5py.File(ismrmrd_file, 'r')
-        systemFieldStrength_T = np.array(a['hdr']['acquisitionSystemInformation']['systemFieldStrength_T'])[0, 0]
+        try:
+            a = h5py.File(ismrmrd_file, 'r')
+            systemFieldStrength_T = np.array(a['hdr']['acquisitionSystemInformation']['systemFieldStrength_T'])[0, 0]
+        except:
+            a = sio.loadmat(ismrmrd_file)
+            systemFieldStrength_T = a['systemFieldStrength_T'][0, 0]
+
         if(systemFieldStrength_T < 2.0):
             return
 
-    possible_filenames = ["images_for_gmap","im"]
+    possible_filenames = ["im"]
 
     image = None 
     for filename in possible_filenames:
@@ -57,22 +64,24 @@ def add_image_to_h5group(args, folder, h5_group, only_3T=True):
 
     if(image.ndim==2):
         return
-    
+
     if len(image.shape) == 3:
         image = image[:,:,np.newaxis,:]
 
     x, y, slices, frames = image.shape
-    
+
     print(f"{folder}, images - {image.shape}")
 
     if(x<64 or y<64):
+        print(f"{folder} -- pass over - x<64 or y<64 ...")
         return
     
     if(frames<20):
+        print(f"{folder} -- pass over - frames {frames} ...")
         return
         
     if(slices>20):
-        print(f"{folder} -- pass over ...")
+        print(f"{folder} -- pass over - slices {slices} ...")
         return
     
     # remote the default scaling
@@ -82,6 +91,7 @@ def add_image_to_h5group(args, folder, h5_group, only_3T=True):
     for s in range(slices):
         gmap_file = f"{folder}/gmap_slc_{s+1}.npy"
         if(os.path.exists(gmap_file) == False):
+            print(f"{folder} -- pass over - cannot find gmap {gmap_file} ...")
             return
 
     for s in range(slices):
@@ -163,7 +173,7 @@ def main():
                 # if(folder.find("66016")>=0):
                 #     print("here")
 
-                print(f"---> {ii} out of {N} <---")
+                print(f"---> {ii} out of {N}, {folder} <---")
                 add_image_to_h5group(args, folder, h5file, only_3T)
                 
         print("----" * 20)

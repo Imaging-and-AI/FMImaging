@@ -97,6 +97,13 @@ python3 $HOME/mrprogs/STCNNT.git/mri/run_mri.py --nproc_per_node 4 --nnodes 8 --
 sh /home/gtuser/mrprogs/STCNNT.git/mri/run_cloud.sh -d 16 -e 172.16.0.4 -n 4 -p 9001 -r 100
 ```
 
+## data convertion
+```
+python3 ./mri/create_hdf5_3D_dataset.py /export/Lab-Kellman/ReconResults/denoising/BWH/BWH_RetroCine_2023_AI_denoising /export/Lab-Kellman/ReconResults/denoising/BWH/BWH_RetroCine_2022_AI_denoising /export/Lab-Kellman/ReconResults/denoising/BWH/BWH_RetroCine_2021_AI_denoising --output /export/Lab-Kellman/ReconResults/denoising/data_prepared/BWH_RetroCine_3T_2023_2022_2021.h5 --only_3T --im_scaling 10.0
+
+python3 ./mri/create_hdf5_3D_dataset.py /export/Lab-Kellman/ReconResults/denoising/BWH/BWH_RTCine_2023_AI_denoising /export/Lab-Kellman/ReconResults/denoising/BWH/BWH_RTCine_2022_AI_denoising /export/Lab-Kellman/ReconResults/denoising/BWH/BWH_RTCine_2021_AI_denoising --output /export/Lab-Kellman/ReconResults/denoising/data_prepared/BWH_RTCine_3T_2023_2022_2021.h5 --only_3T --im_scaling 10.0
+```
+
 ## Run the evaluation code
 ```
 python3 ./mri/eval_mri.py --data_root /data/mri/denoising/data --test_files train_3D_3T_retro_cine_2020_small_test.h5 --results_path /export/Lab-Xue/projects/mri/results --pad_time --saved_model_path /export/Lab-Xue/projects/mri/test/mri-HRNET-conv-parallel-batch2d-sophia-C-32-MIXER-conv-False-1-BLOCK_DENSE-0-QKNORM-True-CONSINE_ATT-0-shuffle_in_window-0-att_with_relative_postion_bias-1-BLOCK_STR-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1.pts

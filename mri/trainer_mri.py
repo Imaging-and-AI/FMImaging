@@ -233,8 +233,8 @@ def trainer(rank, global_rank, config, wandb_run):
     l1_loss_func = L1_Loss(complex_i=c.complex_i)
     ssim_loss_func = SSIM_Loss(complex_i=c.complex_i, device=device)
     ssim3D_loss_func = SSIM3D_Loss(complex_i=c.complex_i, device=device)
-    psnr_loss_func = PSNR_Loss(range=1024)
-    psnr_func = PSNR(range=1024)
+    psnr_loss_func = PSNR_Loss(range=2048)
+    psnr_func = PSNR(range=2048)
 
     # -----------------------------------------------
     
@@ -587,7 +587,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
     ssim_loss_func = SSIM_Loss(complex_i=c.complex_i, device=device)
     ssim3D_loss_func = SSIM3D_Loss(complex_i=c.complex_i, device=device)
     psnr_loss_func = PSNR_Loss(range=2048)
-    psnr_func = PSNR(range=1024)
+    psnr_func = PSNR(range=2048)
 
     model.eval()
     model.to(device)
