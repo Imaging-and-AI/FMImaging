@@ -83,7 +83,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
         if config.load_path is not None:
             self.load(device=device)
 
-    def forward(self, x):
+    def forward(self, x, snr=None, base_snr_t=-1):
         """
         @args:
             - x (5D torch.Tensor): input image
@@ -101,7 +101,11 @@ class STCNNT_MRI(STCNNT_Task_Base):
             C = 2 if self.complex_i else 1
             logits = x[:,:,:C] - logits
 
-        return logits
+        weights = None
+        if snr is not None and base_snr_t>0:
+            weights = self.compute_weights(snr, base_snr_t)
+
+        return logits, weights
 
     def compute_weights(self, snr, base_snr_t):
         weights = self.a - self.b * torch.sigmoid(snr-base_snr_t)

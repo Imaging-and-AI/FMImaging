@@ -260,6 +260,7 @@ model=/export/Lab-Xue/projects/mri/test/complex_model/cifar_21-28-58-20230617_la
 model=/export/Lab-Xue/projects/mri/test/complex_model/cifar_21-28-58-20230617_best.pt
 model=/export/Lab-Xue/projects/mri/test/mag_model/mri-HRNET-conv-parallel-batch2d-sophia-C-32-H-32-MIXER-conv-1-T1L1G1_T1L1G1_T1L1G1_T1L1G1-20230618_134522_residual_weighted_loss_13-45-45-20230618_epoch-30.pth
 model=/export/Lab-Xue/projects/mri/checkpoints/mri-HRNET-20230619_085716_714328_complex_residual_weighted_loss-T1L1G1_T1L1G1_T1L1G1_T1L1G1_08-57-24-20230619_epoch-2.pth
+model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230619_131814_275276_complex_residual_weighted_loss-T1L1G1_T1L1G1_T1L1G1_T1L1G1_13-18-39-20230619_last.pt
 
 # R4
 python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_528_20230616-173804 --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_528_20230616-173804/res --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model

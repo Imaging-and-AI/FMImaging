@@ -305,20 +305,21 @@ def trainer(rank, global_rank, config, wandb_run):
                 signal = torch.mean(torch.linalg.norm(y, dim=2, keepdim=True), dim=(1, 2, 3, 4))
                 snr = signal / (noise_sigmas*gmaps_median)
 
+                if c.weighted_loss:
+                    beta_counter += 1
+                    base_snr = beta_snr * base_snr + (1-beta_snr) * base_snr
+                    base_snr_t = base_snr / (1 - np.power(beta_snr, beta_counter))
+
+                    # give low SNR patches more weights
+                    #weights = 5.0 - 4.0 * torch.sigmoid(snr-base_snr_t)
+                else:
+                    snr = None
+                    base_snr_t = -1
+
                 with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
-                    output = model(x)
+                    output, weights = model(x, snr, base_snr_t)
 
                     if c.weighted_loss:
-                        beta_counter += 1
-                        base_snr = beta_snr * base_snr + (1-beta_snr) * base_snr
-                        base_snr_t = base_snr / (1 - np.power(beta_snr, beta_counter))
-
-                         # give low SNR patches more weights
-                        #weights = 5.0 - 4.0 * torch.sigmoid(snr-base_snr_t)
-                        if c.ddp:
-                            weights = model.module.compute_weights(snr, base_snr_t)
-                        else:
-                            weights = model.compute_weights(snr, base_snr_t)
                         loss = loss_f(output, y, weights=weights.to(device))
                     else:
                         loss = loss_f(output, y)
@@ -503,7 +504,7 @@ def trainer(rank, global_rank, config, wandb_run):
             model.save(epoch)
 
             # save both models
-            fname_last, fname_best = save_final_model(model, config, best_model_wts, only_pt=False)
+            fname_last, fname_best = save_final_model(model, config, best_model_wts, only_pt=True)
 
             logging.info(f"--> {Fore.YELLOW}Save last mode at {fname_last}{Style.RESET_ALL}")
             logging.info(f"--> {Fore.YELLOW}Save best mode at {fname_best}{Style.RESET_ALL}")
@@ -534,21 +535,21 @@ def trainer(rank, global_rank, config, wandb_run):
             #wandb_run.save(fname_best+'.pts')
             #wandb_run.save(fname_best+'.onnx')
 
-            try:
-                # test the best model, reloading the saved model
-                model_jit = load_model(model_dir=None, model_file=fname_best+'.pts')
-                model_onnx, _ = load_model_onnx(model_dir=None, model_file=fname_best+'.onnx', use_cpu=True)
+            # try:
+            #     # # test the best model, reloading the saved model
+            #     # model_jit = load_model(model_dir=None, model_file=fname_best+'.pts')
+            #     # model_onnx, _ = load_model_onnx(model_dir=None, model_file=fname_best+'.onnx', use_cpu=True)
 
-                # pick a random case
-                a_test_set = test_set[np.random.randint(0, len(test_set))]
-                x, y, gmaps_median, noise_sigmas = a_test_set[np.random.randint(0, len(a_test_set))]
+            #     # # pick a random case
+            #     # a_test_set = test_set[np.random.randint(0, len(test_set))]
+            #     # x, y, gmaps_median, noise_sigmas = a_test_set[np.random.randint(0, len(a_test_set))]
 
-                x = np.expand_dims(x, axis=0)
-                y = np.expand_dims(y, axis=0)
+            #     # x = np.expand_dims(x, axis=0)
+            #     # y = np.expand_dims(y, axis=0)
 
-                #compare_model(config=config, model=model, model_jit=model_jit, model_onnx=model_onnx, device=device, x=x)
-            except:
-                print(f"--> ignore the extra tests ...")
+            #     #compare_model(config=config, model=model, model_jit=model_jit, model_onnx=model_onnx, device=device, x=x)
+            # except:
+            #     print(f"--> ignore the extra tests ...")
 
     if c.ddp:
         dist.barrier()
@@ -615,7 +616,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
     model.eval()
     model.to(device)
 
-    if rank <= 0 and epoch < 2:
+    if rank <= 0 and epoch < 1:
         logging.info(f"Eval height and width is {c.height[-1]}, {c.width[-1]}")
 
     cutout = (c.time, c.height[-1], c.width[-1])
@@ -644,7 +645,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                     # run normal inference
                     x = x.to(device)
                     y = y.to(device)
-                    output = model(x)
+                    output, _ = model(x)
                 else:
                     two_D = False
                     cutout_in = cutout
