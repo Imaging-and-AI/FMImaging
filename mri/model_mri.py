@@ -72,9 +72,8 @@ class STCNNT_MRI(STCNNT_Task_Base):
                                  kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
         # if use weighted loss
-        if config.weighted_loss:
-            self.a = torch.nn.Parameter(torch.tensor(5.0))
-            self.b = torch.nn.Parameter(torch.tensor(4.0))
+        self.a = torch.nn.Parameter(torch.tensor(5.0))
+        self.b = torch.nn.Parameter(torch.tensor(4.0))
 
         device = get_device(device=config.device)
         self.set_up_loss(device=device)
