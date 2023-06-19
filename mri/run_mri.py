@@ -28,7 +28,7 @@ class mri_ddp_base(run_ddp_base):
         
         self.cmd.extend([
        
-        "--num_epochs", "100",
+        "--num_epochs", "50",
         "--batch_size", "32",
 
         "--window_size", "8", "8",
@@ -175,10 +175,10 @@ class mri_ddp_base(run_ddp_base):
                     residual, \
                     snr_perturb_prob, \
                     n_heads, \
-                    bs, \
                     c, \
                     scale_ratio_in_mixer, \
                     complex_i,\
+                    bs, \
                     weighted_loss, \
                     loss_and_weights, \
                         in itertools.product( 
@@ -196,10 +196,10 @@ class mri_ddp_base(run_ddp_base):
                                             vars['residual'],
                                             vars['snr_perturb_prob'],
                                             vars['n_heads'],
-                                            block_str,
                                             vars['C'],
                                             vars['scale_ratio_in_mixers'],
                                             vars['complex_i'],
+                                            block_str,
                                             vars['weighted_loss'],
                                             vars['losses']
                                             ):
