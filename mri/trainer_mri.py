@@ -264,6 +264,8 @@ def trainer(rank, global_rank, config, wandb_run):
 
         logging.info(f"{Fore.YELLOW}base_snr {base_snr:.4f}, Mean signal {np.abs(np.median(mean_signal)):.4f}, median {np.abs(np.median(median_signal)):.4f}, from {len(mean_signal)} images {Style.RESET_ALL}")
 
+    logging.info(f"{Fore.GREEN}----------> Start training loop <----------{Style.RESET_ALL}")
+
     for epoch in range(curr_epoch, c.num_epochs):
         logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank}, global rank {global_rank} {'-'*20}{Style.RESET_ALL}")
 
