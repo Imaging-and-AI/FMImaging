@@ -14,6 +14,7 @@ sys.path.insert(1, str(Project_DIR))
 from trainer_base import *
 
 import time
+from datetime import datetime
 
 # -------------------------------------------------------------
 
@@ -275,10 +276,11 @@ class mri_ddp_base(run_ddp_base):
                         bs, larger_mixer_kernel, mixer_type, 
                         shuffle_in_window, scale_ratio_in_mixer,
                         load_path)
-        
-        moment = time.strftime("%Y%m%d_%H%M%S_%f", time.gmtime())
+
+        curr_time = datetime.now()
+        moment = curr_time.strftime('%Y%m%d_%H%M%S_%f')
         #run_str = f"{a_type}-{cell_type}-{norm_mode}-{optim}-C-{c}-H-{n_heads}-MIXER-{mixer_type}-{int(scale_ratio_in_mixer)}-{'_'.join(bs)}-{moment}"
-        run_str = f"C-{c}-H-{n_heads}-{'_'.join(bs)}-{moment}"
+        run_str = moment
 
         if complex_i:
             cmd_run.extend(["--complex_i"])
@@ -291,6 +293,8 @@ class mri_ddp_base(run_ddp_base):
         if weighted_loss:
             cmd_run.extend(["--weighted_loss"])
             run_str += "_weighted_loss"
+
+        run_str += f"-{'_'.join(bs)}"
 
         cmd_run.extend(["--losses"])
         cmd_run.extend(losses)
