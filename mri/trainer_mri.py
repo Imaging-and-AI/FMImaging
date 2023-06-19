@@ -315,7 +315,6 @@ def trainer(rank, global_rank, config, wandb_run):
                     # give low SNR patches more weights
                     #weights = 5.0 - 4.0 * torch.sigmoid(snr-base_snr_t)
                 else:
-                    snr = None
                     base_snr_t = -1
 
                 with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):

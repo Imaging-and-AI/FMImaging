@@ -81,7 +81,7 @@ def load_images_from_h5file(h5file, keys, max_load=100000):
 
         return images
 
-def load_images_for_statistics(h5file, keys, max_loaded=100):
+def load_images_for_statistics(h5file, keys, max_loaded=30):
         """
         Load images from h5 file objects to count image statistics
         @args:
