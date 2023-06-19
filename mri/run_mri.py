@@ -276,9 +276,10 @@ class mri_ddp_base(run_ddp_base):
                         shuffle_in_window, scale_ratio_in_mixer,
                         load_path)
         
-        moment = time.strftime("%Y%m%d_%H%M%S", time.gmtime())
-        run_str = f"{a_type}-{cell_type}-{norm_mode}-{optim}-C-{c}-H-{n_heads}-MIXER-{mixer_type}-{int(scale_ratio_in_mixer)}-{'_'.join(bs)}-{moment}"
-        
+        moment = time.strftime("%Y%m%d_%H%M%S_%f", time.gmtime())
+        #run_str = f"{a_type}-{cell_type}-{norm_mode}-{optim}-C-{c}-H-{n_heads}-MIXER-{mixer_type}-{int(scale_ratio_in_mixer)}-{'_'.join(bs)}-{moment}"
+        run_str = f"C-{c}-H-{n_heads}-{'_'.join(bs)}-{moment}"
+
         if complex_i:
             cmd_run.extend(["--complex_i"])
             run_str += "_complex"
