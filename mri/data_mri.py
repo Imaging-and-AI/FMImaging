@@ -81,7 +81,7 @@ def load_images_from_h5file(h5file, keys, max_load=100000):
 
         return images
 
-def load_images_for_statistics(h5file, keys):
+def load_images_for_statistics(h5file, keys, max_loaded=100):
         """
         Load images from h5 file objects to count image statistics
         @args:
@@ -98,6 +98,7 @@ def load_images_for_statistics(h5file, keys):
         stat['gmap_median'] = list()
         for i in range(len(h5file)):
             with tqdm(total=len(keys[i]), bar_format=get_bar_format()) as pbar:
+                case_num_loaded = 0
                 for n, key in enumerate(keys[i]):
                     im = np.array(h5file[i][key+"/image"])
                     gmap = np.array(h5file[i][key+"/gmap"])
@@ -107,6 +108,10 @@ def load_images_for_statistics(h5file, keys):
                     stat['gmap_median'].extend(np.median(gmap, axis=(0, 1)).flatten())
                     num_loaded += 1
                     pbar.update(1)
+
+                    case_num_loaded += 1
+                    if case_num_loaded > max_loaded:
+                        break
 
         stat['num_loaded'] = num_loaded
         return stat
