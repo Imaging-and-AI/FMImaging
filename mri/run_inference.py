@@ -56,8 +56,8 @@ def check_args(args):
     @rets:
         - args (Namespace): the checked and updated argparse for MRI
     """
-    assert args.saved_model_path.endswith(".pt") or args.saved_model_path.endswith(".pts") or args.saved_model_path.endswith(".onnx"),\
-            f"Saved model should either be \"*.pt\" or \"*.pts\" or \"*.onnx\""
+    assert args.saved_model_path.endswith(".pt") or args.saved_model_path.endswith(".pts") or args.saved_model_path.endswith(".onnx") or args.saved_model_path.endswith(".pth"),\
+            f"Saved model should either be \"*.pt\" or \"*.pts\" or \"*.onnx\" or \"*.pth\""
 
     # get the args path
     fname = os.path.splitext(args.saved_model_path)[0]
@@ -85,13 +85,16 @@ def load_model(args):
         with open(config_file, 'rb') as f:
             config = pickle.load(f)
 
-    if args.saved_model_path.endswith(".pt"):
+    if args.saved_model_path.endswith(".pt") or args.saved_model_path.endswith(".pth"):
         status = torch.load(args.saved_model_path, map_location=get_device())
         config = status['config']
         if not torch.cuda.is_available():
             config.device = torch.device('cpu')
         model = STCNNT_MRI(config=config)
-        model.load_state_dict(status['model'])
+        if 'model' in status:
+            model.load_state_dict(status['model'])
+        else:
+            model.load_state_dict(status['model_state'])
     elif args.saved_model_path.endswith(".pts"):
         model = torch.jit.load(args.saved_model_path, map_location=get_device())
     else:

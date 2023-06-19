@@ -251,7 +251,7 @@ class run_ddp_base(object):
         parser.add_argument("--val_ratio", type=float, default=5, help="percentage of validation data used")
         parser.add_argument("--test_ratio", type=float, default=100, help="percentage of test data used")
 
-        parser.add_argument("--run_list", type=int, nargs='+', default=-1, help="run list")
+        parser.add_argument("--run_list", type=int, nargs='+', default=[-1], help="run list")
 
         return parser
 
