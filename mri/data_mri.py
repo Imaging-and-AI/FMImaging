@@ -106,6 +106,7 @@ def load_images_for_statistics(h5file, keys):
                     stat['median'].extend(np.median(im, axis=(0, 1)).flatten())
                     stat['gmap_median'].extend(np.median(gmap, axis=(0, 1)).flatten())
                     num_loaded += 1
+                    pbar.update(1)
 
         stat['num_loaded'] = num_loaded
         return stat
