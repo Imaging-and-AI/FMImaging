@@ -315,7 +315,10 @@ def trainer(rank, global_rank, config, wandb_run):
 
                          # give low SNR patches more weights
                         #weights = 5.0 - 4.0 * torch.sigmoid(snr-base_snr_t)
-                        weights = model.compute_weights(snr, base_snr_t)
+                        if c.ddp:
+                            weights = model.module.compute_weights(snr, base_snr_t)
+                        else:
+                            weights = model.compute_weights(snr, base_snr_t)
                         loss = loss_f(output, y, weights=weights.to(device))
                     else:
                         loss = loss_f(output, y)
