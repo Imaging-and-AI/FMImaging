@@ -19,27 +19,14 @@ sys.path.insert(1, str(Project_DIR))
 
 total_samples = 0
 
-def add_image_to_h5group(args, folder, h5_group, only_3T=True):
+def add_image_to_h5group(args, folder, h5_group):
     
     global total_samples
     
     if(is_valid_folder(folder) is False):
         return
-    
-    if(only_3T):
-        # get the field strength
-        ismrmrd_file = os.path.join(folder, f"ismrmrd_hdr.mat")
-        try:
-            a = h5py.File(ismrmrd_file, 'r')
-            systemFieldStrength_T = np.array(a['hdr']['acquisitionSystemInformation']['systemFieldStrength_T'])[0, 0]
-        except:
-            a = sio.loadmat(ismrmrd_file)
-            systemFieldStrength_T = a['systemFieldStrength_T'][0, 0]
 
-        if(systemFieldStrength_T < 2.0):
-            return
-
-    possible_filenames = ["im"]
+    possible_filenames = [args.input_fname]
 
     image = None 
     for filename in possible_filenames:
@@ -136,7 +123,9 @@ def main():
         action="store_true",
         help="If true, only include 3T data for training",
     )
-    
+
+    parser.add_argument("--input_fname", type=str, default="im", help='input file name')
+
     args = parser.parse_args()
     print(args)
     
@@ -173,8 +162,23 @@ def main():
                 # if(folder.find("66016")>=0):
                 #     print("here")
 
-                print(f"---> {ii} out of {N}, {folder} <---")
-                add_image_to_h5group(args, folder, h5file, only_3T)
+                # get the field strength
+                ismrmrd_file = os.path.join(folder, f"ismrmrd_hdr.mat")
+                try:
+                    if os.path.isfile(ismrmrd_file):
+                        a = h5py.File(ismrmrd_file, 'r')
+                        systemFieldStrength_T = np.array(a['hdr']['acquisitionSystemInformation']['systemFieldStrength_T'])[0, 0]
+                    else:
+                        continue
+                except:
+                    a = sio.loadmat(ismrmrd_file)
+                    systemFieldStrength_T = a['systemFieldStrength_T'][0, 0]
+
+                print(f"---> {ii} out of {N}, {systemFieldStrength_T}, {folder} <---")
+                if only_3T < systemFieldStrength_T<2.0:
+                    continue
+
+                add_image_to_h5group(args, folder, h5file)
                 
         print("----" * 20)
         print(f"--> total number of samples {total_samples}")

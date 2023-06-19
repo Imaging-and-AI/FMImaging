@@ -184,7 +184,7 @@ class STCNNT_Task_Base(nn.Module, ABC):
             - checkpath (str): directory to save checkpoint in
         """
         run_name = self.config.run_name.replace(" ", "_")
-        save_file_name = f"{run_name}_{self.config.date}_epoch-{epoch}.pth"
+        save_file_name = f"{run_name}_epoch-{epoch}.pth"
         save_path = os.path.join(self.config.check_path, save_file_name)
         logging.info(f"{Fore.YELLOW}Saving model status at {save_path}{Style.RESET_ALL}")
         torch.save({
