@@ -71,6 +71,11 @@ class STCNNT_MRI(STCNNT_Task_Base):
             self.post = Conv2DExt(output_C,config.C_out, \
                                  kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
+        # if use weighted loss
+        if config.weighted_loss:
+            self.a = torch.nn.Parameter(torch.tensor(5.0))
+            self.b = torch.nn.Parameter(torch.tensor(4.0))
+
         device = get_device(device=config.device)
         self.set_up_loss(device=device)
         self.set_up_optim_and_scheduling(total_steps=total_steps)
@@ -97,7 +102,11 @@ class STCNNT_MRI(STCNNT_Task_Base):
             logits = x[:,:,:C] - logits
 
         return logits
-    
+
+    def compute_weights(self, snr, base_snr_t):
+        weights = self.a - self.b * torch.sigmoid(snr-base_snr_t)
+        return weights
+
     def set_up_loss(self, device="cpu"):
         """
         Sets up the combined loss

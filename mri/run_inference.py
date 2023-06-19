@@ -43,7 +43,7 @@ def arg_parser():
     parser.add_argument("--saved_model_path", type=str, default=None, help='model path. endswith ".pt" or ".pts"')
     parser.add_argument("--pad_time", action="store_true", help="with to pad along time")
     parser.add_argument("--patch_size_inference", type=int, default=-1, help='patch size for inference; if <=0, use the config setup')
-    
+
     parser.add_argument("--input_fname", type=str, default="im", help='input file name')
 
     return parser.parse_args()

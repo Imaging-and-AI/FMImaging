@@ -84,7 +84,9 @@ class STCNNT_Task_Base(nn.Module, ABC):
                 elif (pn.endswith('weight') or pn.endswith('relative_position_bias_table')) and isinstance(p, blacklist_weight_modules):
                     # weights of blacklist modules will NOT be weight decayed
                     no_decay.add(fpn)
-                
+                else:
+                    no_decay.add(fpn)
+
         # validate that we considered every parameter
         param_dict = {pn: p for pn, p in self.named_parameters()}
         inter_params = decay & no_decay

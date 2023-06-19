@@ -248,7 +248,21 @@ def trainer(rank, global_rank, config, wandb_run):
 
     # -----------------------------------------------
 
-    base_snr = 5.0
+    base_snr = 0
+    beta_snr = 0.9
+    beta_counter = 0
+    if c.weighted_loss:
+        # get the base_snr
+        mean_signal = list()
+        median_signal = list()
+        for i, train_set_x in enumerate(train_set):
+            stat = train_set_x.get_stat()
+            mean_signal.extend(stat['mean'])
+            median_signal.extend(stat['median'])
+
+        base_snr = np.abs(np.mean(median_signal)) / 2
+
+        logging.info(f"{Fore.YELLOW}{'-'*6}Mean signal {np.abs(np.mean(mean_signal)):.4f}, median {np.abs(np.median(median_signal)):.4f}, from {len(mean_signal)} images {Style.RESET_ALL}")
 
     for epoch in range(curr_epoch, c.num_epochs):
         logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank}, global rank {global_rank} {'-'*20}{Style.RESET_ALL}")
@@ -295,7 +309,13 @@ def trainer(rank, global_rank, config, wandb_run):
                     output = model(x)
 
                     if c.weighted_loss:
-                        weights = 5.0 - 4.0 * torch.sigmoid(snr-base_snr) # give low SNR patches more weights
+                        beta_counter += 1
+                        base_snr = beta_snr * base_snr + (1-beta_snr) * base_snr
+                        base_snr_t = base_snr / (1 - np.power(beta_snr, beta_counter))
+
+                         # give low SNR patches more weights
+                        #weights = 5.0 - 4.0 * torch.sigmoid(snr-base_snr_t)
+                        weights = model.compute_weights(snr, base_snr_t)
                         loss = loss_f(output, y, weights=weights.to(device))
                     else:
                         loss = loss_f(output, y)
@@ -404,11 +424,11 @@ def trainer(rank, global_rank, config, wandb_run):
 
         # -------------------------------------------------------
         if rank<=0: # main or master process
+            model_e = model.module if c.ddp else model
+            model_e.save(epoch)
             if val_losses[0] < best_val_loss:
-                model_e = model.module if c.ddp else model
                 best_val_loss = val_losses[0]
                 best_model_wts = copy.deepcopy(model_e.state_dict())
-                model_e.save(epoch)
                 if wandb_run is not None:
                     wandb_run.log({"epoch": epoch, "best_val_loss":best_val_loss})
 
