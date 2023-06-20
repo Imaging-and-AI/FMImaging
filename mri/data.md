@@ -1,6 +1,33 @@
 # MRI image enhancement training
 
-Create datasets
+## Run the data
+
+```
+
+sudo mkdir -p /data/Debug/DebugOutput_RetroCine
+sudo mkdir -p /data/Debug/DebugOutput_Perfusion
+sudo mkdir -p /data/Debug/DebugOutput_LGE
+sudo mkdir -p /data/Debug/DebugOutput_RTCine
+
+sudo chmod a+rw /data
+sudo chmod a+rw /data/Debug
+
+sudo mkdir /data/gt
+sudo chmod a+rw /data/gt
+
+sudo chmod a+rw /data/Debug/DebugOutput_RetroCine
+sudo chmod a+rw /data/Debug/DebugOutput_Perfusion
+sudo chmod a+rw /data/Debug/DebugOutput_LGE
+sudo chmod a+rw /data/Debug/DebugOutput_RTCine
+
+docker run  --publish=9016:9002 --name=gt_retro_cine --volume=/data/Debug/DebugOutput_RetroCine:/tmp/DebugOutput --volume=/home/xueh2/gadgetron_ismrmrd_data:/tmp/gadgetron_data --restart=unless-stopped -e OMP_THREAD_LIMIT=$(nproc)  -e GADGETRON_DEBUG_FOLDER=/tmp --detach -t gadgetronnhlbi/gtprep4px_ubuntu_2204_cuda12_pytorch12:20230618
+
+docker run  --publish=9017:9002 --name=gt_perfusion --volume=/data/Debug/DebugOutput_Perfusion:/tmp/DebugOutput --volume=/home/xueh2/gadgetron_ismrmrd_data:/tmp/gadgetron_data --restart=unless-stopped -e OMP_THREAD_LIMIT=$(nproc)  -e GADGETRON_DEBUG_FOLDER=/tmp --detach -t gadgetronnhlbi/gtprep4px_ubuntu_2204_cuda12_pytorch12:20230618
+
+docker run  --publish=9018:9002 --name=gt_LGE --volume=/data/Debug/DebugOutput_LGE:/tmp/DebugOutput --volume=/home/xueh2/gadgetron_ismrmrd_data:/tmp/gadgetron_data --restart=unless-stopped -e OMP_THREAD_LIMIT=$(nproc)  -e GADGETRON_DEBUG_FOLDER=/tmp --detach -t gadgetronnhlbi/gtprep4px_ubuntu_2204_cuda12_pytorch12:20230618
+
+docker run  --publish=9019:9002 --name=gt_RTCine --volume=/data/Debug/DebugOutput_RTCine:/tmp/DebugOutput --volume=/home/xueh2/gadgetron_ismrmrd_data:/tmp/gadgetron_data --restart=unless-stopped -e OMP_THREAD_LIMIT=$(nproc)  -e GADGETRON_DEBUG_FOLDER=/tmp --detach -t gadgetronnhlbi/gtprep4px_ubuntu_2204_cuda12_pytorch12:20230618
+```
 
 ## data convertion
 
