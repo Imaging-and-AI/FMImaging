@@ -6,6 +6,7 @@ from pathlib import Path
 import tqdm
 import skimage.restoration as skr
 from concurrent.futures import ThreadPoolExecutor
+from colorama import Fore, Back, Style
 import glob 
 from functools import reduce
 np.seterr(all='raise')
@@ -57,18 +58,18 @@ def add_image_to_h5group(args, folder, h5_group):
 
     x, y, slices, frames = image.shape
 
-    print(f"{folder}, images - {image.shape}")
+    print(f"{Fore.GREEN}{folder}, images - {image.shape}{Style.RESET_ALL}")
 
     if(x<64 or y<64):
-        print(f"{folder} -- pass over - x<64 or y<64 ...")
+        print(f"{Fore.RED}{folder} -- pass over - x<64 or y<64 ...{Style.RESET_ALL}")
         return
     
     if(frames<20):
-        print(f"{folder} -- pass over - frames {frames} ...")
+        print(f"{Fore.RED}{folder} -- pass over - frames {frames} ...{Style.RESET_ALL}")
         return
         
     if(slices>20):
-        print(f"{folder} -- pass over - slices {slices} ...")
+        print(f"{Fore.RED}{folder} -- pass over - slices {slices} ...{Style.RESET_ALL}")
         return
     
     # remote the default scaling

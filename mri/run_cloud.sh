@@ -4,8 +4,8 @@
 nproc_per_node=4
 data_name=mri
 port=9001
-tra_ratio=98
-val_ratio=2
+tra_ratio=95
+val_ratio=5
 max_load=-1
 rdzv_endpoint=172.16.0.4
 nnodes=4
