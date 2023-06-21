@@ -45,6 +45,7 @@ def arg_parser():
     parser.add_argument("--patch_size_inference", type=int, default=-1, help='patch size for inference; if <=0, use the config setup')
 
     parser.add_argument("--input_fname", type=str, default="im", help='input file name')
+    parser.add_argument("--gmap_fname", type=str, default="gfactor", help='gmap input file name')
 
     return parser.parse_args()
 
@@ -139,7 +140,7 @@ def main():
     RO, E1, frames, slices = image.shape
     print(f"{args.input_dir}, images - {image.shape}")
 
-    gmap = np.load(f"{args.input_dir}/gfactor.npy")
+    gmap = np.load(f"{args.input_dir}/{args.gmap_fname}.npy")
     gmap /= args.gmap_scaling
 
     print(f"{args.input_dir}, median gmap {np.median(gmap)}")
