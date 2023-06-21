@@ -39,6 +39,8 @@ site=BWH
 # retro cine
 python3 ./mri/create_hdf5_3D_dataset.py /export/Lab-Kellman/ReconResults/denoising/${site}/${site}_RetroCine_2023_AI_denoising /export/Lab-Kellman/ReconResults/denoising/${site}/${site}_RetroCine_2022_AI_denoising /export/Lab-Kellman/ReconResults/denoising/${site}/${site}_RetroCine_2021_AI_denoising --output /export/Lab-Kellman/ReconResults/denoising/data_prepared/${site}_RetroCine_3T_2023_2022_2021.h5 --only_3T --im_scaling 10.0
 
+python3 ./mri/create_hdf5_3D_dataset.py /export/Lab-Kellman/ReconResults/denoising/${site}/${site}_RetroCine_2023_AI_denoising /export/Lab-Kellman/ReconResults/denoising/${site}/${site}_RetroCine_2022_AI_denoising /export/Lab-Kellman/ReconResults/denoising/${site}/${site}_RetroCine_2021_AI_denoising --output /export/Lab-Kellman/ReconResults/denoising/data_prepared/${site}_RetroCine_1p5T_2023_2022_2021.h5 --no_3T --im_scaling 10.0
+
 # rt cine
 python3 ./mri/create_hdf5_3D_dataset.py /export/Lab-Kellman/ReconResults/denoising/${site}/${site}_RTCine_2023_AI_denoising /export/Lab-Kellman/ReconResults/denoising/${site}/${site}_RTCine_2022_AI_denoising /export/Lab-Kellman/ReconResults/denoising/${site}/${site}_RTCine_2021_AI_denoising --output /export/Lab-Kellman/ReconResults/denoising/data_prepared/${site}_RTCine_3T_2023_2022_2021.h5 --only_3T --im_scaling 10.0
 

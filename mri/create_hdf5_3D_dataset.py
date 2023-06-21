@@ -99,8 +99,8 @@ def add_image_to_h5group(args, folder, h5_group):
         #         raise RuntimeError(f"Something is up with {base_name}. Gmap: {gmap.shape}, image_slice: {image_slice.shape}")
 
         data_folder = h5_group.create_group(f"{base_name}_slc_{s+1}")
-        data_folder["image"] = image_slice
-        data_folder["gmap"] = gmap
+        data_folder["image"] = image_slice.astype(np.complex64)
+        data_folder["gmap"] = gmap.astype(np.float32)
         
         total_samples += 1
 
@@ -123,6 +123,12 @@ def main():
         "--only_3T",
         action="store_true",
         help="If true, only include 3T data for training",
+    )
+    
+    parser.add_argument(
+        "--no_3T",
+        action="store_true",
+        help="If true, only include non-3T data for training",
     )
 
     parser.add_argument("--input_fname", type=str, default="im", help='input file name')
@@ -176,9 +182,12 @@ def main():
                     systemFieldStrength_T = a['systemFieldStrength_T'][0, 0]
 
                 print(f"---> {ii} out of {N}, {systemFieldStrength_T}, {folder} <---")
-                if only_3T < systemFieldStrength_T<2.0:
+                if only_3T and systemFieldStrength_T<2.0:
                     continue
 
+                if args.no_3T and systemFieldStrength_T>2.0:
+                    continue
+                
                 add_image_to_h5group(args, folder, h5file)
                 
         print("----" * 20)
