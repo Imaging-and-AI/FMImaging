@@ -272,6 +272,39 @@ class PSNR:
 
         return 10 * torch.log10(num/den)
 
+class PSNR_Loss:
+    """
+    PSNR as a comparison metric
+    """
+    def __init__(self, range=1.0):
+        """
+        @args:
+            - range (float): max range of the values in the images
+        """
+        self.range=range
+
+    def __call__(self, outputs, targets, weights=None):
+
+        B, T, C, H, W = targets.shape
+
+        num = self.range * self.range
+        den = torch.square(targets - outputs) + 1e-8
+
+        if(weights is not None):
+
+            if(weights.ndim==1):
+                weights = weights.reshape(B,1,1,1,1)
+            elif weights.ndim==2:
+                weights = weights.reshape(B,T,1,1,1)
+            else:
+                raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for PSNR_Loss")
+
+            v_l2 = torch.sum(weights*torch.log10(num/den)) / torch.sum(weights)
+        else:
+            v_l2 = torch.sum(torch.log10(num/den))
+
+        return 10 - v_l2 / den.numel()
+
 # -------------------------------------------------------------------------------------------------
 # Combined loss class
 
@@ -309,6 +342,8 @@ class Combined_Loss:
             loss_f = SSIM_Loss(window_size=11, complex_i=self.complex_i, device=self.device)
         elif loss_name=="ssim3D":
             loss_f = SSIM3D_Loss(window_size=11, complex_i=self.complex_i, device=self.device)
+        elif loss_name=="psnr":
+            loss_f = PSNR_Loss(range=2048.0)
         else:
             raise NotImplementedError(f"Loss type not implemented: {loss_name}")
 

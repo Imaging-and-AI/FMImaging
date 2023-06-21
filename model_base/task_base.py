@@ -84,7 +84,9 @@ class STCNNT_Task_Base(nn.Module, ABC):
                 elif (pn.endswith('weight') or pn.endswith('relative_position_bias_table')) and isinstance(p, blacklist_weight_modules):
                     # weights of blacklist modules will NOT be weight decayed
                     no_decay.add(fpn)
-                
+                else:
+                    no_decay.add(fpn)
+
         # validate that we considered every parameter
         param_dict = {pn: p for pn, p in self.named_parameters()}
         inter_params = decay & no_decay
@@ -184,7 +186,7 @@ class STCNNT_Task_Base(nn.Module, ABC):
             - checkpath (str): directory to save checkpoint in
         """
         run_name = self.config.run_name.replace(" ", "_")
-        save_file_name = f"{run_name}_{self.config.date}_epoch-{epoch}.pth"
+        save_file_name = f"{run_name}_epoch-{epoch}.pth"
         save_path = os.path.join(self.config.check_path, save_file_name)
         logging.info(f"{Fore.YELLOW}Saving model status at {save_path}{Style.RESET_ALL}")
         torch.save({
@@ -205,19 +207,29 @@ class STCNNT_Task_Base(nn.Module, ABC):
             - load_path (str): path to load the weights from
         """
         logging.info(f"{Fore.YELLOW}Loading model from {self.config.load_path}{Style.RESET_ALL}")
-        
+
         device = get_device(device=device)
-        
-        status = torch.load(self.config.load_path, map_location=self.config.device)        
-        self.load_state_dict(status['model_state'])
-        
-        self.optim.load_state_dict(status['optimizer_state'])   
-        optimizer_to(self.optim, device=self.config.device)
-             
-        self.sched.load_state_dict(status['scheduler_state'])        
+
+        status = torch.load(self.config.load_path, map_location=self.config.device)
         self.config = status['config']
-        self.stype = status['scheduler_type']
-        self.curr_epoch = status['epoch']
+
+        if 'model_state' in status:
+            self.load_state_dict(status['model_state'])
+        else:
+            self.load_state_dict(status['model'])
+
+        if 'optimizer_state' in status:
+            self.optim.load_state_dict(status['optimizer_state'])
+            optimizer_to(self.optim, device=self.config.device)
+
+        if 'scheduler_state' in status:
+            self.sched.load_state_dict(status['scheduler_state'])
+
+        if 'scheduler_type' in status:
+            self.stype = status['scheduler_type']
+
+        if 'epoch' in status:
+            self.curr_epoch = status['epoch']
 
 # -------------------------------------------------------------------------------------------------
 

@@ -48,6 +48,7 @@ def arg_parser():
     parser.add_argument("--batch_size", type=int, default=16, help='after loading a batch, start processing')
     
     parser.add_argument("--input_fname", type=str, default="im", help='input file name')
+    parser.add_argument("--gmap_fname", type=str, default="gfactor", help='gmap input file name')
     
     return parser.parse_args()
 
@@ -59,8 +60,8 @@ def check_args(args):
     @rets:
         - args (Namespace): the checked and updated argparse for MRI
     """
-    assert args.saved_model_path.endswith(".pt") or args.saved_model_path.endswith(".pts") or args.saved_model_path.endswith(".onnx"),\
-            f"Saved model should either be \"*.pt\" or \"*.pts\" or \"*.onnx\""
+    assert args.saved_model_path.endswith(".pt") or args.saved_model_path.endswith(".pts") or args.saved_model_path.endswith(".onnx") or args.saved_model_path.endswith(".pth"),\
+            f"Saved model should either be \"*.pt\" or \"*.pts\" or \"*.onnx\" or \"*.pth\""
 
     # get the args path
     fname = os.path.splitext(args.saved_model_path)[0]
@@ -172,7 +173,7 @@ def main():
                 RO, E1, frames, slices = image.shape
                 print(f"{c}, images - {image.shape}")
 
-                gmap = np.load(f"{c}/gfactor.npy")
+                gmap = np.load(f"{c}/{args.gmap_fname}.npy")
                 gmap /= args.gmap_scaling
 
                 if(gmap.ndim==2):

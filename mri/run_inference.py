@@ -43,8 +43,9 @@ def arg_parser():
     parser.add_argument("--saved_model_path", type=str, default=None, help='model path. endswith ".pt" or ".pts"')
     parser.add_argument("--pad_time", action="store_true", help="with to pad along time")
     parser.add_argument("--patch_size_inference", type=int, default=-1, help='patch size for inference; if <=0, use the config setup')
-    
+
     parser.add_argument("--input_fname", type=str, default="im", help='input file name')
+    parser.add_argument("--gmap_fname", type=str, default="gfactor", help='gmap input file name')
 
     return parser.parse_args()
 
@@ -56,8 +57,8 @@ def check_args(args):
     @rets:
         - args (Namespace): the checked and updated argparse for MRI
     """
-    assert args.saved_model_path.endswith(".pt") or args.saved_model_path.endswith(".pts") or args.saved_model_path.endswith(".onnx"),\
-            f"Saved model should either be \"*.pt\" or \"*.pts\" or \"*.onnx\""
+    assert args.saved_model_path.endswith(".pt") or args.saved_model_path.endswith(".pts") or args.saved_model_path.endswith(".onnx") or args.saved_model_path.endswith(".pth"),\
+            f"Saved model should either be \"*.pt\" or \"*.pts\" or \"*.onnx\" or \"*.pth\""
 
     # get the args path
     fname = os.path.splitext(args.saved_model_path)[0]
@@ -85,13 +86,16 @@ def load_model(args):
         with open(config_file, 'rb') as f:
             config = pickle.load(f)
 
-    if args.saved_model_path.endswith(".pt"):
+    if args.saved_model_path.endswith(".pt") or args.saved_model_path.endswith(".pth"):
         status = torch.load(args.saved_model_path, map_location=get_device())
         config = status['config']
         if not torch.cuda.is_available():
             config.device = torch.device('cpu')
         model = STCNNT_MRI(config=config)
-        model.load_state_dict(status['model'])
+        if 'model' in status:
+            model.load_state_dict(status['model'])
+        else:
+            model.load_state_dict(status['model_state'])
     elif args.saved_model_path.endswith(".pts"):
         model = torch.jit.load(args.saved_model_path, map_location=get_device())
     else:
@@ -136,7 +140,7 @@ def main():
     RO, E1, frames, slices = image.shape
     print(f"{args.input_dir}, images - {image.shape}")
 
-    gmap = np.load(f"{args.input_dir}/gfactor.npy")
+    gmap = np.load(f"{args.input_dir}/{args.gmap_fname}.npy")
     gmap /= args.gmap_scaling
 
     print(f"{args.input_dir}, median gmap {np.median(gmap)}")
@@ -149,7 +153,23 @@ def main():
         RO, E1, frames, slices = image.shape
 
     output = apply_model(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device())
-    print(f"{args.output_dir}, images - {image.shape}, {output.shape}")    
+
+    input = np.flip(image, axis=0)
+    output2 = apply_model(input, model, np.flip(gmap, axis=0), config=config, scaling_factor=args.scaling_factor, device=get_device())
+    output2 = np.flip(output2, axis=0)
+
+    input = np.flip(image, axis=1)
+    output3 = apply_model(input, model, np.flip(gmap, axis=1), config=config, scaling_factor=args.scaling_factor, device=get_device())
+    output3 = np.flip(output3, axis=1)
+
+    input = np.transpose(image, axes=(1, 0, 2, 3))
+    output4 = apply_model(input, model, np.transpose(gmap, axes=(1, 0, 2)), config=config, scaling_factor=args.scaling_factor, device=get_device())
+    output4 = np.transpose(output4, axes=(1, 0, 2, 3))
+
+    res = output + output2 + output3 + output4
+    output = res / 4
+
+    print(f"{args.output_dir}, images - {image.shape}, {output.shape}")
 
     output = np.squeeze(output)
 

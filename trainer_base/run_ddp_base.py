@@ -7,6 +7,9 @@ import itertools
 import subprocess
 import os
 import shutil
+import pickle
+import copy
+import time
 
 class run_ddp_base(object):
     
@@ -40,28 +43,34 @@ class run_ddp_base(object):
             project_base_dir = '/export/Lab-Xue/projects'
 
         # unchanging paths
-        
+
         ckp_path = os.path.join(project_base_dir, config.project, "checkpoints")
-        
+
         if config.load_path is None:
             if config.clean_checkpoints:
                 print(f"--> clean {ckp_path}")
                 shutil.rmtree(ckp_path, ignore_errors=True)
                 os.mkdir(ckp_path)
-                
+
         data_root = config.data_root if config.data_root is not None else os.path.join(project_base_dir, config.project, "data")
-            
+
         self.cmd.extend([
             "--data_root", data_root,
             "--check_path", ckp_path,
             "--model_path", os.path.join(project_base_dir, config.project, "models"),
             "--log_path", os.path.join(project_base_dir, config.project, "logs"),
-            "--results_path", os.path.join(project_base_dir, config.project, "results"),            
+            "--results_path", os.path.join(project_base_dir, config.project, "results"),
         ])
 
         if config.with_timer:
             self.cmd.extend(["--with_timer"])
 
+        # set up run record
+        self.run_completed = []
+        self.run_record = os.path.join(project_base_dir, config.project, "run_mri_record.pkl")
+        if os.path.isfile(self.run_record):
+            with open(self.run_record, 'rb') as f:
+                self.run_completed = pickle.load(f)
 
     def create_cmd_run(self, cmd_run, config, 
                         optim='adamw',
@@ -81,9 +90,9 @@ class run_ddp_base(object):
                         scale_ratio_in_mixer=2.0,
                         load_path=None
                         ):
-        
+
         run_str = f"{a_type}-{cell_type}-{norm_mode}-{optim}-C-{c}-MIXER-{mixer_type}-{int(scale_ratio_in_mixer)}-{'_'.join(bs)}"
-                                            
+
         cmd_run.extend([
             "--run_name", f"{config.project}-{bk.upper()}-{run_str}",
             "--run_notes", f"{config.project}-{bk.upper()}-{run_str}",
@@ -102,7 +111,7 @@ class run_ddp_base(object):
             "--shuffle_in_window", f"{shuffle_in_window}",
             "--scale_ratio_in_mixer", f"{scale_ratio_in_mixer}"
         ])
-        
+
         if larger_mixer_kernel:
             cmd_run.extend(["--mixer_kernel_size", "5", "--mixer_padding", "2", "--mixer_stride", "1"])
         else:
@@ -110,42 +119,42 @@ class run_ddp_base(object):
 
         if q_k_norm:
             cmd_run.extend(["--normalize_Q_K"])
-            
+
         cmd_run.extend([f"--backbone_{bk}.block_str", *bs])
-        
+
         if load_path is not None:
             cmd_run.extend(["--load_path", load_path])
-            
+
         print(f"Running command:\n{' '.join(cmd_run)}")
 
         return cmd_run
 
-    def set_up_constants(self, config):    
-        self.cmd.extend([       
+    def set_up_constants(self, config):
+        self.cmd.extend([
         "--summary_depth", "6",
-        "--save_cycle", "200",        
+        "--save_cycle", "200",
         "--device", "cuda",
         "--ddp", 
         "--project", self.project,
-                               
+
         # hrnet
         "--backbone_hrnet.use_interpolation", "1",
-        
-        # unet            
+
+        # unet
         "--backbone_unet.use_unet_attention", "1",
         "--backbone_unet.use_interpolation", "1",
         "--backbone_unet.with_conv", "1",
-        
+
         # LLMs
-        "--backbone_LLM.add_skip_connections", "1"                        
+        "--backbone_LLM.add_skip_connections", "1"
         ])
 
     def set_up_variables(self, config):
-        
+
         vars = dict()
-        
+
         vars['optim'] = ['sophia', 'adamw']
-        
+
         vars['backbone'] = ['hrnet']
         vars['cell_types'] = ["sequential"]
         vars['Q_K_norm'] = [True]
@@ -166,14 +175,14 @@ class run_ddp_base(object):
                     ]
 
         return vars
-    
+
     def run_vars(self, config, vars):
-        
+
         cmd_runs = []
-        
-        for k, bk in enumerate(vars['backbone']):    
+
+        for k, bk in enumerate(vars['backbone']):
                 block_str = vars['block_strs'][k]
-                
+
                 for optim in vars['optim']:
                     for bs in block_str:
                         for a_type, cell_type in itertools.product(vars['a_types'], vars['cell_types']):
@@ -187,7 +196,7 @@ class run_ddp_base(object):
                                                         for shuffle_in_window in vars['shuffle_in_windows']:
                                                             for mixer_type in vars['mixer_types']:
                                                                 for scale_ratio_in_mixer in vars['scale_ratio_in_mixers']:
-                                                                    
+
                                                                     # -------------------------------------------------------------
                                                                     cmd_run = self.create_cmd_run(cmd_run=self.cmd.copy(), 
                                                                                     config=config,
@@ -207,7 +216,7 @@ class run_ddp_base(object):
                                                                                     shuffle_in_window=shuffle_in_window,
                                                                                     scale_ratio_in_mixer=scale_ratio_in_mixer,
                                                                                     load_path=config.load_path)
-                                                                    
+
                                                                     if cmd_run:
                                                                         print("---" * 20)
                                                                         print(cmd_run)
@@ -215,7 +224,7 @@ class run_ddp_base(object):
                                                                         #subprocess.run(cmd_run)
                                                                         cmd_runs.append(cmd_run)
         return cmd_runs
-                                                            
+
     def arg_parser(self):
         """
         @args:
@@ -224,9 +233,9 @@ class run_ddp_base(object):
             - parser (ArgumentParser): the argparse for torchrun of mri
         """
         parser = argparse.ArgumentParser(prog=self.project)   
-        
+
         parser.add_argument("--data_root", type=str, default=None, help="data folder; if None, use the project folder")
-        
+
         parser.add_argument("--standalone", action="store_true", help='whether to run in the standalone mode')
         parser.add_argument("--nproc_per_node", type=int, default=2, help="number of processes per node")
         parser.add_argument("--nnodes", type=str, default="1", help="number of nodes")
@@ -241,30 +250,98 @@ class run_ddp_base(object):
         parser.add_argument("--tra_ratio", type=float, default=95, help="percentage of training data used")
         parser.add_argument("--val_ratio", type=float, default=5, help="percentage of validation data used")
         parser.add_argument("--test_ratio", type=float, default=100, help="percentage of test data used")
-        
+
+        parser.add_argument("--run_list", type=int, nargs='+', default=[-1], help="run list")
+
         return parser
 
-    def run(self):
-        parser = self.arg_parser()
-        config = parser.parse_args()
+    def get_valid_runs(self, config):
         config.project = self.project
         self.set_up_torchrun(config)
         self.set_up_run_path(config)
         self.set_up_constants(config)
         vars = self.set_up_variables(config)
         cmd_runs = self.run_vars(config, vars)
-        
-        for cmd_run in cmd_runs:
+
+        valid_cmd_runs = cmd_runs
+        if os.path.isfile(self.run_record):
+            with open(self.run_record, 'rb') as f:
+                run_completed = pickle.load(f)
+
+            compare = lambda a,b: len(a)==len(b) and len(a)==sum([1 for i,j in zip(a,b) if i==j])
+
+            valid_cmd_runs = []
+            for cmd_run in cmd_runs:
+                run = copy.deepcopy(cmd_run)
+
+                if "--run_name" in run:
+                    ind = run.index("--run_name")
+                    run.pop(ind)
+                    run.pop(ind)
+
+                if "--run_notes" in run:
+                    ind = run.index("--run_notes")
+                    run.pop(ind)
+                    run.pop(ind)
+
+                already_processed = False
+                for pre_run in run_completed:
+
+                    pre_run = copy.deepcopy(pre_run)
+
+                    if "--run_name" in pre_run:
+                        ind = pre_run.index("--run_name")
+                        pre_run.pop(ind)
+                        pre_run.pop(ind)
+
+                    if "--run_notes" in pre_run:
+                        ind = pre_run.index("--run_notes")
+                        pre_run.pop(ind)
+                        pre_run.pop(ind)
+
+                    if compare(run, pre_run):
+                        already_processed = True
+                        print("")
+                        break
+
+                if not already_processed:
+                    valid_cmd_runs.append(cmd_run)
+
+        return valid_cmd_runs
+
+    def run(self):
+        parser = self.arg_parser()
+        config = parser.parse_args()
+        valid_cmd_runs = self.get_valid_runs(config)
+
+        run_lists = config.run_list
+
+        if run_lists[0] < 0:
+            run_lists = range(len(valid_cmd_runs))
+
+        for run_ind in run_lists:
+            cmd_run = valid_cmd_runs[run_ind]
             print("---" * 20)
+            print(f"Run - {run_ind} ...")
+            time.sleep(3)
             print(cmd_run)
-            print("---" * 20)
             subprocess.run(cmd_run)
+            print("---" * 20)
+
+            run_completed = []
+            if os.path.isfile(self.run_record):
+                with open(self.run_record, 'rb') as f:
+                    run_completed = pickle.load(f)
+
+            run_completed.append(cmd_run)
+            with open(self.run_record, 'wb') as f:
+                pickle.dump(run_completed, f)
 
 # -------------------------------------------------------------
 
-def main():    
+def main():
     pass
-         
+
 # -------------------------------------------------------------
 
 if __name__=="__main__":

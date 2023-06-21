@@ -14,6 +14,7 @@ sys.path.insert(1, str(Project_DIR))
 from trainer_base import *
 
 import time
+from datetime import datetime
 
 # -------------------------------------------------------------
 
@@ -26,9 +27,9 @@ class mri_ddp_base(run_ddp_base):
         
         super().set_up_constants(config)
         
-        self.cmd.extend([       
+        self.cmd.extend([
        
-        "--num_epochs", "40",
+        "--num_epochs", "100",
         "--batch_size", "16",
 
         "--window_size", "8", "8",
@@ -43,7 +44,7 @@ class mri_ddp_base(run_ddp_base):
 
         "--iters_to_accumulate", "1",
 
-        "--num_workers", f"{os.cpu_count()//(2*config.nproc_per_node)}",
+        "--num_workers", "64",
         "--prefetch_factor", "4",
         
         "--scheduler_type", "ReduceLROnPlateau",
@@ -68,11 +69,11 @@ class mri_ddp_base(run_ddp_base):
         "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1",
         
         "--min_noise_level", "2.0",
-        "--max_noise_level", "10.0",
+        "--max_noise_level", "24.0",
         #"--complex_i",
         #"--residual",
-        "--losses", "mse", "l1",
-        "--loss_weights", "1.0", "2.0",
+        #"--losses", "mse", "l1",
+        #"--loss_weights", "1.0", "1.0",
         "--height", "32", "64",
         "--width", "32", "64",
         "--time", "12",
@@ -81,11 +82,13 @@ class mri_ddp_base(run_ddp_base):
         "--snr_perturb", "0.15",
         #"--weighted_loss",
         #"--max_load", "10000",
-        
-        "--train_files", "train_3D_3T_retro_cine_2018.h5",  "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5", "train_3D_3T_perf_2018.h5","train_3D_3T_perf_2019.h5", "train_3D_3T_perf_2020.h5","train_3D_3T_perf_2021.h5", 
-        
-        "--train_data_types", "2dt", "2dt", "2d", "2dt", "2dt", "2dt", "2d",
-        
+
+        # "--train_files", "train_3D_3T_retro_cine_2018.h5",  "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5", "train_3D_3T_perf_2018.h5","train_3D_3T_perf_2019.h5", "train_3D_3T_perf_2020.h5","train_3D_3T_perf_2021.h5", 
+        # "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2d",
+
+        "--train_files", "train_3D_3T_retro_cine_2018.h5",  "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5", 
+        "--train_data_types", "2dt", "2dt", "2dt",
+
         "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", "train_3D_3T_retro_cine_2020_small_2DT_test.h5", "train_3D_3T_retro_cine_2020_small_2D_test.h5", "train_3D_3T_retro_cine_2020_500_test.h5",
         "--test_data_types", "3d", "2dt", "2d", "2dt" 
         ])
@@ -114,20 +117,20 @@ class mri_ddp_base(run_ddp_base):
         vars['block_dense_connections'] = ["1"]
         vars['norm_modes'] = ["batch2d", "instance2d"]
         vars['C'] = [32, 64]
-        vars['scale_ratio_in_mixers'] = [1.0, 4.0]
+        vars['scale_ratio_in_mixers'] = [1.0]
 
         vars['snr_perturb_prob'] = [0.0]
 
         vars['block_strs'] = [
-                        [                                                         
-                            ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                        [
+                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                             ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],                            
+                            ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],                            
+                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                             ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"]
                          ],
-                        
-                        [                             
+
+                        [
                             ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
                             ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
                             ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
@@ -136,9 +139,17 @@ class mri_ddp_base(run_ddp_base):
                          ]
                     ]
 
+        vars['losses'] = [
+            [['psnr','l1', 'mse'], ['1.0', '1.0', '1.0']],
+            [['mse', 'l1'], ['1.0', '1.0']], 
+            [['ssim', 'mse', 'l1'], ['0.1', '1.0', '1.0']], 
+            #[['ssim'], ['1.0']],
+            [['ssim', 'mse'], ['0.1', '1.0']], 
+        ]
+
         vars['complex_i'] = [True, False]
         vars['residual'] = [True ]
-        vars['weighted_loss'] = [False]
+        vars['weighted_loss'] = [True, False]
 
         vars['n_heads'] = [32]
         
@@ -163,13 +174,14 @@ class mri_ddp_base(run_ddp_base):
                     a_type, \
                     cell_type,\
                     residual, \
-                    weighted_loss, \
                     snr_perturb_prob, \
                     n_heads, \
-                    bs, \
                     c, \
                     scale_ratio_in_mixer, \
                     complex_i,\
+                    bs, \
+                    weighted_loss, \
+                    loss_and_weights, \
                         in itertools.product( 
                                             vars['optim'],
                                             vars['mixer_types'], 
@@ -183,13 +195,14 @@ class mri_ddp_base(run_ddp_base):
                                             vars['a_types'], 
                                             vars['cell_types'],
                                             vars['residual'],
-                                            vars['weighted_loss'],
                                             vars['snr_perturb_prob'],
                                             vars['n_heads'],
-                                            block_str,
                                             vars['C'],
                                             vars['scale_ratio_in_mixers'],
-                                            vars['complex_i']
+                                            vars['complex_i'],
+                                            block_str,
+                                            vars['weighted_loss'],
+                                            vars['losses']
                                             ):
                                                                                         
                         # -------------------------------------------------------------
@@ -215,7 +228,9 @@ class mri_ddp_base(run_ddp_base):
                                         residual=residual,
                                         weighted_loss=weighted_loss,
                                         snr_perturb_prob=snr_perturb_prob,
-                                        n_heads=n_heads
+                                        n_heads=n_heads,
+                                        losses=loss_and_weights[0],
+                                        loss_weights=loss_and_weights[1]
                                         )
                         
                         if cmd_run:
@@ -246,7 +261,9 @@ class mri_ddp_base(run_ddp_base):
                         residual=True,
                         weighted_loss=True,
                         snr_perturb_prob=0,
-                        n_heads=32
+                        n_heads=32,
+                        losses=['mse', 'l1'],
+                        loss_weights=['1.0', '1.0']
                         ):
 
         if c < n_heads:
@@ -259,22 +276,32 @@ class mri_ddp_base(run_ddp_base):
                         bs, larger_mixer_kernel, mixer_type, 
                         shuffle_in_window, scale_ratio_in_mixer,
                         load_path)
-        
-        moment = time.strftime("%Y%m%d_%H%M%S", time.gmtime())
-        run_str = f"{a_type}-{cell_type}-{norm_mode}-{optim}-C-{c}-H-{n_heads}-MIXER-{mixer_type}-{int(scale_ratio_in_mixer)}-{'_'.join(bs)}-{moment}"
-        
+
+        curr_time = datetime.now()
+        moment = curr_time.strftime('%Y%m%d_%H%M%S_%f')
+        #run_str = f"{a_type}-{cell_type}-{norm_mode}-{optim}-C-{c}-H-{n_heads}-MIXER-{mixer_type}-{int(scale_ratio_in_mixer)}-{'_'.join(bs)}-{moment}"
+        run_str = moment
+
         if complex_i:
             cmd_run.extend(["--complex_i"])
             run_str += "_complex"
-            
+
         if residual:
             cmd_run.extend(["--residual"])
             run_str += "_residual"
-            
+
         if weighted_loss:
             cmd_run.extend(["--weighted_loss"])
             run_str += "_weighted_loss"
-                 
+
+        run_str += f"-{'_'.join(bs)}"
+
+        cmd_run.extend(["--losses"])
+        cmd_run.extend(losses)
+
+        cmd_run.extend(["--loss_weights"])
+        cmd_run.extend(loss_weights)
+
         ind = cmd_run.index("--run_name")
         cmd_run.pop(ind)
         cmd_run.pop(ind)
@@ -289,9 +316,9 @@ class mri_ddp_base(run_ddp_base):
             "--snr_perturb_prob", f"{snr_perturb_prob}",
             "--n_head", f"{n_heads}"
         ])
-            
+
         return cmd_run
-        
+
     def arg_parser(self):
         parser = super().arg_parser()
         parser.add_argument("--max_load", type=int, default=-1, help="number of max loaded samples into the RAM")

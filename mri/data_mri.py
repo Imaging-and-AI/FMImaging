@@ -63,7 +63,7 @@ def load_images_from_h5file(h5file, keys, max_load=100000):
             #         pbar.set_description_str(f"{h5file}, {n} in {len(keys[i])}, total {len(images)}")
 
             #     pbar.close()
-            
+
             if max_load<=0:
                 logging.info(f"{h5file[i]}, data will not be pre-read ...")
             
@@ -80,8 +80,42 @@ def load_images_from_h5file(h5file, keys, max_load=100000):
                         pbar.set_description_str(f"{h5file}, {n} in {len(keys[i])}, total {len(images)}")
 
         return images
-    
-    
+
+def load_images_for_statistics(h5file, keys, max_loaded=30):
+        """
+        Load images from h5 file objects to count image statistics
+        @args:
+            - h5file (h5File list): list of h5files to load images from
+            - keys (key list list): list of list of keys. One for each h5file
+            
+        @outputs:
+            - stat : dict for statistics, keys 'mean', 'median', 'percentile'
+        """
+        num_loaded = 0
+        stat = dict()
+        stat['mean'] = list()
+        stat['median'] = list()
+        stat['gmap_median'] = list()
+        for i in range(len(h5file)):
+            with tqdm(total=len(keys[i]), bar_format=get_bar_format()) as pbar:
+                case_num_loaded = 0
+                for n, key in enumerate(keys[i]):
+                    im = np.array(h5file[i][key+"/image"])
+                    gmap = np.array(h5file[i][key+"/gmap"])
+
+                    stat['mean'].extend(np.mean(im, axis=(0, 1)).flatten())
+                    stat['median'].extend(np.median(im, axis=(0, 1)).flatten())
+                    stat['gmap_median'].extend(np.median(gmap, axis=(0, 1)).flatten())
+                    num_loaded += 1
+                    pbar.update(1)
+
+                    case_num_loaded += 1
+                    if case_num_loaded > max_loaded:
+                        break
+
+        stat['num_loaded'] = num_loaded
+        return stat
+
 class MRIDenoisingDatasetTrain():
     """
     Dataset for MRI denoising.
@@ -93,6 +127,7 @@ class MRIDenoisingDatasetTrain():
                     use_complex=True, min_noise_level=1.0, max_noise_level=6.0,
                     matrix_size_adjust_ratio=[0.5, 0.75, 1.0, 1.25, 1.5],
                     kspace_filter_sigma=[0.8, 1.0, 1.5, 2.0, 2.25],
+                    kspace_filter_T_sigma=[0.25, 0.5, 0.65, 0.85, 1.0, 1.5, 2.0, 2.25],
                     pf_filter_ratio=[1.0, 0.875, 0.75, 0.625],
                     phase_resolution_ratio=[1.0, 0.75, 0.65, 0.55],
                     readout_resolution_ratio=[1.0, 0.75, 0.65, 0.55],
@@ -147,6 +182,7 @@ class MRIDenoisingDatasetTrain():
         self.max_noise_level = max_noise_level
         self.matrix_size_adjust_ratio = matrix_size_adjust_ratio
         self.kspace_filter_sigma = kspace_filter_sigma
+        self.kspace_filter_T_sigma = kspace_filter_T_sigma
         self.pf_filter_ratio = pf_filter_ratio
         self.phase_resolution_ratio = phase_resolution_ratio
         self.readout_resolution_ratio = readout_resolution_ratio
@@ -160,7 +196,7 @@ class MRIDenoisingDatasetTrain():
         self.patches_shuffle = patches_shuffle
 
         self.images = load_images_from_h5file(h5file, keys, max_load=self.max_load)
-                
+
     def load_one_sample(self, i):
         """
         Loads one sample from the saved images
@@ -223,6 +259,7 @@ class MRIDenoisingDatasetTrain():
                                                                 min_noise_level=self.min_noise_level,
                                                                 max_noise_level=self.max_noise_level,
                                                                 kspace_filter_sigma=self.kspace_filter_sigma,
+                                                                kspace_filter_T_sigma=self.kspace_filter_T_sigma,
                                                                 pf_filter_ratio=self.pf_filter_ratio,
                                                                 phase_resolution_ratio=[ratio_E1],
                                                                 readout_resolution_ratio=[ratio_RO],
@@ -315,11 +352,11 @@ class MRIDenoisingDatasetTrain():
         return noisy_im, clean_im, gmaps_median, noise_sigmas
 
     def get_cutout_range(self, data):
-        
+
         t, x, y = data.shape
         ct = self.time_cutout
         cx, cy = self.cutout_shape
-        
+
         initial_s_t = np.random.randint(0, t - ct + 1)
         initial_s_t = np.random.randint(0, t) if self.data_type=="2d" else initial_s_t
         initial_s_x = np.random.randint(0, x - cx + 1)
@@ -331,7 +368,7 @@ class MRIDenoisingDatasetTrain():
         s_t = np.zeros(ct, dtype=np.int16) + initial_s_t # no randomness along time
         s_x = np.zeros(ct, dtype=np.int16)
         s_y = np.zeros(ct, dtype=np.int16)
-        
+
         if(cutout_jitter_used<0):
             s_x += initial_s_x
             s_y += initial_s_y
@@ -377,7 +414,7 @@ class MRIDenoisingDatasetTrain():
     def load_gmap(self, gmaps, i, random_factor=-1):
         """
         Loads a random gmap for current index
-        """           
+        """
         if(gmaps.ndim==2):
             gmaps = np.expand_dims(gmaps, axis=0)
 
@@ -386,7 +423,7 @@ class MRIDenoisingDatasetTrain():
             random_factor = np.random.randint(0, factors)
 
         return gmaps[random_factor, :,:]
-        
+
     def random_flip(self, data, gmap):
         """
         Randomly flips the input image and gmap
@@ -409,6 +446,10 @@ class MRIDenoisingDatasetTrain():
 
         return flip(data), flip(gmap)
 
+    def get_stat(self):
+        stat = load_images_for_statistics(self.h5file, self.keys)
+        return stat
+
     def __len__(self):
         """
         Length of dataset
@@ -423,6 +464,31 @@ class MRIDenoisingDatasetTrain():
 
 # -------------------------------------------------------------------------------------------------
 # test dataset class
+
+def load_test_images_from_h5file(h5file, keys):
+        """
+        Load images from h5 file objects
+        @args:
+            - h5file (h5File list): list of h5files to load images from
+            - keys (key list list): list of list of keys. One for each h5file
+            
+        @outputs:
+            - images : list of image and gmap pairs as a list
+        """
+        images = []
+
+        num_loaded = 0
+        for i in range(len(h5file)):
+            with tqdm(total=len(keys[i]), bar_format=get_bar_format()) as pbar:
+                for n, key in enumerate(keys[i]):
+                    images.append([key+"/noisy", key+"/clean", key+"/gmap", key+"/noise_sigma", i])
+                    num_loaded += 1
+
+                    if n>0 and n%100 == 0:
+                        pbar.update(100)
+                        pbar.set_description_str(f"{h5file}, {n} in {len(keys[i])}, total {len(images)}")
+
+        return images
 
 class MRIDenoisingDatasetTest():
     """
@@ -443,14 +509,16 @@ class MRIDenoisingDatasetTest():
         """
         self.use_gmap = use_gmap
         self.use_complex = use_complex
+        self.h5file = h5file
+        self.keys = keys
 
-        self.images = []
+        self.images = load_test_images_from_h5file(h5file, keys)
 
-        for i in range(len(h5file)):
-            self.images.extend([(np.array(h5file[i][key+"/noisy"]),
-                                    np.array(h5file[i][key+"/clean"]),
-                                    np.array(h5file[i][key+"/gmap"]),
-                                    np.array(h5file[i][key+"/noise_sigma"])) for key in keys[i]])
+        # for i in range(len(h5file)):
+        #     self.images.extend([(np.array(h5file[i][key+"/noisy"]),
+        #                             np.array(h5file[i][key+"/clean"]),
+        #                             np.array(h5file[i][key+"/gmap"]),
+        #                             np.array(h5file[i][key+"/noise_sigma"])) for key in keys[i]])
 
     def load_one_sample(self, i):
         """
@@ -465,16 +533,22 @@ class MRIDenoisingDatasetTest():
             - noise_sigma (0D torch.Tensor): noise sigma added to the image patch
         """
         # get the image
-        noisy = (self.images[i][0])
-        clean = (self.images[i][1])
+        # noisy = (self.images[i][0])
+        # clean = (self.images[i][1])
+        # gmap = self.images[i][2]
+        # noise_sigma = self.images[i][3]
+        ind = self.images[i][4]
+        noisy = np.array(self.h5file[ind][self.images[i][0]])
+        clean = np.array(self.h5file[ind][self.images[i][1]])
+        gmap = np.array(self.h5file[ind][self.images[i][2]])
+        noise_sigma = np.array(self.h5file[ind][self.images[i][3]])
+
         if noisy.ndim==2:
             noisy = noisy[np.newaxis,np.newaxis,:,:]
             clean = clean[np.newaxis,np.newaxis,:,:]
         else: # ndim==3
             noisy = noisy[:,np.newaxis,:,:]
             clean = clean[:,np.newaxis,:,:]
-        gmap = self.images[i][2]
-        noise_sigma = self.images[i][3]
 
         assert gmap.ndim==2, f"gmap for testing should only be 2 dimensional"
 
@@ -541,7 +615,7 @@ def load_mri_data(config):
 
     ratio = [x/100 for x in c.ratio]
     logging.info(f"--> loading data with ratio {ratio} ...")
-    
+
     h5files = []
     train_keys = []
     val_keys = []
@@ -608,19 +682,19 @@ def load_mri_data(config):
     }
 
     train_set = []
-    
+
     for (i, h_file) in enumerate(h5files):
         logging.info(f"--> loading data from file: {h_file} for {len(train_keys[i])} entries ...")
         images = load_images_from_h5file([h_file], [train_keys[i]], max_load=c.max_load)
         for hw in zip(c.height, c.width):        
             train_set.append(MRIDenoisingDatasetTrain(h5file=[h_file], keys=[train_keys[i]], max_load=-1, data_type=c.train_data_types[i], cutout_shape=hw, **kwargs))
             train_set[-1].images = images
-        
+
     kwargs["snr_perturb_prob"] = 0
     val_set = [MRIDenoisingDatasetTrain(h5file=[h_file], keys=[val_keys[i]], max_load=c.max_load, 
                                         data_type=c.train_data_types[i], cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
                                             for (i,h_file) in enumerate(h5files)]
-        
+
     if c.test_files is None or c.test_files[0] is None: # no test case given so use some from train data
         test_set = [MRIDenoisingDatasetTrain(h5file=[h_file], keys=[test_keys[i]], max_load=c.max_load, 
                                              data_type=c.train_data_types[i], cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
@@ -666,9 +740,11 @@ def load_mri_test_data(config, ratio_test=1.0):
 
         if ratio_test>0:
             keys = keys[:int(len(keys)*ratio_test)]
-        
+
         test_h5files.append((h5file,keys))
 
+    logging.info(f"loading in test data ...")
     test_set = [MRIDenoisingDatasetTest([h_file], keys=[t_keys], use_complex=c.complex_i) for (h_file,t_keys) in test_h5files]
-    
+    logging.info(f"loading in test data --- completed")
+
     return test_set, test_h5files
