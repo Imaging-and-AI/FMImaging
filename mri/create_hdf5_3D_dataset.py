@@ -87,6 +87,11 @@ def add_image_to_h5group(args, folder, h5_group):
         gmap = np.load(f"{folder}/gmap_slc_{s+1}.npy")
         # gmap /= args.gmap_scaling
 
+        if np.median(gmap) > 50:
+            gmap /= 100.0
+
+        print(f"{Fore.GREEN}gmap magnitude {np.median(gmap):.4f}{Style.RESET_ALL}")
+
         image_slice = image[:, :, s, :]
         if np.sum(np.abs(image_slice)) < 1:
             continue
@@ -117,7 +122,7 @@ def main():
     parser.add_argument("folders",nargs="+")
     
     parser.add_argument("--im_scaling", type=float, default=10.0, help="extra scaling applied to image")
-    parser.add_argument("--gmap_scaling", type=float, default=100.0, help="extra scaling applied to gmap")
+    parser.add_argument("--gmap_scaling", type=float, default=1.0, help="extra scaling applied to gmap")
 
     parser.add_argument(
         "--only_3T",
