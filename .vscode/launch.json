@@ -211,6 +211,18 @@
             ]
         },
         {
+            "name": "run_inference_snr",
+            "type": "python",
+            "request": "launch",
+            "program": "./mri/run_inference_snr.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
+            "args": [
+                "--input_dir", "/export/Lab-Xue/projects/mri/validation/retro_cine/case21", "--output_dir", "/export/Lab-Xue/projects/mri/validation/retro_cine/case21/res", "--scaling_factor", "1.0", "--im_scaling", "10.0", "--gmap_scaling", "100.0", "--input_fname", "im", "--gmap_fname", "gfactor", "--saved_model_path", "/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230622_112454_358747_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_epoch-192.pth", "--noise_level", "1.0", "30.0", "16", "--num_rep", "1"
+            ]
+        },
+        {
             "name": "mri, save_pt_as_onnx",
             "type": "python",
             "request": "launch",

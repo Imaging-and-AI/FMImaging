@@ -557,8 +557,8 @@ def generate_3D_MR_correlated_noise(T=30, RO=192, E1=144, REP=1,
 
     if(verbose is True):
         print("--" * 20)
-        std_r = np.mean(np.std(np.real(nns), axis=2))
-        std_i = np.mean(np.std(np.imag(nns), axis=2))
+        std_r = np.mean(np.std(np.real(nns), axis=0))
+        std_i = np.mean(np.std(np.imag(nns), axis=0))
         print("noise, real, std is ", std_r)
         print("noise, imag, std is ", std_i)
 

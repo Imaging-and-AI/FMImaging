@@ -1056,3 +1056,36 @@ def compare_model(config, model, model_jit, model_onnx, device='cpu', x=None):
 
     diff = np.linalg.norm(y_onnx-y_jit)
     print(f"--> {Fore.GREEN}Jit - onnx model difference is {diff} ... {Style.RESET_ALL}", flush=True)
+
+# -------------------------------------------------------------------------------------------------
+
+def load_model(saved_model_path, saved_model_config=None):
+    """
+    load a ".pt" or ".pts" model
+    @rets:
+        - model (torch model): the model ready for inference
+    """
+    
+    config = []
+    
+    config_file = saved_model_config
+    if config_file is not None and os.path.isfile(config_file):
+        print(f"{Fore.YELLOW}Load in config file - {config_file}")
+        with open(config_file, 'rb') as f:
+            config = pickle.load(f)
+
+    if saved_model_path.endswith(".pt") or saved_model_path.endswith(".pth"):
+        status = torch.load(saved_model_path, map_location=get_device())
+        config = status['config']
+        if not torch.cuda.is_available():
+            config.device = torch.device('cpu')
+        model = STCNNT_MRI(config=config)
+        if 'model' in status:
+            model.load_state_dict(status['model'])
+        else:
+            model.load_state_dict(status['model_state'])
+    elif saved_model_path.endswith(".pts"):
+        model = torch.jit.load(saved_model_path, map_location=get_device())
+    else:
+        model, _ = load_model_onnx(model_dir="", model_file=saved_model_path, use_cpu=True)
+    return model, config
