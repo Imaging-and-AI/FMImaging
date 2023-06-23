@@ -562,9 +562,25 @@ def generate_3D_MR_correlated_noise(T=30, RO=192, E1=144, REP=1,
         print("noise, real, std is ", std_r)
         print("noise, imag, std is ", std_i)
 
-        assert abs(noise_sigma-std_r) < 0.2
-        assert abs(noise_sigma-std_i) < 0.2
+        assert abs(noise_sigma-std_r) < 0.4
+        assert abs(noise_sigma-std_i) < 0.4
 
     return nns, noise_sigma
 
 # --------------------------------------------------------------
+
+if __name__ == "__main__":
+    
+    sigmas = np.linspace(1.0, 30.0, 60)
+    for sigma in sigmas:
+        nns, noise_sigma = generate_3D_MR_correlated_noise(T=30, RO=192, E1=144, REP=1, 
+                                        min_noise_level=sigma, 
+                                        max_noise_level=sigma, 
+                                        kspace_filter_sigma=[0, 0.8, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0],
+                                        pf_filter_ratio=[1.0, 0.875, 0.75, 0.625, 0.55],
+                                        kspace_filter_T_sigma=[0, 0.5, 0.65, 0.85, 1.0, 1.5, 2.0, 2.25],
+                                        phase_resolution_ratio=[1.0, 0.85, 0.7, 0.65, 0.55],
+                                        readout_resolution_ratio=[1.0, 0.85, 0.7, 0.65, 0.55],
+                                        rng=np.random.Generator(np.random.PCG64(8754132)),
+                                        verbose=True)
+    

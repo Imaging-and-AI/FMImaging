@@ -44,16 +44,16 @@ do
     python3 ./mri/create_hdf5_3D_dataset.py /export/Lab-Kellman/ReconResults/denoising/${site}/${site}_RetroCine_${year}_AI_denoising --output /export/Lab-Kellman/ReconResults/denoising/data_prepared/${site}_RetroCine_3T_${year}.h5 --only_3T --im_scaling 10.0
 
     # rt cine
-    python3 ./mri/create_hdf5_3D_dataset.py /export/Lab-Kellman/ReconResults/denoising/${site}/${site}_RTCine_${year}_AI_denoising --output /export/Lab-Kellman/ReconResults/denoising/data_prepared/${site}_RTCine_3T_${site}.h5 --only_3T --im_scaling 10.0
+    python3 ./mri/create_hdf5_3D_dataset.py /export/Lab-Kellman/ReconResults/denoising/${site}/${site}_RTCine_${year}_AI_denoising --output /export/Lab-Kellman/ReconResults/denoising/data_prepared/${site}_RTCine_3T_${year}.h5 --only_3T --im_scaling 10.0
 
     # perfusion
-    python3 ./mri/create_hdf5_3D_dataset.py /export/Lab-Kellman/ReconResults/denoising/${site}/${site}_Perfusion_${year}_AI_denoising --output /export/Lab-Kellman/ReconResults/denoising/data_prepared/${site}_Perfusion_3T_${site}.h5 --only_3T --im_scaling 1.0
+    python3 ./mri/create_hdf5_3D_dataset.py /export/Lab-Kellman/ReconResults/denoising/${site}/${site}_Perfusion_${year}_AI_denoising --output /export/Lab-Kellman/ReconResults/denoising/data_prepared/${site}_Perfusion_3T_${year}.h5 --only_3T --im_scaling 1.0
 
     # LGE - moco-ave
-    python3 ./mri/create_hdf5_3D_dataset.py /export/Lab-Kellman/ReconResults/denoising/${site}/${site}_LGE_${year}_AI_denoising --output /export/Lab-Kellman/ReconResults/denoising/data_prepared/${site}_LGE_ave_3T_${site}.h5 --only_3T --im_scaling 1.0 --input_fname im
+    python3 ./mri/create_hdf5_3D_dataset.py /export/Lab-Kellman/ReconResults/denoising/${site}/${site}_LGE_${year}_AI_denoising --output /export/Lab-Kellman/ReconResults/denoising/data_prepared/${site}_LGE_ave_3T_${year}.h5 --only_3T --im_scaling 1.0 --input_fname im
 
     # LGE - raw
-    python3 ./mri/create_hdf5_3D_dataset.py /export/Lab-Kellman/ReconResults/denoising/${site}/${site}_LGE_${year}_AI_denoising --output /export/Lab-Kellman/ReconResults/denoising/data_prepared/${site}_LGE_3T_raw_${site}.h5 --only_3T --im_scaling 10.0 --input_fname raw_im
+    python3 ./mri/create_hdf5_3D_dataset.py /export/Lab-Kellman/ReconResults/denoising/${site}/${site}_LGE_${year}_AI_denoising --output /export/Lab-Kellman/ReconResults/denoising/data_prepared/${site}_LGE_3T_raw_${year}.h5 --only_3T --im_scaling 10.0 --input_fname raw_im
 done
 ```
 
