@@ -57,7 +57,7 @@ def create_log_str(config, epoch, rank, data_shape, gmap_median, noise_sigma, lo
     else:
         snr_str = ""
 
-    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {C}gmap {gmap_median:.4f}, sigma {noise_sigma:.4f}, mse {mse:.4f}, l1 {l1:.4f}, ssim {ssim:.4f}, ssim3D {ssim3d:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}{snr_str}{Style.RESET_ALL}{lr_str}"
+    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.WHITE}{Back.LIGHTBLUE_EX}{Style.DIM}gmap {gmap_median:.4f}, sigma {noise_sigma:.4f},{Style.RESET_ALL} {C}mse {mse:.4f}, l1 {l1:.4f}, ssim {ssim:.4f}, ssim3D {ssim3d:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}{snr_str}{Style.RESET_ALL}{lr_str}"
 
     return str
 
