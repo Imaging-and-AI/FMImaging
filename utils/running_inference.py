@@ -28,7 +28,7 @@ from .status import support_bfloat16
 # -------------------------------------------------------------------------------------------------
 # Complete single image inference
 
-def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batch_size=4, device=torch.device('cpu')):
+def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batch_size=4, device=torch.device('cpu'), verbose=False):
     """
     Runs inference by breaking image into overlapping patches
     Runs the patches through the model and then stiches them back
@@ -71,7 +71,8 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
             else:
                 dtype = torch.float32
 
-        print(f"processing tensor dtype {dtype}, device {device}")
+        if verbose: 
+            print(f"processing tensor dtype {dtype}, device {device}")
     try:
         image = image.cpu().detach().numpy()
     except:
@@ -122,7 +123,8 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
     image_batch = image_patches.reshape(-1,Tc,CO,Hc,Wc) # shape:(num_patches,T,C,H,W)
     #print(f"norm = {np.linalg.norm(image_batch)}")
 
-    print(f"processing tensor size {image_batch.shape}")
+    if verbose: 
+        print(f"processing tensor size {image_batch.shape}")
 
     # ---------------------------------------------------------------------------------------------
     # inferring each patch in length of batch_size

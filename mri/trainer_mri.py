@@ -658,6 +658,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                 gmaps_median = gmaps_median.to(device=device)
                 noise_sigmas = noise_sigmas.to(device=device)
                 
+                B = x.shape[0]
                 noise_sigmas = torch.reshape(noise_sigmas, (B, 1, 1, 1, 1))
                 
                 if batch_size >1 and x.shape[-1]==c.width[-1]:
