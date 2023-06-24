@@ -41,8 +41,8 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
 
     # wandb
     parser.add_argument("--project", type=str, default='STCNNT', help='project name')
-    parser.add_argument("--run_name", type=str, default='cifar', help='current run name')
-    parser.add_argument("--run_notes", type=str, default='cifar_train', help='notes for the current run')
+    parser.add_argument("--run_name", type=str, default='stcnnt_app', help='current run name')
+    parser.add_argument("--run_notes", type=str, default='stcnnt_app_train', help='notes for the current run')
     parser.add_argument("--wandb_entity", type=str, default="gadgetron", help='wandb entity to link with')
     parser.add_argument("--sweep_id", type=str, default="none", help='sweep id for hyper parameter searching')
     parser.add_argument("--sweep_count", type=int, default=50, help='number of sweep per agent to run')

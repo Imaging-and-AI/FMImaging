@@ -136,10 +136,10 @@ def trainer(rank, global_rank, config, wandb_run):
     num_epochs = config.num_epochs
     batch_size = config.batch_size
     lr = config.global_lr
+    optim = config.optim
     scheduler_type = config.scheduler_type
     losses = config.losses
     loss_weights = config.loss_weights
-    optim = config.optim
     weighted_loss = config.weighted_loss
     save_samples = config.save_samples
     num_saved_samples = config.num_saved_samples
