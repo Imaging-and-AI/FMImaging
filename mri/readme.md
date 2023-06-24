@@ -322,4 +322,6 @@ model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230621_132139_
 
 python3 ./mri/eval_mri.py --saved_model_path ${model} --num_uploaded 32 --save_samples --num_saved_samples 32
 
+python3 ./mri/eval_mri.py --test_files /export/Lab-Xue/projects/mri/data/train_3D_3T_retro_cine_2020_1000_sample_sig_2_30_test.h5 --saved_model_path ${model} --num_uploaded 32 --save_samples --num_saved_samples 32
+
 ```

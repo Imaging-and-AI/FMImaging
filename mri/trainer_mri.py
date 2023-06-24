@@ -75,8 +75,8 @@ def save_batch_samples(saved_path, fname, x, y, output, gmap_median, noise_sigma
     fname += post_str
     
     np.save(os.path.join(saved_path, f"{fname}_x.npy"), noisy_im)
-    np.save(os.path.join(saved_path, f"{fname}_y_{post_str}.npy"), clean_im)
-    np.save(os.path.join(saved_path, f"{fname}_output_{post_str}.npy"), pred_im)
+    np.save(os.path.join(saved_path, f"{fname}_y.npy"), clean_im)
+    np.save(os.path.join(saved_path, f"{fname}_output.npy"), pred_im)
 
     B, T, C, H, W = x.shape
     
@@ -777,10 +777,10 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
 
                 if rank<=0 and images_logged < config.num_uploaded and wandb_run is not None:
                     images_logged += 1
-                    title = f"{id.upper()}_rank_{rank}_image_{idx}_Noisy_Pred_GT_{x.shape}"
+                    title = f"{id.upper()}_epoch_{epoch}_{images_saved}_{x.shape}"
                     vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
                     wandb_run.log({title: wandb.Video(vid, 
-                                                      caption=f"epoch {epoch}, gmap {gmaps_median[0].item():.2f}, noise {noise_sigmas[0].item():.2f}, mse {mse_loss:.2f}, ssim {ssim_loss:.2f}, psnr {psnr:.2f}", 
+                                                      caption=f"epoch {epoch}, gmap {torch.mean(gmaps_median).item():.2f}, noise {torch.mean(noise_sigmas).item():.2f}, mse {mse_loss:.2f}, ssim {ssim_loss:.2f}, psnr {psnr:.2f}", 
                                                       fps=1, format="gif")})
                    
                 if rank<=0 and images_saved < config.num_saved_samples and config.save_samples:  
