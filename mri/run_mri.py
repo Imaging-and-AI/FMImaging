@@ -47,7 +47,8 @@ class mri_ddp_base(run_ddp_base):
         "--num_workers", "64",
         "--prefetch_factor", "4",
         
-        "--scheduler_type", "ReduceLROnPlateau",
+        #"--scheduler_type", "ReduceLROnPlateau",
+        "--scheduler_type", "OneCycleLR",
         
         "--scheduler.ReduceLROnPlateau.patience", "0",
         "--scheduler.ReduceLROnPlateau.cooldown", "0",
@@ -122,9 +123,9 @@ class mri_ddp_base(run_ddp_base):
         vars['snr_perturb_prob'] = [0.0]
 
         vars['block_strs'] = [
-                        [
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
+                        [                            
                             ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                             ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],                            
                             ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                             ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"]
@@ -139,10 +140,10 @@ class mri_ddp_base(run_ddp_base):
                          ]
                     ]
 
-        vars['losses'] = [
+        vars['losses'] = [            
+            [['ssim', 'mse', 'l1'], ['0.1', '1.0', '1.0']], 
             [['psnr','l1', 'mse'], ['1.0', '1.0', '1.0']],
             [['mse', 'l1'], ['1.0', '1.0']], 
-            [['ssim', 'mse', 'l1'], ['0.1', '1.0', '1.0']], 
             #[['ssim'], ['1.0']],
             [['ssim', 'mse'], ['0.1', '1.0']], 
         ]

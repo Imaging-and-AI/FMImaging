@@ -308,3 +308,9 @@ model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-in
 # run the snr test
 
 python3 ./mri/run_inference_snr.py --input_dir /export/Lab-Xue/projects/mri/validation/retro_cine/case1 --output_dir /export/Lab-Xue/projects/mri/validation/retro_cine/case1/res --scaling_factor 1.5 --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --gmap_fname gfactor --saved_model_path /export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt --noise_level 1.0 30.0 16 --num_rep 1
+
+# run the eval test
+
+```
+python3 ./mri/eval_mri.py --saved_model_path /export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230622_112454_358747_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_epoch-192.pth --num_uploaded 32
+```

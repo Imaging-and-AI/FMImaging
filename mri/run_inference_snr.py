@@ -135,11 +135,23 @@ def main():
 
     print(f"{args.input_dir}, gmap - {gmap.shape}, median gmap {np.median(gmap)}")
     
+    device = get_device()
+    
+    mse_loss_func = MSE_Loss(complex_i=config.complex_i)
+    l1_loss_func = L1_Loss(complex_i=config.complex_i)
+    ssim_loss_func = SSIM_Loss(complex_i=config.complex_i, device=device)
+    ssim3D_loss_func = SSIM3D_Loss(complex_i=config.complex_i, device=device)
+    psnr_loss_func = PSNR_Loss(range=2048)
+    psnr_func = PSNR(range=2048)
+    
     # -------------------------------------------------------------------------
     # generate noises
     # -------------------------------------------------------------------------
     N = int(args.noise_level[2])
     noisy_image = np.zeros((RO, E1, frames, slices, args.num_rep, N), dtype=image.dtype)
+    pred_image = np.zeros((RO, E1, frames, slices, args.num_rep, N), dtype=image.dtype)
+    
+    record = []
     
     sigmas = np.linspace(args.noise_level[0], args.noise_level[1], int(args.noise_level[2]))
     for rep in tqdm(range(args.num_rep)):
@@ -153,7 +165,7 @@ def main():
                                                 phase_resolution_ratio=[1.0, 0.85, 0.7, 0.65, 0.55],
                                                 readout_resolution_ratio=[1.0, 0.85, 0.7, 0.65, 0.55],
                                                 rng=np.random.Generator(np.random.PCG64(8754132)),
-                                                verbose=False)
+                                                verbose=True)
         
             assert abs(sigma-noise_sigma)<0.00001
         
@@ -165,12 +177,49 @@ def main():
             nns *= gmap
         
             if ii < N-1:
-                noisy_image[:,:,:,:,rep,ii] = nns + np.copy(image)
+                data = nns + np.copy(image)
             else:
-                noisy_image[:,:,:,:,rep,ii] = nns
+                data = nns
                 
-            noisy_image[:,:,:,:,rep,ii] /= noise_sigma
+            y = image / noise_sigma
+            data /= noise_sigma
+            noisy_image[:,:,:,:,rep,ii] = data
             
+            gmap_used = np.copy(gmap[:,:,0,:].squeeze())
+            if gmap_used.ndim==2:
+                gmap_used = gmap_used[:,:,np.newaxis]
+            output = apply_model(data.astype(np.complex64), model, gmap_used.astype(np.float32), config=config, scaling_factor=args.scaling_factor, device=get_device())
+            
+            pred_image[:,:,:,:,rep,ii] = output * noise_sigma
+            
+            noise = (data - image/noise_sigma) / gmap
+            for slc in range(slices):
+                print(f"rep - {rep}, sigma - {sigma}, data noise std - {np.mean(np.std(np.real(noise[:,:,:,slc]), axis=2))} - {np.mean(np.std(np.imag(noise[:,:,:,slc]), axis=2))}")
+            
+            y_hat = np.expand_dims(np.transpose(output, (3, 2, 0, 1)), axis=2)            
+            y_hat = np.concatenate((np.real(y_hat), np.imag(y_hat)), axis=2)
+            
+            y = np.expand_dims(np.transpose(y, (3, 2, 0, 1)), axis=2)            
+            y = np.concatenate((np.real(y), np.imag(y)), axis=2)                    
+            
+            y_hat = torch.from_numpy(y_hat).to(device=device)
+            y = torch.from_numpy(y).to(device=device)
+            
+            y *= noise_sigma
+            y_hat *= noise_sigma
+            
+            mse_loss = mse_loss_func(y_hat, y).item()
+            l1_loss = l1_loss_func(y_hat, y).item()
+            ssim_loss = ssim_loss_func(y_hat, y).item()
+            ssim3D_loss = ssim3D_loss_func(y_hat, y).item()
+            psnr_loss = psnr_loss_func(y_hat, y).item()
+            psnr = psnr_func(y_hat, y).item()
+                
+            print(f"rep - {rep}, sigma - {sigma}, mse_loss {mse_loss:.4f}, l1_loss {l1_loss:.4f}, ssim_loss {ssim_loss:.4f}, ssim3D_loss {ssim3D_loss:.4f}, psnr_loss {psnr_loss:.4f}, psnr {psnr:.4f}")
+            
+            record.append([rep, sigma, mse_loss, l1_loss, ssim_loss, ssim3D_loss, psnr_loss, psnr])
+            
+    print(record)
     print(f"{args.input_dir}, noisy_image - {noisy_image.shape}")
     
     np.save(os.path.join(args.output_dir, 'noisy_image_no_scaling_real.npy'), noisy_image.real)
@@ -179,41 +228,46 @@ def main():
     
     np.save(os.path.join(args.output_dir, 'sigmas.npy'), sigmas)
     
+    for rep in tqdm(range(args.num_rep)):
+        for ii, sigma in enumerate(sigmas):
+            rec = record[ii+rep*sigmas.shape[0]]
+            print(f"{Fore.GREEN}rep - {rep}, sigma - {sigma}, {Fore.YELLOW}mse_loss {rec[2]:.4f}, l1_loss {rec[3]:.4f}, ssim_loss {rec[4]:.4f}, ssim3D_loss {rec[5]:.4f}, psnr_loss {rec[6]:.4f}, psnr {rec[7]:.4f}{Style.RESET_ALL}")
+            
     # -------------------------------------------------------------------------
     # apply the model
     # -------------------------------------------------------------------------
     
-    pred_image = np.zeros((RO, E1, frames, slices, args.num_rep, N), dtype=image.dtype)
+    # pred_image = np.zeros((RO, E1, frames, slices, args.num_rep, N), dtype=image.dtype)
     
-    for rep in range(args.num_rep):
-        for ii, sigma in enumerate(sigmas):
+    # for rep in range(args.num_rep):
+    #     for ii, sigma in enumerate(sigmas):
             
-            im = np.copy(noisy_image[:,:,:,:,rep,ii])
-            gmap_used = np.copy(gmap[:,:,1,:].squeeze())
-            if gmap_used.ndim==2:
-                gmap_used = gmap_used[:,:,np.newaxis]
+    #         im = np.copy(noisy_image[:,:,:,:,rep,ii])
+    #         gmap_used = np.copy(gmap[:,:,1,:].squeeze())
+    #         if gmap_used.ndim==2:
+    #             gmap_used = gmap_used[:,:,np.newaxis]
                 
-            print(f"{Fore.GREEN}--> process noise sigma {sigma}, rep {rep}, im - {im.shape}, gmap - {gmap_used.shape} - {np.median(gmap_used)} ...{Style.RESET_ALL}")
+    #         print(f"{Fore.GREEN}--> process noise sigma {sigma}, rep {rep}, im - {im.shape}, gmap - {gmap_used.shape} - {np.median(gmap_used)} ...{Style.RESET_ALL}")
             
-            output = apply_model(im, model, gmap_used, config=config, scaling_factor=args.scaling_factor, device=get_device())
+    #         output = apply_model(im, model, gmap_used, config=config, scaling_factor=args.scaling_factor, device=get_device())
             
-            # input = np.flip(im, axis=0)
-            # output2 = apply_model(input, model, np.flip(gmap_used, axis=0), config=config, scaling_factor=args.scaling_factor, device=get_device())
-            # output2 = np.flip(output2, axis=0)
+    #         # input = np.flip(im, axis=0)
+    #         # output2 = apply_model(input, model, np.flip(gmap_used, axis=0), config=config, scaling_factor=args.scaling_factor, device=get_device())
+    #         # output2 = np.flip(output2, axis=0)
 
-            # input = np.flip(im, axis=1)
-            # output3 = apply_model(input, model, np.flip(gmap_used, axis=1), config=config, scaling_factor=args.scaling_factor, device=get_device())
-            # output3 = np.flip(output3, axis=1)
+    #         # input = np.flip(im, axis=1)
+    #         # output3 = apply_model(input, model, np.flip(gmap_used, axis=1), config=config, scaling_factor=args.scaling_factor, device=get_device())
+    #         # output3 = np.flip(output3, axis=1)
 
-            # input = np.transpose(im, axes=(1, 0, 2, 3))
-            # output4 = apply_model(input, model, np.transpose(gmap_used, axes=(1, 0, 2)), config=config, scaling_factor=args.scaling_factor, device=get_device())
-            # output4 = np.transpose(output4, axes=(1, 0, 2, 3))
+    #         # input = np.transpose(im, axes=(1, 0, 2, 3))
+    #         # output4 = apply_model(input, model, np.transpose(gmap_used, axes=(1, 0, 2)), config=config, scaling_factor=args.scaling_factor, device=get_device())
+    #         # output4 = np.transpose(output4, axes=(1, 0, 2, 3))
 
-            # res = output + output2 + output3 + output4
-            # output = res / 4
+    #         # res = output + output2 + output3 + output4
+    #         # output = res / 4
             
-            pred_image[:,:,:,:,rep,ii] = output * sigma
-            print(f"{Fore.GREEN}--> =========================================================================== <--{Style.RESET_ALL}")
+    #         pred_image[:,:,:,:,rep,ii] = output * sigma
+    #         print(f"{Fore.GREEN}--> =========================================================================== <--{Style.RESET_ALL}")
 
     print(f"{args.output_dir}, images - {image.shape}, gmap - {gmap.shape}, pred - {pred_image.shape}")
 

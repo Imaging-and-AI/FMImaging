@@ -45,6 +45,7 @@ def arg_parser():
     parser.add_argument("--saved_model_path", type=str, default=None, help='model path. endswith ".pt" or ".pts"')
     parser.add_argument("--pad_time", action="store_true", help="with to pad along time")
     parser.add_argument("--patch_size_inference", type=int, default=-1, help='patch size for inference; if <=0, use the config setup')
+    parser.add_argument("--num_uploaded", type=int, default=16, help='number of sample uploaded')
     
     #parser = add_shared_STCNNT_args(parser=parser)
 
@@ -147,6 +148,7 @@ def main():
     config.saved_model_path = c.saved_model_path
     config.pad_time = c.pad_time
     config.ddp = False
+    config.num_uploaded = c.num_uploaded
     
     if patch_size_inference > 0:
         config.height[-1] = patch_size_inference

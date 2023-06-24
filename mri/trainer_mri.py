@@ -36,7 +36,7 @@ from colorama import Fore, Back, Style
 # -------------------------------------------------------------------------------------------------
 # trainer
 
-def create_log_str(config, epoch, rank, data_shape, loss, mse, l1, ssim, ssim3d, psnr_loss, psnr, snr, curr_lr, role):
+def create_log_str(config, epoch, rank, data_shape, gmap_median, noise_sigma, loss, mse, l1, ssim, ssim3d, psnr_loss, psnr, snr, curr_lr, role):
     if data_shape is not None:
         data_shape_str = f"{data_shape} "
     else:
@@ -57,7 +57,7 @@ def create_log_str(config, epoch, rank, data_shape, loss, mse, l1, ssim, ssim3d,
     else:
         snr_str = ""
 
-    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {C}mse {mse:.4f}, l1 {l1:.4f}, ssim {ssim:.4f}, ssim3D {ssim3d:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}{snr_str}{Style.RESET_ALL}{lr_str}"
+    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {C}gmap {gmap_median:.4f}, sigma {noise_sigma:.4f}, mse {mse:.4f}, l1 {l1:.4f}, ssim {ssim:.4f}, ssim3D {ssim3d:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}{snr_str}{Style.RESET_ALL}{lr_str}"
 
     return str
 
@@ -304,8 +304,11 @@ def trainer(rank, global_rank, config, wandb_run):
                 noise_sigmas = noise_sigmas.to(device)
                 gmaps_median = gmaps_median.to(device)
 
+                B = x.shape[0]
+                
                 signal = torch.mean(torch.linalg.norm(y, dim=2, keepdim=True), dim=(1, 2, 3, 4))
-                snr = signal / (noise_sigmas*gmaps_median)
+                #snr = signal / (noise_sigmas*gmaps_median)
+                snr = signal / gmaps_median
 
                 if c.weighted_loss:
                     beta_counter += 1
@@ -317,13 +320,15 @@ def trainer(rank, global_rank, config, wandb_run):
                 else:
                     base_snr_t = -1
 
+                noise_sigmas = torch.reshape(noise_sigmas, (B, 1, 1, 1, 1))
+
                 with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
                     output, weights = model(x, snr, base_snr_t)
 
                     if c.weighted_loss:
-                        loss = loss_f(output, y, weights=weights.to(device))
+                        loss = loss_f(output*noise_sigmas, y*noise_sigmas, weights=weights.to(device))
                     else:
-                        loss = loss_f(output, y)
+                        loss = loss_f(output*noise_sigmas, y*noise_sigmas)
 
                     # if epoch <= 0.9*c.num_epochs:
                     #     if c.weighted_loss:
@@ -368,12 +373,15 @@ def trainer(rank, global_rank, config, wandb_run):
 
                 train_snr_meter.update(torch.mean(snr), n=total)
 
-                mse_loss = mse_loss_func(output, y).item()
-                l1_loss = l1_loss_func(output, y).item()
-                ssim_loss = ssim_loss_func(output, y).item()
-                ssim3D_loss = ssim3D_loss_func(output, y).item()
-                psnr_loss = psnr_loss_func(output, y).item()
-                psnr = psnr_func(output, y).item()
+                output_scaled = output * noise_sigmas
+                y_scaled = y * noise_sigmas
+
+                mse_loss = mse_loss_func(output_scaled, y_scaled).item()
+                l1_loss = l1_loss_func(output_scaled, y_scaled).item()
+                ssim_loss = ssim_loss_func(output_scaled, y_scaled).item()
+                ssim3D_loss = ssim3D_loss_func(output_scaled, y_scaled).item()
+                psnr_loss = psnr_loss_func(output_scaled, y_scaled).item()
+                psnr = psnr_func(output_scaled, y_scaled).item()
 
                 train_mse_meter.update(mse_loss, n=total)
                 train_l1_meter.update(l1_loss, n=total)
@@ -385,6 +393,8 @@ def trainer(rank, global_rank, config, wandb_run):
                 pbar.update(1)
                 log_str = create_log_str(config, epoch, rank, 
                                          x.shape, 
+                                         torch.mean(gmaps_median).cpu().item(),
+                                         torch.mean(noise_sigmas).cpu().item(),
                                          train_loss.avg, 
                                          train_mse_meter.avg, 
                                          train_l1_meter.avg, 
@@ -408,6 +418,8 @@ def trainer(rank, global_rank, config, wandb_run):
             # ---------------------------------------
             log_str = create_log_str(c, epoch, rank, 
                                          None, 
+                                         torch.mean(gmaps_median).cpu().item(),
+                                         torch.mean(noise_sigmas).cpu().item(),
                                          train_loss.avg, 
                                          train_mse_meter.avg, 
                                          train_l1_meter.avg, 
@@ -643,6 +655,11 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                     batch = next(val_loader_iter[loader_ind], None)
                 x, y, gmaps_median, noise_sigmas = batch
 
+                gmaps_median = gmaps_median.to(device=device)
+                noise_sigmas = noise_sigmas.to(device=device)
+                
+                noise_sigmas = torch.reshape(noise_sigmas, (B, 1, 1, 1, 1))
+                
                 if batch_size >1 and x.shape[-1]==c.width[-1]:
                     # run normal inference
                     x = x.to(device)
@@ -679,25 +696,33 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                         xy = repatch([x,output,y], og_shape, pt_shape)
                         x, output, y = xy[0], xy[1], xy[2]
 
-                if rank<=0 and images_logged < config.num_uploaded and wandb_run is not None:
-                    images_logged += 1
-                    title = f"{id.upper()}_rank_{rank}_image_{idx}_Noisy_Pred_GT_{x.shape}"
-                    vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
-                    wandb_run.log({title: wandb.Video(vid, caption=f"epoch {epoch}", fps=1, format="gif")})
-                
                 total = x.shape[0]    
                     
-                mse_loss = mse_loss_func(output, y).item()
-                l1_loss = l1_loss_func(output, y).item()
-                ssim_loss = ssim_loss_func(output, y).item()
-                ssim3D_loss = ssim3D_loss_func(output, y).item()
-                psnr_loss = psnr_loss_func(output, y).item()
-                psnr = psnr_func(output, y).item()
+                output_scaled = output * noise_sigmas
+                y_scaled = y * noise_sigmas
+                
+                #output_scaled = output
+                #y_scaled = y
+                    
+                mse_loss = mse_loss_func(output_scaled, y_scaled).item()
+                l1_loss = l1_loss_func(output_scaled, y_scaled).item()
+                ssim_loss = ssim_loss_func(output_scaled, y_scaled).item()
+                ssim3D_loss = ssim3D_loss_func(output_scaled, y_scaled).item()
+                psnr_loss = psnr_loss_func(output_scaled, y_scaled).item()
+                psnr = psnr_func(output_scaled, y_scaled).item()
 
                 if loss_f:
                     loss = loss_f(output, y)
                     val_loss_meter.update(loss.item(), n=total)
 
+                if rank<=0 and images_logged < config.num_uploaded and wandb_run is not None:
+                    images_logged += 1
+                    title = f"{id.upper()}_rank_{rank}_image_{idx}_Noisy_Pred_GT_{x.shape}"
+                    vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
+                    wandb_run.log({title: wandb.Video(vid, 
+                                                      caption=f"epoch {epoch}, gmap {gmaps_median[0].item():.2f}, noise {noise_sigmas[0].item():.2f}, mse {mse_loss:.2f}, ssim {ssim_loss:.2f}, psnr {psnr:.2f}", 
+                                                      fps=1, format="gif")})
+                    
                 val_mse_meter.update(mse_loss, n=total)
                 val_l1_meter.update(l1_loss, n=total)
                 val_ssim_meter.update(ssim_loss, n=total)
@@ -708,6 +733,8 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                 pbar.update(1)
                 log_str = create_log_str(c, epoch, rank, 
                                          x.shape, 
+                                         torch.mean(gmaps_median).cpu().item(),
+                                         torch.mean(noise_sigmas).cpu().item(),
                                          val_loss_meter.avg, 
                                          val_mse_meter.avg, 
                                          val_l1_meter.avg, 
@@ -724,6 +751,8 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
             # -----------------------------------
             log_str = create_log_str(c, epoch, rank, 
                                          None, 
+                                         torch.mean(gmaps_median).cpu().item(),
+                                         torch.mean(noise_sigmas).cpu().item(),
                                          val_loss_meter.avg, 
                                          val_mse_meter.avg, 
                                          val_l1_meter.avg, 
@@ -771,6 +800,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
         
         log_str = create_log_str(c, epoch, rank, 
                                 None, 
+                                -1, -1,
                                 val_loss, 
                                 val_mse, 
                                 val_l1, 
