@@ -47,6 +47,9 @@ def arg_parser():
     parser.add_argument("--patch_size_inference", type=int, default=-1, help='patch size for inference; if <=0, use the config setup')
     parser.add_argument("--num_uploaded", type=int, default=16, help='number of sample uploaded')
     
+    parser.add_argument("--save_samples", action="store_true", help='whether to save some train/val/test samples')
+    parser.add_argument("--num_saved_samples", type=int, default=16, help='number of saved samples')
+    
     #parser = add_shared_STCNNT_args(parser=parser)
 
     return parser.parse_args()
@@ -149,6 +152,8 @@ def main():
     config.pad_time = c.pad_time
     config.ddp = False
     config.num_uploaded = c.num_uploaded
+    config.save_samples = c.save_samples
+    config.num_saved_samples = c.num_saved_samples
     
     if patch_size_inference > 0:
         config.height[-1] = patch_size_inference

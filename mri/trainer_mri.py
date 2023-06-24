@@ -32,6 +32,7 @@ from model_mri import STCNNT_MRI
 from data_mri import MRIDenoisingDatasetTrain, load_mri_data
 
 from colorama import Fore, Back, Style
+import nibabel as nib
 
 # -------------------------------------------------------------------------------------------------
 # trainer
@@ -60,6 +61,56 @@ def create_log_str(config, epoch, rank, data_shape, gmap_median, noise_sigma, lo
     str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.WHITE}{Back.LIGHTBLUE_EX}{Style.NORMAL}gmap {gmap_median:.4f}, sigma {noise_sigma:.4f},{Style.RESET_ALL} {C}mse {mse:.4f}, l1 {l1:.4f}, ssim {ssim:.4f}, ssim3D {ssim3d:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}{snr_str}{Style.RESET_ALL}{lr_str}"
 
     return str
+
+def save_batch_samples(saved_path, fname, x, y, output, gmap_median, noise_sigma):
+    
+    noisy_im = x.numpy(force=True)
+    clean_im = y.numpy(force=True)
+    pred_im = output.numpy(force=True)
+    
+    post_str = ""
+    if gmap_median > 0 and noise_sigma > 0:
+        post_str = f"_gmap_{gmap_median:.2f}_sigma_{noise_sigma:.2f}"
+    
+    fname += post_str
+    
+    np.save(os.path.join(saved_path, f"{fname}_x.npy"), noisy_im)
+    np.save(os.path.join(saved_path, f"{fname}_y_{post_str}.npy"), clean_im)
+    np.save(os.path.join(saved_path, f"{fname}_output_{post_str}.npy"), pred_im)
+
+    B, T, C, H, W = x.shape
+    
+    noisy_im = np.transpose(noisy_im, [3, 4, 2, 1, 0])
+    clean_im = np.transpose(clean_im, [3, 4, 2, 1, 0])
+    pred_im = np.transpose(pred_im, [3, 4, 2, 1, 0])
+        
+    if C==3:
+        x = noisy_im[:,:,0,:,:] + 1j * noisy_im[:,:,1,:,:]
+        gmap = noisy_im[:,:,2,:,:]
+        
+        nib.save(nib.Nifti1Image(np.real(x), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_x_real.nii"))
+        nib.save(nib.Nifti1Image(np.imag(x), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_x_imag.nii"))
+        nib.save(nib.Nifti1Image(np.abs(x), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_x.nii"))
+        
+        y = clean_im[:,:,0,:,:] + 1j * clean_im[:,:,1,:,:]        
+        nib.save(nib.Nifti1Image(np.real(y), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_real.nii"))
+        nib.save(nib.Nifti1Image(np.imag(y), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_imag.nii"))
+        nib.save(nib.Nifti1Image(np.abs(y), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y.nii"))
+        
+        output = pred_im[:,:,0,:,:] + 1j * pred_im[:,:,1,:,:]
+        nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output_real.nii"))
+        nib.save(nib.Nifti1Image(np.imag(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output_imag.nii"))
+        nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output.nii"))        
+    else:
+        x = noisy_im[:,:,0,:,:]
+        gmap = noisy_im[:,:,1,:,:]
+                
+        nib.save(nib.Nifti1Image(x, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_x.nii"))
+        nib.save(nib.Nifti1Image(clean_im, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y.nii"))
+        nib.save(nib.Nifti1Image(pred_im, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output.nii"))
+        
+    nib.save(nib.Nifti1Image(gmap, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_gmap.nii"))
+           
 
 def trainer(rank, global_rank, config, wandb_run):
     """
@@ -644,7 +695,11 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
     total_iters = total_iters if not c.debug else min(2, total_iters)
 
     images_logged = 0
-    
+    images_saved = 0
+    if config.save_samples:
+        saved_path = os.path.join(config.log_path, config.run_name, id)
+        os.makedirs(saved_path, exist_ok=True)
+        
     with torch.inference_mode():
         with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
 
@@ -727,7 +782,11 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                     wandb_run.log({title: wandb.Video(vid, 
                                                       caption=f"epoch {epoch}, gmap {gmaps_median[0].item():.2f}, noise {noise_sigmas[0].item():.2f}, mse {mse_loss:.2f}, ssim {ssim_loss:.2f}, psnr {psnr:.2f}", 
                                                       fps=1, format="gif")})
-                    
+                   
+                if rank<=0 and images_saved < config.num_saved_samples and config.save_samples:  
+                    save_batch_samples(saved_path, f"{id}_epoch_{epoch}_{images_saved}", x, y, output, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
+                    images_saved += 1
+                 
                 val_mse_meter.update(mse_loss, n=total)
                 val_l1_meter.update(l1_loss, n=total)
                 val_ssim_meter.update(ssim_loss, n=total)

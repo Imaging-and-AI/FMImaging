@@ -179,7 +179,7 @@
             "justMyCode": true,
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "1"},
             "args": [
-                "--data_root", "/data/mri/denoising/data", "--results_path", "/export/Lab-Xue/projects/mri/results", "--pad_time", "--saved_model_path", "/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230622_112454_358747_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_epoch-192.pth"
+                "--data_root", "/data/mri/denoising/data", "--results_path", "/export/Lab-Xue/projects/mri/results", "--pad_time", "--saved_model_path", "/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230622_112454_358747_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_epoch-192.pth", "--save_samples"
             ]
         },
         {

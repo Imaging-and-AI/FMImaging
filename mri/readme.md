@@ -242,7 +242,6 @@ python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/deno
 
 model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt
 
-
 # flash
 python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_Perf_Denoising_2022_AI_denoising/20221005/Perfusion_AIF_TwoEchoes_Interleaved_R2_42110_121388454_121388463_784_20221005-121636 --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_Perf_Denoising_2022_AI_denoising_AI/Perfusion_AIF_TwoEchoes_Interleaved_R2_42110_121388454_121388463_784_20221005-121636 --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model
 
@@ -318,5 +317,9 @@ python3 ./mri/run_inference_snr.py --input_dir /export/Lab-Xue/projects/mri/vali
 # run the eval test
 
 ```
-python3 ./mri/eval_mri.py --saved_model_path /export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230622_112454_358747_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_epoch-192.pth --num_uploaded 32
+# 300 epoch model
+model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt 
+
+python3 ./mri/eval_mri.py --saved_model_path ${model} --num_uploaded 32 --save_samples --num_saved_samples 32
+
 ```
