@@ -57,7 +57,7 @@ def create_log_str(config, epoch, rank, data_shape, gmap_median, noise_sigma, lo
     else:
         snr_str = ""
 
-    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.WHITE}{Back.LIGHTBLUE_EX}{Style.DIM}gmap {gmap_median:.4f}, sigma {noise_sigma:.4f},{Style.RESET_ALL} {C}mse {mse:.4f}, l1 {l1:.4f}, ssim {ssim:.4f}, ssim3D {ssim3d:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}{snr_str}{Style.RESET_ALL}{lr_str}"
+    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.WHITE}{Back.LIGHTBLUE_EX}{Style.NORMAL}gmap {gmap_median:.4f}, sigma {noise_sigma:.4f},{Style.RESET_ALL} {C}mse {mse:.4f}, l1 {l1:.4f}, ssim {ssim:.4f}, ssim3D {ssim3d:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}{snr_str}{Style.RESET_ALL}{lr_str}"
 
     return str
 
@@ -373,8 +373,11 @@ def trainer(rank, global_rank, config, wandb_run):
 
                 train_snr_meter.update(torch.mean(snr), n=total)
 
-                output_scaled = output * noise_sigmas
-                y_scaled = y * noise_sigmas
+                #output_scaled = output * noise_sigmas
+                #y_scaled = y * noise_sigmas
+                
+                output_scaled = output
+                y_scaled = y
 
                 mse_loss = mse_loss_func(output_scaled, y_scaled).item()
                 l1_loss = l1_loss_func(output_scaled, y_scaled).item()
@@ -698,12 +701,17 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                         x, output, y = xy[0], xy[1], xy[2]
 
                 total = x.shape[0]    
-                    
-                output_scaled = output * noise_sigmas
-                y_scaled = y * noise_sigmas
+
+                if loss_f:
+                    loss = loss_f(output*noise_sigmas, y*noise_sigmas)
+                    val_loss_meter.update(loss.item(), n=total)
+                                        
+                #output_scaled = output * noise_sigmas
+                #y_scaled = y * noise_sigmas
                 
-                #output_scaled = output
-                #y_scaled = y
+                # to help measure the performance, keep noise to be ~1
+                output_scaled = output
+                y_scaled = y
                     
                 mse_loss = mse_loss_func(output_scaled, y_scaled).item()
                 l1_loss = l1_loss_func(output_scaled, y_scaled).item()
@@ -711,10 +719,6 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                 ssim3D_loss = ssim3D_loss_func(output_scaled, y_scaled).item()
                 psnr_loss = psnr_loss_func(output_scaled, y_scaled).item()
                 psnr = psnr_func(output_scaled, y_scaled).item()
-
-                if loss_f:
-                    loss = loss_f(output, y)
-                    val_loss_meter.update(loss.item(), n=total)
 
                 if rank<=0 and images_logged < config.num_uploaded and wandb_run is not None:
                     images_logged += 1
