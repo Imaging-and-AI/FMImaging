@@ -136,12 +136,17 @@ def trainer(rank, global_rank, config, wandb_run):
     num_epochs = config.num_epochs
     batch_size = config.batch_size
     lr = config.global_lr
+    scheduler_type = config.scheduler_type
     losses = config.losses
     loss_weights = config.loss_weights
     optim = config.optim
-    scheduler_type = config.scheduler_type
     weighted_loss = config.weighted_loss
-
+    save_samples = config.save_samples
+    num_saved_samples = config.num_saved_samples
+    height = config.height
+    width = config.width
+    c_time = config.time
+    
     ddp = config.ddp
     if ddp:
         config.device = torch.device(f'cuda:{rank}')
@@ -158,6 +163,11 @@ def trainer(rank, global_rank, config, wandb_run):
         config.num_epochs = num_epochs
         config.batch_size = batch_size
         config.weighted_loss = weighted_loss
+        config.save_samples = save_samples
+        config.num_saved_samples = num_saved_samples
+        config.height = height
+        config.width = width
+        config.time = c_time
         if ddp:
             config.device = torch.device(f'cuda:{rank}')
         model = STCNNT_MRI(config=config, total_steps=total_steps)
@@ -320,6 +330,10 @@ def trainer(rank, global_rank, config, wandb_run):
     for epoch in range(curr_epoch, c.num_epochs):
         logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank}, global rank {global_rank} {'-'*20}{Style.RESET_ALL}")
 
+        if config.save_samples:
+            saved_path = os.path.join(config.log_path, config.run_name, f"tra_{epoch}")
+            os.makedirs(saved_path, exist_ok=True)
+        
         train_loss.reset()
         train_mse_meter.reset()
         train_l1_meter.reset()
@@ -332,7 +346,12 @@ def trainer(rank, global_rank, config, wandb_run):
         model.train()
         if c.ddp: [loader_x.sampler.set_epoch(epoch) for loader_x in train_loader]
 
+        images_saved = 0
+
         train_loader_iter = [iter(loader_x) for loader_x in train_loader]
+        
+        image_save_step_size = int(total_iters // config.num_saved_samples)
+        
         with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
 
             for idx in range(total_iters):
@@ -427,6 +446,10 @@ def trainer(rank, global_rank, config, wandb_run):
                 #output_scaled = output * noise_sigmas
                 #y_scaled = y * noise_sigmas
                 
+                if rank<=0 and idx%image_save_step_size==0 and images_saved < config.num_saved_samples and config.save_samples:  
+                    save_batch_samples(saved_path, f"tra_epoch_{epoch}_{images_saved}", x, y, output, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
+                    images_saved += 1
+                    
                 output_scaled = output
                 y_scaled = y
 
