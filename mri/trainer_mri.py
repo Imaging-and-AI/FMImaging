@@ -225,7 +225,7 @@ def trainer(rank, global_rank, config, wandb_run):
     elif c.backbone == 'unet':
         model_str = f"C {c.backbone_unet.C}, {c.n_head} heads, {c.backbone_unet.block_str}"
 
-    logging.info(f"{Fore.RED}{'-'*6}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, loss {c.losses}, {c.loss_weights}, snr perturb {c.snr_perturb_prob}, optim {c.optim}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {model_str}, {'-'*20}{Style.RESET_ALL}")
+    logging.info(f"{Fore.RED}{'-'*6}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, {c.optim}, {c.global_lr}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {model_str}, {'-'*20}{Style.RESET_ALL}")
 
     # -----------------------------------------------
 
