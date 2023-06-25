@@ -125,4 +125,4 @@ class STCNNT_MRI(STCNNT_Task_Base):
         self.loss_f = Combined_Loss(self.config.losses, self.config.loss_weights,
                                     complex_i=self.config.complex_i, device=device)
 
-        self.ssim_loss_f = SSIM_Loss(window_size=11, complex_i=self.complex_i, device=device)
+        self.ssim_loss_f = SSIM_Loss(window_size=5, complex_i=self.complex_i, device=device)

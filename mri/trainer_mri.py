@@ -146,6 +146,7 @@ def trainer(rank, global_rank, config, wandb_run):
     height = config.height
     width = config.width
     c_time = config.time
+    use_amp = config.use_amp
     
     ddp = config.ddp
     if ddp:
@@ -168,11 +169,18 @@ def trainer(rank, global_rank, config, wandb_run):
         config.height = height
         config.width = width
         config.time = c_time
+        config.use_amp = use_amp
         if ddp:
             config.device = torch.device(f'cuda:{rank}')
         model = STCNNT_MRI(config=config, total_steps=total_steps)
         model.load_state_dict(status['model'])
         config.ddp = ddp
+        
+        print(f"after load saved model, the config for running - {config}")
+        print(f"after load saved model, config.use_amp for running - {config.use_amp}")
+        print(f"after load saved model, config.optim for running - {config.optim}")
+        print(f"after load saved model, config.scheduler_type for running - {config.scheduler_type}")
+        print(f"after load saved model, config.weighted_loss for running - {config.weighted_loss}")
     else:
         model = STCNNT_MRI(config=config, total_steps=total_steps)
 
