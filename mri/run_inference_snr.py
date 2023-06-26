@@ -165,7 +165,7 @@ def main():
                                                 phase_resolution_ratio=[1.0, 0.85, 0.7, 0.65, 0.55],
                                                 readout_resolution_ratio=[1.0, 0.85, 0.7, 0.65, 0.55],
                                                 rng=np.random.Generator(np.random.PCG64(8754132)),
-                                                verbose=True)
+                                                verbose=False)
         
             assert abs(sigma-noise_sigma)<0.00001
         
@@ -188,13 +188,15 @@ def main():
             gmap_used = np.copy(gmap[:,:,0,:].squeeze())
             if gmap_used.ndim==2:
                 gmap_used = gmap_used[:,:,np.newaxis]
+                            
+            model.eval()
             output = apply_model(data.astype(np.complex64), model, gmap_used.astype(np.float32), config=config, scaling_factor=args.scaling_factor, device=get_device())
             
             pred_image[:,:,:,:,rep,ii] = output * noise_sigma
             
             noise = (data - image/noise_sigma) / gmap
             for slc in range(slices):
-                print(f"rep - {rep}, sigma - {sigma}, data noise std - {np.mean(np.std(np.real(noise[:,:,:,slc]), axis=2))} - {np.mean(np.std(np.imag(noise[:,:,:,slc]), axis=2))}")
+                print(f"rep - {rep}, sigma - {sigma:.2f}, data noise std - {np.mean(np.std(np.real(noise[:,:,:,slc]), axis=2))} - {np.mean(np.std(np.imag(noise[:,:,:,slc]), axis=2))}")
             
             y_hat = np.expand_dims(np.transpose(output, (3, 2, 0, 1)), axis=2)            
             y_hat = np.concatenate((np.real(y_hat), np.imag(y_hat)), axis=2)

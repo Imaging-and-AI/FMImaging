@@ -93,7 +93,7 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
     parser.add_argument("--summary_depth", type=int, default=6, help='depth to print the model summary till')
 
     parser.add_argument("--save_samples", action="store_true", help='whether to save some train/val/test samples')
-    parser.add_argument("--num_saved_samples", type=int, default=16, help='number of saved samples')
+    parser.add_argument("--num_saved_samples", type=int, default=32, help='number of saved samples')
     
     return parser
 

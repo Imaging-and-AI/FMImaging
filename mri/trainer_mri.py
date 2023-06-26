@@ -62,11 +62,12 @@ def create_log_str(config, epoch, rank, data_shape, gmap_median, noise_sigma, lo
 
     return str
 
-def save_batch_samples(saved_path, fname, x, y, output, gmap_median, noise_sigma):
+def save_batch_samples(saved_path, fname, x, y, output, y_degraded, gmap_median, noise_sigma):
     
     noisy_im = x.numpy(force=True)
     clean_im = y.numpy(force=True)
     pred_im = output.numpy(force=True)
+    y_degraded = y_degraded.numpy(force=True)
     
     post_str = ""
     if gmap_median > 0 and noise_sigma > 0:
@@ -77,12 +78,14 @@ def save_batch_samples(saved_path, fname, x, y, output, gmap_median, noise_sigma
     np.save(os.path.join(saved_path, f"{fname}_x.npy"), noisy_im)
     np.save(os.path.join(saved_path, f"{fname}_y.npy"), clean_im)
     np.save(os.path.join(saved_path, f"{fname}_output.npy"), pred_im)
+    np.save(os.path.join(saved_path, f"{fname}_y_degraded.npy"), y_degraded)
 
     B, T, C, H, W = x.shape
     
     noisy_im = np.transpose(noisy_im, [3, 4, 2, 1, 0])
     clean_im = np.transpose(clean_im, [3, 4, 2, 1, 0])
     pred_im = np.transpose(pred_im, [3, 4, 2, 1, 0])
+    y_degraded = np.transpose(y_degraded, [3, 4, 2, 1, 0])
         
     if C==3:
         x = noisy_im[:,:,0,:,:] + 1j * noisy_im[:,:,1,:,:]
@@ -100,7 +103,12 @@ def save_batch_samples(saved_path, fname, x, y, output, gmap_median, noise_sigma
         output = pred_im[:,:,0,:,:] + 1j * pred_im[:,:,1,:,:]
         nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output_real.nii"))
         nib.save(nib.Nifti1Image(np.imag(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output_imag.nii"))
-        nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output.nii"))        
+        nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output.nii"))  
+        
+        output = y_degraded[:,:,0,:,:] + 1j * y_degraded[:,:,1,:,:]
+        nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_degraded_real.nii"))
+        nib.save(nib.Nifti1Image(np.imag(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_degraded_imag.nii"))
+        nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_degraded.nii"))        
     else:
         x = noisy_im[:,:,0,:,:]
         gmap = noisy_im[:,:,1,:,:]
@@ -108,6 +116,7 @@ def save_batch_samples(saved_path, fname, x, y, output, gmap_median, noise_sigma
         nib.save(nib.Nifti1Image(x, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_x.nii"))
         nib.save(nib.Nifti1Image(clean_im, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y.nii"))
         nib.save(nib.Nifti1Image(pred_im, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output.nii"))
+        nib.save(nib.Nifti1Image(y_degraded, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_degraded.nii"))
         
     nib.save(nib.Nifti1Image(gmap, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_gmap.nii"))
            
@@ -233,7 +242,7 @@ def trainer(rank, global_rank, config, wandb_run):
     elif c.backbone == 'unet':
         model_str = f"C {c.backbone_unet.C}, {c.n_head} heads, {c.backbone_unet.block_str}"
 
-    logging.info(f"{Fore.RED}{'-'*6}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, {c.optim}, {c.global_lr}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {model_str}, {'-'*20}{Style.RESET_ALL}")
+    logging.info(f"{Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, {c.optim}, {c.global_lr}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {model_str}{Style.RESET_ALL}")
 
     # -----------------------------------------------
 
@@ -270,16 +279,18 @@ def trainer(rank, global_rank, config, wandb_run):
             # log a few training examples
             for i, train_set_x in enumerate(train_set):
                 ind = np.random.randint(0, len(train_set_x), 4)
-                x, y, gmaps_median, noise_sigmas = train_set_x[ind[0]]
+                x, y, y_degraded, gmaps_median, noise_sigmas = train_set_x[ind[0]]
                 x = np.expand_dims(x, axis=0)
                 y = np.expand_dims(y, axis=0)
+                y_degraded = np.expand_dims(y_degraded, axis=0)
                 for ii in range(1, len(ind)):
-                    a_x, a_y, gmaps_median, noise_sigmas = train_set_x[ind[ii]]
+                    a_x, a_y, a_y_degraded, gmaps_median, noise_sigmas = train_set_x[ind[ii]]
                     x = np.concatenate((x, np.expand_dims(a_x, axis=0)), axis=0)
                     y = np.concatenate((y, np.expand_dims(a_y, axis=0)), axis=0)
+                    y_degraded = np.concatenate((y_degraded, np.expand_dims(a_y_degraded, axis=0)), axis=0)
 
                 title = f"Tra_samples_{i}_Noisy_Noisy_GT_{x.shape}"
-                vid = save_image_batch(c.complex_i, x, np.copy(x), y)
+                vid = save_image_batch(c.complex_i, x, y_degraded, y)
                 wandb_run.log({title:wandb.Video(vid, caption=f"Tra sample {i}", fps=1, format='gif')})
                 logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}")
 
@@ -341,6 +352,7 @@ def trainer(rank, global_rank, config, wandb_run):
         if config.save_samples:
             saved_path = os.path.join(config.log_path, config.run_name, f"tra_{epoch}")
             os.makedirs(saved_path, exist_ok=True)
+            logging.info(f"{Fore.GREEN}saved_path - {saved_path}{Style.RESET_ALL}")
         
         train_loss.reset()
         train_mse_meter.reset()
@@ -372,7 +384,7 @@ def trainer(rank, global_rank, config, wandb_run):
                     del train_loader_iter[loader_ind]
                     loader_ind = idx % len(train_loader_iter)
                     stuff = next(train_loader_iter[loader_ind], None)
-                x, y, gmaps_median, noise_sigmas = stuff
+                x, y, y_degraded, gmaps_median, noise_sigmas = stuff
                 end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
 
 
@@ -387,10 +399,11 @@ def trainer(rank, global_rank, config, wandb_run):
                 signal = torch.mean(torch.linalg.norm(y, dim=2, keepdim=True), dim=(1, 2, 3, 4))
                 #snr = signal / (noise_sigmas*gmaps_median)
                 snr = signal / gmaps_median
-
+                snr = snr.to(device)
+                
                 if c.weighted_loss:
                     beta_counter += 1
-                    base_snr = beta_snr * base_snr + (1-beta_snr) * base_snr
+                    base_snr = beta_snr * base_snr + (1-beta_snr) * torch.mean(snr).item()
                     base_snr_t = base_snr / (1 - np.power(beta_snr, beta_counter))
 
                     # give low SNR patches more weights
@@ -455,7 +468,7 @@ def trainer(rank, global_rank, config, wandb_run):
                 #y_scaled = y * noise_sigmas
                 
                 if rank<=0 and idx%image_save_step_size==0 and images_saved < config.num_saved_samples and config.save_samples:  
-                    save_batch_samples(saved_path, f"tra_epoch_{epoch}_{images_saved}", x, y, output, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
+                    save_batch_samples(saved_path, f"tra_epoch_{epoch}_{images_saved}", x, y, output, y_degraded, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
                     images_saved += 1
                     
                 output_scaled = output
@@ -728,8 +741,12 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
     images_logged = 0
     images_saved = 0
     if config.save_samples:
-        saved_path = os.path.join(config.log_path, config.run_name, id)
+        if epoch >= 0:
+            saved_path = os.path.join(config.log_path, config.run_name, id)
+        else:
+            saved_path = os.path.join(config.log_path, config.run_name, f"{id}_{epoch}")
         os.makedirs(saved_path, exist_ok=True)
+        print(f"save path is {saved_path}")
         
     with torch.inference_mode():
         with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
@@ -742,7 +759,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                     del val_loader_iter[loader_ind]
                     loader_ind = idx % len(val_loader_iter)
                     batch = next(val_loader_iter[loader_ind], None)
-                x, y, gmaps_median, noise_sigmas = batch
+                x, y, y_degraded, gmaps_median, noise_sigmas = batch
 
                 gmaps_median = gmaps_median.to(device=device)
                 noise_sigmas = noise_sigmas.to(device=device)
@@ -815,7 +832,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                                                       fps=1, format="gif")})
                    
                 if rank<=0 and images_saved < config.num_saved_samples and config.save_samples:  
-                    save_batch_samples(saved_path, f"{id}_epoch_{epoch}_{images_saved}", x, y, output, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
+                    save_batch_samples(saved_path, f"{id}_epoch_{epoch}_{images_saved}", x, y, output, y_degraded, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
                     images_saved += 1
                  
                 val_mse_meter.update(mse_loss, n=total)

@@ -279,6 +279,11 @@ model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230621_132139_
 # 300 epoch model
 model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt
 
+# furthe tuned model
+model=/export/Lab-Xue/projects/mri/test/fine_tune/try2/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_best.pt
+
+model=/export/Lab-Xue/projects/mri/test/fine_tune/fine_tuning_test_4/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_best.pt
+
 # R4
 python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_528_20230616-173804 --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_528_20230616-173804/res --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model
 
@@ -312,7 +317,7 @@ model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-in
 
 # run the snr test
 
-python3 ./mri/run_inference_snr.py --input_dir /export/Lab-Xue/projects/mri/validation/retro_cine/case1 --output_dir /export/Lab-Xue/projects/mri/validation/retro_cine/case1/res --scaling_factor 1.5 --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --gmap_fname gfactor --saved_model_path /export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt --noise_level 1.0 30.0 16 --num_rep 1
+python3 ./mri/run_inference_snr.py --input_dir /export/Lab-Xue/projects/mri/validation/retro_cine/case1 --output_dir /export/Lab-Xue/projects/mri/validation/retro_cine/case1/res --scaling_factor 1.5 --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --gmap_fname gfactor --saved_model_path $model --noise_level 1.0 30.0 16 --num_rep 1
 
 # run the eval test
 
@@ -320,9 +325,15 @@ python3 ./mri/run_inference_snr.py --input_dir /export/Lab-Xue/projects/mri/vali
 # 300 epoch model
 model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt 
 
+model=/export/Lab-Xue/projects/mri/test/fine_tune/fine_tuning_test_4/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_best.pt
+
 python3 ./mri/eval_mri.py --saved_model_path ${model} --num_uploaded 32 --save_samples --num_saved_samples 32
 
-python3 ./mri/eval_mri.py --test_files /export/Lab-Xue/projects/mri/data/train_3D_3T_retro_cine_2020_1000_sample_sig_2_30_test.h5 --saved_model_path ${model} --num_uploaded 32 --save_samples --num_saved_samples 32
+python3 ./mri/eval_mri.py --test_files /export/Lab-Xue/projects/mri/data/train_3D_3T_retro_cine_2020_1000_sample_sig_2_30_test.h5 --saved_model_path ${model} --num_uploaded 256 --save_samples --num_saved_samples 1024 --results_path /export/Lab-Xue/projects/mri/results/train_3D_3T_retro_cine_2020_1000_sample_sig_2_30_test
+
+python3 ./mri/eval_mri.py --test_files /export/Lab-Xue/projects/mri/data/train_3D_3T_retro_cine_2020_20_sample_sig_2_30_repeated_test.h5 --saved_model_path ${model} --num_uploaded 256 --save_samples --num_saved_samples 1024 --results_path /export/Lab-Xue/projects/mri/results/train_3D_3T_retro_cine_2020_20_sample_sig_2_30_repeated_test
+
+python3 ./mri/eval_mri.py --test_files /export/Lab-Xue/projects/mri/data/retro_cine_3T_sigma_1_10_repeated_test.h5 --saved_model_path ${model} --num_uploaded 256 --save_samples --num_saved_samples 1024 --results_path /export/Lab-Xue/projects/mri/results/sigma_1_10
 
 ```
 
