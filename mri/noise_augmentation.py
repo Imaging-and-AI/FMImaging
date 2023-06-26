@@ -8,7 +8,8 @@ copied from Hui's original commit in CNNT
 import os
 import math
 import numpy  as np
-from numpy.fft import fft, ifft, fft2, ifft2, fftn, ifftn, ifftshift, fftshift
+#from numpy.fft import fft, ifft, fft2, ifft2, fftn, ifftn, ifftshift, fftshift
+from scipy.fft import fft, ifft, fft2, ifft2, fftn, ifftn, ifftshift, fftshift
 from colorama import Fore, Style
 
 # --------------------------------------------------------------
@@ -27,7 +28,7 @@ def centered_pad(data, new_shape):
 
 def create_complex_noise(noise_sigma, size):
     nns = np.random.standard_normal(size=size)+np.random.standard_normal(size=size)*1j
-    return noise_sigma * nns
+    return (noise_sigma * nns).astype(np.complex64)
 
 # --------------------------------------------------------------
 

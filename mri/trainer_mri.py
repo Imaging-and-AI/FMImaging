@@ -371,6 +371,9 @@ def trainer(rank, global_rank, config, wandb_run):
         train_loader_iter = [iter(loader_x) for loader_x in train_loader]
         
         image_save_step_size = int(total_iters // config.num_saved_samples)
+        if image_save_step_size == 0: image_save_step_size = 1
+        
+        curr_lr = 0
         
         with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
 

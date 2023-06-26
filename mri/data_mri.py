@@ -229,6 +229,9 @@ class MRIDenoisingDatasetTrain():
         if data.ndim == 2: data = data[np.newaxis,:,:]
         gmap = self.load_gmap(gmaps, i, random_factor=-1)
         
+        data = data.astype(np.complex64)
+        gmap = gmap.astype(np.float32)
+        
         # pad symmetrically if not enough images in the time dimension
         if data.shape[0] < self.time_cutout:
             data = np.pad(data, ((0,self.time_cutout - data.shape[0]),(0,0),(0,0)), 'symmetric')
@@ -465,13 +468,19 @@ class MRIDenoisingDatasetTrain():
         Loads a random gmap for current index
         """
         if(gmaps.ndim==2):
-            gmaps = np.expand_dims(gmaps, axis=0)
+            #gmaps = np.expand_dims(gmaps, axis=0)
+            return gmaps
 
         factors = gmaps.shape[0]
-        if(random_factor<0):
-            random_factor = np.random.randint(0, factors)
-
-        return gmaps[random_factor, :,:]
+        if factors < 16:
+            if(random_factor<0):
+                random_factor = np.random.randint(0, factors)
+            return gmaps[random_factor, :,:]
+        else:
+            if(random_factor<0):
+                random_factor = np.random.randint(0, gmaps.shape[2])
+            return gmaps[:, :, random_factor]
+        
 
     def random_flip(self, data, gmap):
         """
