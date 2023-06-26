@@ -38,17 +38,17 @@ azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepar
 ln -s /export/Lab-Xue/projects/data/train_3D_3T_retro_cine_2019.h5 /export/Lab-Xue/projects/mri/data/train_3D_3T_retro_cine_2019.h5
 ln -s /export/Lab-Xue/projects/data/train_3D_3T_retro_cine_2021.h5 /export/Lab-Xue/projects/mri/data/train_3D_3T_retro_cine_2021.h5
 
-azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/MINNESOTA_UHVC_RetroCine_1p5T_2023.h5?${SAS}" /export/Lab-Xue/projects/mri/imagenet
-azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/MINNESOTA_UHVC_RetroCine_1p5T_2022.h5?${SAS}" /export/Lab-Xue/projects/mri/imagenet
-azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/BWH_RetroCine_3T_2023.h5?${SAS}" /export/Lab-Xue/projects/mri/imagenet
-azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/BWH_RetroCine_3T_2022.h5?${SAS}" /export/Lab-Xue/projects/mri/imagenet
-azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/BWH_RetroCine_3T_2021.h5?${SAS}" /export/Lab-Xue/projects/mri/imagenet
+azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/MINNESOTA_UHVC_RetroCine_1p5T_2023.h5?${SAS}" /export/Lab-Xue/projects/imagenet
+azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/MINNESOTA_UHVC_RetroCine_1p5T_2022.h5?${SAS}" /export/Lab-Xue/projects/imagenet
+azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/BWH_RetroCine_3T_2023.h5?${SAS}" /export/Lab-Xue/projects/imagenet
+azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/BWH_RetroCine_3T_2022.h5?${SAS}" /export/Lab-Xue/projects/imagenet
+azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/BWH_RetroCine_3T_2021.h5?${SAS}" /export/Lab-Xue/projects/imagenet
 
-ln -s /export/Lab-Xue/projects/data/MINNESOTA_UHVC_RetroCine_1p5T_2023.h5 /export/Lab-Xue/projects/mri/imagenet/MINNESOTA_UHVC_RetroCine_1p5T_2023.h5
-ln -s /export/Lab-Xue/projects/data/MINNESOTA_UHVC_RetroCine_1p5T_2022.h5 /export/Lab-Xue/projects/mri/imagenet/MINNESOTA_UHVC_RetroCine_1p5T_2022.h5
-ln -s /export/Lab-Xue/projects/data/BWH_RetroCine_3T_2023.h5 /export/Lab-Xue/projects/mri/imagenet/BWH_RetroCine_3T_2023.h5
-ln -s /export/Lab-Xue/projects/data/BWH_RetroCine_3T_2022.h5 /export/Lab-Xue/projects/mri/imagenet/BWH_RetroCine_3T_2022.h5
-ln -s /export/Lab-Xue/projects/data/BWH_RetroCine_3T_2021.h5 /export/Lab-Xue/projects/mri/imagenet/BWH_RetroCine_3T_2021.h5
+ln -s /export/Lab-Xue/projects/imagenet/MINNESOTA_UHVC_RetroCine_1p5T_2023.h5 /export/Lab-Xue/projects/data/MINNESOTA_UHVC_RetroCine_1p5T_2023.h5
+ln -s /export/Lab-Xue/projects/imagenet/MINNESOTA_UHVC_RetroCine_1p5T_2022.h5 /export/Lab-Xue/projects/data/MINNESOTA_UHVC_RetroCine_1p5T_2022.h5
+ln -s /export/Lab-Xue/projects/imagenet/BWH_RetroCine_3T_2023.h5 /export/Lab-Xue/projects/data/BWH_RetroCine_3T_2023.h5
+ln -s /export/Lab-Xue/projects/imagenet/BWH_RetroCine_3T_2022.h5 /export/Lab-Xue/projects/data/BWH_RetroCine_3T_2022.h5 
+ln -s /export/Lab-Xue/projects/imagenet/BWH_RetroCine_3T_2021.h5 /export/Lab-Xue/projects/data/BWH_RetroCine_3T_2021.h5 
 
 # perfusion
 azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/train_3D_3T_perf_2018.h5?${SAS}" /export/Lab-Xue/projects/fm
