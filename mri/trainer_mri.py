@@ -471,7 +471,7 @@ def trainer(rank, global_rank, config, wandb_run):
                 #y_scaled = y * noise_sigmas
                 
                 if rank<=0 and idx%image_save_step_size==0 and images_saved < config.num_saved_samples and config.save_samples:  
-                    save_batch_samples(saved_path, f"tra_epoch_{epoch}_{images_saved}", x, y, output, y_degraded, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
+                    save_batch_samples(saved_path, f"tra_epoch_{images_saved}", x, y, output, y_degraded, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
                     images_saved += 1
                     
                 output_scaled = output
