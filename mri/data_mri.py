@@ -225,9 +225,13 @@ class MRIDenoisingDatasetTrain():
             key_gmap = self.images[i][1]
             data = np.array(self.h5file[ind][key_image])
             gmaps = np.array(self.h5file[ind][key_gmap])
+                
+        gmap = self.load_gmap(gmaps, i, random_factor=-1)            
         
         if data.ndim == 2: data = data[np.newaxis,:,:]
-        gmap = self.load_gmap(gmaps, i, random_factor=-1)
+        
+        # if data.shape[1] != gmap.shape[0] and data.shape[0] == gmap.shape[0]:
+        #     data = np.transpose(data, (2, 1, 0))
         
         data = data.astype(np.complex64)
         gmap = gmap.astype(np.float32)
