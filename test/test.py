@@ -1,6 +1,10 @@
-# Testing TODO s
-## Norms 2D vs 3D
-## striding conv for temp att
+import time
+import numpy
+import scipy
+import pyfftw
+import multiprocessing
+import torchmetrics
+import torch
 
 import sys
 from pathlib import Path
@@ -8,6 +12,102 @@ from pathlib import Path
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
-from model_base.attention_modules import *
+from utils import *
+from model_base.losses import *
+from utils.save_model import save_final_model
+from utils.running_inference import running_inference
 
-print("all done")
+preds = torch.rand([3, 3, 256, 256], generator=torch.manual_seed(42))
+target = preds * 0.75
+
+# msssim_loss = torchmetrics.functional.multiscale_structural_similarity_index_measure(preds, target, reduction=None)
+# print(msssim_loss)
+
+device = 'cuda'
+
+for k in range(1, 10):
+    msssim_loss = torchmetrics.image.MultiScaleStructuralSimilarityIndexMeasure(kernel_size=7, reduction=None, data_range=None)
+    msssim_loss.to(device=device)
+    v = msssim_loss(preds.to(device) * k, target.to(device))
+    print(v)
+    
+print("-----------------------")
+
+for k in range(1, 10):
+    msssim_loss = torchmetrics.image.MultiScaleStructuralSimilarityIndexMeasure(kernel_size=7, reduction=None, data_range=None)
+    msssim_loss.to(device=device)
+    v = msssim_loss(preds.to(device) * k, target.to(device) * k)
+    print(v)
+
+Project_DIR = Path(__file__).parents[1].resolve()
+sys.path.insert(1, str(Project_DIR))
+
+nthread = multiprocessing.cpu_count()
+a = numpy.random.rand(2364,2756).astype('complex128')
+b = a.astype(numpy.complex64)
+
+""" 
+Uncomment below to use 32 bit floats, 
+increasing the speed by a factor of 4
+and remove the difference between the "builders" and "FFTW" methods
+"""
+#a = numpy.random.rand(2364,2756).astype('complex64')
+
+for i in range(20):
+    start = time.time()
+    b1 = numpy.fft.fft2(a)
+    end1 = time.time() - start
+    print('numpy.fft.fft2:                        %.3f secs.' % end1)
+
+    
+    start = time.time()
+    b1 = scipy.fft.fft2(a)
+    end1 = time.time() - start
+    print('scipy.fft.fft2:                        %.3f secs.' % end1)
+
+    start = time.time()
+    b1 = numpy.fft.fft2(b)
+    end1 = time.time() - start
+    print('complex64, numpy.fft.fft2:                        %.3f secs.' % end1)
+
+    start = time.time()
+    b1 = scipy.fft.fft2(b)
+    end1 = time.time() - start
+    print('complex64, scipy.fft.fft2:                        %.3f secs.' % end1)
+
+
+start = time.time()
+b2 = pyfftw.interfaces.scipy_fftpack.fft2(a, threads=nthread)
+end2 = time.time() - start
+
+pyfftw.forget_wisdom()
+start = time.time()
+b3 = pyfftw.interfaces.numpy_fft.fft2(a, threads=nthread)
+end3 = time.time() - start
+
+""" By far the most efficient method """
+pyfftw.forget_wisdom()
+start = time.time()
+b4 = numpy.zeros_like(a)
+fft = pyfftw.FFTW( a, b4, axes=(0,1), direction='FFTW_FORWARD', flags=('FFTW_MEASURE', ), threads=nthread, planning_timelimit=None )
+fft()
+end4 = time.time() - start
+
+""" 
+For large arrays avoiding the copy is very important, 
+doing this I get a speedup of 2x compared to not using it 
+"""
+pyfftw.forget_wisdom()
+start = time.time()
+b5 = numpy.zeros_like(a)
+fft = pyfftw.builders.fft2(a, s=None, axes=(-2, -1), overwrite_input=False, planner_effort='FFTW_MEASURE', threads=nthread, auto_align_input=False, auto_contiguous=False, avoid_copy=True)
+b5 = fft()
+end5 = time.time() - start
+
+
+
+print('numpy.fft.fft2:                        %.3f secs.' % end1)
+print('pyfftw.interfaces.scipy_fftpack.fft2:  %.3f secs.' % end2)
+print('pyfftw.interfaces.numpy_fft.fft2:      %.3f secs.' % end3)
+print('pyfftw.FFTW:                           %.3f secs.' % end4)
+print('pyfftw.builders:                       %.3f secs.' % end5)

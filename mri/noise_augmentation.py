@@ -5,9 +5,12 @@ provides a wide range of utility function used to create training data for MRI
 
 copied from Hui's original commit in CNNT
 """
+import os
 import math
 import numpy  as np
-from numpy.fft import fft, ifft, fft2, ifft2, fftn, ifftn, ifftshift, fftshift
+#from numpy.fft import fft, ifft, fft2, ifft2, fftn, ifftn, ifftshift, fftshift
+from scipy.fft import fft, ifft, fft2, ifft2, fftn, ifftn, ifftshift, fftshift
+from colorama import Fore, Style
 
 # --------------------------------------------------------------
 
@@ -24,7 +27,8 @@ def centered_pad(data, new_shape):
 # --------------------------------------------------------------
 
 def create_complex_noise(noise_sigma, size):
-    return np.random.normal(0,noise_sigma,size=size)+np.random.normal(0,noise_sigma,size=size)*1j
+    nns = np.random.standard_normal(size=size)+np.random.standard_normal(size=size)*1j
+    return (noise_sigma * nns).astype(np.complex64)
 
 # --------------------------------------------------------------
 
@@ -104,14 +108,15 @@ def ifft3c(kspace, norm='ortho'):
 
 # --------------------------------------------------------------
 
-def generate_symmetric_filter(len, filterType, sigma=1.5, width=10):
+def generate_symmetric_filter(len, filterType, sigma=1.5, width=10, snr_scaling=True):
     """Compute the SNR unit symmetric filter
 
     Args:
         len (int): length of filter
         filterType (str): Gaussian or None
         sigma (float, optional): sigma for gaussian filter. Defaults to 1.5.
-
+        snr_scaling (bool): if True, keep the noise level; if False, keep the signal level
+        
     Returns:
         filter: len array
     """
@@ -143,8 +148,11 @@ def generate_symmetric_filter(len, filterType, sigma=1.5, width=10):
             for ii in range(len):
                 filter[ii] = math.exp(r*(x[ii] * x[ii]))
 
-    sos = np.sum(filter*filter)
-    filter /= math.sqrt(sos / len)
+    if snr_scaling:
+        sos = np.sum(filter*filter)
+        filter /= math.sqrt(sos / len)
+    else:
+        filter /= np.max(filter)
 
     return filter
 
@@ -341,6 +349,27 @@ def apply_resolution_reduction_2D(im, ratio_RO, ratio_E1, snr_scaling=True, norm
 
 # --------------------------------------------------------------
 
+def apply_image_filter(data, sigma_RO=1.25, sigma_E1=1.25):
+    # apply image filter, keep the signal level
+    # data : [RO, E1, T, ...]
+    
+    fRO = generate_symmetric_filter(data.shape[0], filterType="Gaussian", sigma=sigma_RO, width=10, snr_scaling=False)
+    fE1 = generate_symmetric_filter(data.shape[1], filterType="Gaussian", sigma=sigma_E1, width=10, snr_scaling=False)
+    data_filtered = ifft2c(apply_kspace_filter_2D(fft2c(data), fRO, fE1))
+    return data_filtered, fRO, fE1
+
+def apply_image_filter_T(data, sigma_T=1.25):
+    # apply image filter along the T, keep the signal level
+    # data : [RO, E1, T, ...]
+    
+    fT = generate_symmetric_filter(data.shape[2], filterType="Gaussian", sigma=sigma_T, width=10, snr_scaling=False)
+    
+    im = np.transpose(data, (2, 0, 1))
+    im = ifft1c(apply_kspace_filter_1D(fft1c(im), fT))
+    return np.transpose(im, (1, 2, 0)), fT
+    
+# --------------------------------------------------------------
+
 def apply_matrix_size_reduction_2D(im, dst_RO, dst_E1, norm = 'ortho'):
     """Apply the matrix size reduction, keep the FOV
 
@@ -462,10 +491,12 @@ def generate_3D_MR_correlated_noise(T=30, RO=192, E1=144, REP=1,
         nns = create_complex_noise(noise_sigma, (T, RO, E1))
 
     if(verbose is True):
-        print("--" * 40)
+        print(f"{Fore.GREEN}------------------------------------------{Style.RESET_ALL}")
         print(f"noise sigma is {noise_sigma}")
-        print("noise, real, std is ", np.mean(np.std(np.real(nns), axis=2)))
-        print("noise, imag, std is ", np.mean(np.std(np.imag(nns), axis=2)))
+        std_real = np.mean(np.std(np.real(nns), axis=3))
+        std_imag = np.mean(np.std(np.imag(nns), axis=3))
+        print("noise, real, std is ", std_real)
+        print("noise, imag, std is ", std_imag)
 
     # apply resolution reduction
     ratio_RO = readout_resolution_ratio[rng.integers(0, len(readout_resolution_ratio))]
@@ -557,13 +588,14 @@ def generate_3D_MR_correlated_noise(T=30, RO=192, E1=144, REP=1,
 
     if(verbose is True):
         print("--" * 20)
-        std_r = np.mean(np.std(np.real(nns), axis=2))
-        std_i = np.mean(np.std(np.imag(nns), axis=2))
-        print("noise, real, std is ", std_r)
-        print("noise, imag, std is ", std_i)
-
-        assert abs(noise_sigma-std_r) < 0.4
-        assert abs(noise_sigma-std_i) < 0.4
+        std_r = np.mean(np.std(np.real(nns), axis=3))
+        std_i = np.mean(np.std(np.imag(nns), axis=3))
+        print("final noise, real, std is ", std_r, std_r - std_real)
+        print("final noise, imag, std is ", std_i, std_i - std_imag)
+        print(f"{Fore.GREEN}==============================================={Style.RESET_ALL}")
+        
+        assert abs(std_real-std_r) < 0.1
+        assert abs(std_imag-std_i) < 0.1
 
     return nns, noise_sigma
 
@@ -571,9 +603,395 @@ def generate_3D_MR_correlated_noise(T=30, RO=192, E1=144, REP=1,
 
 if __name__ == "__main__":
     
-    sigmas = np.linspace(1.0, 30.0, 60)
+    import h5py 
+    import cv2
+    import matplotlib
+    import matplotlib.pyplot as plt 
+    #matplotlib.use('TkAgg')
+
+    # --------------------------------------------------------------------
+    
+    DATA_HOME = os.path.dirname(os.path.abspath(__file__)) + "/../"
+    print("DATA_HOME is", DATA_HOME)
+        
+    # --------------------------------------------------------------------
+    
+    # R1
+    data_dir = os.path.join(DATA_HOME, 'data', 'snr_unit_data', 'meas_MID03480_FID51667_FLASH_PAT1_n=256')
+
+    unwrappedIm_real = np.load(os.path.join(data_dir, 'unwrappedIm_real.npy'))
+    unwrappedIm_imag = np.load(os.path.join(data_dir, 'unwrappedIm_imag.npy'))
+
+    unwrappedIm = unwrappedIm_real + 1j * unwrappedIm_imag
+    print("unwrappedIm is ", unwrappedIm.shape)
+    
+    unwrappedIm.astype(np.complex256)
+    
+    gmap = np.load(os.path.join(data_dir, 'gmap.npy'))
+    print("gmap is ", gmap.shape)
+    
+    gmap.astype(np.float64)
+    
+    mask = np.load(os.path.join(data_dir, 'mask.npy'))
+    print("mask is ", mask.shape)
+    
+    snr_im = unwrappedIm / gmap[:,:,np.newaxis]   
+    std_map = np.std(np.abs(snr_im), axis=2)
+    
+    noise_level = np.mean(std_map[mask>0])
+    print("noise level is ", noise_level)
+    
+    assert abs(noise_level-1) < 0.03
+    
+    plt.figure()
+    plt.imshow(std_map,cmap='gray')    
+    plt.show()
+
+    RO, E1, PHS = unwrappedIm.shape
+
+    kspace = fft2c(unwrappedIm)
+
+    plt.figure()
+    plt.subplot(1, 3, 1)
+    plt.imshow(abs(unwrappedIm[:,:,0]),cmap='gray')
+    plt.subplot(1, 3, 2)
+    plt.imshow(abs(kspace[:,:,0]),cmap='gray')
+    plt.subplot(1, 3, 3)
+    plt.imshow(abs(ifft2c(kspace[:,:,0])),cmap='gray')
+    plt.show()
+            
+    # --------------------------------------------------------------------
+    # test reduce matrix size and reduce resolution
+    
+    im_low_matrix = apply_matrix_size_reduction_2D(unwrappedIm, int(0.8*RO), int(0.8*E1), norm='backward')
+    print("im_low_matrix is ", im_low_matrix.shape)
+    
+    mask_low_matrix = cv2.resize(mask, dsize=im_low_matrix.shape[1::-1], interpolation=cv2.INTER_NEAREST)
+
+    signal_level = np.abs(np.mean(unwrappedIm[mask>0.1]))
+    print("test reduce matrix size and resolution, signal level is ", signal_level)
+    signal_level_low_matrix = np.abs(np.mean(im_low_matrix[mask_low_matrix>0.1]))
+    print("test reduce matrix size and resolution, signal level of im_low_matrix is ", signal_level_low_matrix)
+    
+    assert abs(signal_level - signal_level_low_matrix) < 3
+    
+    ratio_RO = 0.57
+    ratio_E1 = 0.65
+    im_low_matrix_low_res, fRO, fE1 = apply_resolution_reduction_2D(im_low_matrix, ratio_RO, ratio_E1, snr_scaling=False, norm='backward')
+    
+    signal_level_low_matrix_low_res = np.abs(np.mean(im_low_matrix_low_res[mask_low_matrix>0.1]))
+    print("test reduce matrix size and resolution, signal level of im_low_matrix_low_res is ", signal_level_low_matrix_low_res)
+    
+    assert abs(signal_level_low_matrix - signal_level_low_matrix_low_res) < 0.1
+    
+    im_low_matrix_low_res_filtered, _, _ = apply_image_filter(im_low_matrix_low_res, sigma_RO=2.2, sigma_E1=1.53)
+    signal_level_low_matrix_low_res_filtered = np.abs(np.mean(im_low_matrix_low_res_filtered[mask_low_matrix>0.1]))
+    print("test reduce matrix size and resolution, signal level of im_low_matrix_low_res_filtered is ", signal_level_low_matrix_low_res_filtered)    
+    assert abs(signal_level_low_matrix - signal_level_low_matrix_low_res_filtered) < 0.1
+    
+    im_low_matrix_low_res_filtered_T, _ = apply_image_filter_T(im_low_matrix_low_res_filtered, sigma_T=2.2)
+    signal_level_low_matrix_low_res_filtered_T = np.abs(np.mean(im_low_matrix_low_res_filtered_T[mask_low_matrix>0.1]))
+    print("test reduce matrix size and resolution, signal level of signal_level_low_matrix_low_res_filtered_T is ", signal_level_low_matrix_low_res_filtered_T)    
+    assert abs(signal_level_low_matrix - signal_level_low_matrix_low_res_filtered_T) < 0.1
+        
+    plt.figure()
+    plt.subplot(1, 4, 1)
+    plt.imshow(np.abs(unwrappedIm[:,:,12]),cmap='gray')
+    plt.subplot(1, 4, 2)
+    plt.imshow(np.abs(im_low_matrix[:,:,12]),cmap='gray')
+    plt.subplot(1, 4, 3)
+    plt.imshow(mask_low_matrix,cmap='gray')
+    plt.subplot(1, 4, 4)
+    plt.imshow(np.abs(im_low_matrix_low_res[:,:,12]),cmap='gray')
+    plt.show()
+    
+    std_map = np.std(np.abs(im_low_matrix_low_res), axis=2)    
+    noise_level = np.mean(std_map[mask_low_matrix>0.1])
+    print("test reduce matrix size and resolution, noise level is ", noise_level)
+            
+    # --------------------------------------------------------------------
+    # test partial fourier kspace filter for noise
+    
+    RO = 192
+    E1 = 144
+    
+    pf_fRO = generate_asymmetric_filter(RO, 0, int(0.8*RO), filterType="TapperedHanning", width=10)
+    pf_fE1 = generate_asymmetric_filter(E1, 0, E1-1, filterType="TapperedHanning", width=20)
+    fRO = generate_symmetric_filter(RO, filterType="Gaussian", sigma=1.23, width=10)
+    fE1 = generate_symmetric_filter(E1, filterType="Gaussian", sigma=1.45, width=10)
+       
+    noise_sigma = 3.7
+    nn = create_complex_noise(noise_sigma, size=(RO, E1, 256))
+    
+    std_r = np.mean(np.std(np.real(nn), axis=2))
+    print("test noise adding, real std is ", std_r)    
+    assert abs(std_r - noise_sigma) < 0.1
+    
+    std_i = np.mean(np.std(np.imag(nn), axis=2))
+    print("test noise adding, imag std is ", std_i)
+    assert abs(std_i - noise_sigma) < 0.1
+            
+    ratio_RO = 0.85
+    ratio_E1 = 0.65
+    
+    nn, fdRO, fdE1 = apply_resolution_reduction_2D(nn, ratio_RO, ratio_E1, snr_scaling=False)
+    
+    std_r = np.mean(np.std(np.real(nn), axis=2))
+    print("test noise pf filter, real std is ", std_r)
+    
+    std_i = np.mean(np.std(np.imag(nn), axis=2))
+    print("test noise pf filter, imag std is ", std_i)
+    
+    fRO_used = fRO * pf_fRO * fdRO
+    fE1_used = fE1 * pf_fE1 * fdE1
+    
+    ratio_RO = 1/math.sqrt(1/RO * np.sum(fRO_used*fRO_used))
+    ratio_E1 = 1/math.sqrt(1/E1 * np.sum(fE1_used*fE1_used))
+    
+    fRO_used *= ratio_RO
+    fE1_used *= ratio_E1
+    
+    plt.figure()
+    plt.plot(fRO_used, 'r')
+    plt.plot(fE1_used, 'b')
+    plt.show()
+        
+    kspace_filtered = apply_kspace_filter_2D(fft2c(nn), fRO_used, fE1_used)    
+    nn_filtered = ifft2c(kspace_filtered)
+    
+    plt.figure()
+    plt.subplot(1, 2, 1)
+    plt.imshow(abs(nn[:,:,12]),cmap='gray')
+    plt.subplot(1, 2, 2)
+    plt.imshow(abs(nn_filtered[:,:,12]),cmap='gray')
+    plt.show()
+        
+    std_r_filtered = np.mean(np.std(np.real(nn_filtered), axis=2))
+    print("test noise pf filter, real std is ", std_r_filtered)
+    assert abs(std_r_filtered - noise_sigma) < 0.1
+    
+    std_i_filtered = np.mean(np.std(np.imag(nn_filtered), axis=2))
+    print("test noise pf filter, imag std is ", std_i)
+    assert abs(std_i_filtered - noise_sigma) < 0.1
+       
+    # --------------------------------------------------------------------
+    # test kspace filter    
+    
+    fRO = generate_symmetric_filter(RO, filterType="Gaussian", sigma=1.5, width=10)
+    fE1 = generate_symmetric_filter(E1, filterType="None", sigma=1.5, width=10)
+    
+    plt.figure()
+    plt.plot(fRO, 'r')
+    plt.plot(fE1, 'b')
+    plt.show()
+    
+    kspace_filtered = apply_kspace_filter_2D(kspace, fRO, fE1)    
+    im_filtered = ifft2c(kspace_filtered)    
+    
+    plt.figure()
+    plt.subplot(1, 2, 1)
+    plt.imshow(abs(unwrappedIm[:,:,12]),cmap='gray')
+    plt.subplot(1, 2, 2)
+    plt.imshow(abs(im_filtered[:,:,12]),cmap='gray')
+    plt.show()
+    
+    snr_im = im_filtered / gmap[:,:,np.newaxis]   
+    std_map = np.std(np.abs(snr_im), axis=2)    
+    noise_level = np.mean(std_map[mask>0])
+    print("test kspace filter, noise level is ", noise_level)
+    assert abs(noise_level - 1.0) < 0.1
+    
+    plt.figure()
+    plt.imshow(std_map,cmap='gray')    
+    plt.show()
+    
+    # ----------------------------
+    
+    fRO = generate_symmetric_filter(RO, filterType="Gaussian", sigma=1.23, width=10)
+    fE1 = generate_symmetric_filter(E1, filterType="Gaussian", sigma=1.45, width=10)
+    
+    plt.figure()
+    plt.plot(fRO, 'r')
+    plt.plot(fE1, 'b')
+    plt.show()
+    
+    kspace_filtered = apply_kspace_filter_2D(kspace, fRO, fE1)    
+    im_filtered = ifft2c(kspace_filtered)
+    
+    plt.figure()
+    plt.subplot(1, 2, 1)
+    plt.imshow(abs(unwrappedIm[:,:,12]),cmap='gray')
+    plt.subplot(1, 2, 2)
+    plt.imshow(abs(im_filtered[:,:,12]),cmap='gray')
+    plt.show()
+    
+    snr_im = im_filtered / gmap[:,:,np.newaxis]   
+    std_map = np.std(np.abs(snr_im), axis=2)    
+    noise_level = np.mean(std_map[mask>0])
+    print("test kspace filter, noise level is ", noise_level)
+    assert abs(noise_level - 1.0) < 0.1
+    
+    plt.figure()
+    plt.imshow(std_map,cmap='gray')    
+    plt.show()
+    
+    # --------------------------------------------------------------------
+    # test partial fourier kspace filter
+    
+    fRO = generate_asymmetric_filter(RO, 0, int(0.8*RO), filterType="TapperedHanning", width=10)
+    fE1 = generate_asymmetric_filter(E1, int(0.2*E1), E1, filterType="None", width=20)
+    
+    plt.figure()
+    plt.plot(fRO, 'r')
+    plt.plot(fE1, 'b')
+    plt.show()
+    
+    kspace_filtered = apply_kspace_filter_2D(kspace, fRO, fE1)    
+    im_filtered = ifft2c(kspace_filtered)
+    
+    plt.figure()
+    plt.subplot(1, 2, 1)
+    plt.imshow(abs(unwrappedIm[:,:,12]),cmap='gray')
+    plt.subplot(1, 2, 2)
+    plt.imshow(abs(im_filtered[:,:,12]),cmap='gray')
+    plt.show()
+    
+    snr_im = im_filtered / gmap[:,:,np.newaxis]   
+    std_map = np.std(np.abs(snr_im), axis=2)    
+    noise_level = np.mean(std_map[mask>0])
+    print("test partial fourier kspace filter, noise level is ", noise_level)
+    assert abs(noise_level - 1.0) < 0.1
+    
+    plt.figure()
+    plt.imshow(std_map,cmap='gray')    
+    plt.show()
+    
+    # --------------------------------------------------------------------
+    # test reduce resolution
+    
+    ratio_RO = 0.87
+    ratio_E1 = 0.75
+    im_low_res, fRO, fE1 = apply_resolution_reduction_2D(unwrappedIm, ratio_RO, ratio_E1)
+    
+    plt.figure()
+    plt.subplot(1, 2, 1)
+    plt.imshow(abs(unwrappedIm[:,:,12]),cmap='gray')
+    plt.subplot(1, 2, 2)
+    plt.imshow(abs(im_low_res[:,:,12]),cmap='gray')
+    plt.show()
+    
+    std_map = np.std(np.abs(im_low_res), axis=2)    
+    noise_level = np.mean(std_map[mask>0.1])
+    print("test reduce resolution, noise level is ", noise_level)
+    assert abs(noise_level - 1.0) < 0.1
+    
+    # --------------------------------------------------------------------
+    # test change matrix size
+    
+    im_low_matrix = apply_matrix_size_reduction_2D(unwrappedIm, int(0.8*RO), int(0.8*E1))
+    print("im_low_matrix is ", im_low_matrix.shape)
+    
+    mask_low_matrix = cv2.resize(mask, dsize=im_low_matrix.shape[1::-1], interpolation=cv2.INTER_NEAREST)
+
+    plt.figure()
+    plt.subplot(1, 3, 1)
+    plt.imshow(abs(unwrappedIm[:,:,12]),cmap='gray')
+    plt.subplot(1, 3, 2)
+    plt.imshow(abs(im_low_matrix[:,:,12]),cmap='gray')
+    plt.subplot(1, 3, 3)
+    plt.imshow(mask_low_matrix,cmap='gray')
+    plt.show()
+    
+    std_map = np.std(np.abs(im_low_matrix), axis=2)    
+    noise_level = np.mean(std_map[mask_low_matrix>0.1])
+    print("test reduce matrix size, noise level is ", noise_level)
+    assert abs(noise_level - 1.0) < 0.1
+    
+    # --------------------------------------------------------------------
+    # test reduce matrix size and reduce resolution
+    
+    im_low_matrix = apply_matrix_size_reduction_2D(unwrappedIm, int(0.8*RO), int(0.8*E1), norm='backward')
+    print("im_low_matrix is ", im_low_matrix.shape)
+    
+    mask_low_matrix = cv2.resize(mask, dsize=im_low_matrix.shape[1::-1], interpolation=cv2.INTER_NEAREST)
+
+    ratio_RO = 0.57
+    ratio_E1 = 0.65
+    im_low_matrix_low_res, fRO, fE1 = apply_resolution_reduction_2D(im_low_matrix, ratio_RO, ratio_E1, snr_scaling=False)
+    
+    plt.figure()
+    plt.subplot(1, 4, 1)
+    plt.imshow(np.abs(unwrappedIm[:,:,12]),cmap='gray')
+    plt.subplot(1, 4, 2)
+    plt.imshow(np.abs(im_low_matrix[:,:,12]),cmap='gray')
+    plt.subplot(1, 4, 3)
+    plt.imshow(mask_low_matrix,cmap='gray')
+    plt.subplot(1, 4, 4)
+    plt.imshow(np.abs(im_low_matrix_low_res[:,:,12]),cmap='gray')
+    plt.show()
+    
+    std_map = np.std(np.abs(im_low_matrix_low_res), axis=2)    
+    noise_level = np.mean(std_map[mask_low_matrix>0.1])
+    print("test reduce matrix size and resolution, noise level is ", noise_level)
+    
+    # --------------------------------------------------------------------
+    # test zero-padding resizing
+    
+    mask_resized = zero_padding_resize_2D(mask, 2*RO, 2*E1)
+    im_resized = zero_padding_resize_2D(unwrappedIm, 2*RO, 2*E1)
+    
+    plt.figure()
+    plt.subplot(1, 3, 1)
+    plt.imshow(abs(unwrappedIm[:,:,12]),cmap='gray')
+    plt.subplot(1, 3, 2)
+    plt.imshow(abs(im_resized[:,:,12]),cmap='gray')
+    plt.subplot(1, 3, 3)
+    plt.imshow(abs(mask_resized),cmap='gray')
+    plt.show()
+    
+    std_map = np.std(np.abs(im_resized), axis=2)    
+    noise_level = np.mean(std_map[abs(mask_resized)>0.1])
+    print("test zero-padding resizing, noise level is ", noise_level)
+    assert abs(noise_level - 1.0) < 0.1
+    
+    # --------------------------------------------------------------------
+    # test noise adding
+    
+    noise_sigma = 2.3
+    nn = create_complex_noise(noise_sigma, size=unwrappedIm.shape)
+    
+    std_r = np.mean(np.std(np.real(nn), axis=2))
+    print("test noise adding, real std is ", std_r)
+    
+    std_i = np.mean(np.std(np.imag(nn), axis=2))
+    print("test noise adding, imag std is ", std_i)
+    
+    fRO = generate_symmetric_filter(RO, filterType="Gaussian", sigma=1.23, width=10)
+    fE1 = generate_symmetric_filter(E1, filterType="Gaussian", sigma=1.45, width=10)
+    
+    kspace_filtered = apply_kspace_filter_2D(fft2c(nn), fRO, fE1)    
+    nn_filtered = ifft2c(kspace_filtered)
+    
+    plt.figure()
+    plt.subplot(1, 2, 1)
+    plt.imshow(abs(nn[:,:,12]),cmap='gray')
+    plt.subplot(1, 2, 2)
+    plt.imshow(abs(nn_filtered[:,:,12]),cmap='gray')
+    plt.show()
+    
+    std_r = np.mean(np.std(np.real(nn_filtered), axis=2))
+    print("test kspace filter for noise, real, std is ", std_r)
+    assert abs(std_r - noise_sigma) < 0.1
+    
+    std_i = np.mean(np.std(np.imag(nn_filtered), axis=2))
+    print("test kspace filter for noise, imag, std is ", std_i)    
+    assert abs(std_i - noise_sigma) < 0.1
+    
+    # --------------------------------------------------------------------
+    
+    sigmas = np.linspace(1.0, 31.0, 30)
     for sigma in sigmas:
-        nns, noise_sigma = generate_3D_MR_correlated_noise(T=30, RO=192, E1=144, REP=1, 
+        nns, noise_sigma = generate_3D_MR_correlated_noise(T=8, RO=32, E1=32, REP=256, 
                                         min_noise_level=sigma, 
                                         max_noise_level=sigma, 
                                         kspace_filter_sigma=[0, 0.8, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0],
@@ -581,6 +999,6 @@ if __name__ == "__main__":
                                         kspace_filter_T_sigma=[0, 0.5, 0.65, 0.85, 1.0, 1.5, 2.0, 2.25],
                                         phase_resolution_ratio=[1.0, 0.85, 0.7, 0.65, 0.55],
                                         readout_resolution_ratio=[1.0, 0.85, 0.7, 0.65, 0.55],
-                                        rng=np.random.Generator(np.random.PCG64(8754132)),
+                                        rng=np.random.default_rng(),
                                         verbose=True)
     

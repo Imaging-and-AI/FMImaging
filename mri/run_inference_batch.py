@@ -72,35 +72,35 @@ def check_args(args):
 # -------------------------------------------------------------------------------------------------
 # load model
 
-def load_model(args):
-    """
-    load a ".pt" or ".pts" model
-    @args:
-        - args (Namespace): runtime namespace for setup
-    @rets:
-        - model (torch model): the model ready for inference
-    """
+# def load_model(args):
+#     """
+#     load a ".pt" or ".pts" model
+#     @args:
+#         - args (Namespace): runtime namespace for setup
+#     @rets:
+#         - model (torch model): the model ready for inference
+#     """
     
-    config = []
+#     config = []
     
-    config_file = args.saved_model_config
-    if os.path.isfile(config_file):
-        print(f"{Fore.YELLOW}Load in config file - {config_file}")
-        with open(config_file, 'rb') as f:
-            config = pickle.load(f)
+#     config_file = args.saved_model_config
+#     if os.path.isfile(config_file):
+#         print(f"{Fore.YELLOW}Load in config file - {config_file}")
+#         with open(config_file, 'rb') as f:
+#             config = pickle.load(f)
 
-    if args.saved_model_path.endswith(".pt"):
-        status = torch.load(args.saved_model_path, map_location=get_device())
-        config = status['config']
-        if not torch.cuda.is_available():
-            config.device = torch.device('cpu')
-        model = STCNNT_MRI(config=config)
-        model.load_state_dict(status['model'])
-    elif args.saved_model_path.endswith(".pts"):
-        model = torch.jit.load(args.saved_model_path, map_location=get_device())
-    else:
-        model, _ = load_model_onnx(model_dir="", model_file=args.saved_model_path, use_cpu=True)
-    return model, config
+#     if args.saved_model_path.endswith(".pt"):
+#         status = torch.load(args.saved_model_path, map_location=get_device())
+#         config = status['config']
+#         if not torch.cuda.is_available():
+#             config.device = torch.device('cpu')
+#         model = STCNNT_MRI(config=config)
+#         model.load_state_dict(status['model'])
+#     elif args.saved_model_path.endswith(".pts"):
+#         model = torch.jit.load(args.saved_model_path, map_location=get_device())
+#     else:
+#         model, _ = load_model_onnx(model_dir="", model_file=args.saved_model_path, use_cpu=True)
+#     return model, config
 
 # -------------------------------------------------------------------------------------------------
 # the main function for setup, eval call and saving results
@@ -133,7 +133,7 @@ def main():
     print(args)
     
     print(f"{Fore.YELLOW}Load in model file - {args.saved_model_path}")
-    model, config = load_model(args)
+    model, config = load_model(args.saved_model_path, args.saved_model_config)
     
     patch_size_inference = args.patch_size_inference
               

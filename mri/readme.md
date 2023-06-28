@@ -196,18 +196,10 @@ model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-ba
 # a case
 python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_raw/WB_LGE_MOCO_AVE_OnTheFly_41837_1194791055_1194791064_248_20230109-123219 --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_raw/WB_LGE_MOCO_AVE_OnTheFly_41837_1194791055_1194791064_248_20230109-123219 --scaling_factor 1.0 --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model
 
-python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_raw/WB_LGE_MOCO_AVE_OnTheFly_41837_1199034792_1199034801_784_20230111-110935/ --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_raw/WB_LGE_MOCO_AVE_OnTheFly_41837_1199034792_1199034801_784_20230111-110935/res --scaling_factor 1.0 --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_raw/WB_LGE_MOCO_AVE_OnTheFly_41837_1199034792_1199034801_784_20230111-110935 --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_raw/WB_LGE_MOCO_AVE_OnTheFly_41837_1199034792_1199034801_784_20230111-110935/res --scaling_factor 1.0 --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model
 
 
 python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_ave/WB_LGE_MOCO_AVE_OnTheFly_41837_1199034792_1199034801_784_20230111-110935/ --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_ave/WB_LGE_MOCO_AVE_OnTheFly_41837_1199034792_1199034801_784_20230111-110935/res --scaling_factor 1.0 --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model
-
-
-
-python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_WB_LGE_2023_AI_denoising/20230619/WB_LGE_MOCO_AVE_OnTheFly_41837_1780995164_1780995173_3000006_20230619-191346/ --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_WB_LGE_2023_AI_denoising_AI/WB_LGE_MOCO_AVE_OnTheFly_41837_1780995164_1780995173_3000006_20230619-191346 --scaling_factor 1.0 --im_scaling 1.0 --gmap_scaling 1.0 --input_fname raw_im --gmap_fname raw_gfactor --saved_model_path $model
-
-python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_WB_LGE_2023_AI_denoising/20230619/WB_LGE_MOCO_AVE_OnTheFly_41837_1780995164_1780995173_3000002_20230619-191248/ --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_WB_LGE_2023_AI_denoising_AI/WB_LGE_MOCO_AVE_OnTheFly_41837_1780995164_1780995173_3000002_20230619-191248 --scaling_factor 1.0 --im_scaling 1.0 --gmap_scaling 1.0 --input_fname raw_im --gmap_fname raw_gfactor --saved_model_path $model
-
-python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_WB_LGE_2023_AI_denoising/20230619/WB_LGE_MOCO_AVE_OnTheFly_41837_1780995164_1780995173_3000004_20230619-191318/ --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_WB_LGE_2023_AI_denoising_AI/WB_LGE_MOCO_AVE_OnTheFly_41837_1780995164_1780995173_3000004_20230619-191318 --scaling_factor 1.0 --im_scaling 1.0 --gmap_scaling 1.0 --input_fname raw_im --gmap_fname raw_gfactor --saved_model_path $model
 
 # on the raw images
 python3 ./mri/run_inference_batch.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_raw --scaling_factor 1.0 --im_scaling 1.0 --gmap_scaling 1.0 --input_fname raw_im --saved_model_path $model
@@ -248,6 +240,8 @@ model=/export/Lab-Xue/projects/mri/test/mag_model/mri-HRNET-conv-parallel-batch2
 
 python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_Perf_Denoising_2021_AI_denoising/20210507/Perfusion_AIF_TwoEchoes_Interleaved_R2_66016_21149167_21149176_1466_20210507-111038 --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_Perf_Denoising_2021_AI_denoising_AI/Perfusion_AIF_TwoEchoes_Interleaved_R2_66016_21149167_21149176_1466_20210507-111038 --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model
 
+model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt
+
 # flash
 python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_Perf_Denoising_2022_AI_denoising/20221005/Perfusion_AIF_TwoEchoes_Interleaved_R2_42110_121388454_121388463_784_20221005-121636 --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_Perf_Denoising_2022_AI_denoising_AI/Perfusion_AIF_TwoEchoes_Interleaved_R2_42110_121388454_121388463_784_20221005-121636 --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model
 
@@ -279,12 +273,16 @@ model=/export/Lab-Xue/projects/mri/checkpoints/mri-HRNET-20230619_085716_714328_
 model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230619_131814_275276_complex_residual_weighted_loss-T1L1G1_T1L1G1_T1L1G1_T1L1G1_13-18-39-20230619_last.pt
 
 model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230619_202403_307218_complex_residual_weighted_loss-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-56.pth
-mode=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230619_195348_541312_complex_residual_weighted_loss-T1L1G1_T1L1G1_T1L1G1_T1L1G1_epoch-71.pth
-
-model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230619_202403_307218_complex_residual_weighted_loss-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_20-24-28-20230619_last.pt
 
 model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt
-model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_best.pt
+
+# 300 epoch model
+model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt
+
+# furthe tuned model
+model=/export/Lab-Xue/projects/mri/test/fine_tune/try2/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_best.pt
+
+model=/export/Lab-Xue/projects/mri/test/fine_tune/fine_tuning_test_4/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_best.pt
 
 # R4
 python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_528_20230616-173804 --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_528_20230616-173804/res --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model
@@ -316,3 +314,41 @@ python3 ./mri/run_inference_batch.py --input_dir /export/Lab-Kellman/ReconResult
 
 # smaller model
 model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-conv-parallel-instance2d-sophia-C-32-H-32-MIXER-conv-4-T1L1G1_T1L1G1_T1L1G1_T1L1G1-20230607_134035_complex_residual_18-48-18-20230607_best.pt
+
+# run the snr test
+
+python3 ./mri/run_inference_snr.py --input_dir /export/Lab-Xue/projects/mri/validation/retro_cine/case1 --output_dir /export/Lab-Xue/projects/mri/validation/retro_cine/case1/res --scaling_factor 1.5 --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --gmap_fname gfactor --saved_model_path $model --noise_level 1.0 30.0 16 --num_rep 1
+
+# run the eval test
+
+```
+# 300 epoch model
+model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt 
+
+model=/export/Lab-Xue/projects/mri/test/fine_tune/fine_tuning_test_4/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_best.pt
+
+python3 ./mri/eval_mri.py --saved_model_path ${model} --num_uploaded 32 --save_samples --num_saved_samples 32
+
+python3 ./mri/eval_mri.py --test_files /export/Lab-Xue/projects/mri/data/train_3D_3T_retro_cine_2020_1000_sample_sig_2_30_test.h5 --saved_model_path ${model} --num_uploaded 256 --save_samples --num_saved_samples 1024 --results_path /export/Lab-Xue/projects/mri/results/train_3D_3T_retro_cine_2020_1000_sample_sig_2_30_test
+
+python3 ./mri/eval_mri.py --test_files /export/Lab-Xue/projects/mri/data/train_3D_3T_retro_cine_2020_20_sample_sig_2_30_repeated_test.h5 --saved_model_path ${model} --num_uploaded 256 --save_samples --num_saved_samples 1024 --results_path /export/Lab-Xue/projects/mri/results/train_3D_3T_retro_cine_2020_20_sample_sig_2_30_repeated_test
+
+python3 ./mri/eval_mri.py --test_files /export/Lab-Xue/projects/mri/data/retro_cine_3T_sigma_1_10_repeated_test.h5 --saved_model_path ${model} --num_uploaded 256 --save_samples --num_saved_samples 1024 --results_path /export/Lab-Xue/projects/mri/results/sigma_1_10
+
+```
+
+# run the second training
+
+```
+python3 ./mri/main_mri.py --project mri --data_root /data/mri/denoising --check_path /export/Lab-Xue/projects/mri/checkpoints --model_path /export/Lab-Xue/projects/mri/models --log_path /export/Lab-Xue/projects/mri/logs --results_path /export/Lab-Xue/projects/mri/results --summary_depth 6 --save_cycle 200 --device cuda --project mri --num_epochs 100 --batch_size 16 --global_lr 0.00001 --weight_decay 1 --weighted_loss --losses ssim ssim3D mse l1 --loss_weights 1.0 1.0 0.1 0.1 --train_files train_3D_3T_retro_cine_2018.h5 train_3D_3T_retro_cine_2019.h5 train_3D_3T_retro_cine_2020.h5 --train_data_types 2dt 2dt 2dt --test_files train_3D_3T_retro_cine_2020_small_3D_test.h5 train_3D_3T_retro_cine_2020_small_2DT_test.h5 train_3D_3T_retro_cine_2020_small_2D_test.h5 train_3D_3T_retro_cine_2020_500_test.h5 --test_data_types 3d 2dt 2d 2dt --ratio 95 5 100 --complex_i --residual --save_samples --num_saved_samples 64 --height 32 64 --width 32 64 --time 12 --scheduler_type OneCycleLR --load_path /export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt
+
+
+torchrun --standalone --nproc_per_node 2 ./mri/main_mri.py --project mri --data_root /data/mri/denoising --check_path /export/Lab-Xue/projects/mri/checkpoints --model_path /export/Lab-Xue/projects/mri/models --log_path /export/Lab-Xue/projects/mri/logs --results_path /export/Lab-Xue/projects/mri/results --summary_depth 6 --save_cycle 200 --device cuda --project mri --num_epochs 100 --batch_size 16 --global_lr 0.00001 --weight_decay 1 --weighted_loss --losses ssim ssim3D mse l1 --loss_weights 1.0 1.0 0.1 0.1 --train_files train_3D_3T_retro_cine_2018.h5 train_3D_3T_retro_cine_2019.h5 train_3D_3T_retro_cine_2020.h5 --train_data_types 2dt 2dt 2dt --test_files train_3D_3T_retro_cine_2020_small_3D_test.h5 train_3D_3T_retro_cine_2020_small_2DT_test.h5 train_3D_3T_retro_cine_2020_small_2D_test.h5 train_3D_3T_retro_cine_2020_500_test.h5 --test_data_types 3d 2dt 2d 2dt --ratio 95 5 100 --complex_i --residual --save_samples --num_saved_samples 64 --height 32 64 --width 32 64 --time 12 --scheduler_type OneCycleLR --load_path /export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt
+
+torchrun --node_rank 0 --nnodes 8 --nproc_per_node 4 --master_port 9987 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4 ./mri/main_mri.py --project mri --ddp --data_root /export/Lab-Xue/projects/mri/data --check_path /export/Lab-Xue/projects/mri/checkpoints --model_path /export/Lab-Xue/projects/mri/models --log_path /export/Lab-Xue/projects/mri/logs --results_path /export/Lab-Xue/projects/mri/results --summary_depth 6 --save_cycle 200 --device cuda --project mri --num_epochs 100 --batch_size 16 --global_lr 0.00001 --weight_decay 1 --weighted_loss --losses ssim ssim3D mse l1 --loss_weights 1.0 1.0 0.1 0.1 --train_files train_3D_3T_retro_cine_2018.h5 train_3D_3T_retro_cine_2019.h5 train_3D_3T_retro_cine_2020.h5 --train_data_types 2dt 2dt 2dt --test_files train_3D_3T_retro_cine_2020_small_3D_test.h5 train_3D_3T_retro_cine_2020_small_2DT_test.h5 train_3D_3T_retro_cine_2020_small_2D_test.h5 train_3D_3T_retro_cine_2020_500_test.h5 --test_data_types 3d 2dt 2d 2dt --ratio 95 5 100 --complex_i --residual --height 32 64 --width 32 64 --time 12 --scheduler_type OneCycleLR --load_path /export/Lab-Xue/projects/mri/models/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt
+
+ulimit -n 65536
+
+torchrun --standalone --nproc_per_node 4  ./mri/main_mri.py --project mri --ddp --data_root /export/Lab-Xue/projects/mri/data --check_path /export/Lab-Xue/projects/mri/checkpoints --model_path /export/Lab-Xue/projects/mri/models --log_path /export/Lab-Xue/projects/mri/logs --results_path /export/Lab-Xue/projects/mri/results --summary_depth 6 --save_cycle 200 --device cuda --project mri --batch_size 16 --weight_decay 1 --weighted_loss --losses ssim ssim3D mse l1 --loss_weights 1.0 1.0 1 1 --train_files train_3D_3T_retro_cine_2018.h5 train_3D_3T_retro_cine_2019.h5 train_3D_3T_retro_cine_2020.h5 --train_data_types 2dt 2dt 2dt --test_files train_3D_3T_retro_cine_2020_small_3D_test.h5 train_3D_3T_retro_cine_2020_small_2DT_test.h5 train_3D_3T_retro_cine_2020_small_2D_test.h5 train_3D_3T_retro_cine_2020_500_test.h5 --test_data_types 3d 2dt 2d 2dt --ratio 95 5 100 --complex_i --residual --save_samples --num_saved_samples 64  --load_path /export/Lab-Xue/projects/mri/models/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt --run_name mri-HRNET-20230621_132139_784364_continued_training --optim sgd --global_lr 0.00001 --num_epochs 20 --scheduler_type ReduceLROnPlateau --height 32 64 --width 32 64 --time 12
+
+```

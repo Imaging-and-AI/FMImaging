@@ -136,7 +136,8 @@ class MRIDenoisingDatasetTrain():
                     snr_perturb=0.15,
                     cutout_shuffle_time=True,
                     num_patches_cutout=8,
-                    patches_shuffle=False):
+                    patches_shuffle=False,
+                    with_data_degrading=False):
         """
         Initilize the denoising dataset
         Loads and store all images and gmaps
@@ -162,6 +163,7 @@ class MRIDenoisingDatasetTrain():
             - cutout_shuffle_time (bool): for 3D, shuffle time dimension to break redundancy
             - num_patches_cutout (int): for 2D, number of patches per frame
             - patches_shuffle (bool) for 2D, shuffle patches 
+            - with_data_degrading (bool): if True, train with resolution reduction, time filtering etc. to degrade data a bit
         """
         assert data_type=="2d" or data_type=="2dt" or data_type=="3d",\
             f"Data type not implemented: {data_type}"
@@ -195,7 +197,11 @@ class MRIDenoisingDatasetTrain():
         self.num_patches_cutout = num_patches_cutout
         self.patches_shuffle = patches_shuffle
 
+        self.with_data_degrading = with_data_degrading
+        
         self.images = load_images_from_h5file(h5file, keys, max_load=self.max_load)
+
+        self.rng = np.random.Generator(np.random.PCG64(85442365))
 
     def load_one_sample(self, i):
         """
@@ -219,9 +225,16 @@ class MRIDenoisingDatasetTrain():
             key_gmap = self.images[i][1]
             data = np.array(self.h5file[ind][key_image])
             gmaps = np.array(self.h5file[ind][key_gmap])
+                
+        gmap = self.load_gmap(gmaps, i, random_factor=-1)            
         
         if data.ndim == 2: data = data[np.newaxis,:,:]
-        gmap = self.load_gmap(gmaps, i, random_factor=-1)
+        
+        # if data.shape[1] != gmap.shape[0] and data.shape[0] == gmap.shape[0]:
+        #     data = np.transpose(data, (2, 1, 0))
+        
+        data = data.astype(np.complex64)
+        gmap = gmap.astype(np.float32)
         
         # pad symmetrically if not enough images in the time dimension
         if data.shape[0] < self.time_cutout:
@@ -251,6 +264,30 @@ class MRIDenoisingDatasetTrain():
 
         T, RO, E1 = data.shape
 
+        if(self.with_data_degrading):
+            ratio_RO = self.readout_resolution_ratio[self.rng.integers(0, len(self.readout_resolution_ratio))]
+            ratio_E1 = self.phase_resolution_ratio[self.rng.integers(0, len(self.phase_resolution_ratio))]
+        
+            data_used = np.transpose(data, (1, 2, 0))
+        
+            data_reduced_resolution, fRO, fE1 = apply_resolution_reduction_2D(im=data_used, 
+                                                                            ratio_RO=ratio_RO, 
+                                                                            ratio_E1=ratio_E1, 
+                                                                            snr_scaling=False, 
+                                                                            norm='backward')
+            
+            ro_filter_sigma = self.kspace_filter_sigma[self.rng.integers(0, len(self.kspace_filter_sigma))]
+            e1_filter_sigma = self.kspace_filter_sigma[self.rng.integers(0, len(self.kspace_filter_sigma))]            
+            data_reduced_resolution_filtered, _, _ = apply_image_filter(data_reduced_resolution, sigma_RO=ro_filter_sigma, sigma_E1=e1_filter_sigma)
+            
+            if self.data_type=="2dt" and np.random.uniform()<0.25:
+                T_filter_sigma = self.kspace_filter_T_sigma[self.rng.integers(0, len(self.kspace_filter_T_sigma))]
+                data_degraded, _ = apply_image_filter_T(data_reduced_resolution_filtered, sigma_T=T_filter_sigma)
+            else:
+                data_degraded = data_reduced_resolution_filtered
+                   
+            data_degraded = np.transpose(data_degraded, (2, 0, 1))
+            
         if(RO>=self.cutout_shape[0] and E1>=self.cutout_shape[1]):
             # create noise
             ratio_RO = self.readout_resolution_ratio[np.random.randint(0, len(self.readout_resolution_ratio))]
@@ -268,12 +305,17 @@ class MRIDenoisingDatasetTrain():
             nn *= gmap
 
             # add noise to complex image and scale
-            noisy_data = data + nn
-
+            if(self.with_data_degrading):
+                noisy_data = data_degraded + nn
+            else:
+                noisy_data = data + nn
+                #data_degraded = np.copy(data)
+                
             # scale the data
             data /= noise_sigma
             noisy_data /= noise_sigma
-
+            if(self.with_data_degrading): data_degraded /= noise_sigma
+            
             # give it a bit perturbation for noise level
             if np.random.uniform(0, 1) < self.snr_perturb_prob:
                 noise_level_delta = np.random.normal(1.0, self.snr_perturb)
@@ -288,12 +330,15 @@ class MRIDenoisingDatasetTrain():
             if(self.use_complex):
                 patch_data = self.do_cutout(data, s_x, s_y, s_t)[:,np.newaxis,:,:]
                 patch_data_with_noise = self.do_cutout(noisy_data, s_x, s_y, s_t)[:,np.newaxis,:,:]
+                if(self.with_data_degrading): patch_data_degraded = self.do_cutout(data_degraded, s_x, s_y, s_t)[:,np.newaxis,:,:]
 
                 cutout = np.concatenate((patch_data.real, patch_data.imag),axis=1)
                 cutout_train = np.concatenate((patch_data_with_noise.real, patch_data_with_noise.imag),axis=1)
+                if(self.with_data_degrading): cutout_degraded = np.concatenate((patch_data_degraded.real, patch_data_degraded.imag),axis=1)
             else:
                 cutout = np.abs(self.do_cutout(data, s_x, s_y, s_t))[:,np.newaxis,:,:]
                 cutout_train = np.abs(self.do_cutout(noisy_data, s_x, s_y, s_t))[:,np.newaxis,:,:]
+                if(self.with_data_degrading): cutout_degraded = np.abs(self.do_cutout(data_degraded, s_x, s_y, s_t))[:,np.newaxis,:,:]
 
             gmap_cutout = self.do_cutout(gmap, s_x, s_y, s_t)[:,np.newaxis,:,:]
 
@@ -304,12 +349,15 @@ class MRIDenoisingDatasetTrain():
 
                 cutout = np.pad(cutout, ((0,0),(0, 0), (0,pad_H),(0,pad_W)), 'symmetric')
                 cutout_train = np.pad(cutout_train, ((0,0),(0, 0), (0,pad_H),(0,pad_W)), 'symmetric')
+                if(self.with_data_degrading): cutout_degraded = np.pad(cutout_degraded, ((0,0),(0, 0), (0,pad_H),(0,pad_W)), 'symmetric')
                 gmap_cutout = np.pad(gmap_cutout, ((0,0),(0, 0), (0,pad_H),(0,pad_W)), 'symmetric')
 
                 cutout = view_as_blocks(cutout, (1,C,*self.cutout_shape))
                 cutout = cutout.reshape(-1,*cutout.shape[-3:])
                 cutout_train = view_as_blocks(cutout_train, (1,C,*self.cutout_shape))
                 cutout_train = cutout_train.reshape(-1,*cutout_train.shape[-3:])
+                if(self.with_data_degrading): cutout_degraded = view_as_blocks(cutout_degraded, (1,C,*self.cutout_shape))
+                if(self.with_data_degrading): cutout_degraded = cutout_degraded.reshape(-1,*cutout_degraded.shape[-3:])
                 gmap_cutout = view_as_blocks(gmap_cutout, (1,1,*self.cutout_shape))
                 gmap_cutout = gmap_cutout.reshape(-1,*gmap_cutout.shape[-3:])
 
@@ -320,17 +368,20 @@ class MRIDenoisingDatasetTrain():
 
                     cutout = np.take(cutout, t_indexes, axis=0)[:self.num_patches_cutout]
                     cutout_train = np.take(cutout_train, t_indexes, axis=0)[:self.num_patches_cutout]
+                    if(self.with_data_degrading): cutout_degraded = np.take(cutout_degraded, t_indexes, axis=0)[:self.num_patches_cutout]
                     gmap_cutout = np.take(gmap_cutout, t_indexes, axis=0)[:self.num_patches_cutout]
                 else:
                     start_t = np.random.randint(0,max(cutout.shape[0] - self.num_patches_cutout, 1))
 
                     cutout = cutout[start_t:start_t+self.num_patches_cutout]
                     cutout_train = cutout_train[start_t:start_t+self.num_patches_cutout]
+                    if(self.with_data_degrading): cutout_degraded = cutout_degraded[start_t:start_t+self.num_patches_cutout]
                     gmap_cutout = gmap_cutout[start_t:start_t+self.num_patches_cutout]
 
                 pad_T = (-1*cutout_train.shape[0])%self.num_patches_cutout
                 cutout = np.pad(cutout, ((0,pad_T),(0,0),(0,0),(0,0)), 'symmetric')
                 cutout_train = np.pad(cutout_train, ((0,pad_T),(0,0),(0,0),(0,0)), 'symmetric')
+                if(self.with_data_degrading): cutout_degraded = np.pad(cutout_degraded, ((0,pad_T),(0,0),(0,0),(0,0)), 'symmetric')
                 gmap_cutout = np.pad(gmap_cutout, ((0,pad_T),(0,0),(0,0),(0,0)), 'symmetric')
 
             if(self.data_type=="3d" and self.cutout_shuffle_time):
@@ -340,16 +391,21 @@ class MRIDenoisingDatasetTrain():
 
                 np.take(cutout, t_indexes, axis=0, out=cutout)
                 np.take(cutout_train, t_indexes, axis=0, out=cutout_train)
+                if(self.with_data_degrading): np.take(cutout_degraded, t_indexes, axis=0, out=cutout_degraded)
                 np.take(gmap_cutout, t_indexes, axis=0, out=gmap_cutout)
 
             train_noise = np.concatenate([cutout_train, gmap_cutout], axis=1)
 
             noisy_im = torch.from_numpy(train_noise.astype(np.float32))
             clean_im = torch.from_numpy(cutout.astype(np.float32))
+            if(self.with_data_degrading): 
+                clean_im_degraded = torch.from_numpy(cutout_degraded.astype(np.float32))
+            else:
+                clean_im_degraded = clean_im
             gmaps_median = torch.tensor(np.median(gmap_cutout))
             noise_sigmas = torch.tensor(noise_sigma)
 
-        return noisy_im, clean_im, gmaps_median, noise_sigmas
+        return noisy_im, clean_im, clean_im_degraded, gmaps_median, noise_sigmas
 
     def get_cutout_range(self, data):
 
@@ -416,13 +472,19 @@ class MRIDenoisingDatasetTrain():
         Loads a random gmap for current index
         """
         if(gmaps.ndim==2):
-            gmaps = np.expand_dims(gmaps, axis=0)
+            #gmaps = np.expand_dims(gmaps, axis=0)
+            return gmaps
 
         factors = gmaps.shape[0]
-        if(random_factor<0):
-            random_factor = np.random.randint(0, factors)
-
-        return gmaps[random_factor, :,:]
+        if factors < 16:
+            if(random_factor<0):
+                random_factor = np.random.randint(0, factors)
+            return gmaps[random_factor, :,:]
+        else:
+            if(random_factor<0):
+                random_factor = np.random.randint(0, gmaps.shape[2])
+            return gmaps[:, :, random_factor]
+        
 
     def random_flip(self, data, gmap):
         """
@@ -567,7 +629,7 @@ class MRIDenoisingDatasetTest():
         gmaps_median = torch.tensor(np.median(gmap))
         noise_sigmas = torch.tensor(noise_sigma)
 
-        return noisy_im, clean_im, gmaps_median, noise_sigmas
+        return noisy_im, clean_im, clean_im, gmaps_median, noise_sigmas
 
     def __len__(self):
         """
@@ -678,7 +740,8 @@ def load_mri_data(config):
         "cutout_jitter" : c.threeD_cutout_jitter,
         "cutout_shuffle_time" : c.threeD_cutout_shuffle_time,
         "snr_perturb_prob" : c.snr_perturb_prob,
-        "snr_perturb" : c.snr_perturb
+        "snr_perturb" : c.snr_perturb,
+        "with_data_degrading" : c.with_data_degrading
     }
 
     train_set = []

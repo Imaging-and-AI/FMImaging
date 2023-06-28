@@ -53,7 +53,8 @@ def arg_parser():
     parser.add_argument('--phase_resolution_ratio', type=float, nargs='+', default=[1.0, 0.85, 0.7, 0.65, 0.55], help='phase resolution ratio')
     parser.add_argument('--readout_resolution_ratio', type=float, nargs='+', default=[1.0, 0.85, 0.7, 0.65, 0.55], help='readout resolution ratio')
     parser.add_argument("--snr_perturb_prob", type=float, default=0.1, help='prob to add snr perturbation')
-    parser.add_argument("--snr_perturb", type=float, default=0.15, help='strength of snr perturbation')
+    parser.add_argument("--snr_perturb", type=float, default=0.15, help='strength of snr perturbation')    
+    parser.add_argument("--with_data_degrading", action="store_true", help='if true, degrade data for reduced resolution, temporal smoothing etc.')
 
     # 2d/3d dataset arguments
     parser.add_argument('--twoD_num_patches_cutout', type=int, default=1, help='for 2D usecase, number of patches per frame')

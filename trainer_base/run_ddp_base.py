@@ -45,12 +45,17 @@ class run_ddp_base(object):
         # unchanging paths
 
         ckp_path = os.path.join(project_base_dir, config.project, "checkpoints")
+        log_path = os.path.join(project_base_dir, config.project, "logs")
 
         if config.load_path is None:
             if config.clean_checkpoints:
                 print(f"--> clean {ckp_path}")
                 shutil.rmtree(ckp_path, ignore_errors=True)
                 os.mkdir(ckp_path)
+                
+                print(f"--> clean {log_path}")
+                shutil.rmtree(log_path, ignore_errors=True)
+                os.mkdir(log_path)
 
         data_root = config.data_root if config.data_root is not None else os.path.join(project_base_dir, config.project, "data")
 

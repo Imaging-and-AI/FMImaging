@@ -48,6 +48,17 @@ do
     scp -i ~/.ssh/xueh2-a100.pem $HOME/mrprogs/STCNNT.git/doc/notes/clean_VM.sh gtuser@$VM_name:/home/gtuser/
 done
 
+# scp model
+model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt
+
+for n in fsi{1..16}
+do
+    echo "copy to $n ..."
+    VM_name=$n.eastus2.cloudapp.azure.com    
+    scp -i ~/.ssh/xueh2-a100.pem $model gtuser@$VM_name:/export/Lab-Xue/projects/mri/models/
+done
+
+
 # mount drive
 bash ~/set_up_VM.sh
 

@@ -29,7 +29,7 @@ class mri_ddp_base(run_ddp_base):
         
         self.cmd.extend([
        
-        "--num_epochs", "100",
+        "--num_epochs", "200",
         "--batch_size", "16",
 
         "--window_size", "8", "8",
@@ -47,7 +47,8 @@ class mri_ddp_base(run_ddp_base):
         "--num_workers", "64",
         "--prefetch_factor", "4",
         
-        "--scheduler_type", "ReduceLROnPlateau",
+        #"--scheduler_type", "ReduceLROnPlateau",
+        "--scheduler_type", "OneCycleLR",
         
         "--scheduler.ReduceLROnPlateau.patience", "0",
         "--scheduler.ReduceLROnPlateau.cooldown", "0",
@@ -83,13 +84,17 @@ class mri_ddp_base(run_ddp_base):
         #"--weighted_loss",
         #"--max_load", "10000",
 
+        "--with_data_degrading",
+        
+        #"--save_samples",
+
         # "--train_files", "train_3D_3T_retro_cine_2018.h5",  "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5", "train_3D_3T_perf_2018.h5","train_3D_3T_perf_2019.h5", "train_3D_3T_perf_2020.h5","train_3D_3T_perf_2021.h5", 
         # "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2d",
 
-        "--train_files", "train_3D_3T_retro_cine_2018.h5",  "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5", 
-        "--train_data_types", "2dt", "2dt", "2dt",
+        "--train_files", "train_3D_3T_retro_cine_2018.h5",  "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5", "MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", "MINNESOTA_UHVC_RetroCine_1p5T_2022.h5",
+        "--train_data_types", "2dt", "2dt", "2dt", "2dt", "3d",
 
-        "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", "train_3D_3T_retro_cine_2020_small_2DT_test.h5", "train_3D_3T_retro_cine_2020_small_2D_test.h5", "train_3D_3T_retro_cine_2020_500_test.h5",
+        "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", "train_3D_3T_retro_cine_2020_small_2DT_test.h5", "train_3D_3T_retro_cine_2020_small_2D_test.h5", "train_3D_3T_retro_cine_2020_500_samples.h5",
         "--test_data_types", "3d", "2dt", "2d", "2dt" 
         ])
         
@@ -122,9 +127,9 @@ class mri_ddp_base(run_ddp_base):
         vars['snr_perturb_prob'] = [0.0]
 
         vars['block_strs'] = [
-                        [
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
+                        [                            
                             ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                             ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],                            
                             ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                             ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"]
@@ -139,10 +144,10 @@ class mri_ddp_base(run_ddp_base):
                          ]
                     ]
 
-        vars['losses'] = [
+        vars['losses'] = [                        
             [['psnr','l1', 'mse'], ['1.0', '1.0', '1.0']],
+            [['ssim', 'ssim3D', 'mse', 'l1', 'psnr'], ['0.1', '0.1', '1.0', '1.0', '1.0']], 
             [['mse', 'l1'], ['1.0', '1.0']], 
-            [['ssim', 'mse', 'l1'], ['0.1', '1.0', '1.0']], 
             #[['ssim'], ['1.0']],
             [['ssim', 'mse'], ['0.1', '1.0']], 
         ]
