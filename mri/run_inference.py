@@ -21,7 +21,7 @@ sys.path.insert(1, str(Project_DIR))
 from utils import *
 from model_base.losses import *
 from model_mri import STCNNT_MRI
-from trainer_mri import apply_model, load_model
+from trainer_mri import apply_model, load_model, apply_model_3D
 
 # -------------------------------------------------------------------------------------------------
 # setup for testing from cmd
@@ -128,46 +128,50 @@ def main():
     image = np.load(os.path.join(args.input_dir, f"{args.input_fname}_real.npy")) + np.load(os.path.join(args.input_dir, f"{args.input_fname}_imag.npy")) * 1j
     image /= args.im_scaling
 
-    if len(image.shape) == 2:
-        image = image[:,:,np.newaxis,np.newaxis]
-
-    if len(image.shape) == 3:
-        image = image[:,:,:,np.newaxis]
-
-    if(image.shape[3]>20):
-        image = np.transpose(image, (0, 1, 3, 2))
-
-    RO, E1, frames, slices = image.shape
-    print(f"{args.input_dir}, images - {image.shape}")
-
     gmap = np.load(f"{args.input_dir}/{args.gmap_fname}.npy")
     gmap /= args.gmap_scaling
+    
+    if len(image.shape) == 3 and gmap.ndim==3 and gmap.shape[2]==image.shape[2]:
+        output = apply_model_3D(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device())
+        print(f"3D mode, {args.input_dir}, images - {image.shape}, gmap - {gmap.shape}, median gmap {np.median(gmap)}")
+    else:
+        if len(image.shape) == 2:
+            image = image[:,:,np.newaxis,np.newaxis]
 
-    print(f"{args.input_dir}, median gmap {np.median(gmap)}")
+        if len(image.shape) == 3:
+            image = image[:,:,:,np.newaxis]
 
-    if(gmap.ndim==2):
-        gmap = np.expand_dims(gmap, axis=2)
+        if(image.shape[3]>20):
+            image = np.transpose(image, (0, 1, 3, 2))
 
-    if gmap.shape[2] >= slices and gmap.shape[2] == frames:
-        image = np.transpose(image, (0, 1, 3, 2))
         RO, E1, frames, slices = image.shape
+        print(f"2DT mode, {args.input_dir}, images - {image.shape}, gmap - {gmap.shape}, median gmap {np.median(gmap)}")
 
-    output = apply_model(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device())
+        if(gmap.ndim==2):
+            gmap = np.expand_dims(gmap, axis=2)
 
-    input = np.flip(image, axis=0)
-    output2 = apply_model(input, model, np.flip(gmap, axis=0), config=config, scaling_factor=args.scaling_factor, device=get_device())
-    output2 = np.flip(output2, axis=0)
+        if gmap.shape[2] >= slices and gmap.shape[2] == frames:
+            image = np.transpose(image, (0, 1, 3, 2))
+            RO, E1, frames, slices = image.shape
 
-    input = np.flip(image, axis=1)
-    output3 = apply_model(input, model, np.flip(gmap, axis=1), config=config, scaling_factor=args.scaling_factor, device=get_device())
-    output3 = np.flip(output3, axis=1)
+        output = apply_model(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device())
 
-    input = np.transpose(image, axes=(1, 0, 2, 3))
-    output4 = apply_model(input, model, np.transpose(gmap, axes=(1, 0, 2)), config=config, scaling_factor=args.scaling_factor, device=get_device())
-    output4 = np.transpose(output4, axes=(1, 0, 2, 3))
+        input = np.flip(image, axis=0)
+        output2 = apply_model(input, model, np.flip(gmap, axis=0), config=config, scaling_factor=args.scaling_factor, device=get_device())
+        output2 = np.flip(output2, axis=0)
 
-    res = output + output2 + output3 + output4
-    output = res / 4
+        input = np.flip(image, axis=1)
+        output3 = apply_model(input, model, np.flip(gmap, axis=1), config=config, scaling_factor=args.scaling_factor, device=get_device())
+        output3 = np.flip(output3, axis=1)
+
+        input = np.transpose(image, axes=(1, 0, 2, 3))
+        output4 = apply_model(input, model, np.transpose(gmap, axes=(1, 0, 2)), config=config, scaling_factor=args.scaling_factor, device=get_device())
+        output4 = np.transpose(output4, axes=(1, 0, 2, 3))
+
+        res = output + output2 + output3 + output4
+        output = res / 4
+    
+    # -------------------------------------------    
 
     print(f"{args.output_dir}, images - {image.shape}, {output.shape}")
 

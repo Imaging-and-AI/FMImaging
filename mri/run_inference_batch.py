@@ -23,7 +23,7 @@ sys.path.insert(1, str(Project_DIR))
 from utils import *
 from model_base.losses import *
 from model_mri import STCNNT_MRI
-from trainer_mri import apply_model
+from trainer_mri import apply_model, apply_model_3D, load_model
 
 # -------------------------------------------------------------------------------------------------
 # setup for testing from cmd
@@ -70,39 +70,6 @@ def check_args(args):
     return args
 
 # -------------------------------------------------------------------------------------------------
-# load model
-
-# def load_model(args):
-#     """
-#     load a ".pt" or ".pts" model
-#     @args:
-#         - args (Namespace): runtime namespace for setup
-#     @rets:
-#         - model (torch model): the model ready for inference
-#     """
-    
-#     config = []
-    
-#     config_file = args.saved_model_config
-#     if os.path.isfile(config_file):
-#         print(f"{Fore.YELLOW}Load in config file - {config_file}")
-#         with open(config_file, 'rb') as f:
-#             config = pickle.load(f)
-
-#     if args.saved_model_path.endswith(".pt"):
-#         status = torch.load(args.saved_model_path, map_location=get_device())
-#         config = status['config']
-#         if not torch.cuda.is_available():
-#             config.device = torch.device('cpu')
-#         model = STCNNT_MRI(config=config)
-#         model.load_state_dict(status['model'])
-#     elif args.saved_model_path.endswith(".pts"):
-#         model = torch.jit.load(args.saved_model_path, map_location=get_device())
-#     else:
-#         model, _ = load_model_onnx(model_dir="", model_file=args.saved_model_path, use_cpu=True)
-#     return model, config
-
-# -------------------------------------------------------------------------------------------------
 # the main function for setup, eval call and saving results
 def fast_scandir(dirname):
     subfolders= [f.path for f in os.scandir(dirname) if f.is_dir()]
@@ -117,7 +84,12 @@ def process_a_batch(args, model, config, images, selected_cases, gmaps, device):
 
         image = images[ind]
         gmap = gmaps[ind]
-        output = apply_model(image.astype(np.complex64), model, gmap.astype(np.float32), config=config, scaling_factor=args.scaling_factor, device=device)
+        
+        if len(image.shape) == 3 and gmap.ndim==3 and gmap.shape[2]==image.shape[2]:
+            output = apply_model_3D(image.astype(np.complex64), model, gmap.astype(np.float32), config=config, scaling_factor=args.scaling_factor, device=get_device())
+            print(f"3D mode, {args.input_dir}, images - {image.shape}, gmap - {gmap.shape}, median gmap {np.median(gmap)}")
+        else:
+            output = apply_model(image.astype(np.complex64), model, gmap.astype(np.float32), config=config, scaling_factor=args.scaling_factor, device=device)
 
         case = os.path.basename(case_dir)
         output_dir = os.path.join(args.output_dir, case)
@@ -150,6 +122,7 @@ def main():
     
     # load the cases
     case_dirs = fast_scandir(args.input_dir)
+    print(case_dirs)
     
     selected_cases = []
     images = []
@@ -162,29 +135,34 @@ def main():
                 image = np.load(os.path.join(c, f"{args.input_fname}_real.npy")) + np.load(os.path.join(c, f"{args.input_fname}_imag.npy")) * 1j
                 image /= args.im_scaling
 
-                if len(image.shape) == 2:
-                    image = image[:,:,np.newaxis,np.newaxis]
-                elif len(image.shape) == 3:
-                    image = image[:,:,:,np.newaxis]
-
-                if(image.shape[3]>20):
-                    image = np.transpose(image, (0, 1, 3, 2))
-
-                RO, E1, frames, slices = image.shape
-                print(f"{c}, images - {image.shape}")
-
                 gmap = np.load(f"{c}/{args.gmap_fname}.npy")
                 gmap /= args.gmap_scaling
-
-                if(gmap.ndim==2):
-                    gmap = np.expand_dims(gmap, axis=2)
-
-                if gmap.shape[2] != slices:
-                    continue
-                else:
+                
+                if len(image.shape) == 3 and gmap.ndim==3 and gmap.shape[2]==image.shape[2]:
                     images.append(image)
                     gmaps.append(gmap)
                     selected_cases.append(c)
+                else:
+                    if len(image.shape) == 2:
+                        image = image[:,:,np.newaxis,np.newaxis]
+                    elif len(image.shape) == 3:
+                        image = image[:,:,:,np.newaxis]
+
+                    if(image.shape[3]>20):
+                        image = np.transpose(image, (0, 1, 3, 2))
+
+                    RO, E1, frames, slices = image.shape
+                    print(f"{c}, images - {image.shape}")
+
+                    if(gmap.ndim==2):
+                        gmap = np.expand_dims(gmap, axis=2)
+
+                    if gmap.shape[2] != slices:
+                        continue
+                    else:
+                        images.append(image)
+                        gmaps.append(gmap)
+                        selected_cases.append(c)
             
             if len(images)>0 and len(images)%args.batch_size==0:                
                 process_a_batch(args, model, config, images, selected_cases, gmaps, device)            
