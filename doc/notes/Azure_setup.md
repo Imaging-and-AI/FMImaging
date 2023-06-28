@@ -151,3 +151,8 @@ sudo apt upgrade -y
 sudo apt-get install ubuntu-drivers-common -y
 sudo ubuntu-drivers install 535
 ```
+
+# azcopy files
+```
+azcopy copy ./MINNESOTA_UHVC_RetroCine_1p5T_2022.h5 "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/MINNESOTA_UHVC_RetroCine_1p5T_2022.h5?${SAS}" --recursive
+```

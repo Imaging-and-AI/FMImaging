@@ -21,11 +21,19 @@ pf_filter_ratio=[1.0, 0.875, 0.75, 0.625]
 phase_resolution_ratio=[1.0, 0.75, 0.65, 0.55]
 readout_resolution_ratio=[1.0, 0.75, 0.65, 0.55]
 
+min_noise_level=1.0
+max_noise_level=10.0
+matrix_size_adjust_ratio=[1.0]
+kspace_filter_sigma=[1.2]
+pf_filter_ratio=[1.0]
+phase_resolution_ratio=[1.0]
+readout_resolution_ratio=[1.0]
+
 h5_file = h5py.File(os.path.join(base_file_path, base_file_name))
 keys = list(h5_file.keys())
 n = len(keys)
 
-def load_gmap(gmap, random_factor=-1):
+def load_gmap(gmap, random_factor=0):
     """
     Loads a random gmap for current index
     """
@@ -56,7 +64,7 @@ def create_2d(write_path):
                                                             pf_filter_ratio=pf_filter_ratio,
                                                             phase_resolution_ratio=phase_resolution_ratio,
                                                             readout_resolution_ratio=readout_resolution_ratio,
-                                                            verbose=False)
+                                                            verbose=True)
 
         nn *= gmap
 
@@ -102,7 +110,7 @@ def create_3d(write_path):
                                                             pf_filter_ratio=pf_filter_ratio,
                                                             phase_resolution_ratio=phase_resolution_ratio,
                                                             readout_resolution_ratio=readout_resolution_ratio,
-                                                            verbose=False)
+                                                            verbose=True)
 
         nn *= gmap
 
@@ -118,26 +126,25 @@ def create_3d(write_path):
         data_folder["gmap"] = gmap
         data_folder["noise_sigma"] = noise_sigma
 
-def create_3d_repeated(write_path):
+def create_3d_repeated(write_path, N=20, sigmas=[1,11,1]):
 
     h5_file_3d = h5py.File(write_path, mode="w", libver="earliest")
 
     indices = np.arange(n)
     random.shuffle(indices)
 
-    for k in tqdm.tqdm(range(20)):
+    for k in tqdm.tqdm(range(N)):
 
         i = indices[k]
-
-        data = np.array(h5_file[keys[i]+"/image"])
-        gmap = load_gmap(h5_file[keys[i]+"/gmap"][:], random_factor=-1)
-
-        T, RO, E1 = data.shape
-
-        for noise_sig in np.arange(3,31,3):
-
-
         
+        ori_data = np.array(h5_file[keys[i]+"/image"])
+        gmap = load_gmap(h5_file[keys[i]+"/gmap"][:], random_factor=0)
+
+        for noise_sig in np.arange(sigmas[0],sigmas[1],sigmas[2]):
+
+            data = np.copy(ori_data)
+            T, RO, E1 = data.shape
+            
             nn, noise_sigma = generate_3D_MR_correlated_noise(T=T, RO=RO, E1=E1, REP=1,
                                                                 min_noise_level=noise_sig,
                                                                 max_noise_level=noise_sig,
@@ -154,20 +161,28 @@ def create_3d_repeated(write_path):
             data /= noise_sigma
             noisy_data /= noise_sigma
 
-            data_folder = h5_file_3d.create_group(f"Image_{k:03d}_{keys[i]}_sig_{noise_sig:02d}")
+            grp_name = f"Image_{k:03d}_{keys[i]}_sig_{noise_sig:02d}"
+            data_folder = h5_file_3d.create_group(grp_name)
 
             data_folder["noisy"] = noisy_data
             data_folder["clean"] = data
             data_folder["gmap"] = gmap
             data_folder["noise_sigma"] = noise_sigma
+            
+            print(grp_name)
 
 
 def main():
     # write_path_1000_3d = f"{base_file_path}/train_3D_3T_retro_cine_2020_1000_sample_sig_2_30_test.h5"
     # create_3d(write_path=write_path_1000_3d)
-    write_path_20_3d_repeated = f"{base_file_path}/train_3D_3T_retro_cine_2020_20_sample_sig_2_30_repeated_test.h5"
-    create_3d_repeated(write_path=write_path_20_3d_repeated)
-    print("All done")
+    
+    # write_path_20_3d_repeated = f"{base_file_path}/train_3D_3T_retro_cine_2020_20_sample_sig_2_30_repeated_test.h5"    
+    # create_3d_repeated(write_path=write_path_20_3d_repeated)
+    
+    write_path = f"{base_file_path}/retro_cine_3T_sigma_1_10_repeated_test.h5"
+    create_3d_repeated(write_path=write_path, N=20, sigmas=[1,11,1])
+    
+    print(f"{write_path} - All done")
 
 if __name__=="__main__":
     main()

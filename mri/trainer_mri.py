@@ -32,6 +32,7 @@ from model_mri import STCNNT_MRI
 from data_mri import MRIDenoisingDatasetTrain, load_mri_data
 
 from colorama import Fore, Back, Style
+import nibabel as nib
 
 # -------------------------------------------------------------------------------------------------
 # trainer
@@ -57,9 +58,68 @@ def create_log_str(config, epoch, rank, data_shape, gmap_median, noise_sigma, lo
     else:
         snr_str = ""
 
-    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {C}gmap {gmap_median:.4f}, sigma {noise_sigma:.4f}, mse {mse:.4f}, l1 {l1:.4f}, ssim {ssim:.4f}, ssim3D {ssim3d:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}{snr_str}{Style.RESET_ALL}{lr_str}"
+    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.WHITE}{Back.LIGHTBLUE_EX}{Style.NORMAL}gmap {gmap_median:.4f}, sigma {noise_sigma:.4f},{Style.RESET_ALL} {C}mse {mse:.4f}, l1 {l1:.4f}, ssim {ssim:.4f}, ssim3D {ssim3d:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}{snr_str}{Style.RESET_ALL}{lr_str}"
 
     return str
+
+def save_batch_samples(saved_path, fname, x, y, output, y_degraded, gmap_median, noise_sigma):
+    
+    noisy_im = x.numpy(force=True)
+    clean_im = y.numpy(force=True)
+    pred_im = output.numpy(force=True)
+    y_degraded = y_degraded.numpy(force=True)
+    
+    post_str = ""
+    if gmap_median > 0 and noise_sigma > 0:
+        post_str = f"_gmap_{gmap_median:.2f}_sigma_{noise_sigma:.2f}"
+    
+    fname += post_str
+    
+    np.save(os.path.join(saved_path, f"{fname}_x.npy"), noisy_im)
+    np.save(os.path.join(saved_path, f"{fname}_y.npy"), clean_im)
+    np.save(os.path.join(saved_path, f"{fname}_output.npy"), pred_im)
+    np.save(os.path.join(saved_path, f"{fname}_y_degraded.npy"), y_degraded)
+
+    B, T, C, H, W = x.shape
+    
+    noisy_im = np.transpose(noisy_im, [3, 4, 2, 1, 0])
+    clean_im = np.transpose(clean_im, [3, 4, 2, 1, 0])
+    pred_im = np.transpose(pred_im, [3, 4, 2, 1, 0])
+    y_degraded = np.transpose(y_degraded, [3, 4, 2, 1, 0])
+        
+    if C==3:
+        x = noisy_im[:,:,0,:,:] + 1j * noisy_im[:,:,1,:,:]
+        gmap = noisy_im[:,:,2,:,:]
+        
+        nib.save(nib.Nifti1Image(np.real(x), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_x_real.nii"))
+        nib.save(nib.Nifti1Image(np.imag(x), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_x_imag.nii"))
+        nib.save(nib.Nifti1Image(np.abs(x), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_x.nii"))
+        
+        y = clean_im[:,:,0,:,:] + 1j * clean_im[:,:,1,:,:]        
+        nib.save(nib.Nifti1Image(np.real(y), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_real.nii"))
+        nib.save(nib.Nifti1Image(np.imag(y), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_imag.nii"))
+        nib.save(nib.Nifti1Image(np.abs(y), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y.nii"))
+        
+        output = pred_im[:,:,0,:,:] + 1j * pred_im[:,:,1,:,:]
+        nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output_real.nii"))
+        nib.save(nib.Nifti1Image(np.imag(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output_imag.nii"))
+        nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output.nii"))  
+        
+        output = y_degraded[:,:,0,:,:] + 1j * y_degraded[:,:,1,:,:]
+        nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_degraded_real.nii"))
+        nib.save(nib.Nifti1Image(np.imag(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_degraded_imag.nii"))
+        nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_degraded.nii"))        
+    else:
+        x = noisy_im[:,:,0,:,:]
+        gmap = noisy_im[:,:,1,:,:]
+                
+        nib.save(nib.Nifti1Image(x, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_x.nii"))
+        nib.save(nib.Nifti1Image(clean_im, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y.nii"))
+        nib.save(nib.Nifti1Image(pred_im, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output.nii"))
+        nib.save(nib.Nifti1Image(y_degraded, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_degraded.nii"))
+        
+    nib.save(nib.Nifti1Image(gmap, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_gmap.nii"))
+           
 
 def trainer(rank, global_rank, config, wandb_run):
     """
@@ -85,12 +145,18 @@ def trainer(rank, global_rank, config, wandb_run):
     num_epochs = config.num_epochs
     batch_size = config.batch_size
     lr = config.global_lr
-    losses = config.losses
-    loss_weights = config.loss_weights
     optim = config.optim
     scheduler_type = config.scheduler_type
+    losses = config.losses
+    loss_weights = config.loss_weights
     weighted_loss = config.weighted_loss
-
+    save_samples = config.save_samples
+    num_saved_samples = config.num_saved_samples
+    height = config.height
+    width = config.width
+    c_time = config.time
+    use_amp = config.use_amp
+    
     ddp = config.ddp
     if ddp:
         config.device = torch.device(f'cuda:{rank}')
@@ -107,11 +173,23 @@ def trainer(rank, global_rank, config, wandb_run):
         config.num_epochs = num_epochs
         config.batch_size = batch_size
         config.weighted_loss = weighted_loss
+        config.save_samples = save_samples
+        config.num_saved_samples = num_saved_samples
+        config.height = height
+        config.width = width
+        config.time = c_time
+        config.use_amp = use_amp
         if ddp:
             config.device = torch.device(f'cuda:{rank}')
         model = STCNNT_MRI(config=config, total_steps=total_steps)
         model.load_state_dict(status['model'])
         config.ddp = ddp
+        
+        print(f"after load saved model, the config for running - {config}")
+        print(f"after load saved model, config.use_amp for running - {config.use_amp}")
+        print(f"after load saved model, config.optim for running - {config.optim}")
+        print(f"after load saved model, config.scheduler_type for running - {config.scheduler_type}")
+        print(f"after load saved model, config.weighted_loss for running - {config.weighted_loss}")
     else:
         model = STCNNT_MRI(config=config, total_steps=total_steps)
 
@@ -164,7 +242,7 @@ def trainer(rank, global_rank, config, wandb_run):
     elif c.backbone == 'unet':
         model_str = f"C {c.backbone_unet.C}, {c.n_head} heads, {c.backbone_unet.block_str}"
 
-    logging.info(f"{Fore.RED}{'-'*6}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, loss {c.losses}, {c.loss_weights}, snr perturb {c.snr_perturb_prob}, optim {c.optim}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {model_str}, {'-'*20}{Style.RESET_ALL}")
+    logging.info(f"{Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, {c.optim}, {c.global_lr}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, weighted loss {c.weighted_loss}, data degrading {c.with_data_degrading}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {model_str}{Style.RESET_ALL}")
 
     # -----------------------------------------------
 
@@ -201,16 +279,18 @@ def trainer(rank, global_rank, config, wandb_run):
             # log a few training examples
             for i, train_set_x in enumerate(train_set):
                 ind = np.random.randint(0, len(train_set_x), 4)
-                x, y, gmaps_median, noise_sigmas = train_set_x[ind[0]]
+                x, y, y_degraded, gmaps_median, noise_sigmas = train_set_x[ind[0]]
                 x = np.expand_dims(x, axis=0)
                 y = np.expand_dims(y, axis=0)
+                y_degraded = np.expand_dims(y_degraded, axis=0)
                 for ii in range(1, len(ind)):
-                    a_x, a_y, gmaps_median, noise_sigmas = train_set_x[ind[ii]]
+                    a_x, a_y, a_y_degraded, gmaps_median, noise_sigmas = train_set_x[ind[ii]]
                     x = np.concatenate((x, np.expand_dims(a_x, axis=0)), axis=0)
                     y = np.concatenate((y, np.expand_dims(a_y, axis=0)), axis=0)
+                    y_degraded = np.concatenate((y_degraded, np.expand_dims(a_y_degraded, axis=0)), axis=0)
 
                 title = f"Tra_samples_{i}_Noisy_Noisy_GT_{x.shape}"
-                vid = save_image_batch(c.complex_i, x, np.copy(x), y)
+                vid = save_image_batch(c.complex_i, x, y_degraded, y)
                 wandb_run.log({title:wandb.Video(vid, caption=f"Tra sample {i}", fps=1, format='gif')})
                 logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}")
 
@@ -269,6 +349,11 @@ def trainer(rank, global_rank, config, wandb_run):
     for epoch in range(curr_epoch, c.num_epochs):
         logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank}, global rank {global_rank} {'-'*20}{Style.RESET_ALL}")
 
+        if config.save_samples:
+            saved_path = os.path.join(config.log_path, config.run_name, f"tra_{epoch}")
+            os.makedirs(saved_path, exist_ok=True)
+            logging.info(f"{Fore.GREEN}saved_path - {saved_path}{Style.RESET_ALL}")
+        
         train_loss.reset()
         train_mse_meter.reset()
         train_l1_meter.reset()
@@ -281,7 +366,15 @@ def trainer(rank, global_rank, config, wandb_run):
         model.train()
         if c.ddp: [loader_x.sampler.set_epoch(epoch) for loader_x in train_loader]
 
+        images_saved = 0
+
         train_loader_iter = [iter(loader_x) for loader_x in train_loader]
+        
+        image_save_step_size = int(total_iters // config.num_saved_samples)
+        if image_save_step_size == 0: image_save_step_size = 1
+        
+        curr_lr = 0
+        
         with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
 
             for idx in range(total_iters):
@@ -294,7 +387,7 @@ def trainer(rank, global_rank, config, wandb_run):
                     del train_loader_iter[loader_ind]
                     loader_ind = idx % len(train_loader_iter)
                     stuff = next(train_loader_iter[loader_ind], None)
-                x, y, gmaps_median, noise_sigmas = stuff
+                x, y, y_degraded, gmaps_median, noise_sigmas = stuff
                 end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
 
 
@@ -309,10 +402,11 @@ def trainer(rank, global_rank, config, wandb_run):
                 signal = torch.mean(torch.linalg.norm(y, dim=2, keepdim=True), dim=(1, 2, 3, 4))
                 #snr = signal / (noise_sigmas*gmaps_median)
                 snr = signal / gmaps_median
-
+                snr = snr.to(device)
+                
                 if c.weighted_loss:
                     beta_counter += 1
-                    base_snr = beta_snr * base_snr + (1-beta_snr) * base_snr
+                    base_snr = beta_snr * base_snr + (1-beta_snr) * torch.mean(snr).item()
                     base_snr_t = base_snr / (1 - np.power(beta_snr, beta_counter))
 
                     # give low SNR patches more weights
@@ -373,8 +467,15 @@ def trainer(rank, global_rank, config, wandb_run):
 
                 train_snr_meter.update(torch.mean(snr), n=total)
 
-                output_scaled = output * noise_sigmas
-                y_scaled = y * noise_sigmas
+                #output_scaled = output * noise_sigmas
+                #y_scaled = y * noise_sigmas
+                
+                if rank<=0 and idx%image_save_step_size==0 and images_saved < config.num_saved_samples and config.save_samples:  
+                    save_batch_samples(saved_path, f"tra_epoch_{images_saved}", x, y, output, y_degraded, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
+                    images_saved += 1
+                    
+                output_scaled = output
+                y_scaled = y
 
                 mse_loss = mse_loss_func(output_scaled, y_scaled).item()
                 l1_loss = l1_loss_func(output_scaled, y_scaled).item()
@@ -641,7 +742,15 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
     total_iters = total_iters if not c.debug else min(2, total_iters)
 
     images_logged = 0
-    
+    images_saved = 0
+    if config.save_samples:
+        if epoch >= 0:
+            saved_path = os.path.join(config.log_path, config.run_name, id)
+        else:
+            saved_path = os.path.join(config.log_path, config.run_name, f"{id}_{epoch}")
+        os.makedirs(saved_path, exist_ok=True)
+        print(f"save path is {saved_path}")
+        
     with torch.inference_mode():
         with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
 
@@ -653,11 +762,12 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                     del val_loader_iter[loader_ind]
                     loader_ind = idx % len(val_loader_iter)
                     batch = next(val_loader_iter[loader_ind], None)
-                x, y, gmaps_median, noise_sigmas = batch
+                x, y, y_degraded, gmaps_median, noise_sigmas = batch
 
                 gmaps_median = gmaps_median.to(device=device)
                 noise_sigmas = noise_sigmas.to(device=device)
                 
+                B = x.shape[0]
                 noise_sigmas = torch.reshape(noise_sigmas, (B, 1, 1, 1, 1))
                 
                 if batch_size >1 and x.shape[-1]==c.width[-1]:
@@ -697,12 +807,17 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                         x, output, y = xy[0], xy[1], xy[2]
 
                 total = x.shape[0]    
-                    
-                output_scaled = output * noise_sigmas
-                y_scaled = y * noise_sigmas
+
+                if loss_f:
+                    loss = loss_f(output*noise_sigmas, y*noise_sigmas)
+                    val_loss_meter.update(loss.item(), n=total)
+                                        
+                #output_scaled = output * noise_sigmas
+                #y_scaled = y * noise_sigmas
                 
-                #output_scaled = output
-                #y_scaled = y
+                # to help measure the performance, keep noise to be ~1
+                output_scaled = output
+                y_scaled = y
                     
                 mse_loss = mse_loss_func(output_scaled, y_scaled).item()
                 l1_loss = l1_loss_func(output_scaled, y_scaled).item()
@@ -711,18 +826,18 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                 psnr_loss = psnr_loss_func(output_scaled, y_scaled).item()
                 psnr = psnr_func(output_scaled, y_scaled).item()
 
-                if loss_f:
-                    loss = loss_f(output, y)
-                    val_loss_meter.update(loss.item(), n=total)
-
                 if rank<=0 and images_logged < config.num_uploaded and wandb_run is not None:
                     images_logged += 1
-                    title = f"{id.upper()}_rank_{rank}_image_{idx}_Noisy_Pred_GT_{x.shape}"
+                    title = f"{id.upper()}_epoch_{epoch}_{images_saved}_{x.shape}"
                     vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
                     wandb_run.log({title: wandb.Video(vid, 
-                                                      caption=f"epoch {epoch}, gmap {gmaps_median[0].item():.2f}, noise {noise_sigmas[0].item():.2f}, mse {mse_loss:.2f}, ssim {ssim_loss:.2f}, psnr {psnr:.2f}", 
+                                                      caption=f"epoch {epoch}, gmap {torch.mean(gmaps_median).item():.2f}, noise {torch.mean(noise_sigmas).item():.2f}, mse {mse_loss:.2f}, ssim {ssim_loss:.2f}, psnr {psnr:.2f}", 
                                                       fps=1, format="gif")})
-                    
+                   
+                if rank<=0 and images_saved < config.num_saved_samples and config.save_samples:  
+                    save_batch_samples(saved_path, f"{id}_epoch_{epoch}_{images_saved}", x, y, output, y_degraded, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
+                    images_saved += 1
+                 
                 val_mse_meter.update(mse_loss, n=total)
                 val_l1_meter.update(l1_loss, n=total)
                 val_ssim_meter.update(ssim_loss, n=total)

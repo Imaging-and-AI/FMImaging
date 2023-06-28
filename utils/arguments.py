@@ -41,8 +41,8 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
 
     # wandb
     parser.add_argument("--project", type=str, default='STCNNT', help='project name')
-    parser.add_argument("--run_name", type=str, default='cifar', help='current run name')
-    parser.add_argument("--run_notes", type=str, default='cifar_train', help='notes for the current run')
+    parser.add_argument("--run_name", type=str, default='stcnnt_app', help='current run name')
+    parser.add_argument("--run_notes", type=str, default='stcnnt_app_train', help='notes for the current run')
     parser.add_argument("--wandb_entity", type=str, default="gadgetron", help='wandb entity to link with')
     parser.add_argument("--sweep_id", type=str, default="none", help='sweep id for hyper parameter searching')
     parser.add_argument("--sweep_count", type=int, default=50, help='number of sweep per agent to run')
@@ -92,6 +92,9 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
     parser.add_argument("--debug", "-D", action="store_true", help='option to run in debug mode')
     parser.add_argument("--summary_depth", type=int, default=6, help='depth to print the model summary till')
 
+    parser.add_argument("--save_samples", action="store_true", help='whether to save some train/val/test samples')
+    parser.add_argument("--num_saved_samples", type=int, default=32, help='number of saved samples')
+    
     return parser
 
 def add_shared_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for STCNNT")):

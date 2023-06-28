@@ -456,9 +456,9 @@ class Combined_Loss:
         elif loss_name=="l1":
             loss_f = L1_Loss(complex_i=self.complex_i)
         elif loss_name=="ssim":
-            loss_f = SSIM_Loss(window_size=11, complex_i=self.complex_i, device=self.device)
+            loss_f = SSIM_Loss(window_size=5, complex_i=self.complex_i, device=self.device)
         elif loss_name=="ssim3D":
-            loss_f = SSIM3D_Loss(window_size=11, complex_i=self.complex_i, device=self.device)
+            loss_f = SSIM3D_Loss(window_size=5, complex_i=self.complex_i, device=self.device)
         elif loss_name=="psnr":
             loss_f = PSNR_Loss(range=2048.0)
         else:

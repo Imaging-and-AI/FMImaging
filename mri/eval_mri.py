@@ -47,6 +47,9 @@ def arg_parser():
     parser.add_argument("--patch_size_inference", type=int, default=-1, help='patch size for inference; if <=0, use the config setup')
     parser.add_argument("--num_uploaded", type=int, default=16, help='number of sample uploaded')
     
+    parser.add_argument("--save_samples", action="store_true", help='whether to save some train/val/test samples')
+    parser.add_argument("--num_saved_samples", type=int, default=16, help='number of saved samples')
+    
     #parser = add_shared_STCNNT_args(parser=parser)
 
     return parser.parse_args()
@@ -72,27 +75,6 @@ def check_args(config):
     config.saved_model_config  = fname + '.config'
 
     return config
-
-# -------------------------------------------------------------------------------------------------
-# load model
-
-# def load_model(config):
-#     """
-#     load a ".pt" or ".pts" model
-#     ".pt" models require ".json" to create the model
-#     @args:
-#         - config (Namespace): runtime namespace for setup
-#     @rets:
-#         - model (torch model): the model ready for inference
-#     """
-#     if config.saved_model_path.endswith(".pt"):
-#         status = torch.load(config.saved_model_path, map_location=get_device())
-#         model = STCNNT_MRI(config=config)
-#         model.load_state_dict(status['model'])
-#     else:
-#         model = torch.jit.load(config.saved_model_path)
-
-#     return model
 
 # -------------------------------------------------------------------------------------------------
 # save results
@@ -144,11 +126,14 @@ def main():
     
     config.data_root = c.data_root
     config.results_path = c.results_path
+    config.log_path = c.results_path
     config.test_files = c.test_files
     config.saved_model_path = c.saved_model_path
     config.pad_time = c.pad_time
     config.ddp = False
     config.num_uploaded = c.num_uploaded
+    config.save_samples = c.save_samples
+    config.num_saved_samples = c.num_saved_samples
     
     if patch_size_inference > 0:
         config.height[-1] = patch_size_inference
@@ -157,17 +142,20 @@ def main():
     setup_run(config, dirs=["log_path"])
 
     print(f"{Fore.YELLOW}Load in model file - {config.saved_model_path}")
-    #model = load_model(config)
     model, _ = load_model(c.saved_model_path, c.saved_model_config)
     run = wandb.init(project=config.project, entity=config.wandb_entity, config=config,
                         name=f"Test_{config.run_name}_inference_{config.height[-1]}", notes=config.run_notes)
 
     print(f"Wandb name:\n{run.name}")
     
-    test_set, _ = load_mri_test_data(config=config)
-    losses = eval_val(rank=-1, model=model, config=config, val_set=test_set, epoch=-1, device=get_device(), wandb_run=run, id="test")
+    try: 
+        test_set, _ = load_mri_test_data(config=config)
+        losses = eval_val(rank=-1, model=model, config=config, val_set=test_set, epoch=-1, device=get_device(), wandb_run=run, id="test")
 
-    save_results(config, losses, id="")
+        save_results(config, losses, id="")                
+    except KeyboardInterrupt:
+        print(f"{Fore.YELLOW}Interrupted from the keyboard ...{Style.RESET_ALL}", flush=True)
+        clean_after_training()
         
 if __name__=="__main__":
     main()
