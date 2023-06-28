@@ -14,6 +14,7 @@ Allows custom weights for each indvidual loss calculation as well
 import os
 import sys
 import torch
+import torchmetrics
 from pathlib import Path
 
 Project_DIR = Path(__file__).parents[1].resolve()
@@ -176,6 +177,60 @@ class SSIM3D_Loss:
         return (1.0-v_ssim)
 
 # -------------------------------------------------------------------------------------------------
+# MSSSIM loss
+
+class MSSSIM_Loss:
+    """
+    Weighted MSSSIM loss
+    """
+    def __init__(self, window_size=7, complex_i=False, data_range=1024.0, device='cpu'):
+        """
+        @args:
+            - window_size (int): size of the window to use for loss computation
+            - complex_i (bool): whether images are 2 channelled for complex data
+            - device (torch.device): device to run the loss on
+        """
+        self.complex_i = complex_i
+        self.data_range = data_range
+        self.msssim_loss = torchmetrics.image.MultiScaleStructuralSimilarityIndexMeasure(kernel_size=window_size, reduction=None, data_range=data_range)
+        self.msssim_loss.to(device=device)
+        
+    def __call__(self, outputs, targets, weights=None):
+
+        B, T, C, H, W = targets.shape
+        if(self.complex_i):
+            assert C==2, f"Complex type requires image to have C=2, given C={C}"
+            outputs_im = torch.sqrt(outputs[:,:,:1]*outputs[:,:,:1] + outputs[:,:,1:]*outputs[:,:,1:])
+            targets_im = torch.sqrt(targets[:,:,:1]*targets[:,:,:1] + targets[:,:,1:]*targets[:,:,1:])
+        else:
+            outputs_im = outputs
+            targets_im = targets
+
+        outputs_im = torch.clamp(outputs_im, 0.0, self.data_range)
+        targets_im = torch.clamp(targets_im, 0.0, self.data_range)
+
+        B, T, C, H, W = targets_im.shape
+        outputs_im = torch.reshape(outputs_im, (B*T, C, H, W))
+        targets_im = torch.reshape(targets_im, (B*T, C, H, W))
+
+        if weights is not None:
+
+            if weights.ndim==1:
+                weights_used = weights.expand(T,B).permute(1,0).reshape(B*T)
+            elif weights.ndim==2:
+                weights_used = weights.reshape(B*T)
+            else:
+                raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for MSSSIM_Loss")
+
+            v_ssim = torch.sum(weights_used*self.msssim_loss(outputs_im, targets_im)) / torch.sum(weights_used)
+        else:
+            v_ssim = torch.mean(self.msssim_loss(outputs_im, targets_im))
+
+        v_ssim = torch.clamp(v_ssim, 0.0, 1.0)
+
+        return (1.0-v_ssim)
+    
+# -------------------------------------------------------------------------------------------------
 # L1/mae loss
 
 class L1_Loss:
@@ -305,6 +360,68 @@ class PSNR_Loss:
 
         return 10 - v_l2 / den.numel()
 
+# -------------------------------------------------------------------------------------------------
+
+def perpendicular_loss_complex(X, Y):
+    """perpendicular loss for complex MR images
+    
+    from https://gitlab.com/computational-imaging-lab/perp_loss/-/blob/main/PerpLoss_-_Image_reconstruction.ipynb
+
+    Args:
+        X (complex images): torch complex images
+        Y (complex images): torch complex images
+        
+    Outputs:
+        final_term: the loss in the same size as X and Y
+    """
+    assert X.is_complex()
+    assert Y.is_complex()
+
+    mag_input = torch.abs(X)
+    mag_target = torch.abs(Y)
+    cross = torch.abs(X.real * Y.imag - X.imag * Y.real)
+
+    angle = torch.atan2(X.imag, X.real) - torch.atan2(Y.imag, Y.real)
+    ploss = torch.abs(cross) / (mag_input + 1e-8)
+
+    aligned_mask = (torch.cos(angle) < 0).bool()
+
+    final_term = torch.zeros_like(ploss)
+    final_term[aligned_mask] = mag_target[aligned_mask] + (mag_target[aligned_mask] - ploss[aligned_mask])
+    final_term[~aligned_mask] = ploss[~aligned_mask]
+    
+    return final_term
+
+class Perpendicular_Loss:
+    """
+    Perpendicular loss
+    """
+    def __init__(self):
+        """
+        @args:            
+        """
+
+    def __call__(self, outputs, targets, weights=None):
+
+        B, T, C, H, W = targets.shape
+
+        loss = perpendicular_loss_complex(outputs, targets)
+
+        if(weights is not None):
+
+            if(weights.ndim==1):
+                weights = weights.reshape(B,1,1,1,1)
+            elif weights.ndim==2:
+                weights = weights.reshape(B,T,1,1,1)
+            else:
+                raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for Perpendicular_Loss")
+
+            v = torch.sum(weights*loss) / torch.sum(weights)
+        else:
+            v = torch.sum(loss)
+
+        return v / targets.numel()
+    
 # -------------------------------------------------------------------------------------------------
 # Combined loss class
 
