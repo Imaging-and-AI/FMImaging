@@ -3,6 +3,37 @@ import numpy
 import scipy
 import pyfftw
 import multiprocessing
+import os
+import numpy as np
+import h5py
+import sys
+from pathlib import Path
+
+Project_DIR = Path(__file__).parents[1].resolve()
+sys.path.insert(1, str(Project_DIR))
+
+from utils import *
+
+F = h5py.File('/export/Lab-Xue/projects/mri/data/VIDA_test_0430.h5', 'r')
+
+res_dir = '/export/Lab-Xue/projects/mri/non_cardiac/'
+os.makedirs(res_dir, exist_ok=True)
+
+for key in F:
+    
+    im = F[key + '/image']
+    gmap = F[key + '/gmap']
+    
+    print(im.shape, gmap.shape)
+    
+    im = np.transpose(im, [1, 2, 0])
+    gmap = np.transpose(gmap, [1, 2, 0])
+    
+    case_dir = os.path.join(res_dir, key)
+    os.makedirs(case_dir, exist_ok=True)
+    
+    save_inference_results(im, None, gmap, case_dir)
+
 nthread = multiprocessing.cpu_count()
 a = numpy.random.rand(2364,2756).astype('complex128')
 b = a.astype(numpy.complex64)
