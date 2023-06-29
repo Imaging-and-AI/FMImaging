@@ -23,7 +23,9 @@ from pathlib import Path
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.insert(1, str(Project_DIR))
 
+from utils.setup_training import get_device
 from utils.pytorch_ssim import SSIM, SSIM3D
+from utils.msssim import MS_SSIM, ms_ssim
 import piq
 
 # -------------------------------------------------------------------------------------------------
@@ -186,7 +188,7 @@ class MSSSIM_Loss:
     """
     Weighted MSSSIM loss
     """
-    def __init__(self, window_size=7, complex_i=False, data_range=1024.0, device='cpu'):
+    def __init__(self, window_size=5, complex_i=False, data_range=256.0, device='cpu'):
         """
         @args:
             - window_size (int): size of the window to use for loss computation
@@ -194,10 +196,10 @@ class MSSSIM_Loss:
             - device (torch.device): device to run the loss on
         """
         self.complex_i = complex_i
-        self.data_range = data_range
-        self.msssim_loss = torchmetrics.image.MultiScaleStructuralSimilarityIndexMeasure(kernel_size=window_size, reduction=None, data_range=data_range)
-        self.msssim_loss.to(device=device)
+        self.data_range = data_range               
+        self.msssim_loss = MS_SSIM(data_range=data_range, size_average=False, win_size=window_size, channel=1, spatial_dims=2)
         
+                
     def __call__(self, outputs, targets, weights=None):
 
         B, T, C, H, W = targets.shape
@@ -209,25 +211,21 @@ class MSSSIM_Loss:
             outputs_im = outputs
             targets_im = targets
 
-        outputs_im = torch.clamp(outputs_im, 0.0, self.data_range)
-        targets_im = torch.clamp(targets_im, 0.0, self.data_range)
-
         B, T, C, H, W = targets_im.shape
         outputs_im = torch.reshape(outputs_im, (B*T, C, H, W))
         targets_im = torch.reshape(targets_im, (B*T, C, H, W))
+        
+        # make it B, C, T, H, W, so calling 3D msssim
+        #outputs_im = torch.permute(outputs_im, (0, 2, 1, 3, 4))
+        #targets_im = torch.permute(targets_im, (0, 2, 1, 3, 4))
+
+        v = self.msssim_loss(outputs_im, targets_im)
 
         if weights is not None:
-
-            if weights.ndim==1:
-                weights_used = weights.expand(T,B).permute(1,0).reshape(B*T)
-            elif weights.ndim==2:
-                weights_used = weights.reshape(B*T)
-            else:
-                raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for MSSSIM_Loss")
-
-            v_ssim = torch.sum(weights_used*self.msssim_loss(outputs_im, targets_im)) / torch.sum(weights_used)
+            weights_used = weights.expand(B*T, C).reshape(B*T, C)
+            v_ssim = torch.sum(weights_used*v) / torch.sum(weights_used)
         else:
-            v_ssim = torch.mean(self.msssim_loss(outputs_im, targets_im))
+            v_ssim = torch.mean(v)
 
         v_ssim = torch.clamp(v_ssim, 0.0, 1.0)
 
@@ -464,6 +462,10 @@ class Combined_Loss:
             loss_f = SSIM3D_Loss(window_size=5, complex_i=self.complex_i, device=self.device)
         elif loss_name=="psnr":
             loss_f = PSNR_Loss(range=2048.0)
+        elif loss_name=="perpendicular":
+            loss_f = Perpendicular_Loss()
+        elif loss_name=="msssim":
+            loss_f = MSSSIM_Loss(window_size=3, complex_i=self.complex_i, data_range=256, device=self.device)
         else:
             raise NotImplementedError(f"Loss type not implemented: {loss_name}")
 
@@ -480,6 +482,8 @@ class Combined_Loss:
  
 def tests():
 
+    device = get_device()
+
     import numpy as np
 
     Project_DIR = Path(__file__).parents[1].resolve()
@@ -493,7 +497,7 @@ def tests():
     clean_b = torch.from_numpy(clean_b.reshape((1, 1, 1, H ,W)))
     noisy_a = torch.from_numpy(noisy_a.reshape((1, 1, 1, H ,W)))
 
-    B,T,C,H,W = 4,8,3,32,32
+    B,T,C,H,W = 4,8,1,64,64
 
     im_1 = torch.rand(B,T,C,H,W)
     im_2 = torch.rand(B,T,C,H,W)
@@ -670,12 +674,80 @@ def tests():
 
     print("Passed PSNR")
 
-    combined_l_f = Combined_Loss(["mse", "l1", "ssim", "ssim3D"], [1.0,1.0,1.0,1.0])
+    combined_l_f = Combined_Loss(["mse", "l1", "ssim", "ssim3D", "msssim"], [1.0, 1.0, 1.0, 1.0, 1.0], complex_i=False)
     
     c_loss_1 = combined_l_f(im_2, im_3)
     assert c_loss_1>0
 
     print("Passed Combined Loss")
+
+
+    noisy = np.load(str(Project_DIR) + '/data/loss/noisy_real.npy') + 1j * np.load(str(Project_DIR) + '/data/loss/noisy_imag.npy')
+    print(noisy.shape)
+
+    clean = np.load(str(Project_DIR) + '/data/loss/clean_real.npy') + 1j * np.load(str(Project_DIR) + '/data/loss/clean_imag.npy')
+    print(clean.shape)
+
+    pred = np.load(str(Project_DIR) + '/data/loss/pred_real.npy') + 1j * np.load(str(Project_DIR) + '/data/loss/pred_imag.npy')
+    print(pred.shape)
+
+    RO, E1, PHS, N = noisy.shape
+
+    for k in range(N):
+        perp_loss = Perpendicular_Loss()
+        
+        x = torch.permute(torch.from_numpy(noisy[:,:,:,k]), (2, 0, 1)).reshape((1, PHS, 1, RO, E1))
+        y = torch.permute(torch.from_numpy(clean[:,:,:,k]), (2, 0, 1)).reshape((1, PHS, 1, RO, E1))
+
+        v = perp_loss(x, y)
+        
+        print(f"sigma {k+1} - perp - {v}")
+       
+    # -----------------------------------------------------------------
+    
+    # further test ssim, msssim and perp loss
+    noisy = np.load(str(Project_DIR) + '/data/loss/noisy.npy')
+    print(noisy.shape)
+
+    clean = np.load(str(Project_DIR) + '/data/loss/clean.npy')
+    print(clean.shape)
+
+    pred = np.load(str(Project_DIR) + '/data/loss/pred.npy')
+    print(pred.shape)
+
+    RO, E1, PHS, N = noisy.shape
+
+    print("-----------------------")
+
+    msssim_loss = torchmetrics.image.MultiScaleStructuralSimilarityIndexMeasure(kernel_size=5, reduction=None, data_range=256)
+    msssim_loss.to(device=device)
+
+    # 2D ssim
+    x = torch.from_numpy(noisy[:,:,0,:]).to(device=device)
+    y = torch.from_numpy(clean[:,:,0,:]).to(device=device)
+
+    x = torch.permute(x, (2, 0, 1)).reshape([N, 1, RO, E1])
+    y = torch.permute(y, (2, 0, 1)).reshape([N, 1, RO, E1])
+    v = msssim_loss(x, y)
+    print(f"sigma 1 to 10 - mssim - {v}")
+        
+    # 3D ssim
+    x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1))
+    y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1))
+    v = msssim_loss(x, y)
+    print(f"sigma 1 to 10 - mssim - {v}")
+    
+    print("-----------------------")
+
+    # loss code
+    x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, PHS, 1, RO, E1)).to(device=device)
+    y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, PHS, 1, RO, E1)).to(device=device)
+   
+    msssim_loss = MSSSIM_Loss(data_range=128, device=device, complex_i=False)
+    
+    for k in range(N):
+        v = msssim_loss(torch.unsqueeze(x[k], dim=0), torch.unsqueeze(y[k], dim=0), weights=torch.ones(1, device=device))
+        print(f"msssim loss - {v}")
 
     print("Passed all tests")
 
