@@ -6,6 +6,9 @@ Provides implmentation of the following types of losses:
     - SSIM3D: Structural Similarity Index Measure for 3D
     - L1: Mean Absolute Error
     - MSE: Mean Squared Error
+    - FSIM: Feature Similarity Index Measure
+    - MSSSIM: multi-scale SSIM
+    - Perpendicular: perp loss for complex images
     - Combined: Any weighed combination of the above
 
 Allows custom weights for each indvidual loss calculation as well
