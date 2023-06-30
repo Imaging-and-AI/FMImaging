@@ -222,11 +222,17 @@ class MSSSIM_Loss:
         v = self.msssim_loss(outputs_im, targets_im)
 
         if weights is not None:
-            weights_used = weights.expand(B*T, C).reshape(B*T, C)
+            if weights.ndim==1:
+                weights_used = weights.expand(T,B).permute(1,0).reshape(B*T)
+            elif weights.ndim==2:
+                weights_used = weights.reshape(B*T)
+            else:
+                raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for SSIM_Loss")
+            
             v_ssim = torch.sum(weights_used*v) / torch.sum(weights_used)
         else:
             v_ssim = torch.mean(v)
-
+            
         v_ssim = torch.clamp(v_ssim, 0.0, 1.0)
 
         return (1.0-v_ssim)
