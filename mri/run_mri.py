@@ -47,8 +47,8 @@ class mri_ddp_base(run_ddp_base):
         "--num_workers", "64",
         "--prefetch_factor", "4",
         
-        #"--scheduler_type", "ReduceLROnPlateau",
-        "--scheduler_type", "OneCycleLR",
+        "--scheduler_type", "ReduceLROnPlateau",
+        #"--scheduler_type", "OneCycleLR",
         
         "--scheduler.ReduceLROnPlateau.patience", "0",
         "--scheduler.ReduceLROnPlateau.cooldown", "0",
@@ -145,6 +145,7 @@ class mri_ddp_base(run_ddp_base):
                     ]
 
         vars['losses'] = [                        
+            [['perpendicular','msssim'], ['1.0', '1.0']],
             [['psnr','l1', 'mse'], ['1.0', '1.0', '1.0']],
             [['ssim', 'ssim3D', 'mse', 'l1', 'psnr'], ['0.1', '0.1', '1.0', '1.0', '1.0']], 
             [['mse', 'l1'], ['1.0', '1.0']], 
@@ -152,7 +153,7 @@ class mri_ddp_base(run_ddp_base):
             [['ssim', 'mse'], ['0.1', '1.0']], 
         ]
 
-        vars['complex_i'] = [True, False]
+        vars['complex_i'] = [True]
         vars['residual'] = [True ]
         vars['weighted_loss'] = [True, False]
 
