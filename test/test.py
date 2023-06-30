@@ -39,7 +39,7 @@ RO, E1, PHS, N = noisy.shape
 
 print("-----------------------")
 
-msssim_loss = torchmetrics.image.MultiScaleStructuralSimilarityIndexMeasure(kernel_size=11, reduction=None, data_range=None)
+msssim_loss = torchmetrics.image.MultiScaleStructuralSimilarityIndexMeasure(kernel_size=5, reduction=None, data_range=256)
 msssim_loss.to(device=device)
 
 # 2D ssim
@@ -57,6 +57,19 @@ y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1))
 v = msssim_loss(x, y)
 print(f"sigma 1 to 10 - mssim - {v}")
 
+print("-----------------------")
+
+msssim_loss = MSSSIM_Loss(window_size=5, complex_i=False, device=device)
+
+x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, PHS, 1, RO, E1))
+y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, PHS, 1, RO, E1))
+
+v = msssim_loss(x, y)
+
+print(v)
+
+print("-----------------------")
+    
 for k in range(N):
     ssim_loss = SSIM_Loss(window_size=5, complex_i=False, device=device)
     
@@ -66,6 +79,8 @@ for k in range(N):
     v = ssim_loss(x, y)
     
     print(f"sigma {k+1} - ssim - {1-v}")
+
+print("-----------------------")
     
 for k in range(N):
     ssim3d_loss = SSIM3D_Loss(window_size=5, complex_i=False, device=device)
@@ -76,7 +91,8 @@ for k in range(N):
     v = ssim3d_loss(x, y)
     
     print(f"sigma {k+1} - ssim3d - {1-v}")
-        
+                
+print("-----------------------")
         
 noisy = np.load(str(Project_DIR) + '/data/loss/noisy_real.npy') + 1j * np.load(str(Project_DIR) + '/data/loss/noisy_imag.npy')
 print(noisy.shape)
@@ -99,14 +115,6 @@ for k in range(N):
     
     print(f"sigma {k+1} - perp - {v}")
           
-print("-----------------------")
-
-for k in range(1, 10):
-    msssim_loss = torchmetrics.image.MultiScaleStructuralSimilarityIndexMeasure(kernel_size=7, reduction=None, data_range=None)
-    msssim_loss.to(device=device)
-    v = msssim_loss(preds.to(device) * k, target.to(device) * k)
-    print(v)
-
 print("-----------------------")
 
 F = h5py.File('/export/Lab-Xue/projects/mri/data/VIDA_test_0430.h5', 'r')
