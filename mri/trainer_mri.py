@@ -37,7 +37,7 @@ import nibabel as nib
 # -------------------------------------------------------------------------------------------------
 # trainer
 
-def create_log_str(config, epoch, rank, data_shape, gmap_median, noise_sigma, loss, mse, l1, ssim, ssim3d, psnr_loss, psnr, snr, curr_lr, role):
+def create_log_str(config, epoch, rank, data_shape, gmap_median, noise_sigma, loss, mse, l1, ssim, ssim3d, psnr_loss, psnr, snr, perp, curr_lr, role):
     if data_shape is not None:
         data_shape_str = f"{data_shape} "
     else:
@@ -58,7 +58,7 @@ def create_log_str(config, epoch, rank, data_shape, gmap_median, noise_sigma, lo
     else:
         snr_str = ""
 
-    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.WHITE}{Back.LIGHTBLUE_EX}{Style.NORMAL}gmap {gmap_median:.4f}, sigma {noise_sigma:.4f},{Style.RESET_ALL} {C}mse {mse:.4f}, l1 {l1:.4f}, ssim {ssim:.4f}, ssim3D {ssim3d:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}{snr_str}{Style.RESET_ALL}{lr_str}"
+    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.WHITE}{Back.LIGHTBLUE_EX}{Style.NORMAL}gmap {gmap_median:.4f}, sigma {noise_sigma:.4f},{Style.RESET_ALL} {C}mse {mse:.4f}, l1 {l1:.4f}, perp {perp:.4f}, ssim {ssim:.4f}, ssim3D {ssim3d:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}{snr_str}{Style.RESET_ALL}{lr_str}"
 
     return str
 
@@ -261,6 +261,7 @@ def trainer(rank, global_rank, config, wandb_run):
             wandb_run.summary["total_mult_adds"] = c.total_mult_adds 
 
             wandb_run.define_metric("epoch")    
+            
             wandb_run.define_metric("train_loss_avg", step_metric='epoch')
             wandb_run.define_metric("train_mse_loss", step_metric='epoch')
             wandb_run.define_metric("train_l1_loss", step_metric='epoch')
@@ -269,12 +270,15 @@ def trainer(rank, global_rank, config, wandb_run):
             wandb_run.define_metric("train_psnr_loss", step_metric='epoch')
             wandb_run.define_metric("train_psnr", step_metric='epoch')
             wandb_run.define_metric("train_snr", step_metric='epoch')
+            wandb_run.define_metric("train_perp", step_metric='epoch')
+            
             wandb_run.define_metric("val_loss_avg", step_metric='epoch')
             wandb_run.define_metric("val_mse_loss", step_metric='epoch')
             wandb_run.define_metric("val_l1_loss", step_metric='epoch')
             wandb_run.define_metric("val_ssim_loss", step_metric='epoch')
             wandb_run.define_metric("val_ssim3D_loss", step_metric='epoch')
             wandb_run.define_metric("val_psnr", step_metric='epoch')
+            wandb_run.define_metric("val_perp", step_metric='epoch')
 
             # log a few training examples
             for i, train_set_x in enumerate(train_set):
@@ -308,6 +312,7 @@ def trainer(rank, global_rank, config, wandb_run):
     train_psnr_meter = AverageMeter()
     train_psnr_loss_meter = AverageMeter()
     train_snr_meter = AverageMeter()
+    train_perp_meter = AverageMeter()
 
     mse_loss_func = MSE_Loss(complex_i=c.complex_i)
     l1_loss_func = L1_Loss(complex_i=c.complex_i)
@@ -315,6 +320,7 @@ def trainer(rank, global_rank, config, wandb_run):
     ssim3D_loss_func = SSIM3D_Loss(complex_i=c.complex_i, device=device)
     psnr_loss_func = PSNR_Loss(range=2048)
     psnr_func = PSNR(range=2048)
+    perp_func = Perpendicular_Loss()
 
     # -----------------------------------------------
     
@@ -362,6 +368,7 @@ def trainer(rank, global_rank, config, wandb_run):
         train_psnr_meter.reset()
         train_psnr_loss_meter.reset()
         train_snr_meter.reset()
+        train_perp_meter.reset()
 
         model.train()
         if c.ddp: [loader_x.sampler.set_epoch(epoch) for loader_x in train_loader]
@@ -482,7 +489,8 @@ def trainer(rank, global_rank, config, wandb_run):
                 ssim_loss = ssim_loss_func(output_scaled, y_scaled).item()
                 ssim3D_loss = ssim3D_loss_func(output_scaled, y_scaled).item()
                 psnr_loss = psnr_loss_func(output_scaled, y_scaled).item()
-                psnr = psnr_func(output_scaled, y_scaled).item()
+                psnr = psnr_func(output_scaled, y_scaled).item()                
+                if c.complex_i: perp = perp_func(output_scaled, y_scaled).item()
 
                 train_mse_meter.update(mse_loss, n=total)
                 train_l1_meter.update(l1_loss, n=total)
@@ -490,7 +498,8 @@ def trainer(rank, global_rank, config, wandb_run):
                 train_ssim3D_meter.update(ssim3D_loss, n=total)
                 train_psnr_loss_meter.update(psnr_loss, n=total)
                 train_psnr_meter.update(psnr, n=total)
-
+                if c.complex_i: train_perp_meter.update(perp, n=total)
+                    
                 pbar.update(1)
                 log_str = create_log_str(config, epoch, rank, 
                                          x.shape, 
@@ -504,6 +513,7 @@ def trainer(rank, global_rank, config, wandb_run):
                                          train_psnr_loss_meter.avg, 
                                          train_psnr_meter.avg, 
                                          train_snr_meter.avg,
+                                         train_perp_meter.avg,
                                          curr_lr, 
                                          "tra")
 
@@ -529,6 +539,7 @@ def trainer(rank, global_rank, config, wandb_run):
                                          train_psnr_loss_meter.avg, 
                                          train_psnr_meter.avg, 
                                          train_snr_meter.avg,
+                                         train_perp_meter.avg,
                                          curr_lr, 
                                          "tra")
 
@@ -569,12 +580,14 @@ def trainer(rank, global_rank, config, wandb_run):
                             "train_psnr_loss": train_psnr_loss_meter.avg,
                             "train_psnr": train_psnr_meter.avg,
                             "train_snr": train_snr_meter.avg,
+                            "train_perp": train_perp_meter.avg,
                             "val_loss_avg": val_losses[0],
                             "val_mse_loss": val_losses[1],
                             "val_l1_loss": val_losses[2],
                             "val_ssim_loss": val_losses[3],
                             "val_ssim3D_loss": val_losses[4],
-                            "val_psnr": val_losses[5]})
+                            "val_psnr": val_losses[5],
+                            "val_perp": val_losses[6]})
 
             if stype == "ReduceLROnPlateau":
                 sched.step(val_losses[0])
@@ -614,6 +627,7 @@ def trainer(rank, global_rank, config, wandb_run):
             wandb_run.summary["test_ssim_last"] = test_losses[3]
             wandb_run.summary["test_ssim3D_last"] = test_losses[4]
             wandb_run.summary["test_psnr_last"] = test_losses[5]
+            wandb_run.summary["test_perp_last"] = test_losses[6]
 
             model = model.module if c.ddp else model
             model.save(epoch)
@@ -641,6 +655,7 @@ def trainer(rank, global_rank, config, wandb_run):
             wandb_run.summary["test_ssim_best"] = test_losses[3]
             wandb_run.summary["test_ssim3D_best"] = test_losses[4]
             wandb_run.summary["test_psnr_best"] = test_losses[5]
+            wandb_run.summary["test_perp_best"] = test_losses[6]
 
             wandb_run.save(fname_last+'.pt')
             #wandb_run.save(fname_last+'.pts')
@@ -689,6 +704,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
         - val_ssim_loss_avg (float): the average val ssim loss
         - val_ssim3D_loss_avg (float): the average val ssim3D loss
         - val_psnr_avg (float): the average val psnr
+        - val_perp_avg (float): the average val perp loss
     """
     c = config # shortening due to numerous uses
 
@@ -720,6 +736,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
     val_ssim3D_meter = AverageMeter()
     val_psnr_loss_meter = AverageMeter()
     val_psnr_meter = AverageMeter()
+    val_perp_meter = AverageMeter()
 
     mse_loss_func = MSE_Loss(complex_i=c.complex_i)
     l1_loss_func = L1_Loss(complex_i=c.complex_i)
@@ -727,6 +744,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
     ssim3D_loss_func = SSIM3D_Loss(complex_i=c.complex_i, device=device)
     psnr_loss_func = PSNR_Loss(range=2048)
     psnr_func = PSNR(range=2048)
+    perp_func = Perpendicular_Loss()
 
     model.eval()
     model.to(device)
@@ -825,10 +843,11 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                 ssim3D_loss = ssim3D_loss_func(output_scaled, y_scaled).item()
                 psnr_loss = psnr_loss_func(output_scaled, y_scaled).item()
                 psnr = psnr_func(output_scaled, y_scaled).item()
+                if c.complex_i: perp = perp_func(output_scaled, y_scaled).item()
 
                 if rank<=0 and images_logged < config.num_uploaded and wandb_run is not None:
                     images_logged += 1
-                    title = f"{id.upper()}_epoch_{epoch}_{images_saved}_{x.shape}"
+                    title = f"{id.upper()}_{images_saved}_{x.shape}"
                     vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
                     wandb_run.log({title: wandb.Video(vid, 
                                                       caption=f"epoch {epoch}, gmap {torch.mean(gmaps_median).item():.2f}, noise {torch.mean(noise_sigmas).item():.2f}, mse {mse_loss:.2f}, ssim {ssim_loss:.2f}, psnr {psnr:.2f}", 
@@ -844,6 +863,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                 val_ssim3D_meter.update(ssim3D_loss, n=total)
                 val_psnr_loss_meter.update(psnr_loss, n=total)
                 val_psnr_meter.update(psnr, n=total)
+                if c.complex_i: val_perp_meter.update(perp, n=total)
 
                 pbar.update(1)
                 log_str = create_log_str(c, epoch, rank, 
@@ -857,6 +877,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                                          val_ssim3D_meter.avg, 
                                          val_psnr_loss_meter.avg, 
                                          val_psnr_meter.avg, 
+                                         val_perp_meter.avg,
                                          -1,
                                          -1, 
                                          id)
@@ -875,6 +896,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                                          val_ssim3D_meter.avg, 
                                          val_psnr_loss_meter.avg, 
                                          val_psnr_meter.avg, 
+                                         val_perp_meter.avg, 
                                          -1,
                                          -1, 
                                          id)
@@ -902,6 +924,9 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
 
         val_psnr = torch.tensor(val_psnr_meter.avg).to(device=device)
         dist.all_reduce(val_psnr, op=torch.distributed.ReduceOp.AVG)
+        
+        val_perp = torch.tensor(val_perp_meter.avg).to(device=device)
+        dist.all_reduce(val_perp, op=torch.distributed.ReduceOp.AVG)
     else:
         val_loss = val_loss_meter.avg
         val_mse = val_mse_meter.avg
@@ -910,6 +935,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
         val_ssim3D = val_ssim3D_meter.avg
         val_psnr_loss = val_psnr_loss_meter.avg
         val_psnr = val_psnr_meter.avg
+        val_perp = val_perp_meter.avg
 
     if rank<=0:
         
@@ -923,13 +949,14 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                                 val_ssim3D, 
                                 val_psnr_loss,
                                 val_psnr, 
+                                val_perp, 
                                 -1,
                                 -1, 
                                 id)
         
         logging.info(log_str)
     
-    return val_loss, val_mse, val_l1, val_ssim, val_ssim3D, val_psnr
+    return val_loss, val_mse, val_l1, val_ssim, val_ssim3D, val_psnr, val_perp
 
 # -------------------------------------------------------------------------------------------------
 def _apply_model(model, x, g, scaling_factor, config, device):
