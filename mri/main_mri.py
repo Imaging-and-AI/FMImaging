@@ -66,7 +66,7 @@ def arg_parser():
     parser.add_argument("--pad_time", action="store_true", help='whehter to pad along time when doing inference; if False, the entire series is inputted')
     
     # loss for mri
-    parser.add_argument("--losses", nargs='+', type=str, default=["mse", "l1"], help='Any combination of "mse", "l1", "sobel", "ssim", "ssim3D", "psnr"')
+    parser.add_argument("--losses", nargs='+', type=str, default=["mse", "l1"], help='Any combination of "mse", "l1", "sobel", "ssim", "ssim3D", "psnr", "msssim", "perpendicular" ')
     parser.add_argument('--loss_weights', nargs='+', type=float, default=[1.0, 1.0], help='to balance multiple losses, weights can be supplied')
     parser.add_argument("--complex_i", action="store_true", help='whether we are dealing with complex images or not')
     parser.add_argument("--residual", action="store_true", help='add long term residual connection')

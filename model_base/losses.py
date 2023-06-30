@@ -743,7 +743,7 @@ def tests():
     x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, PHS, 1, RO, E1)).to(device=device)
     y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, PHS, 1, RO, E1)).to(device=device)
    
-    msssim_loss = MSSSIM_Loss(data_range=128, device=device, complex_i=False)
+    msssim_loss = MSSSIM_Loss(window_size=3, data_range=128, device=device, complex_i=False)
     
     for k in range(N):
         v = msssim_loss(torch.unsqueeze(x[k], dim=0), torch.unsqueeze(y[k], dim=0), weights=torch.ones(1, device=device))
