@@ -61,14 +61,6 @@ ln -s /export/Lab-Xue/projects/fm/train_3D_3T_perf_2019.h5 /export/Lab-Xue/proje
 ln -s /export/Lab-Xue/projects/fm/train_3D_3T_perf_2020.h5 /export/Lab-Xue/projects/mri/data/train_3D_3T_perf_2020.h5
 ln -s /export/Lab-Xue/projects/fm/train_3D_3T_perf_2021.h5 /export/Lab-Xue/projects/mri/data/train_3D_3T_perf_2021.h5
 
-azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/BWH_Perfusion_3T_2023.h5?${SAS}" /export/Lab-Xue/projects/fm
-azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/BWH_Perfusion_3T_2022.h5?${SAS}" /export/Lab-Xue/projects/fm
-azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/BWH_Perfusion_3T_2021.h5?${SAS}" /export/Lab-Xue/projects/fm
-
-ln -s /export/Lab-Xue/projects/fm/BWH_Perfusion_3T_2023.h5 /export/Lab-Xue/projects/mri/data/BWH_Perfusion_3T_2023.h5
-ln -s /export/Lab-Xue/projects/fm/BWH_Perfusion_3T_2022.h5 /export/Lab-Xue/projects/mri/data/BWH_Perfusion_3T_2022.h5
-ln -s /export/Lab-Xue/projects/fm/BWH_Perfusion_3T_2021.h5 /export/Lab-Xue/projects/mri/data/BWH_Perfusion_3T_2021.h5
-
 azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/BWH_RetroCine_3T_2021.h5?${SAS}" /export/Lab-Xue/projects/imagenet
 azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/BWH_RetroCine_3T_2022.h5?${SAS}" /export/Lab-Xue/projects/imagenet
 azcopy copy "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/BWH_RetroCine_3T_2023.h5?${SAS}" /export/Lab-Xue/projects/imagenet
