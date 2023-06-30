@@ -406,7 +406,7 @@ class Perpendicular_Loss:
 
         B, T, C, H, W = targets.shape
 
-        loss = perpendicular_loss_complex(outputs, targets)
+        loss = perpendicular_loss_complex(outputs[:,:,0,:,:]+1j*outputs[:,:,1,:,:], targets[:,:,0,:,:]+1j*targets[:,:,1,:,:])
 
         if(weights is not None):
 
