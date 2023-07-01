@@ -212,9 +212,16 @@ def trainer(rank, global_rank, config, wandb_run):
 
     # -----------------------------------------------
 
+    input_data  = torch.stack([train_set[0][i][0] for i in range(128)])
+   
+    # -----------------------------------------------
+
     if c.ddp:
         device = torch.device(f"cuda:{rank}")
         model = model.to(device)
+        t0 = time.time()
+        LSUVinit(model, input_data.to(device=device), verbose=False)
+        print(f"LSUVinit took {time.time()-t0 : .2f} seconds ...")
         model = DDP(model, device_ids=[rank], find_unused_parameters=True)
         optim = model.module.optim
         sched = model.module.sched
@@ -228,6 +235,9 @@ def trainer(rank, global_rank, config, wandb_run):
         # No init required if not ddp
         device = c.device
         model = model.to(device)
+        t0 = time.time()
+        LSUVinit(model, input_data.to(device=device), verbose=False)
+        print(f"LSUVinit took {time.time()-t0 : .2f} seconds ...")
         optim = model.optim
         sched = model.sched
         stype = model.stype
