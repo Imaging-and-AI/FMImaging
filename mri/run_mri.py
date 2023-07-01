@@ -84,7 +84,7 @@ class mri_ddp_base(run_ddp_base):
         #"--weighted_loss",
         #"--max_load", "10000",
 
-        "--with_data_degrading",
+        #"--with_data_degrading",
         
         #"--save_samples",
 
@@ -136,9 +136,9 @@ class mri_ddp_base(run_ddp_base):
         vars['snr_perturb_prob'] = [0.0]
 
         vars['block_strs'] = [
-                        [                            
-                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                        [                                                        
                             ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
+                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
                             ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],                            
                             ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                             ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"]
@@ -167,6 +167,8 @@ class mri_ddp_base(run_ddp_base):
         vars['weighted_loss'] = [True, False]
 
         vars['n_heads'] = [32]
+        
+        vars['with_data_degrading'] = [True, False]
         
         return vars
 
@@ -197,6 +199,7 @@ class mri_ddp_base(run_ddp_base):
                     bs, \
                     weighted_loss, \
                     loss_and_weights, \
+                    with_data_degrading \
                         in itertools.product( 
                                             vars['optim'],
                                             vars['mixer_types'], 
@@ -217,7 +220,8 @@ class mri_ddp_base(run_ddp_base):
                                             vars['complex_i'],
                                             block_str,
                                             vars['weighted_loss'],
-                                            vars['losses']
+                                            vars['losses'],
+                                            vars['with_data_degrading']
                                             ):
                                                                                         
                         # -------------------------------------------------------------
@@ -245,7 +249,8 @@ class mri_ddp_base(run_ddp_base):
                                         snr_perturb_prob=snr_perturb_prob,
                                         n_heads=n_heads,
                                         losses=loss_and_weights[0],
-                                        loss_weights=loss_and_weights[1]
+                                        loss_weights=loss_and_weights[1],
+                                        with_data_degrading=with_data_degrading
                                         )
                         
                         if cmd_run:
@@ -278,7 +283,8 @@ class mri_ddp_base(run_ddp_base):
                         snr_perturb_prob=0,
                         n_heads=32,
                         losses=['mse', 'l1'],
-                        loss_weights=['1.0', '1.0']
+                        loss_weights=['1.0', '1.0'],
+                        with_data_degrading=False
                         ):
 
         if c < n_heads:
@@ -309,6 +315,10 @@ class mri_ddp_base(run_ddp_base):
             cmd_run.extend(["--weighted_loss"])
             run_str += "_weighted_loss"
 
+        if with_data_degrading:
+            cmd_run.extend(["--with_data_degrading"])
+            run_str += "_with_data_degrading"
+            
         run_str += f"-{'_'.join(bs)}"
 
         cmd_run.extend(["--losses"])
