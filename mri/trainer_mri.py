@@ -224,7 +224,7 @@ def trainer(rank, global_rank, config, wandb_run):
         device = torch.device(f"cuda:{rank}")
         model = model.to(device)
         t0 = time()
-        LSUVinit(model, input_data.to(device=device), verbose=True, cuda=True)
+        LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
         print(f"LSUVinit took {time()-t0 : .2f} seconds ...")
         model = DDP(model, device_ids=[rank], find_unused_parameters=True)
         optim = model.module.optim
@@ -240,7 +240,7 @@ def trainer(rank, global_rank, config, wandb_run):
         device = c.device
         model = model.to(device)
         t0 = time()
-        LSUVinit(model, input_data.to(device=device), verbose=True, cuda=True)
+        LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
         print(f"LSUVinit took {time()-t0 : .2f} seconds ...")
         optim = model.optim
         sched = model.sched
@@ -861,7 +861,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
 
                 if rank<=0 and images_logged < config.num_uploaded and wandb_run is not None:
                     images_logged += 1
-                    title = f"{id.upper()}_{images_saved}_{x.shape}"
+                    title = f"{id.upper()}_{images_logged}_{x.shape}"
                     vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
                     wandb_run.log({title: wandb.Video(vid, 
                                                       caption=f"epoch {epoch}, gmap {torch.mean(gmaps_median).item():.2f}, noise {torch.mean(noise_sigmas).item():.2f}, mse {mse_loss:.2f}, ssim {ssim_loss:.2f}, psnr {psnr:.2f}", 

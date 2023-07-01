@@ -51,7 +51,7 @@ class mri_ddp_base(run_ddp_base):
         #"--scheduler_type", "OneCycleLR",
         
         "--scheduler.ReduceLROnPlateau.patience", "0",
-        "--scheduler.ReduceLROnPlateau.cooldown", "0",
+        "--scheduler.ReduceLROnPlateau.cooldown", "1",
         "--scheduler.ReduceLROnPlateau.factor", "0.95",
         
         "--scheduler.OneCycleLR.pct_start", "0.2",
@@ -168,7 +168,7 @@ class mri_ddp_base(run_ddp_base):
 
         vars['n_heads'] = [32]
         
-        vars['with_data_degrading'] = [True, False]
+        vars['with_data_degrading'] = [False, True]
         
         return vars
 
