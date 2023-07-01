@@ -720,7 +720,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
         - val_psnr_avg (float): the average val psnr
         - val_perp_avg (float): the average val perp loss
     """
-    c = config # shortening due to numerous uses
+    c = config
 
     shuffle = False
 
@@ -890,9 +890,9 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                                          val_ssim_meter.avg, 
                                          val_ssim3D_meter.avg, 
                                          val_psnr_loss_meter.avg, 
-                                         val_psnr_meter.avg, 
-                                         val_perp_meter.avg,
+                                         val_psnr_meter.avg,                                          
                                          -1,
+                                         val_perp_meter.avg,
                                          -1, 
                                          id)
                 
@@ -909,9 +909,9 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                                          val_ssim_meter.avg, 
                                          val_ssim3D_meter.avg, 
                                          val_psnr_loss_meter.avg, 
-                                         val_psnr_meter.avg, 
-                                         val_perp_meter.avg, 
+                                         val_psnr_meter.avg,                                           
                                          -1,
+                                         val_perp_meter.avg,
                                          -1, 
                                          id)
                 
@@ -962,9 +962,9 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                                 val_ssim, 
                                 val_ssim3D, 
                                 val_psnr_loss,
-                                val_psnr, 
-                                val_perp, 
+                                val_psnr,                                 
                                 -1,
+                                val_perp, 
                                 -1, 
                                 id)
         
