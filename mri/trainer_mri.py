@@ -206,22 +206,26 @@ def trainer(rank, global_rank, config, wandb_run):
         logging.info(f"Model Summary:\n{str(model_summary)}")
 
         if wandb_run is not None:
-            logging.info(f"Wandb name:\n{wandb_run.name}")
+            logging.info(f"Wandb name: {wandb_run.name}")
             wandb_run.watch(model, log="parameters")
             wandb_run.log_code(".")
 
     # -----------------------------------------------
 
-    input_data  = torch.stack([train_set[0][i][0] for i in range(128)])
+    t0 = time()
+    num_samples = len(train_set[-1])
+    sampled_picked = np.random.randint(0, num_samples, size=32)
+    input_data  = torch.stack([train_set[-1][i][0] for i in sampled_picked])
+    print(f"LSUV prep data took {time()-t0 : .2f} seconds ...")
    
     # -----------------------------------------------
 
     if c.ddp:
         device = torch.device(f"cuda:{rank}")
         model = model.to(device)
-        t0 = time.time()
-        LSUVinit(model, input_data.to(device=device), verbose=False)
-        print(f"LSUVinit took {time.time()-t0 : .2f} seconds ...")
+        t0 = time()
+        LSUVinit(model, input_data.to(device=device), verbose=True, cuda=True)
+        print(f"LSUVinit took {time()-t0 : .2f} seconds ...")
         model = DDP(model, device_ids=[rank], find_unused_parameters=True)
         optim = model.module.optim
         sched = model.module.sched
@@ -235,9 +239,9 @@ def trainer(rank, global_rank, config, wandb_run):
         # No init required if not ddp
         device = c.device
         model = model.to(device)
-        t0 = time.time()
-        LSUVinit(model, input_data.to(device=device), verbose=False)
-        print(f"LSUVinit took {time.time()-t0 : .2f} seconds ...")
+        t0 = time()
+        LSUVinit(model, input_data.to(device=device), verbose=True, cuda=True)
+        print(f"LSUVinit took {time()-t0 : .2f} seconds ...")
         optim = model.optim
         sched = model.sched
         stype = model.stype

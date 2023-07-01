@@ -128,7 +128,7 @@ def LSUVinit(model, data, needed_std = 1.0, std_tol = 0.1, max_attempts = 10, do
     gg['done_counter']= 0
     gg['hook_position'] = 0
     gg['hook']  = None
-    model.eval();
+    model.eval()
     if cuda:
         model = model.cuda()
         data = data.cuda()
@@ -145,7 +145,7 @@ def LSUVinit(model, data, needed_std = 1.0, std_tol = 0.1, max_attempts = 10, do
         if cuda:
             model = model.cuda()
         for layer_idx in range(gg['total_fc_conv_layers']):
-            if verbose: print (layer_idx)
+            if verbose: print (f"process layer {layer_idx} out of {gg['total_fc_conv_layers']}")
             model.apply(add_current_hook)
             out = model(data)
             current_std = gg['act_dict'].std()
@@ -154,8 +154,8 @@ def LSUVinit(model, data, needed_std = 1.0, std_tol = 0.1, max_attempts = 10, do
             #print  gg['act_dict'].shape
             attempts = 0
             while (np.abs(current_std - needed_std) > std_tol):
-                gg['current_coef'] =  needed_std / (current_std  + 1e-8);
-                gg['current_bias'] =  needed_mean - current_mean * gg['current_coef'];
+                gg['current_coef'] =  needed_std / (current_std  + 1e-8)
+                gg['current_bias'] =  needed_mean - current_mean * gg['current_coef']
                 gg['correction_needed'] = True
                 model.apply(apply_weights_correction)
                 if cuda:
