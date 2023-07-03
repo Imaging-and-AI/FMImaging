@@ -179,8 +179,8 @@ def main():
     # write_path_20_3d_repeated = f"{base_file_path}/train_3D_3T_retro_cine_2020_20_sample_sig_2_30_repeated_test.h5"    
     # create_3d_repeated(write_path=write_path_20_3d_repeated)
     
-    write_path = f"{base_file_path}/retro_cine_3T_sigma_1_10_repeated_test.h5"
-    create_3d_repeated(write_path=write_path, N=20, sigmas=[1,11,1])
+    write_path = f"{base_file_path}/retro_cine_3T_sigma_1_20_repeated_test.h5"
+    create_3d_repeated(write_path=write_path, N=40, sigmas=[1,21,1])
     
     print(f"{write_path} - All done")
 

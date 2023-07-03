@@ -300,6 +300,7 @@ class MRIDenoisingDatasetTrain():
                                                                 pf_filter_ratio=self.pf_filter_ratio,
                                                                 phase_resolution_ratio=[ratio_E1],
                                                                 readout_resolution_ratio=[ratio_RO],
+                                                                rng=self.rng,
                                                                 verbose=False)
             # apply gmap
             nn *= gmap

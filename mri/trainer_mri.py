@@ -206,15 +206,26 @@ def trainer(rank, global_rank, config, wandb_run):
         logging.info(f"Model Summary:\n{str(model_summary)}")
 
         if wandb_run is not None:
-            logging.info(f"Wandb name:\n{wandb_run.name}")
+            logging.info(f"Wandb name: {wandb_run.name}")
             wandb_run.watch(model, log="parameters")
             wandb_run.log_code(".")
 
     # -----------------------------------------------
 
+    t0 = time()
+    num_samples = len(train_set[-1])
+    sampled_picked = np.random.randint(0, num_samples, size=32)
+    input_data  = torch.stack([train_set[-1][i][0] for i in sampled_picked])
+    print(f"LSUV prep data took {time()-t0 : .2f} seconds ...")
+   
+    # -----------------------------------------------
+
     if c.ddp:
         device = torch.device(f"cuda:{rank}")
         model = model.to(device)
+        t0 = time()
+        LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
+        print(f"LSUVinit took {time()-t0 : .2f} seconds ...")
         model = DDP(model, device_ids=[rank], find_unused_parameters=True)
         optim = model.module.optim
         sched = model.module.sched
@@ -228,6 +239,9 @@ def trainer(rank, global_rank, config, wandb_run):
         # No init required if not ddp
         device = c.device
         model = model.to(device)
+        t0 = time()
+        LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
+        print(f"LSUVinit took {time()-t0 : .2f} seconds ...")
         optim = model.optim
         sched = model.sched
         stype = model.stype
@@ -249,6 +263,8 @@ def trainer(rank, global_rank, config, wandb_run):
     train_loader = [DataLoader(dataset=train_set_x, batch_size=c.batch_size, shuffle=shuffle, sampler=samplers[i],
                                 num_workers=c.num_workers//len(train_set), prefetch_factor=c.prefetch_factor, drop_last=True,
                                 persistent_workers=c.num_workers>0) for i, train_set_x in enumerate(train_set)]
+    
+    train_set_type = [train_set_x.data_type for train_set_x in train_set]
 
     # -----------------------------------------------
     
@@ -394,7 +410,9 @@ def trainer(rank, global_rank, config, wandb_run):
                     del train_loader_iter[loader_ind]
                     loader_ind = idx % len(train_loader_iter)
                     stuff = next(train_loader_iter[loader_ind], None)
-                x, y, y_degraded, gmaps_median, noise_sigmas = stuff
+                    
+                data_type = train_set_type[loader_ind]
+                x, y, y_degraded, gmaps_median, noise_sigmas = stuff                                
                 end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
 
 
@@ -404,8 +422,17 @@ def trainer(rank, global_rank, config, wandb_run):
                 noise_sigmas = noise_sigmas.to(device)
                 gmaps_median = gmaps_median.to(device)
 
-                B = x.shape[0]
+                B, T, C, H, W = x.shape
+
+                # compute temporal std
+                if C == 3:
+                    std_t = torch.std(torch.abs(y[:,:,0,:,:] + 1j * y[:,:,1,:,:]), dim=1)
+                else:
+                    std_t = torch.std(y(y[:,:,0,:,:], dim=1))
+                    
+                weights_t = torch.mean(std_t, dim=(-2, -1))
                 
+                # compute snr
                 signal = torch.mean(torch.linalg.norm(y, dim=2, keepdim=True), dim=(1, 2, 3, 4))
                 #snr = signal / (noise_sigmas*gmaps_median)
                 snr = signal / gmaps_median
@@ -425,6 +452,8 @@ def trainer(rank, global_rank, config, wandb_run):
 
                 with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
                     output, weights = model(x, snr, base_snr_t)
+
+                    weights *= weights_t
 
                     if c.weighted_loss:
                         loss = loss_f(output*noise_sigmas, y*noise_sigmas, weights=weights.to(device))
@@ -706,7 +735,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
         - val_psnr_avg (float): the average val psnr
         - val_perp_avg (float): the average val perp loss
     """
-    c = config # shortening due to numerous uses
+    c = config
 
     shuffle = False
 
@@ -847,7 +876,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
 
                 if rank<=0 and images_logged < config.num_uploaded and wandb_run is not None:
                     images_logged += 1
-                    title = f"{id.upper()}_{images_saved}_{x.shape}"
+                    title = f"{id.upper()}_{images_logged}_{x.shape}"
                     vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
                     wandb_run.log({title: wandb.Video(vid, 
                                                       caption=f"epoch {epoch}, gmap {torch.mean(gmaps_median).item():.2f}, noise {torch.mean(noise_sigmas).item():.2f}, mse {mse_loss:.2f}, ssim {ssim_loss:.2f}, psnr {psnr:.2f}", 
@@ -876,9 +905,9 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                                          val_ssim_meter.avg, 
                                          val_ssim3D_meter.avg, 
                                          val_psnr_loss_meter.avg, 
-                                         val_psnr_meter.avg, 
-                                         val_perp_meter.avg,
+                                         val_psnr_meter.avg,                                          
                                          -1,
+                                         val_perp_meter.avg,
                                          -1, 
                                          id)
                 
@@ -895,9 +924,9 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                                          val_ssim_meter.avg, 
                                          val_ssim3D_meter.avg, 
                                          val_psnr_loss_meter.avg, 
-                                         val_psnr_meter.avg, 
-                                         val_perp_meter.avg, 
+                                         val_psnr_meter.avg,                                           
                                          -1,
+                                         val_perp_meter.avg,
                                          -1, 
                                          id)
                 
@@ -948,9 +977,9 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                                 val_ssim, 
                                 val_ssim3D, 
                                 val_psnr_loss,
-                                val_psnr, 
-                                val_perp, 
+                                val_psnr,                                 
                                 -1,
+                                val_perp, 
                                 -1, 
                                 id)
         
@@ -959,7 +988,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
     return val_loss, val_mse, val_l1, val_ssim, val_ssim3D, val_psnr, val_perp
 
 # -------------------------------------------------------------------------------------------------
-def _apply_model(model, x, g, scaling_factor, config, device):
+def _apply_model(model, x, g, scaling_factor, config, device, overlap=None):
     """Apply the inference
     
     Input
@@ -982,11 +1011,11 @@ def _apply_model(model, x, g, scaling_factor, config, device):
     
     if not c.pad_time:
         cutout = (T, c.height[-1], c.width[-1])
-        overlap = (0, c.height[-1]//2, c.width[-1]//2)
+        if overlap is None: overlap = (0, c.height[-1]//2, c.width[-1]//2)
     else:
         cutout = (c.time, c.height[-1], c.width[-1])
-        overlap = (c.time//2, c.height[-1]//4, c.width[-1]//4)
-
+        if overlap is None: overlap = (c.time//2, c.height[-1]//2, c.width[-1]//2)
+   
     try:
         _, output = running_inference(model, input, cutout=cutout, overlap=overlap, batch_size=4, device=device)
     except Exception as e:
@@ -1003,12 +1032,13 @@ def _apply_model(model, x, g, scaling_factor, config, device):
 
 # -------------------------------------------------------------------------------------------------
 
-def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('cpu')):
+def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('cpu'), overlap=None):
     '''
     Input 
         data : [H, W, T, SLC], remove any extra scaling
         gmap : [H, W, SLC], no scaling added
         scaling_factor : scaling factor to adjust denoising strength, smaller value is for higher strength (0.5 is more smoothing than 1.0)
+        overlap (T, H, W): number of overlap between patches, can be (0, 0, 0)
     Output
         res: [H, W, T, SLC]
     '''
@@ -1036,6 +1066,7 @@ def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('
     print(f"---> apply_model, height and width {config.height, config.width}")
     print(f"---> apply_model, complex_i {config.complex_i}")
     print(f"---> apply_model, scaling_factor {scaling_factor}")
+    print(f"---> apply_model, overlap {overlap}")
     
     c = config
     
@@ -1050,7 +1081,7 @@ def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('
             g = np.repeat(gmapslab[np.newaxis, np.newaxis, np.newaxis, :, :], T, axis=1)
             
             print(f"---> running_inference, input {x.shape} for slice {k}")
-            output = _apply_model(model, x, g, scaling_factor, config, device)
+            output = _apply_model(model, x, g, scaling_factor, config, device, overlap)
             
             output = np.transpose(output, (3, 4, 2, 1, 0))
             
@@ -1076,7 +1107,7 @@ def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('
 
 # -------------------------------------------------------------------------------------------------
 
-def apply_model_3D(data, model, gmap, config, scaling_factor, device='cpu'):
+def apply_model_3D(data, model, gmap, config, scaling_factor, device='cpu', overlap=None):
     '''
     Input 
         data : [H W SLC], remove any extra scaling
@@ -1108,7 +1139,7 @@ def apply_model_3D(data, model, gmap, config, scaling_factor, device='cpu'):
         g = np.transpose(gmap, [2, 0, 1]).reshape([1, SLC, 1, H, W])
         
         print(f"---> running_inference, input {x.shape} for volume")
-        output = _apply_model(model, x, g, scaling_factor, config, device)
+        output = _apply_model(model, x, g, scaling_factor, config, device, overlap)
             
         output = np.transpose(output, (3, 4, 2, 1, 0)) # [H, W, Cout, SLC, 1]
                 
@@ -1130,7 +1161,7 @@ def apply_model_3D(data, model, gmap, config, scaling_factor, device='cpu'):
 
 # -------------------------------------------------------------------------------------------------
 
-def apply_model_2D(data, model, gmap, config, scaling_factor, device='cpu'):
+def apply_model_2D(data, model, gmap, config, scaling_factor, device='cpu', overlap=None):
     '''
     Input 
         data : [H W SLC], remove any extra scaling
@@ -1167,7 +1198,7 @@ def apply_model_2D(data, model, gmap, config, scaling_factor, device='cpu'):
         
         print(f"---> running_inference, input {x.shape} for 2D")
         for slc in range(SLC):
-            output[slc] = _apply_model(model, x[slc], g[slc], scaling_factor, config, device)
+            output[slc] = _apply_model(model, x[slc], g[slc], scaling_factor, config, device, overlap)
             
         output = np.transpose(output, (3, 4, 2, 1, 0)) # [H, W, Cout, 1, SLC]
                 
