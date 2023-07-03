@@ -973,7 +973,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
     return val_loss, val_mse, val_l1, val_ssim, val_ssim3D, val_psnr, val_perp
 
 # -------------------------------------------------------------------------------------------------
-def _apply_model(model, x, g, scaling_factor, config, device):
+def _apply_model(model, x, g, scaling_factor, config, device, overlap=None):
     """Apply the inference
     
     Input
@@ -996,11 +996,11 @@ def _apply_model(model, x, g, scaling_factor, config, device):
     
     if not c.pad_time:
         cutout = (T, c.height[-1], c.width[-1])
-        overlap = (0, c.height[-1]//2, c.width[-1]//2)
+        if overlap is None: overlap = (0, c.height[-1]//2, c.width[-1]//2)
     else:
         cutout = (c.time, c.height[-1], c.width[-1])
-        overlap = (c.time//2, c.height[-1]//4, c.width[-1]//4)
-
+        if overlap is None: overlap = (c.time//2, c.height[-1]//2, c.width[-1]//2)
+   
     try:
         _, output = running_inference(model, input, cutout=cutout, overlap=overlap, batch_size=4, device=device)
     except Exception as e:
@@ -1017,12 +1017,13 @@ def _apply_model(model, x, g, scaling_factor, config, device):
 
 # -------------------------------------------------------------------------------------------------
 
-def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('cpu')):
+def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('cpu'), overlap=None):
     '''
     Input 
         data : [H, W, T, SLC], remove any extra scaling
         gmap : [H, W, SLC], no scaling added
         scaling_factor : scaling factor to adjust denoising strength, smaller value is for higher strength (0.5 is more smoothing than 1.0)
+        overlap (T, H, W): number of overlap between patches, can be (0, 0, 0)
     Output
         res: [H, W, T, SLC]
     '''
@@ -1050,6 +1051,7 @@ def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('
     print(f"---> apply_model, height and width {config.height, config.width}")
     print(f"---> apply_model, complex_i {config.complex_i}")
     print(f"---> apply_model, scaling_factor {scaling_factor}")
+    print(f"---> apply_model, overlap {overlap}")
     
     c = config
     
@@ -1064,7 +1066,7 @@ def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('
             g = np.repeat(gmapslab[np.newaxis, np.newaxis, np.newaxis, :, :], T, axis=1)
             
             print(f"---> running_inference, input {x.shape} for slice {k}")
-            output = _apply_model(model, x, g, scaling_factor, config, device)
+            output = _apply_model(model, x, g, scaling_factor, config, device, overlap)
             
             output = np.transpose(output, (3, 4, 2, 1, 0))
             
@@ -1090,7 +1092,7 @@ def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('
 
 # -------------------------------------------------------------------------------------------------
 
-def apply_model_3D(data, model, gmap, config, scaling_factor, device='cpu'):
+def apply_model_3D(data, model, gmap, config, scaling_factor, device='cpu', overlap=None):
     '''
     Input 
         data : [H W SLC], remove any extra scaling
@@ -1122,7 +1124,7 @@ def apply_model_3D(data, model, gmap, config, scaling_factor, device='cpu'):
         g = np.transpose(gmap, [2, 0, 1]).reshape([1, SLC, 1, H, W])
         
         print(f"---> running_inference, input {x.shape} for volume")
-        output = _apply_model(model, x, g, scaling_factor, config, device)
+        output = _apply_model(model, x, g, scaling_factor, config, device, overlap)
             
         output = np.transpose(output, (3, 4, 2, 1, 0)) # [H, W, Cout, SLC, 1]
                 
@@ -1144,7 +1146,7 @@ def apply_model_3D(data, model, gmap, config, scaling_factor, device='cpu'):
 
 # -------------------------------------------------------------------------------------------------
 
-def apply_model_2D(data, model, gmap, config, scaling_factor, device='cpu'):
+def apply_model_2D(data, model, gmap, config, scaling_factor, device='cpu', overlap=None):
     '''
     Input 
         data : [H W SLC], remove any extra scaling
@@ -1181,7 +1183,7 @@ def apply_model_2D(data, model, gmap, config, scaling_factor, device='cpu'):
         
         print(f"---> running_inference, input {x.shape} for 2D")
         for slc in range(SLC):
-            output[slc] = _apply_model(model, x[slc], g[slc], scaling_factor, config, device)
+            output[slc] = _apply_model(model, x[slc], g[slc], scaling_factor, config, device, overlap)
             
         output = np.transpose(output, (3, 4, 2, 1, 0)) # [H, W, Cout, 1, SLC]
                 

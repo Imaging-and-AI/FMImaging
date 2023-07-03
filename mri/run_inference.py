@@ -43,6 +43,7 @@ def arg_parser():
     parser.add_argument("--saved_model_path", type=str, default=None, help='model path. endswith ".pt" or ".pts"')
     parser.add_argument("--pad_time", action="store_true", help="with to pad along time")
     parser.add_argument("--patch_size_inference", type=int, default=-1, help='patch size for inference; if <=0, use the config setup')
+    parser.add_argument("--overlap", nargs='+', type=int, default=None, help='overlap for (T, H, W), e.g. (2, 8, 8), (0, 0, 0) means no overlap')
 
     parser.add_argument("--input_fname", type=str, default="im", help='input file name')
     parser.add_argument("--gmap_fname", type=str, default="gfactor", help='gmap input file name')
@@ -65,42 +66,6 @@ def check_args(args):
     args.saved_model_config  = fname + '.config'
 
     return args
-
-# -------------------------------------------------------------------------------------------------
-# load model
-
-# def load_model(args):
-#     """
-#     load a ".pt" or ".pts" model
-#     @args:
-#         - args (Namespace): runtime namespace for setup
-#     @rets:
-#         - model (torch model): the model ready for inference
-#     """
-    
-#     config = []
-    
-#     config_file = args.saved_model_config
-#     if os.path.isfile(config_file):
-#         print(f"{Fore.YELLOW}Load in config file - {config_file}")
-#         with open(config_file, 'rb') as f:
-#             config = pickle.load(f)
-
-#     if args.saved_model_path.endswith(".pt") or args.saved_model_path.endswith(".pth"):
-#         status = torch.load(args.saved_model_path, map_location=get_device())
-#         config = status['config']
-#         if not torch.cuda.is_available():
-#             config.device = torch.device('cpu')
-#         model = STCNNT_MRI(config=config)
-#         if 'model' in status:
-#             model.load_state_dict(status['model'])
-#         else:
-#             model.load_state_dict(status['model_state'])
-#     elif args.saved_model_path.endswith(".pts"):
-#         model = torch.jit.load(args.saved_model_path, map_location=get_device())
-#     else:
-#         model, _ = load_model_onnx(model_dir="", model_file=args.saved_model_path, use_cpu=True)
-#     return model, config
 
 # -------------------------------------------------------------------------------------------------
 # the main function for setup, eval call and saving results
@@ -154,22 +119,27 @@ def main():
             image = np.transpose(image, (0, 1, 3, 2))
             RO, E1, frames, slices = image.shape
 
-        output = apply_model(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device())
+        if args.overlap:
+            overlap_used = tuple(args.overlap)
+        else:
+            overlap_used = None
+            
+        output = apply_model(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device(), overlap=overlap_used)
 
-        input = np.flip(image, axis=0)
-        output2 = apply_model(input, model, np.flip(gmap, axis=0), config=config, scaling_factor=args.scaling_factor, device=get_device())
-        output2 = np.flip(output2, axis=0)
+        # input = np.flip(image, axis=0)
+        # output2 = apply_model(input, model, np.flip(gmap, axis=0), config=config, scaling_factor=args.scaling_factor, device=get_device())
+        # output2 = np.flip(output2, axis=0)
 
-        input = np.flip(image, axis=1)
-        output3 = apply_model(input, model, np.flip(gmap, axis=1), config=config, scaling_factor=args.scaling_factor, device=get_device())
-        output3 = np.flip(output3, axis=1)
+        # input = np.flip(image, axis=1)
+        # output3 = apply_model(input, model, np.flip(gmap, axis=1), config=config, scaling_factor=args.scaling_factor, device=get_device())
+        # output3 = np.flip(output3, axis=1)
 
-        input = np.transpose(image, axes=(1, 0, 2, 3))
-        output4 = apply_model(input, model, np.transpose(gmap, axes=(1, 0, 2)), config=config, scaling_factor=args.scaling_factor, device=get_device())
-        output4 = np.transpose(output4, axes=(1, 0, 2, 3))
+        # input = np.transpose(image, axes=(1, 0, 2, 3))
+        # output4 = apply_model(input, model, np.transpose(gmap, axes=(1, 0, 2)), config=config, scaling_factor=args.scaling_factor, device=get_device())
+        # output4 = np.transpose(output4, axes=(1, 0, 2, 3))
 
-        res = output + output2 + output3 + output4
-        output = res / 4
+        # res = output + output2 + output3 + output4
+        # output = res / 4
     
     # -------------------------------------------    
 
