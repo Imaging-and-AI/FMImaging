@@ -263,6 +263,8 @@ def trainer(rank, global_rank, config, wandb_run):
     train_loader = [DataLoader(dataset=train_set_x, batch_size=c.batch_size, shuffle=shuffle, sampler=samplers[i],
                                 num_workers=c.num_workers//len(train_set), prefetch_factor=c.prefetch_factor, drop_last=True,
                                 persistent_workers=c.num_workers>0) for i, train_set_x in enumerate(train_set)]
+    
+    train_set_type = [train_set_x.data_type for train_set_x in train_set]
 
     # -----------------------------------------------
     
@@ -408,7 +410,9 @@ def trainer(rank, global_rank, config, wandb_run):
                     del train_loader_iter[loader_ind]
                     loader_ind = idx % len(train_loader_iter)
                     stuff = next(train_loader_iter[loader_ind], None)
-                x, y, y_degraded, gmaps_median, noise_sigmas = stuff
+                    
+                data_type = train_set_type[loader_ind]
+                x, y, y_degraded, gmaps_median, noise_sigmas = stuff                                
                 end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
 
 
@@ -418,8 +422,17 @@ def trainer(rank, global_rank, config, wandb_run):
                 noise_sigmas = noise_sigmas.to(device)
                 gmaps_median = gmaps_median.to(device)
 
-                B = x.shape[0]
+                B, T, C, H, W = x.shape
+
+                # compute temporal std
+                if C == 3:
+                    std_t = torch.std(torch.abs(y[:,:,0,:,:] + 1j * y[:,:,1,:,:]), dim=1)
+                else:
+                    std_t = torch.std(y(y[:,:,0,:,:], dim=1))
+                    
+                weights_t = torch.mean(std_t, dim=(-2, -1))
                 
+                # compute snr
                 signal = torch.mean(torch.linalg.norm(y, dim=2, keepdim=True), dim=(1, 2, 3, 4))
                 #snr = signal / (noise_sigmas*gmaps_median)
                 snr = signal / gmaps_median
@@ -439,6 +452,8 @@ def trainer(rank, global_rank, config, wandb_run):
 
                 with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
                     output, weights = model(x, snr, base_snr_t)
+
+                    weights *= weights_t
 
                     if c.weighted_loss:
                         loss = loss_f(output*noise_sigmas, y*noise_sigmas, weights=weights.to(device))

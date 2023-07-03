@@ -10,6 +10,11 @@ model=$BASE_DIR/mri/test/complex_model/mri-HRNET-20230621_132139_784364_complex_
 
 model=$BASE_DIR/mri/models/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt
 
+export BASE_DIR=/export/Lab-Xue/projects/
+
+model=$BASE_DIR/mri/models/
+
+
 for n in fsi{1..16}
 do
     echo "copy to $n ..."
