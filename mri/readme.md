@@ -290,7 +290,11 @@ model=/export/Lab-Xue/projects/mri/test/fine_tune/try2/mri-HRNET-20230621_132139
 
 model=/export/Lab-Xue/projects/mri/test/fine_tune/fine_tuning_test_4/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_best.pt
 
+
+# good model, with temporal std weighting
 model=/export/Lab-Xue/projects/mri/test/after_flash_attention/mri-HRNET-20230702_013521_019623_complex_residual_weighted_loss-T1L1G1_T1L1G1_T1L1G1_T1L1G1_01-35-34-20230702_best.pt
+
+model=/export/Lab-Xue/projects/mri/test/after_flash_attention/mri-HRNET-20230702_220843_660856_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_22-08-53-20230702_best.pt
 
 # R4
 python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_528_20230616-173804 --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_528_20230616-173804/res --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model
