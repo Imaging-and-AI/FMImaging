@@ -27,6 +27,12 @@ ln -s /export/Lab-Xue/projects/imagenet/BWH_RetroCine_3T_2022.h5 /export/Lab-Xue
 ln -s /export/Lab-Xue/projects/imagenet/BWH_RetroCine_3T_2021.h5 /export/Lab-Xue/projects/mri/data/BWH_RetroCine_3T_2021.h5 
 
 # perfusion
+azcopy copy "${data_src}/BARTS_RetroCine_3T_2023.h5?${SAS}" /export/Lab-Xue/projects/fm
+azcopy copy "${data_src}/BARTS_RetroCine_1p5T_2023.h5?${SAS}" /export/Lab-Xue/projects/fm
+
+ln -s /export/Lab-Xue/projects/fm/BARTS_RetroCine_3T_2023.h5 /export/Lab-Xue/projects/mri/data/BARTS_RetroCine_3T_2023.h5
+ln -s /export/Lab-Xue/projects/fm/BARTS_RetroCine_1p5T_2023.h5 /export/Lab-Xue/projects/mri/data/BARTS_RetroCine_1p5T_2023.h5
+
 azcopy copy "${data_src}/train_3D_3T_perf_2018.h5?${SAS}" /export/Lab-Xue/projects/fm
 azcopy copy "${data_src}/train_3D_3T_perf_2019.h5?${SAS}" /export/Lab-Xue/projects/fm
 azcopy copy "${data_src}/train_3D_3T_perf_2020.h5?${SAS}" /export/Lab-Xue/projects/fm
