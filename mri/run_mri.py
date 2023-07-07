@@ -159,6 +159,7 @@ class mri_ddp_base(run_ddp_base):
 
         vars['losses'] = [                        
             [["perpendicular", "psnr", "l1"], ['1.0', '1.0', '1.0', '1.0', '1.0']],
+            [["perpendicular", "psnr", "l1", "gaussian", "gaussian3D"], ['1.0', '1.0', '1.0', '1.0', '1.0', '1.0', '1.0']],
             [['perpendicular', 'ssim', 'psnr', 'l1'], ['1.0', '1.0', '1.0', '1.0', '1.0']],
             [['psnr','l1', 'mse'], ['1.0', '1.0', '1.0', '1.0', '1.0']],
             [['ssim', 'ssim3D', 'mse', 'l1', 'psnr'], ['0.1', '0.1', '1.0', '1.0', '1.0']], 
@@ -173,7 +174,7 @@ class mri_ddp_base(run_ddp_base):
 
         vars['n_heads'] = [32]
         
-        vars['with_data_degrading'] = [False, True]
+        vars['with_data_degrading'] = [False]
         
         return vars
 
