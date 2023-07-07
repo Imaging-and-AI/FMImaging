@@ -7,3 +7,4 @@ from .setup_training import *
 from .status import *
 from .utilities import *
 from .LSUV import *
+from .gaussian import *

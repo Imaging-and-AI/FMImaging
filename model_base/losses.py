@@ -16,7 +16,9 @@ Allows custom weights for each indvidual loss calculation as well
 
 import os
 import sys
+import numpy as np
 import torch
+import torch.nn.functional as F
 import torchmetrics
 from pathlib import Path
 
@@ -26,6 +28,7 @@ sys.path.insert(1, str(Project_DIR))
 from utils.setup_training import get_device
 from utils.pytorch_ssim import SSIM, SSIM3D
 from utils.msssim import MS_SSIM, ms_ssim
+from utils.gaussian import create_window_2d, create_window_3d
 import piq
 
 # -------------------------------------------------------------------------------------------------
@@ -214,12 +217,13 @@ class MSSSIM_Loss:
         B, T, C, H, W = targets_im.shape
         outputs_im = torch.reshape(outputs_im, (B*T, C, H, W))
         targets_im = torch.reshape(targets_im, (B*T, C, H, W))
-        
+
         # make it B, C, T, H, W, so calling 3D msssim
         #outputs_im = torch.permute(outputs_im, (0, 2, 1, 3, 4))
         #targets_im = torch.permute(targets_im, (0, 2, 1, 3, 4))
 
         v = self.msssim_loss(outputs_im, targets_im)
+        v = v.squeeze()
 
         if weights is not None:
             if weights.ndim==1:
@@ -228,15 +232,15 @@ class MSSSIM_Loss:
                 weights_used = weights.reshape(B*T)
             else:
                 raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for SSIM_Loss")
-            
+
             v_ssim = torch.sum(weights_used*v) / torch.sum(weights_used)
         else:
             v_ssim = torch.mean(v)
-            
+
         v_ssim = torch.clamp(v_ssim, 0.0, 1.0)
 
         return (1.0-v_ssim)
-    
+
 # -------------------------------------------------------------------------------------------------
 # L1/mae loss
 
@@ -428,7 +432,140 @@ class Perpendicular_Loss:
             v = torch.sum(loss)
 
         return v / targets.numel()
+
+# -------------------------------------------------------------------------------------------------
+
+class GaussianDeriv_Loss:
+    """
+    Weighted gaussian derivative loss for 2D
+    For every sigma, the gaussian derivatives are computed for outputs and targets along the magnitude of H and W
+    The l1 loss are computed to measure the agreement of gaussian derivatives
     
+    If sigmas have more than one value, every sigma in sigmas are used to compute a guassian derivative tensor
+    The mean l1 is returned
+    """
+    def __init__(self, sigmas=[0.5, 1.0, 1.25], complex_i=False, device='cpu'):
+        """
+        @args:
+            - sigmas (list): sigma for every scale
+            - complex_i (bool): whether images are 2 channelled for complex data
+            - device (torch.device): device to run the loss on
+        """
+        self.complex_i = complex_i
+        self.sigmas = sigmas
+
+        # compute kernels
+        self.kernels = []
+        for sigma in sigmas:
+            k_2d = create_window_2d(sigma=(sigma, sigma), halfwidth=(3, 3), voxelsize=(1.0, 1.0), order=(1,1))
+            kx, ky = k_2d.shape
+            k_2d = torch.from_numpy(np.reshape(k_2d, (1, 1, kx, ky))).to(torch.float32)
+            self.kernels.append(k_2d.to(device=device))
+
+    def __call__(self, outputs, targets, weights=None):
+
+        B, T, C, H, W = targets.shape
+        if(self.complex_i):
+            assert C==2, f"Complex type requires image to have C=2, given C={C}"
+            outputs_im = torch.sqrt(outputs[:,:,:1]*outputs[:,:,:1] + outputs[:,:,1:]*outputs[:,:,1:])
+            targets_im = torch.sqrt(targets[:,:,:1]*targets[:,:,:1] + targets[:,:,1:]*targets[:,:,1:])
+        else:
+            outputs_im = outputs
+            targets_im = targets
+
+        B, T, C, H, W = targets_im.shape
+        outputs_im = torch.reshape(outputs_im, (B*T, C, H, W))
+        targets_im = torch.reshape(targets_im, (B*T, C, H, W))
+
+        loss = 0
+        for k_2d in self.kernels:
+            grad_outputs_im = F.conv2d(outputs_im, k_2d, bias=None, stride=1, padding='same', groups=C)
+            grad_targets_im = F.conv2d(targets_im, k_2d, bias=None, stride=1, padding='same', groups=C)
+            loss += torch.mean(torch.abs(grad_outputs_im-grad_targets_im), dim=(1, 2, 3), keepdim=True)
+
+        loss /= len(self.kernels)
+
+        if weights is not None:
+
+            if weights.ndim==1:
+                weights_used = weights.expand(T,B).permute(1,0).reshape(B*T)
+            elif weights.ndim==2:
+                weights_used = weights.reshape(B*T)
+            else:
+                raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for GaussianDeriv_Loss")
+
+            v = torch.sum(weights_used*loss) / torch.sum(weights_used)
+        else:
+            v = torch.mean(loss)
+
+        return v
+
+# -------------------------------------------------------------------------------------------------
+
+class GaussianDeriv3D_Loss:
+    """
+    Weighted gaussian derivative loss for 3D
+    For every sigma, the gaussian derivatives are computed for outputs and targets along the magnitude of T, H, W
+    The l1 loss are computed to measure the agreement of gaussian derivatives
+    
+    If sigmas have more than one value, every sigma in sigmas are used to compute a guassian derivative tensor
+    The mean l1 is returned
+    """
+    def __init__(self, sigmas=[0.5, 1.0, 1.25], sigmas_T=[0.5, 1.0, 1.25], complex_i=False, device='cpu'):
+        """
+        @args:
+            - sigmas (list): sigma for every scale along H and W
+            - sigmas_T (list): sigma for every scale along T
+            - complex_i (bool): whether images are 2 channelled for complex data
+            - device (torch.device): device to run the loss on
+        """
+        self.complex_i = complex_i
+        self.sigmas = sigmas
+        self.sigmas_T = sigmas_T
+
+        assert len(self.sigmas_T) == len(self.sigmas)
+
+        # compute kernels
+        self.kernels = []
+        for sigma, sigma_T in zip(sigmas, sigmas_T):
+            k_3d = create_window_3d(sigma=(sigma, sigma, sigma_T), halfwidth=(3, 3, 3), voxelsize=(1.0, 1.0, 1.0), order=(1,1,1))
+            kx, ky, kz = k_3d.shape
+            k_3d = torch.from_numpy(np.reshape(k_3d, (1, 1, kx, ky, kz))).to(torch.float32)
+            k_3d = torch.permute(k_3d, [0, 1, 4, 2, 3])
+            self.kernels.append(k_3d.to(device=device))
+
+    def __call__(self, outputs, targets, weights=None):
+
+        B, T, C, H, W = targets.shape
+        if(self.complex_i):
+            assert C==2, f"Complex type requires image to have C=2, given C={C}"
+            outputs_im = torch.sqrt(outputs[:,:,:1]*outputs[:,:,:1] + outputs[:,:,1:]*outputs[:,:,1:])
+            targets_im = torch.sqrt(targets[:,:,:1]*targets[:,:,:1] + targets[:,:,1:]*targets[:,:,1:])
+        else:
+            outputs_im = outputs
+            targets_im = targets
+
+        B, T, C, H, W = targets_im.shape
+        outputs_im = torch.permute(outputs_im, (0, 2, 1, 3, 4))
+        targets_im = torch.permute(targets_im, (0, 2, 1, 3, 4))
+
+        loss = 0
+        for k_3d in self.kernels:
+            grad_outputs_im = F.conv3d(outputs_im, k_3d, bias=None, stride=1, padding='same', groups=C)
+            grad_targets_im = F.conv3d(targets_im, k_3d, bias=None, stride=1, padding='same', groups=C)
+            loss += torch.mean(torch.abs(grad_outputs_im-grad_targets_im), dim=(1, 2, 3, 4), keepdim=True)
+
+        loss /= len(self.kernels)
+
+        if weights is not None:
+            if not weights.ndim==1:
+                raise NotImplementedError(f"Only support 1D(Batch) weights for GaussianDeriv3D_Loss")
+            v = torch.sum(weights*loss) / torch.sum(weights)
+        else:
+            v = torch.mean(loss)
+
+        return v
+
 # -------------------------------------------------------------------------------------------------
 # Combined loss class
 
@@ -493,7 +630,7 @@ def tests():
     import numpy as np
 
     Project_DIR = Path(__file__).parents[1].resolve()
-    
+
     clean_a = np.load(os.path.join(Project_DIR, 'data/microscopy/clean1.npy'))
     clean_b = np.load(os.path.join(Project_DIR, 'data/microscopy/clean2.npy'))
     noisy_a = np.load(os.path.join(Project_DIR, 'data/microscopy/noisy.npy'))
@@ -701,12 +838,20 @@ def tests():
 
     for k in range(N):
         perp_loss = Perpendicular_Loss()
-        
-        x = torch.permute(torch.from_numpy(noisy[:,:,:,k]), (2, 0, 1)).reshape((1, PHS, 1, RO, E1))
-        y = torch.permute(torch.from_numpy(clean[:,:,:,k]), (2, 0, 1)).reshape((1, PHS, 1, RO, E1))
+
+        x = np.zeros((1, PHS, 2, RO, E1))
+        y = np.zeros((1, PHS, 2, RO, E1))
+
+        x[:,:,0,:,:] = np.transpose(np.real(noisy[:,:,:,k]), (2, 0, 1))
+        x[:,:,1,:,:] = np.transpose(np.imag(noisy[:,:,:,k]), (2, 0, 1))
+        y[:,:,0,:,:] = np.transpose(np.real(clean[:,:,:,k]), (2, 0, 1))
+        y[:,:,1,:,:] = np.transpose(np.imag(clean[:,:,:,k]), (2, 0, 1))
+
+        x = torch.from_numpy(x)
+        y = torch.from_numpy(y)
 
         v = perp_loss(x, y)
-        
+
         print(f"sigma {k+1} - perp - {v}")
        
     # -----------------------------------------------------------------
@@ -742,7 +887,7 @@ def tests():
     y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1))
     v = msssim_loss(x, y)
     print(f"sigma 1 to 10 - mssim - {v}")
-    
+
     print("-----------------------")
 
     # loss code
@@ -754,6 +899,30 @@ def tests():
     for k in range(N):
         v = msssim_loss(torch.unsqueeze(x[k], dim=0), torch.unsqueeze(y[k], dim=0), weights=torch.ones(1, device=device))
         print(f"msssim loss - {v}")
+
+    print("-----------------------")
+
+    # loss code
+    x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, PHS, 1, RO, E1)).to(device=device)
+    y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, PHS, 1, RO, E1)).to(device=device)
+
+    gauss_loss = GaussianDeriv_Loss(sigmas=[0.5, 1.0, 1.25], device=device, complex_i=False)
+
+    for k in range(N):
+        v = gauss_loss(torch.unsqueeze(x[k], dim=0), torch.unsqueeze(y[k], dim=0), weights=torch.ones(1, device=device))
+        print(f"gauss loss - {v}")
+
+    print("-----------------------")
+
+    # loss code
+    x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, PHS, 1, RO, E1)).to(device=device)
+    y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, PHS, 1, RO, E1)).to(device=device)
+
+    gauss_loss = GaussianDeriv3D_Loss(sigmas=[0.5, 1.0, 1.25], sigmas_T=[1.0, 1.0, 1.0], device=device, complex_i=False)
+
+    for k in range(N):
+        v = gauss_loss(torch.unsqueeze(x[k], dim=0), torch.unsqueeze(y[k], dim=0), weights=torch.ones(1, device=device))
+        print(f"gauss 3D loss - {v}")
 
     print("Passed all tests")
 
