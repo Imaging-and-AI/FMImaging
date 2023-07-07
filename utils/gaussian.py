@@ -65,6 +65,8 @@ def create_window_2d(sigma=(1.25, 1.25), halfwidth=(3, 3), voxelsize=(1.0, 1.0),
     k_1 = get_gaussionand_derivatives_1D(sigma[1], halfwidth[1], voxelsize[1])
     window = k_0[order[0]+1][:, np.newaxis] * k_1[order[1]+1][:, np.newaxis].T
 
+    window /= np.sum(np.abs(window))
+
     return window
 
 # -------------------------------------------------------------------------------------------------
@@ -80,6 +82,8 @@ def create_window_3d(sigma=(1.25, 1.25, 1.25), halfwidth=(3, 3, 3), voxelsize=(1
 
     window = window[:, :, np.newaxis] * np.expand_dims(k_2[order[2]+1], axis=(0,1))
 
+    window /= np.sum(np.abs(window))
+    
     return window
 
 # -------------------------------------------------------------------------------------------------
