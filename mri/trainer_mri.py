@@ -192,6 +192,7 @@ def trainer(rank, global_rank, config, wandb_run):
         print(f"after load saved model, config.weighted_loss for running - {config.weighted_loss}")
     else:
         load_path = None
+        load_path = None
         model = STCNNT_MRI(config=config, total_steps=total_steps)
 
     if config.ddp:
@@ -242,6 +243,10 @@ def trainer(rank, global_rank, config, wandb_run):
         # No init required if not ddp
         device = c.device
         model = model.to(device)
+        if load_path is None:
+            t0 = time()
+            LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
+            print(f"LSUVinit took {time()-t0 : .2f} seconds ...")
         if load_path is None:
             t0 = time()
             LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)

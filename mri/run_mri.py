@@ -52,7 +52,7 @@ class mri_ddp_base(run_ddp_base):
         
         "--scheduler.ReduceLROnPlateau.patience", "0",
         "--scheduler.ReduceLROnPlateau.cooldown", "0",
-        "--scheduler.ReduceLROnPlateau.factor", "0.95",
+        "--scheduler.ReduceLROnPlateau.factor", "0.9",
         
         "--scheduler.OneCycleLR.pct_start", "0.2",
         
@@ -94,10 +94,11 @@ class mri_ddp_base(run_ddp_base):
         "--train_files", "train_3D_3T_retro_cine_2018.h5",  
                         "train_3D_3T_retro_cine_2019.h5", 
                         "train_3D_3T_retro_cine_2020.h5", 
+                        "BARTS_RetroCine_3T_2023.h5", 
                         "MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", 
                         "MINNESOTA_UHVC_RetroCine_1p5T_2022.h5",
         
-        "--train_data_types", "2dt", "2dt", "2dt", "2dt", "3d",
+        "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "3d",
 
         "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", 
                         "train_3D_3T_retro_cine_2020_small_2DT_test.h5", 
