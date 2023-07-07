@@ -191,6 +191,7 @@ def trainer(rank, global_rank, config, wandb_run):
         print(f"after load saved model, config.scheduler_type for running - {config.scheduler_type}")
         print(f"after load saved model, config.weighted_loss for running - {config.weighted_loss}")
     else:
+        load_path = None
         model = STCNNT_MRI(config=config, total_steps=total_steps)
 
     if config.ddp:
@@ -212,20 +213,22 @@ def trainer(rank, global_rank, config, wandb_run):
 
     # -----------------------------------------------
 
-    t0 = time()
-    num_samples = len(train_set[-1])
-    sampled_picked = np.random.randint(0, num_samples, size=32)
-    input_data  = torch.stack([train_set[-1][i][0] for i in sampled_picked])
-    print(f"LSUV prep data took {time()-t0 : .2f} seconds ...")
+    if load_path is None:
+        t0 = time()
+        num_samples = len(train_set[-1])
+        sampled_picked = np.random.randint(0, num_samples, size=32)
+        input_data  = torch.stack([train_set[-1][i][0] for i in sampled_picked])
+        print(f"LSUV prep data took {time()-t0 : .2f} seconds ...")
    
     # -----------------------------------------------
 
     if c.ddp:
         device = torch.device(f"cuda:{rank}")
         model = model.to(device)
-        t0 = time()
-        LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
-        print(f"LSUVinit took {time()-t0 : .2f} seconds ...")
+        if load_path is None:
+            t0 = time()
+            LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
+            print(f"LSUVinit took {time()-t0 : .2f} seconds ...")
         model = DDP(model, device_ids=[rank], find_unused_parameters=True)
         optim = model.module.optim
         sched = model.module.sched
@@ -239,9 +242,10 @@ def trainer(rank, global_rank, config, wandb_run):
         # No init required if not ddp
         device = c.device
         model = model.to(device)
-        t0 = time()
-        LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
-        print(f"LSUVinit took {time()-t0 : .2f} seconds ...")
+        if load_path is None:
+            t0 = time()
+            LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
+            print(f"LSUVinit took {time()-t0 : .2f} seconds ...")
         optim = model.optim
         sched = model.sched
         stype = model.stype
@@ -518,7 +522,7 @@ def trainer(rank, global_rank, config, wandb_run):
                 ssim_loss = ssim_loss_func(output_scaled, y_scaled).item()
                 ssim3D_loss = ssim3D_loss_func(output_scaled, y_scaled).item()
                 psnr_loss = psnr_loss_func(output_scaled, y_scaled).item()
-                psnr = psnr_func(output_scaled, y_scaled).item()                
+                psnr = psnr_func(output_scaled, y_scaled).item()
                 if c.complex_i: perp = perp_func(output_scaled, y_scaled).item()
 
                 train_mse_meter.update(mse_loss, n=total)

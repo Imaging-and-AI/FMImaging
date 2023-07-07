@@ -29,7 +29,7 @@ class mri_ddp_base(run_ddp_base):
         
         self.cmd.extend([
        
-        "--num_epochs", "200",
+        "--num_epochs", "150",
         "--batch_size", "16",
 
         "--window_size", "8", "8",
@@ -51,7 +51,7 @@ class mri_ddp_base(run_ddp_base):
         #"--scheduler_type", "OneCycleLR",
         
         "--scheduler.ReduceLROnPlateau.patience", "0",
-        "--scheduler.ReduceLROnPlateau.cooldown", "1",
+        "--scheduler.ReduceLROnPlateau.cooldown", "0",
         "--scheduler.ReduceLROnPlateau.factor", "0.95",
         
         "--scheduler.OneCycleLR.pct_start", "0.2",
@@ -165,7 +165,7 @@ class mri_ddp_base(run_ddp_base):
 
         vars['complex_i'] = [True]
         vars['residual'] = [True ]
-        vars['weighted_loss'] = [True, False]
+        vars['weighted_loss'] = [True]
 
         vars['n_heads'] = [32]
         

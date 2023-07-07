@@ -4,15 +4,18 @@
 
 ```
 
-export BASE_DIR=/data/mri
+export BASE_DIR=/data
 
 model=$BASE_DIR/mri/test/complex_model/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt
 
 model=$BASE_DIR/mri/models/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt
 
+model=$BASE_DIR/mri/models/mri-HRNET-20230702_013521_019623_complex_residual_weighted_loss-T1L1G1_T1L1G1_T1L1G1_T1L1G1_01-35-34-20230702_best.pt
+
+
 export BASE_DIR=/export/Lab-Xue/projects/
 
-model=$BASE_DIR/mri/models/
+model=$BASE_DIR/mri/test/after_flash_attention/mri-HRNET-20230702_013521_019623_complex_residual_weighted_loss-T1L1G1_T1L1G1_T1L1G1_T1L1G1_01-35-34-20230702_best.pt
 
 
 for n in fsi{1..16}
@@ -30,6 +33,6 @@ python3 ./mri/main_mri.py --data_root $BASE_DIR/mri/data --batch_size 16 --weigh
 torchrun --node_rank 0 --nnodes 8 --nproc_per_node 4 --master_port 9987 --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4 ./mri/main_mri.py --ddp --data_root $BASE_DIR/mri/data --batch_size 16 --weight_decay 1 --weighted_loss --losses perpendicular ssim l1 --loss_weights 1.0 1.0 1.0 --train_files train_3D_3T_retro_cine_2018.h5 train_3D_3T_retro_cine_2019.h5 train_3D_3T_retro_cine_2020.h5 --train_data_types 2dt 2dt 2dt --test_files train_3D_3T_retro_cine_2020_small_3D_test.h5 train_3D_3T_retro_cine_2020_small_2DT_test.h5 train_3D_3T_retro_cine_2020_small_2D_test.h5 train_3D_3T_retro_cine_2020_500_samples.h5 --test_data_types 3d 2dt 2d 2dt --ratio 95 5 100 --complex_i --residual --save_samples --num_saved_samples 64  --load_path $model --run_name continued_training --optim sgd --global_lr 0.00001 --num_epochs 60 --scheduler_type ReduceLROnPlateau --height 32 64 --width 32 64 --time 12
 
 
-torchrun --standalone --nproc_per_node 8 ./mri/main_mri.py --ddp --data_root $BASE_DIR/mri/data --batch_size 16 --weight_decay 1 --weighted_loss --losses perpendicular ssim l1 --loss_weights 1.0 1.0 1.0 --train_files train_3D_3T_retro_cine_2018.h5 train_3D_3T_retro_cine_2019.h5 train_3D_3T_retro_cine_2020.h5 --train_data_types 2dt 2dt 2dt --test_files train_3D_3T_retro_cine_2020_small_3D_test.h5 train_3D_3T_retro_cine_2020_small_2DT_test.h5 train_3D_3T_retro_cine_2020_small_2D_test.h5 train_3D_3T_retro_cine_2020_500_samples.h5 --test_data_types 3d 2dt 2d 2dt --ratio 95 5 100 --complex_i --residual --save_samples --num_saved_samples 64  --load_path $model --run_name continued_training --optim sgd --global_lr 0.00001 --num_epochs 60 --scheduler_type ReduceLROnPlateau --height 32 64 --width 32 64 --time 12
+torchrun --standalone --nproc_per_node 8 ./mri/main_mri.py --ddp --data_root $BASE_DIR/mri/denoising --batch_size 16 --weight_decay 1 --weighted_loss --losses perpendicular ssim l1 --loss_weights 1.0 1.0 1.0 --train_files train_3D_3T_retro_cine_2018.h5 train_3D_3T_retro_cine_2019.h5 train_3D_3T_retro_cine_2020.h5 --train_data_types 2dt 2dt 2dt --test_files train_3D_3T_retro_cine_2020_small_3D_test.h5 train_3D_3T_retro_cine_2020_small_2DT_test.h5 train_3D_3T_retro_cine_2020_small_2D_test.h5 train_3D_3T_retro_cine_2020_500_samples.h5 --test_data_types 3d 2dt 2d 2dt --ratio 95 5 100 --complex_i --residual --save_samples --num_saved_samples 64  --load_path $model --run_name continued_training --optim sgd --global_lr 0.00001 --num_epochs 60 --scheduler_type ReduceLROnPlateau --height 32 64 --width 32 64 --time 12
 
 ```
