@@ -140,10 +140,10 @@ class mri_ddp_base(run_ddp_base):
         vars['snr_perturb_prob'] = [0.0]
 
         vars['block_strs'] = [
-                        [                                                                                    
-                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                        [
                             ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
-                            ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],                            
+                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                            ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
                             ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                             ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"]
                          ],
@@ -157,9 +157,9 @@ class mri_ddp_base(run_ddp_base):
                          ]
                     ]
 
-        vars['losses'] = [                        
+        vars['losses'] = [
             [["perpendicular", "psnr", "l1"], ['1.0', '1.0', '1.0', '1.0', '1.0']],
-            [["perpendicular", "psnr", "l1", "gaussian", "gaussian3D"], ['1.0', '1.0', '1.0', '1.0', '1.0', '1.0', '1.0']],
+            [["perpendicular", "psnr", "l1", "gaussian", "gaussian3D"], ['1.0', '1.0', '1.0', '1.0', '1.0', '10.0', '10.0']],
             [['perpendicular', 'ssim', 'psnr', 'l1'], ['1.0', '1.0', '1.0', '1.0', '1.0']],
             [['psnr','l1', 'mse'], ['1.0', '1.0', '1.0', '1.0', '1.0']],
             [['ssim', 'ssim3D', 'mse', 'l1', 'psnr'], ['0.1', '0.1', '1.0', '1.0', '1.0']], 
@@ -173,18 +173,18 @@ class mri_ddp_base(run_ddp_base):
         vars['weighted_loss'] = [True]
 
         vars['n_heads'] = [32]
-        
+
         vars['with_data_degrading'] = [False]
-        
+
         return vars
 
     def run_vars(self, config, vars):
-        
+
         cmd_runs = []
-        
+
         for k, bk in enumerate(vars['backbone']):
                 block_str = vars['block_strs'][k]
-                
+
                 for optim, \
                     mixer_type, \
                     shuffle_in_window, \
