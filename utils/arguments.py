@@ -128,7 +128,7 @@ def add_shared_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for S
                         "keep_num_window" means the number of windows is kept after down/upsample the image; \
                         "mixed" means interleave both methods.')
     
-    parser.add_argument("--n_head", type=int, default=8, help='number of transformer heads')
+    parser.add_argument("--n_head", type=int, default=32, help='number of transformer heads')
     parser.add_argument("--kernel_size", type=int, default=3, help='size of the square kernel for CNN')
     parser.add_argument("--stride", type=int, default=1, help='stride for CNN (equal x and y)')
     parser.add_argument("--padding", type=int, default=1, help='padding for CNN (equal x and y)')
@@ -167,14 +167,14 @@ def add_backbone_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for
     parser.add_argument('--backbone', type=str, default="hrnet", help="which backbone model to use, 'hrnet', 'unet', 'LLM', 'small_unet' ")
     
     # hrnet
-    parser.add_argument('--backbone_hrnet.C', dest='backbone_hrnet.C', type=int, default=16, help="number of channels in main body of hrnet")
+    parser.add_argument('--backbone_hrnet.C', dest='backbone_hrnet.C', type=int, default=32, help="number of channels in main body of hrnet")
     parser.add_argument('--backbone_hrnet.num_resolution_levels', dest='backbone_hrnet.num_resolution_levels', type=int, default=2, help="number of resolution levels; image size reduce by x2 for every level")
     parser.add_argument('--backbone_hrnet.block_str', dest='backbone_hrnet.block_str', nargs='+', type=str, default=['T1L1G1'], help="block string \
         to define the attention layers in blocks; if multiple strings are given, each is for a resolution level.")    
     parser.add_argument('--backbone_hrnet.use_interpolation', dest='backbone_hrnet.use_interpolation', type=int, default=1, help="whether to use interpolation in downsample layer; if False, use stride convolution")
     
     # unet            
-    parser.add_argument('--backbone_unet.C', dest='backbone_unet.C', type=int, default=16, help="number of channels in main body of unet")
+    parser.add_argument('--backbone_unet.C', dest='backbone_unet.C', type=int, default=32, help="number of channels in main body of unet")
     parser.add_argument('--backbone_unet.num_resolution_levels', dest='backbone_unet.num_resolution_levels', type=int, default=2, help="number of resolution levels for unet; image size reduce by x2 for every level")
     parser.add_argument('--backbone_unet.block_str', dest='backbone_unet.block_str', nargs='+', type=str, default=['T1L1G1'], help="block string \
         to define the attention layers in blocks; if multiple strings are given, each is for a resolution level.")    
@@ -183,7 +183,7 @@ def add_backbone_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for
     parser.add_argument('--backbone_unet.with_conv', dest='backbone_unet.with_conv', type=int, default=1, help="whether to add conv in down/upsample layers; if False, only interpolation is performed")
     
     # LLMs
-    parser.add_argument('--backbone_LLM.C', dest='backbone_LLM.C', type=int, default=16, help="number of channels in main body of LLM net")
+    parser.add_argument('--backbone_LLM.C', dest='backbone_LLM.C', type=int, default=32, help="number of channels in main body of LLM net")
     parser.add_argument('--backbone_LLM.num_stages', dest='backbone_LLM.num_stages', type=int, default=2, help="number of stages")
     parser.add_argument('--backbone_LLM.block_str', dest='backbone_LLM.block_str', nargs='+', type=str, default=['T1L1G1'], help="block string \
         to define the attention layers in stages; if multiple strings are given, each is for a stage.")    

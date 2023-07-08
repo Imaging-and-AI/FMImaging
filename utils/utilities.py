@@ -201,7 +201,7 @@ def save_image_batch(complex_i, noisy, predi, clean):
        
     B, T, H, W = save_x.shape
     
-    max_col = 12
+    max_col = 8
     if B>max_col:
         num_row = B//max_col
         if max_col*num_row < B: 

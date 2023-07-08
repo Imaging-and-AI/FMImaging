@@ -29,7 +29,7 @@ class mri_ddp_base(run_ddp_base):
         
         self.cmd.extend([
        
-        "--num_epochs", "200",
+        "--num_epochs", "150",
         "--batch_size", "16",
 
         "--window_size", "8", "8",
@@ -52,7 +52,7 @@ class mri_ddp_base(run_ddp_base):
         
         "--scheduler.ReduceLROnPlateau.patience", "0",
         "--scheduler.ReduceLROnPlateau.cooldown", "0",
-        "--scheduler.ReduceLROnPlateau.factor", "0.9",
+        "--scheduler.ReduceLROnPlateau.factor", "0.95",
         
         "--scheduler.OneCycleLR.pct_start", "0.2",
         
@@ -95,10 +95,13 @@ class mri_ddp_base(run_ddp_base):
                         "train_3D_3T_retro_cine_2019.h5", 
                         "train_3D_3T_retro_cine_2020.h5", 
                         "BARTS_RetroCine_3T_2023.h5", 
+                        "BARTS_RetroCine_1p5T_2023.h5",
+                        "BWH_Perfusion_3T_2023.h5",
+                        "BWH_Perfusion_3T_2022.h5",
                         "MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", 
                         "MINNESOTA_UHVC_RetroCine_1p5T_2022.h5",
         
-        "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "3d",
+        "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "3d",
 
         "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", 
                         "train_3D_3T_retro_cine_2020_small_2DT_test.h5", 
@@ -156,6 +159,7 @@ class mri_ddp_base(run_ddp_base):
 
         vars['losses'] = [                        
             [["perpendicular", "psnr", "l1"], ['1.0', '1.0', '1.0', '1.0', '1.0']],
+            [["perpendicular", "psnr", "l1", "gaussian", "gaussian3D"], ['1.0', '1.0', '1.0', '1.0', '1.0', '1.0', '1.0']],
             [['perpendicular', 'ssim', 'psnr', 'l1'], ['1.0', '1.0', '1.0', '1.0', '1.0']],
             [['psnr','l1', 'mse'], ['1.0', '1.0', '1.0', '1.0', '1.0']],
             [['ssim', 'ssim3D', 'mse', 'l1', 'psnr'], ['0.1', '0.1', '1.0', '1.0', '1.0']], 
@@ -166,11 +170,11 @@ class mri_ddp_base(run_ddp_base):
 
         vars['complex_i'] = [True]
         vars['residual'] = [True ]
-        vars['weighted_loss'] = [True, False]
+        vars['weighted_loss'] = [True]
 
         vars['n_heads'] = [32]
         
-        vars['with_data_degrading'] = [False, True]
+        vars['with_data_degrading'] = [False]
         
         return vars
 
