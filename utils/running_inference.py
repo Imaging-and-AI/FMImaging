@@ -67,12 +67,12 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
 
         if device != torch.device('cpu'):
             if support_bfloat16(device):
-                dtype = torch.bfloat16
+                torch_dtype = torch.bfloat16
             else:
-                dtype = torch.float32
+                torch_dtype = torch.float32
 
         if verbose: 
-            print(f"processing tensor dtype {dtype}, device {device}")
+            print(f"processing tensor dtype {torch_dtype}, device {device}")
     try:
         image = image.cpu().detach().numpy()
     except:
@@ -133,7 +133,7 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
     if is_torch_model:
         with torch.inference_mode():
             for i in range(0, image_batch.shape[0], batch_size):
-                x_in = torch.from_numpy(image_batch[i:i+batch_size]).to(device=device)
+                x_in = torch.from_numpy(image_batch[i:i+batch_size]).to(device=device, dtype=torch_dtype)
 
                 with torch.autocast(device_type='cuda', dtype=dtype, enabled=(not is_script_model)):
                     res, _ = model(x_in)

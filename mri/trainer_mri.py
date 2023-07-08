@@ -829,7 +829,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
             saved_path = os.path.join(config.log_path, config.run_name, f"{id}_{epoch}")
         os.makedirs(saved_path, exist_ok=True)
         print(f"save path is {saved_path}")
-        
+
     with torch.inference_mode():
         with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
 
@@ -843,12 +843,12 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                     batch = next(val_loader_iter[loader_ind], None)
                 x, y, y_degraded, gmaps_median, noise_sigmas = batch
 
-                gmaps_median = gmaps_median.to(device=device)
-                noise_sigmas = noise_sigmas.to(device=device)
-                
+                gmaps_median = gmaps_median.to(device=device, dtype=x.dtype)
+                noise_sigmas = noise_sigmas.to(device=device, dtype=x.dtype)
+
                 B = x.shape[0]
                 noise_sigmas = torch.reshape(noise_sigmas, (B, 1, 1, 1, 1))
-                
+
                 if batch_size >1 and x.shape[-1]==c.width[-1]:
                     # run normal inference
                     x = x.to(device)
@@ -867,13 +867,13 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
 
                     x = x.to(device)
                     y = y.to(device)
-                    
+
                     B, T, C, H, W = x.shape
-                    
+
                     if not config.pad_time:
                         cutout_in = (T, c.height[-1], c.width[-1])
                         overlap_in = (0, c.height[-1]//2, c.width[-1]//2)
-                        
+
                     try:
                         _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device=device)
                     except:
@@ -890,16 +890,16 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                 if loss_f:
                     loss = loss_f(output*noise_sigmas, y*noise_sigmas)
                     val_loss_meter.update(loss.item(), n=total)
-                                        
+
                 #output_scaled = output * noise_sigmas
                 #y_scaled = y * noise_sigmas
-                
+
                 # to help measure the performance, keep noise to be ~1
                 output_scaled = output
                 y_scaled = y
-                    
+
                 loss_meters.update(output_scaled, y_scaled)
-                    
+
                 if rank<=0 and images_logged < config.num_uploaded and wandb_run is not None:
                     images_logged += 1
                     title = f"{id.upper()}_{images_logged}_{x.shape}"
@@ -907,11 +907,10 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                     wandb_run.log({title: wandb.Video(vid, 
                                                       caption=f"epoch {epoch}, gmap {torch.mean(gmaps_median).item():.2f}, noise {torch.mean(noise_sigmas).item():.2f}, mse {loss_meters.mse_meter.avg:.2f}, ssim {loss_meters.ssim_meter.avg:.2f}, psnr {loss_meters.psnr_meter.avg:.2f}", 
                                                       fps=1, format="gif")})
-                   
+
                 if rank<=0 and images_saved < config.num_saved_samples and config.save_samples:  
                     save_batch_samples(saved_path, f"{id}_epoch_{epoch}_{images_saved}", x, y, output, y_degraded, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
                     images_saved += 1
-                                 
 
                 pbar.update(1)
                 log_str = create_log_str(c, epoch, rank, 
@@ -923,9 +922,9 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                                          loss_meters,
                                          -1, 
                                          id)
-                
+
                 pbar.set_description_str(log_str)
-                
+
             # -----------------------------------
             log_str = create_log_str(c, epoch, rank, 
                                          None, 
@@ -936,22 +935,22 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                                          loss_meters,
                                          -1,
                                          id)
-                
+
             pbar.set_description_str(log_str)
-                
+
     if c.ddp:
         val_loss = torch.tensor(val_loss_meter.avg).to(device=device)
         dist.all_reduce(val_loss, op=torch.distributed.ReduceOp.AVG)
-        
+
         val_mse = torch.tensor(loss_meters.mse_meter.avg).to(device=device)
         dist.all_reduce(val_mse, op=torch.distributed.ReduceOp.AVG)
-        
+
         val_l1 = torch.tensor(loss_meters.l1_meter.avg).to(device=device)
         dist.all_reduce(val_l1, op=torch.distributed.ReduceOp.AVG)
-        
+
         val_ssim = torch.tensor(loss_meters.ssim_meter.avg).to(device=device)
         dist.all_reduce(val_ssim, op=torch.distributed.ReduceOp.AVG)
-        
+
         val_ssim3D = torch.tensor(loss_meters.ssim3D_meter.avg).to(device=device)
         dist.all_reduce(val_ssim3D, op=torch.distributed.ReduceOp.AVG)
 
@@ -960,13 +959,13 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
 
         val_psnr = torch.tensor(loss_meters.psnr_meter.avg).to(device=device)
         dist.all_reduce(val_psnr, op=torch.distributed.ReduceOp.AVG)
-        
+
         val_perp = torch.tensor(loss_meters.perp_meter.avg).to(device=device)
         dist.all_reduce(val_perp, op=torch.distributed.ReduceOp.AVG)
-        
+
         val_gaussian = torch.tensor(loss_meters.gaussian_meter.avg).to(device=device)
         dist.all_reduce(val_gaussian, op=torch.distributed.ReduceOp.AVG)
-        
+
         val_gaussian3D = torch.tensor(loss_meters.gaussian3D_meter.avg).to(device=device)
         dist.all_reduce(val_gaussian3D, op=torch.distributed.ReduceOp.AVG)
     else:
@@ -982,7 +981,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
         val_gaussian3D = loss_meters.gaussian3D_meter.avg
 
     if rank<=0:
-        
+
         log_str = create_log_str(c, epoch, rank, 
                                 None, 
                                 -1, -1,
@@ -991,9 +990,9 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                                 loss_meters, 
                                 -1, 
                                 id)
-        
+
         logging.info(log_str)
-    
+
     return val_loss, val_mse, val_l1, val_ssim, val_ssim3D, val_psnr, val_perp, val_gaussian, val_gaussian3D
 
 # -------------------------------------------------------------------------------------------------
