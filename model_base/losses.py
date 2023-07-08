@@ -910,7 +910,7 @@ def tests():
     x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, PHS, 1, RO, E1)).to(device=device)
     y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, PHS, 1, RO, E1)).to(device=device)
 
-    gauss_loss = GaussianDeriv_Loss(sigmas=[0.5, 1.0, 1.5], device=device, complex_i=False)
+    gauss_loss = GaussianDeriv_Loss(sigmas=[0.25, 0.5, 1.0, 1.5], device=device, complex_i=False)
 
     for k in range(N):
         v = gauss_loss(torch.unsqueeze(x[k], dim=0), torch.unsqueeze(y[k], dim=0), weights=torch.ones(1, device=device))
@@ -922,7 +922,7 @@ def tests():
     x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, PHS, 1, RO, E1)).to(device=device)
     y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, PHS, 1, RO, E1)).to(device=device)
 
-    gauss_loss = GaussianDeriv3D_Loss(sigmas=[0.5, 1.0, 1.25], sigmas_T=[0.5, 0.5, 0.5], device=device, complex_i=False)
+    gauss_loss = GaussianDeriv3D_Loss(sigmas=[0.25, 0.5, 1.0, 1.25], sigmas_T=[0.25, 0.5, 0.5, 0.5], device=device, complex_i=False)
 
     for k in range(N):
         v = gauss_loss(torch.unsqueeze(x[k], dim=0), torch.unsqueeze(y[k], dim=0), weights=torch.ones(1, device=device))

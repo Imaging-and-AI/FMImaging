@@ -300,7 +300,9 @@ def trainer(rank, global_rank, config, wandb_run):
         sampled_picked = np.random.randint(0, num_samples, size=32)
         input_data  = torch.stack([train_set[-1][i][0] for i in sampled_picked])
         print(f"LSUV prep data took {time()-t0 : .2f} seconds ...")
-   
+    else:
+        print(f"{Fore.YELLOW}Ignore the LSUV initialization - load pre-trained model {load_path} ... {Style.RESET_ALL}")
+
     # -----------------------------------------------
 
     if c.ddp:
@@ -341,7 +343,7 @@ def trainer(rank, global_rank, config, wandb_run):
     elif c.backbone == 'unet':
         model_str = f"C {c.backbone_unet.C}, {c.n_head} heads, {c.backbone_unet.block_str}"
 
-    logging.info(f"{Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, {c.optim}, {c.global_lr}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, weighted loss {c.weighted_loss}, data degrading {c.with_data_degrading}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, {model_str}{Style.RESET_ALL}")
+    logging.info(f"{Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, {c.optim}, {c.global_lr}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, weighted loss {c.weighted_loss}, data degrading {c.with_data_degrading}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, amp {c.use_amp}, {model_str}{Style.RESET_ALL}")
 
     # -----------------------------------------------
 
