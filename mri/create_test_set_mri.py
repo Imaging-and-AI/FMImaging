@@ -180,7 +180,7 @@ def main():
     # create_3d_repeated(write_path=write_path_20_3d_repeated)
     
     write_path = f"{base_file_path}/retro_cine_3T_sigma_1_20_repeated_test.h5"
-    create_3d_repeated(write_path=write_path, N=40, sigmas=[1,21,1])
+    create_3d_repeated(write_path=write_path, N=200, sigmas=[1,21,1])
     
     print(f"{write_path} - All done")
 

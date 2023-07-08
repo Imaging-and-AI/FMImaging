@@ -122,7 +122,7 @@ def main():
             config = pickle.load(f)
     else:
         record = torch.load(c.saved_model_path)
-        config = record['config']        
+        config = record['config']
     
     config.data_root = c.data_root
     config.results_path = c.results_path
@@ -152,7 +152,7 @@ def main():
         test_set, _ = load_mri_test_data(config=config)
         losses = eval_val(rank=-1, model=model, config=config, val_set=test_set, epoch=-1, device=get_device(), wandb_run=run, id="test")
 
-        save_results(config, losses, id="")                
+        save_results(config, losses, id="")
     except KeyboardInterrupt:
         print(f"{Fore.YELLOW}Interrupted from the keyboard ...{Style.RESET_ALL}", flush=True)
         clean_after_training()

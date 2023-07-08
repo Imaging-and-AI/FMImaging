@@ -202,9 +202,9 @@
             "program": "./mri/eval_mri.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "1"},
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "0"},
             "args": [
-                "--data_root", "/data/mri/denoising/data", "--results_path", "/data/mri/results", "--pad_time", "--saved_model_path", "/data/mri/test/complex_model/mri-HRNET-20230622_112454_358747_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_epoch-192.pth", "--save_samples"
+                "--test_files", "/export/Lab-Xue/projects/mri/data/retro_cine_3T_sigma_1_20_repeated_test.h5", "--results_path", "/data/mri/results", "--saved_model_path", "/export/Lab-Xue/projects/mri/checkpoints/mri-HRNET-20230702_013521_019623_complex_residual_weighted_loss-T1L1G1_T1L1G1_T1L1G1_T1L1G1_epoch-15.pth", "--save_samples"
             ]
         },
         {
