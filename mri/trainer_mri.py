@@ -236,7 +236,8 @@ def trainer(rank, global_rank, config, wandb_run):
     width = config.width
     c_time = config.time
     use_amp = config.use_amp
-    
+    num_workers = config.num_workers
+
     ddp = config.ddp
     if ddp:
         config.device = torch.device(f'cuda:{rank}')
@@ -259,6 +260,8 @@ def trainer(rank, global_rank, config, wandb_run):
         config.width = width
         config.time = c_time
         config.use_amp = use_amp
+        config.num_workers = num_workers
+
         if ddp:
             config.device = torch.device(f'cuda:{rank}')
         model = STCNNT_MRI(config=config, total_steps=total_steps)
@@ -270,6 +273,7 @@ def trainer(rank, global_rank, config, wandb_run):
         print(f"after load saved model, config.optim for running - {config.optim}")
         print(f"after load saved model, config.scheduler_type for running - {config.scheduler_type}")
         print(f"after load saved model, config.weighted_loss for running - {config.weighted_loss}")
+        print(f"after load saved model, config.num_workers for running - {config.num_workers}")
     else:
         load_path = None
         load_path = None
@@ -403,7 +407,7 @@ def trainer(rank, global_rank, config, wandb_run):
                 title = f"Tra_samples_{i}_Noisy_Noisy_GT_{x.shape}"
                 vid = save_image_batch(c.complex_i, x, y_degraded, y)
                 wandb_run.log({title:wandb.Video(vid, caption=f"Tra sample {i}", fps=1, format='gif')})
-                logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}")
+                logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}, noise range {train_set_x.min_noise_level} to {train_set_x.max_noise_level}")
 
     # -----------------------------------------------
     # save best model to be saved at the end
@@ -445,7 +449,7 @@ def trainer(rank, global_rank, config, wandb_run):
     logging.info(f"{Fore.GREEN}----------> Start training loop <----------{Style.RESET_ALL}")
 
     for epoch in range(curr_epoch, c.num_epochs):
-        logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank}, global rank {global_rank} {'-'*20}{Style.RESET_ALL}")
+        logging.info(f"{Fore.GREEN}{'-'*20} Epoch:{epoch}/{c.num_epochs}, rank {rank}, global rank {global_rank} {'-'*20}{Style.RESET_ALL}")
 
         if config.save_samples:
             saved_path = os.path.join(config.log_path, config.run_name, f"tra_{epoch}")
