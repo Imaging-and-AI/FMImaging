@@ -415,7 +415,7 @@ def trainer(rank, global_rank, config, wandb_run):
     loss_meters = mri_trainer_meters(config=c, device=device)    
 
     # -----------------------------------------------
-    
+
     total_iters = sum([len(loader_x) for loader_x in train_loader])
     total_iters = total_iters if not c.debug else min(10, total_iters)
 
@@ -451,23 +451,23 @@ def trainer(rank, global_rank, config, wandb_run):
             saved_path = os.path.join(config.log_path, config.run_name, f"tra_{epoch}")
             os.makedirs(saved_path, exist_ok=True)
             logging.info(f"{Fore.GREEN}saved_path - {saved_path}{Style.RESET_ALL}")
-        
+
         train_loss.reset()
         train_snr_meter.reset()
         loss_meters.reset()
-        
+
         model.train()
         if c.ddp: [loader_x.sampler.set_epoch(epoch) for loader_x in train_loader]
 
         images_saved = 0
 
         train_loader_iter = [iter(loader_x) for loader_x in train_loader]
-        
+
         image_save_step_size = int(total_iters // config.num_saved_samples)
         if image_save_step_size == 0: image_save_step_size = 1
-        
+
         curr_lr = 0
-        
+
         with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
 
             for idx in range(total_iters):
@@ -480,9 +480,9 @@ def trainer(rank, global_rank, config, wandb_run):
                     del train_loader_iter[loader_ind]
                     loader_ind = idx % len(train_loader_iter)
                     stuff = next(train_loader_iter[loader_ind], None)
-                    
+
                 data_type = train_set_type[loader_ind]
-                x, y, y_degraded, gmaps_median, noise_sigmas = stuff                                
+                x, y, y_degraded, gmaps_median, noise_sigmas = stuff
                 end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
 
 
@@ -499,15 +499,15 @@ def trainer(rank, global_rank, config, wandb_run):
                     std_t = torch.std(torch.abs(y[:,:,0,:,:] + 1j * y[:,:,1,:,:]), dim=1)
                 else:
                     std_t = torch.std(y(y[:,:,0,:,:], dim=1))
-                    
+
                 weights_t = torch.mean(std_t, dim=(-2, -1))
-                
+
                 # compute snr
                 signal = torch.mean(torch.linalg.norm(y, dim=2, keepdim=True), dim=(1, 2, 3, 4))
                 #snr = signal / (noise_sigmas*gmaps_median)
                 snr = signal / gmaps_median
                 snr = snr.to(device)
-                
+
                 if c.weighted_loss:
                     beta_counter += 1
                     base_snr = beta_snr * base_snr + (1-beta_snr) * torch.mean(snr).item()
