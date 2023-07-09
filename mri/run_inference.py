@@ -123,7 +123,7 @@ def main():
             overlap_used = tuple(args.overlap)
         else:
             overlap_used = None
-            
+
         output = apply_model(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device(), overlap=overlap_used)
 
         # input = np.flip(image, axis=0)

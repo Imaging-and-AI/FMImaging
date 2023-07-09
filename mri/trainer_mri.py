@@ -1006,32 +1006,33 @@ def _apply_model(model, x, g, scaling_factor, config, device, overlap=None):
         res : [1, T, Cout, H, W]
     """
     c = config
-    
+
     x *= scaling_factor
-        
+
     B, T, C, H, W = x.shape
-        
+
     if config.complex_i:
         input = np.concatenate((x.real, x.imag, g), axis=2)
     else:
         input = np.concatenate((np.abs(x), g), axis=2)
-    
+
     if not c.pad_time:
         cutout = (T, c.height[-1], c.width[-1])
         if overlap is None: overlap = (0, c.height[-1]//2, c.width[-1]//2)
     else:
         cutout = (c.time, c.height[-1], c.width[-1])
         if overlap is None: overlap = (c.time//2, c.height[-1]//2, c.width[-1]//2)
-   
+
     try:
         _, output = running_inference(model, input, cutout=cutout, overlap=overlap, batch_size=4, device=device)
     except Exception as e:
         print(e)
         print(f"{Fore.YELLOW}---> call inference on cpu ...")
         _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device=torch.device('cpu'))
-    
-    output /= scaling_factor   
-        
+
+    x /= scaling_factor
+    output /= scaling_factor
+
     if isinstance(output, torch.Tensor):
         output = output.cpu().numpy()
 
