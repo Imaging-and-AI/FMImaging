@@ -310,8 +310,8 @@ class MRIDenoisingDatasetTrain():
                 # apply gmap
                 nn *= gmap
             else:
-                noise_sigma = 0
-                nn = 0
+                noise_sigma = 0.0
+                nn = 0.0
 
             # add noise to complex image and scale
             if(self.with_data_degrading):
