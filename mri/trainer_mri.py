@@ -402,7 +402,7 @@ def trainer(rank, global_rank, config, wandb_run):
 
                 title = f"Tra_samples_{i}_Noisy_Noisy_GT_{x.shape}"
                 vid = save_image_batch(c.complex_i, x, y_degraded, y)
-                wandb_run.log({title:wandb.Video(vid, caption=f"Tra sample {i}", fps=1, format='mp4')})
+                wandb_run.log({title:wandb.Video(vid, caption=f"Tra sample {i}", fps=1, format='gif')})
                 logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}")
 
     # -----------------------------------------------
@@ -901,7 +901,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                     vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
                     wandb_run.log({title: wandb.Video(vid, 
                                                       caption=f"epoch {epoch}, gmap {torch.mean(gmaps_median).item():.2f}, noise {torch.mean(noise_sigmas).item():.2f}, mse {loss_meters.mse_meter.avg:.2f}, ssim {loss_meters.ssim_meter.avg:.2f}, psnr {loss_meters.psnr_meter.avg:.2f}", 
-                                                      fps=1, format="mp4")})
+                                                      fps=1, format="gif")})
 
                 if rank<=0 and images_saved < config.num_saved_samples and config.save_samples:
                     save_batch_samples(saved_path, f"{id}_epoch_{epoch}_{images_saved}", x, y, output, y_degraded, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
