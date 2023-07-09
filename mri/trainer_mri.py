@@ -525,21 +525,16 @@ def trainer(rank, global_rank, config, wandb_run):
 
                     weights *= weights_t
 
-                    if c.weighted_loss:
-                        loss = loss_f(output*noise_sigmas, y*noise_sigmas, weights=weights.to(device))
+                    if torch.mean(noise_sigmas).itme() > 0:
+                        if c.weighted_loss:
+                            loss = loss_f(output*noise_sigmas, y*noise_sigmas, weights=weights.to(device))
+                        else:
+                            loss = loss_f(output*noise_sigmas, y*noise_sigmas)
                     else:
-                        loss = loss_f(output*noise_sigmas, y*noise_sigmas)
-
-                    # if epoch <= 0.9*c.num_epochs:
-                    #     if c.weighted_loss:
-                    #         weights=noise_sigmas*gmaps_median
-                    #         loss = loss_f(output, y, weights=weights.to(device))
-                    #     else:
-                    #         loss = loss_f(output, y)
-                    # else:
-                    #     loss = ssim_loss_f(output, y)
-
-                    #loss = ssim_loss_f(output, y)
+                        if c.weighted_loss:
+                            loss = loss_f(output, y, weights=weights.to(device))
+                        else:
+                            loss = loss_f(output, y)
 
                     loss = loss / c.iters_to_accumulate
 
@@ -573,13 +568,10 @@ def trainer(rank, global_rank, config, wandb_run):
 
                 train_snr_meter.update(torch.mean(snr), n=total)
 
-                #output_scaled = output * noise_sigmas
-                #y_scaled = y * noise_sigmas
-                
                 if rank<=0 and idx%image_save_step_size==0 and images_saved < config.num_saved_samples and config.save_samples:  
                     save_batch_samples(saved_path, f"tra_epoch_{images_saved}", x, y, output, y_degraded, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
                     images_saved += 1
-                    
+
                 output_scaled = output
                 y_scaled = y
 
@@ -887,14 +879,15 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                         xy = repatch([x,output,y], og_shape, pt_shape)
                         x, output, y = xy[0], xy[1], xy[2]
 
-                total = x.shape[0]    
+                total = x.shape[0]
 
                 if loss_f:
-                    loss = loss_f(output*noise_sigmas, y*noise_sigmas)
-                    val_loss_meter.update(loss.item(), n=total)
+                    if torch.mean(noise_sigmas).item() > 0:
+                        loss = loss_f(output*noise_sigmas, y*noise_sigmas)
+                    else:
+                        loss = loss_f(output, y)
 
-                #output_scaled = output * noise_sigmas
-                #y_scaled = y * noise_sigmas
+                    val_loss_meter.update(loss.item(), n=total)
 
                 # to help measure the performance, keep noise to be ~1
                 output_scaled = output
@@ -910,7 +903,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                                                       caption=f"epoch {epoch}, gmap {torch.mean(gmaps_median).item():.2f}, noise {torch.mean(noise_sigmas).item():.2f}, mse {loss_meters.mse_meter.avg:.2f}, ssim {loss_meters.ssim_meter.avg:.2f}, psnr {loss_meters.psnr_meter.avg:.2f}", 
                                                       fps=1, format="gif")})
 
-                if rank<=0 and images_saved < config.num_saved_samples and config.save_samples:  
+                if rank<=0 and images_saved < config.num_saved_samples and config.save_samples:
                     save_batch_samples(saved_path, f"{id}_epoch_{epoch}_{images_saved}", x, y, output, y_degraded, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
                     images_saved += 1
 
