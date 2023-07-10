@@ -122,7 +122,7 @@ class mri_ddp_base(run_ddp_base):
                 
         vars['optim'] = ['sophia']
         
-        vars['backbone'] = ['hrnet', 'unet']
+        vars['backbone'] = ['hrnet']
         vars['cell_types'] = ["parallel"]
         vars['Q_K_norm'] = [True]
         vars['cosine_atts'] = ["1"]
