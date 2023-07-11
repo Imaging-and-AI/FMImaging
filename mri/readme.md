@@ -198,11 +198,10 @@ model=/export/Lab-Xue/projects/mri/models/mri-HRNET-20230708_034122_305779_compl
 # model after continue training
 model=/export/Lab-Xue/projects/mri/test/continue_training/mri-HRNET-20230702_013521_019623_contine_training_complex_residual_weighted_loss-T1L1G1_T1L1G1_T1L1G1_T1L1G1_01-35-34-20230702_best.pt
 
-model=/export/Lab-Xue/projects/mri/checkpoints/mri-HRNET-20230708_034122_305779_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_epoch-18.pth
+model=/export/Lab-Xue/projects/mri/checkpoints/mri-HRNET-20230708_034122_305779_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_epoch-23.pth
 
-model=$BASE_DIR/mri/models/mri-HRNET-20230702_013521_019623_complex_residual_weighted_loss-T1L1G1_T1L1G1_T1L1G1_T1L1G1_01-35-34-20230702_best.pt
-
-model=$BASE_DIR/mri/models/mri-HRNET-20230708_034122_305779_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_03-41-31-20230708_best.pt
+# a test training on node1
+model=/export/Lab-Xue/projects/mri/test/after_flash_attention/mri-HRNET-20230708_034122_305779_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_epoch-31.pth
 
 python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_raw/WB_LGE_MOCO_AVE_OnTheFly_41837_1194791055_1194791064_248_20230109-123219 --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_raw/WB_LGE_MOCO_AVE_OnTheFly_41837_1194791055_1194791064_248_20230109-123219 --scaling_factor 1.0 --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model
 
@@ -350,6 +349,8 @@ model=/export/Lab-Xue/projects/mri/checkpoints/mri-HRNET-20230702_013521_019623_
 
 model=/export/Lab-Xue/projects/mri/checkpoints/mri-HRNET-20230702_013521_019623_complex_residual_weighted_loss-T1L1G1_T1L1G1_T1L1G1_T1L1G1_epoch-59.pth
 
+model=/export/Lab-Xue/projects/mri/models/mri-HRNET-20230708_034122_305779_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_03-41-31-20230708_best.pt
+
 python3 ./mri/run_inference_snr.py --input_dir /export/Lab-Xue/projects/mri/validation/retro_cine/case1 --output_dir /export/Lab-Xue/projects/mri/validation/retro_cine/case1/res --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --gmap_fname gfactor --saved_model_path $model --noise_level 1.0 20.0 21 --num_rep 1
 ```
 
@@ -359,6 +360,8 @@ python3 ./mri/run_inference_snr.py --input_dir /export/Lab-Xue/projects/mri/vali
 model=/export/Lab-Xue/projects/mri/checkpoints/mri-HRNET-20230702_013521_019623_complex_residual_weighted_loss-T1L1G1_T1L1G1_T1L1G1_T1L1G1_epoch-15.pth
 
 model=/export/Lab-Xue/projects/mri/checkpoints/mri-HRNET-20230702_013521_019623_complex_residual_weighted_loss-T1L1G1_T1L1G1_T1L1G1_T1L1G1_epoch-59.pth
+
+model=/export/Lab-Xue/projects/mri/models/mri-HRNET-20230708_034122_305779_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_03-41-31-20230708_best.pt
 
 python3 ./mri/eval_mri.py --saved_model_path ${model} --num_uploaded 32 --save_samples --num_saved_samples 32
 

@@ -409,6 +409,8 @@ def trainer(rank, global_rank, config, wandb_run):
                 wandb_run.log({title:wandb.Video(vid, caption=f"Tra sample {i}", fps=1, format='gif')})
                 logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}, noise range {train_set_x.min_noise_level} to {train_set_x.max_noise_level}")
 
+            logging.info(f"{Fore.YELLOW}---> noise range for validation {val_set[0].min_noise_level} to {val_set[0].max_noise_level}")
+
     # -----------------------------------------------
     # save best model to be saved at the end
     best_val_loss = np.inf

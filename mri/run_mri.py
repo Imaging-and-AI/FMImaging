@@ -141,7 +141,7 @@ class mri_ddp_base(run_ddp_base):
 
         vars['block_strs'] = [
                         [
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
+                            #["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                             ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
                             ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
                             ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
@@ -309,6 +309,10 @@ class mri_ddp_base(run_ddp_base):
         #run_str = f"{a_type}-{cell_type}-{norm_mode}-{optim}-C-{c}-H-{n_heads}-MIXER-{mixer_type}-{int(scale_ratio_in_mixer)}-{'_'.join(bs)}-{moment}"
         run_str = moment
 
+        if config.run_extra_note is not None:
+            run_str += "_" 
+            run_str += config.run_extra_note
+
         if complex_i:
             cmd_run.extend(["--complex_i"])
             run_str += "_complex"
@@ -358,9 +362,9 @@ class mri_ddp_base(run_ddp_base):
 # -------------------------------------------------------------
 
 def main():
-    
+
     os.system("ulimit -n 65536")
-    
+
     ddp_run = mri_ddp_base(project="mri", script_to_run='./mri/main_mri.py')
     ddp_run.run()
 

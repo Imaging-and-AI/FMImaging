@@ -180,7 +180,7 @@
             "console": "integratedTerminal",
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
             "args": [
-                "--nnodes", "1", "--node_rank", "0", "--rdzv_id", "100", "--rdzv_backend", "c10d", "--rdzv_endpoint", "localhost:9001", "--nproc_per_node", "2", "--data_root", "/data/mri/denoising", "--tra_ratio", "1", "--run_list", "0"
+                "--standalone", "--nproc_per_node", "8", "--data_root", "/data/mri/data", "--tra_ratio", "5", "--run_extra_note", "model_sizes"
             ]
         },
         {
@@ -246,7 +246,7 @@
             "console": "integratedTerminal",
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
             "args": [
-                "--input_dir", "/data/mri/validation/retro_cine/case21", "--output_dir", "/data/mri/validation/retro_cine/case21/res", "--scaling_factor", "1.0", "--im_scaling", "10.0", "--gmap_scaling", "100.0", "--input_fname", "im", "--gmap_fname", "gfactor", "--saved_model_path", "/data/mri/test/complex_model/mri-HRNET-20230622_112454_358747_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_epoch-192.pth", "--noise_level", "1.0", "8.0", "5", "--num_rep", "1"
+                "--input_dir", "/export/Lab-Xue/projects/mri/validation/retro_cine/case1", "--output_dir", "/export/Lab-Xue/projects/mri/validation/retro_cine/case1/res", "--scaling_factor", "1.0", "--im_scaling", "10.0", "--gmap_scaling", "100.0", "--input_fname", "im", "--gmap_fname", "gfactor", "--saved_model_path", "/export/Lab-Xue/projects/mri/models/mri-HRNET-20230708_034122_305779_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_03-41-31-20230708_best.pt", "--noise_level", "2.0", "2.0", "1", "--num_rep", "1"
             ]
         },
         {

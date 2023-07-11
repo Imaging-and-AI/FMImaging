@@ -73,6 +73,7 @@ class run_ddp_base(object):
         # set up run record
         self.run_completed = []
         self.run_record = os.path.join(project_base_dir, config.project, "run_mri_record.pkl")
+        print(f"check run record - {self.run_record}")
         if os.path.isfile(self.run_record):
             with open(self.run_record, 'rb') as f:
                 self.run_completed = pickle.load(f)
@@ -97,6 +98,10 @@ class run_ddp_base(object):
                         ):
 
         run_str = f"{a_type}-{cell_type}-{norm_mode}-{optim}-C-{c}-MIXER-{mixer_type}-{int(scale_ratio_in_mixer)}-{'_'.join(bs)}"
+
+        if config.run_extra_note is not None:
+            run_str += "_" 
+            run_str += config.run_extra_note
 
         cmd_run.extend([
             "--run_name", f"{config.project}-{bk.upper()}-{run_str}",
@@ -255,6 +260,8 @@ class run_ddp_base(object):
         parser.add_argument("--tra_ratio", type=float, default=95, help="percentage of training data used")
         parser.add_argument("--val_ratio", type=float, default=5, help="percentage of validation data used")
         parser.add_argument("--test_ratio", type=float, default=100, help="percentage of test data used")
+
+        parser.add_argument("--run_extra_note", type=str, default=None, help="extra notes for the runs")
 
         parser.add_argument("--run_list", type=int, nargs='+', default=[-1], help="run list")
 
