@@ -101,6 +101,8 @@ def create_3d(write_path):
         data = np.array(h5_file[keys[i]+"/image"])
         gmap = load_gmap(h5_file[keys[i]+"/gmap"][:], random_factor=-1)
 
+        clean = np.copy(data)
+
         T, RO, E1 = data.shape
 
         nn, noise_sigma = generate_3D_MR_correlated_noise(T=T, RO=RO, E1=E1, REP=1,
@@ -119,12 +121,16 @@ def create_3d(write_path):
         data /= noise_sigma
         noisy_data /= noise_sigma
 
-        data_folder = h5_file_3d.create_group(f"Image_{k:03d}_{keys[i]}")
+        grp_name = f"Image_{k:03d}_{keys[i]}"
+        data_folder = h5_file_3d.create_group(grp_name)
 
         data_folder["noisy"] = noisy_data
         data_folder["clean"] = data
         data_folder["gmap"] = gmap
         data_folder["noise_sigma"] = noise_sigma
+
+        noise = (noisy_data - clean/noise_sigma) / gmap
+        print(f"{grp_name}, {noise_sigma}, data noise std - {np.mean(np.std(np.real(noise), axis=0))} - {np.mean(np.std(np.imag(noise), axis=0))}")
 
 def create_3d_repeated(write_path, N=20, sigmas=[1,11,1]):
 
@@ -143,8 +149,9 @@ def create_3d_repeated(write_path, N=20, sigmas=[1,11,1]):
         for noise_sig in np.arange(sigmas[0],sigmas[1],sigmas[2]):
 
             data = np.copy(ori_data)
+
             T, RO, E1 = data.shape
-            
+
             nn, noise_sigma = generate_3D_MR_correlated_noise(T=T, RO=RO, E1=E1, REP=1,
                                                                 min_noise_level=noise_sig,
                                                                 max_noise_level=noise_sig,
@@ -168,8 +175,9 @@ def create_3d_repeated(write_path, N=20, sigmas=[1,11,1]):
             data_folder["clean"] = data
             data_folder["gmap"] = gmap
             data_folder["noise_sigma"] = noise_sigma
-            
-            print(grp_name)
+
+            noise = (noisy_data - ori_data/noise_sigma) / gmap
+            print(f"{grp_name}, {noise_sigma}, data noise std - {np.mean(np.std(np.real(noise), axis=0))} - {np.mean(np.std(np.imag(noise), axis=0))}")
 
 
 def main():
@@ -178,8 +186,8 @@ def main():
     
     # write_path_20_3d_repeated = f"{base_file_path}/train_3D_3T_retro_cine_2020_20_sample_sig_2_30_repeated_test.h5"    
     # create_3d_repeated(write_path=write_path_20_3d_repeated)
-    
-    write_path = f"{base_file_path}/retro_cine_3T_sigma_1_20_repeated_test.h5"
+
+    write_path = f"{base_file_path}/retro_cine_3T_sigma_1_20_repeated_test_2nd.h5"
     create_3d_repeated(write_path=write_path, N=200, sigmas=[1,21,1])
     
     print(f"{write_path} - All done")

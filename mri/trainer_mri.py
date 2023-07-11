@@ -236,7 +236,8 @@ def trainer(rank, global_rank, config, wandb_run):
     width = config.width
     c_time = config.time
     use_amp = config.use_amp
-    
+    num_workers = config.num_workers
+
     ddp = config.ddp
     if ddp:
         config.device = torch.device(f'cuda:{rank}')
@@ -259,6 +260,8 @@ def trainer(rank, global_rank, config, wandb_run):
         config.width = width
         config.time = c_time
         config.use_amp = use_amp
+        config.num_workers = num_workers
+
         if ddp:
             config.device = torch.device(f'cuda:{rank}')
         model = STCNNT_MRI(config=config, total_steps=total_steps)
@@ -270,6 +273,7 @@ def trainer(rank, global_rank, config, wandb_run):
         print(f"after load saved model, config.optim for running - {config.optim}")
         print(f"after load saved model, config.scheduler_type for running - {config.scheduler_type}")
         print(f"after load saved model, config.weighted_loss for running - {config.weighted_loss}")
+        print(f"after load saved model, config.num_workers for running - {config.num_workers}")
     else:
         load_path = None
         load_path = None
@@ -403,7 +407,9 @@ def trainer(rank, global_rank, config, wandb_run):
                 title = f"Tra_samples_{i}_Noisy_Noisy_GT_{x.shape}"
                 vid = save_image_batch(c.complex_i, x, y_degraded, y)
                 wandb_run.log({title:wandb.Video(vid, caption=f"Tra sample {i}", fps=1, format='gif')})
-                logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}")
+                logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}, noise range {train_set_x.min_noise_level} to {train_set_x.max_noise_level}")
+
+            logging.info(f"{Fore.YELLOW}---> noise range for validation {val_set[0].min_noise_level} to {val_set[0].max_noise_level}")
 
     # -----------------------------------------------
     # save best model to be saved at the end
@@ -415,7 +421,7 @@ def trainer(rank, global_rank, config, wandb_run):
     loss_meters = mri_trainer_meters(config=c, device=device)    
 
     # -----------------------------------------------
-    
+
     total_iters = sum([len(loader_x) for loader_x in train_loader])
     total_iters = total_iters if not c.debug else min(10, total_iters)
 
@@ -445,29 +451,29 @@ def trainer(rank, global_rank, config, wandb_run):
     logging.info(f"{Fore.GREEN}----------> Start training loop <----------{Style.RESET_ALL}")
 
     for epoch in range(curr_epoch, c.num_epochs):
-        logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank}, global rank {global_rank} {'-'*20}{Style.RESET_ALL}")
+        logging.info(f"{Fore.GREEN}{'-'*20} Epoch:{epoch}/{c.num_epochs}, rank {rank}, global rank {global_rank} {'-'*20}{Style.RESET_ALL}")
 
         if config.save_samples:
             saved_path = os.path.join(config.log_path, config.run_name, f"tra_{epoch}")
             os.makedirs(saved_path, exist_ok=True)
             logging.info(f"{Fore.GREEN}saved_path - {saved_path}{Style.RESET_ALL}")
-        
+
         train_loss.reset()
         train_snr_meter.reset()
         loss_meters.reset()
-        
+
         model.train()
         if c.ddp: [loader_x.sampler.set_epoch(epoch) for loader_x in train_loader]
 
         images_saved = 0
 
         train_loader_iter = [iter(loader_x) for loader_x in train_loader]
-        
+
         image_save_step_size = int(total_iters // config.num_saved_samples)
         if image_save_step_size == 0: image_save_step_size = 1
-        
+
         curr_lr = 0
-        
+
         with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
 
             for idx in range(total_iters):
@@ -480,9 +486,9 @@ def trainer(rank, global_rank, config, wandb_run):
                     del train_loader_iter[loader_ind]
                     loader_ind = idx % len(train_loader_iter)
                     stuff = next(train_loader_iter[loader_ind], None)
-                    
+
                 data_type = train_set_type[loader_ind]
-                x, y, y_degraded, gmaps_median, noise_sigmas = stuff                                
+                x, y, y_degraded, gmaps_median, noise_sigmas = stuff
                 end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
 
 
@@ -499,15 +505,15 @@ def trainer(rank, global_rank, config, wandb_run):
                     std_t = torch.std(torch.abs(y[:,:,0,:,:] + 1j * y[:,:,1,:,:]), dim=1)
                 else:
                     std_t = torch.std(y(y[:,:,0,:,:], dim=1))
-                    
+
                 weights_t = torch.mean(std_t, dim=(-2, -1))
-                
+
                 # compute snr
                 signal = torch.mean(torch.linalg.norm(y, dim=2, keepdim=True), dim=(1, 2, 3, 4))
                 #snr = signal / (noise_sigmas*gmaps_median)
                 snr = signal / gmaps_median
                 snr = snr.to(device)
-                
+
                 if c.weighted_loss:
                     beta_counter += 1
                     base_snr = beta_snr * base_snr + (1-beta_snr) * torch.mean(snr).item()
@@ -525,21 +531,16 @@ def trainer(rank, global_rank, config, wandb_run):
 
                     weights *= weights_t
 
-                    if c.weighted_loss:
-                        loss = loss_f(output*noise_sigmas, y*noise_sigmas, weights=weights.to(device))
+                    if torch.sum(noise_sigmas).item() > 0:
+                        if c.weighted_loss:
+                            loss = loss_f(output*noise_sigmas, y*noise_sigmas, weights=weights.to(device))
+                        else:
+                            loss = loss_f(output*noise_sigmas, y*noise_sigmas)
                     else:
-                        loss = loss_f(output*noise_sigmas, y*noise_sigmas)
-
-                    # if epoch <= 0.9*c.num_epochs:
-                    #     if c.weighted_loss:
-                    #         weights=noise_sigmas*gmaps_median
-                    #         loss = loss_f(output, y, weights=weights.to(device))
-                    #     else:
-                    #         loss = loss_f(output, y)
-                    # else:
-                    #     loss = ssim_loss_f(output, y)
-
-                    #loss = ssim_loss_f(output, y)
+                        if c.weighted_loss:
+                            loss = loss_f(output, y, weights=weights.to(device))
+                        else:
+                            loss = loss_f(output, y)
 
                     loss = loss / c.iters_to_accumulate
 
@@ -573,13 +574,10 @@ def trainer(rank, global_rank, config, wandb_run):
 
                 train_snr_meter.update(torch.mean(snr), n=total)
 
-                #output_scaled = output * noise_sigmas
-                #y_scaled = y * noise_sigmas
-                
                 if rank<=0 and idx%image_save_step_size==0 and images_saved < config.num_saved_samples and config.save_samples:  
                     save_batch_samples(saved_path, f"tra_epoch_{images_saved}", x, y, output, y_degraded, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
                     images_saved += 1
-                    
+
                 output_scaled = output
                 y_scaled = y
 
@@ -887,14 +885,15 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                         xy = repatch([x,output,y], og_shape, pt_shape)
                         x, output, y = xy[0], xy[1], xy[2]
 
-                total = x.shape[0]    
+                total = x.shape[0]
 
                 if loss_f:
-                    loss = loss_f(output*noise_sigmas, y*noise_sigmas)
-                    val_loss_meter.update(loss.item(), n=total)
+                    if torch.mean(noise_sigmas).item() > 0:
+                        loss = loss_f(output*noise_sigmas, y*noise_sigmas)
+                    else:
+                        loss = loss_f(output, y)
 
-                #output_scaled = output * noise_sigmas
-                #y_scaled = y * noise_sigmas
+                    val_loss_meter.update(loss.item(), n=total)
 
                 # to help measure the performance, keep noise to be ~1
                 output_scaled = output
@@ -910,7 +909,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                                                       caption=f"epoch {epoch}, gmap {torch.mean(gmaps_median).item():.2f}, noise {torch.mean(noise_sigmas).item():.2f}, mse {loss_meters.mse_meter.avg:.2f}, ssim {loss_meters.ssim_meter.avg:.2f}, psnr {loss_meters.psnr_meter.avg:.2f}", 
                                                       fps=1, format="gif")})
 
-                if rank<=0 and images_saved < config.num_saved_samples and config.save_samples:  
+                if rank<=0 and images_saved < config.num_saved_samples and config.save_samples:
                     save_batch_samples(saved_path, f"{id}_epoch_{epoch}_{images_saved}", x, y, output, y_degraded, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
                     images_saved += 1
 
@@ -1009,32 +1008,33 @@ def _apply_model(model, x, g, scaling_factor, config, device, overlap=None):
         res : [1, T, Cout, H, W]
     """
     c = config
-    
+
     x *= scaling_factor
-        
+
     B, T, C, H, W = x.shape
-        
+
     if config.complex_i:
         input = np.concatenate((x.real, x.imag, g), axis=2)
     else:
         input = np.concatenate((np.abs(x), g), axis=2)
-    
+
     if not c.pad_time:
         cutout = (T, c.height[-1], c.width[-1])
         if overlap is None: overlap = (0, c.height[-1]//2, c.width[-1]//2)
     else:
         cutout = (c.time, c.height[-1], c.width[-1])
         if overlap is None: overlap = (c.time//2, c.height[-1]//2, c.width[-1]//2)
-   
+
     try:
         _, output = running_inference(model, input, cutout=cutout, overlap=overlap, batch_size=4, device=device)
     except Exception as e:
         print(e)
         print(f"{Fore.YELLOW}---> call inference on cpu ...")
         _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device=torch.device('cpu'))
-    
-    output /= scaling_factor   
-        
+
+    x /= scaling_factor
+    output /= scaling_factor
+
     if isinstance(output, torch.Tensor):
         output = output.cpu().numpy()
 

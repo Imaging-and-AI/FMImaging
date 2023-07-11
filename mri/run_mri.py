@@ -96,8 +96,8 @@ class mri_ddp_base(run_ddp_base):
                         "train_3D_3T_retro_cine_2020.h5", 
                         "BARTS_RetroCine_3T_2023.h5", 
                         "BARTS_RetroCine_1p5T_2023.h5",
-                        "BWH_Perfusion_3T_2023.h5",
-                        "BWH_Perfusion_3T_2022.h5",
+                        #"BWH_Perfusion_3T_2023.h5",
+                        #"BWH_Perfusion_3T_2022.h5",
                         "MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", 
                         "MINNESOTA_UHVC_RetroCine_1p5T_2022.h5",
         
@@ -122,7 +122,7 @@ class mri_ddp_base(run_ddp_base):
                 
         vars['optim'] = ['sophia']
         
-        vars['backbone'] = ['hrnet', 'unet']
+        vars['backbone'] = ['hrnet']
         vars['cell_types'] = ["parallel"]
         vars['Q_K_norm'] = [True]
         vars['cosine_atts'] = ["1"]
@@ -135,16 +135,16 @@ class mri_ddp_base(run_ddp_base):
         vars['block_dense_connections'] = ["1"]
         vars['norm_modes'] = ["batch2d", "instance2d"]
         vars['C'] = [32, 64]
-        vars['scale_ratio_in_mixers'] = [1.0]
+        vars['scale_ratio_in_mixers'] = [1.0, 4.0]
 
         vars['snr_perturb_prob'] = [0.0]
 
         vars['block_strs'] = [
                         [
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
-                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                            #["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                             ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
+                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
                             ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"]
                          ],
 
@@ -159,13 +159,13 @@ class mri_ddp_base(run_ddp_base):
 
         vars['losses'] = [
             [["perpendicular", "psnr", "l1"], ['1.0', '1.0', '1.0', '1.0', '1.0']],
-            [["perpendicular", "psnr", "l1", "gaussian", "gaussian3D"], ['1.0', '1.0', '1.0', '1.0', '1.0', '10.0', '10.0']],
-            [['perpendicular', 'ssim', 'psnr', 'l1'], ['1.0', '1.0', '1.0', '1.0', '1.0']],
-            [['psnr','l1', 'mse'], ['1.0', '1.0', '1.0', '1.0', '1.0']],
-            [['ssim', 'ssim3D', 'mse', 'l1', 'psnr'], ['0.1', '0.1', '1.0', '1.0', '1.0']], 
-            [['mse', 'l1'], ['1.0', '1.0']], 
+            #[["perpendicular", "psnr", "l1", "gaussian", "gaussian3D"], ['1.0', '1.0', '1.0', '1.0', '1.0', '10.0', '10.0']],
+            #[['perpendicular', 'ssim', 'psnr', 'l1'], ['1.0', '1.0', '1.0', '1.0', '1.0']],
+            #[['psnr','l1', 'mse'], ['1.0', '1.0', '1.0', '1.0', '1.0']],
+            #[['ssim', 'ssim3D', 'mse', 'l1', 'psnr'], ['0.1', '0.1', '1.0', '1.0', '1.0']], 
+            #[['mse', 'l1'], ['1.0', '1.0']], 
             #[['ssim'], ['1.0']],
-            [['ssim', 'mse'], ['0.1', '1.0']], 
+            #[['ssim', 'mse'], ['0.1', '1.0']], 
         ]
 
         vars['complex_i'] = [True]
@@ -309,6 +309,10 @@ class mri_ddp_base(run_ddp_base):
         #run_str = f"{a_type}-{cell_type}-{norm_mode}-{optim}-C-{c}-H-{n_heads}-MIXER-{mixer_type}-{int(scale_ratio_in_mixer)}-{'_'.join(bs)}-{moment}"
         run_str = moment
 
+        if config.run_extra_note is not None:
+            run_str += "_" 
+            run_str += config.run_extra_note
+
         if complex_i:
             cmd_run.extend(["--complex_i"])
             run_str += "_complex"
@@ -358,9 +362,9 @@ class mri_ddp_base(run_ddp_base):
 # -------------------------------------------------------------
 
 def main():
-    
+
     os.system("ulimit -n 65536")
-    
+
     ddp_run = mri_ddp_base(project="mri", script_to_run='./mri/main_mri.py')
     ddp_run.run()
 

@@ -610,9 +610,9 @@ class Combined_Loss:
         elif loss_name=="msssim":
             loss_f = MSSSIM_Loss(window_size=3, complex_i=self.complex_i, data_range=256, device=self.device)
         elif loss_name=="gaussian":
-            loss_f = GaussianDeriv_Loss(sigmas=[0.5, 1.0, 1.5], complex_i=self.complex_i, device=self.device)
+            loss_f = GaussianDeriv_Loss(sigmas=[0.25, 0.5, 1.0], complex_i=self.complex_i, device=self.device)
         elif loss_name=="gaussian3D":
-            loss_f = GaussianDeriv3D_Loss(sigmas=[0.5, 1.0, 1.5], sigmas_T=[0.5, 0.5, 0.5], complex_i=self.complex_i, device=self.device)
+            loss_f = GaussianDeriv3D_Loss(sigmas=[0.25, 0.5, 1.0], sigmas_T=[0.25, 0.5, 0.5], complex_i=self.complex_i, device=self.device)
         else:
             raise NotImplementedError(f"Loss type not implemented: {loss_name}")
 

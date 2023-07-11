@@ -25,6 +25,8 @@ from model_mri import STCNNT_MRI
 from trainer_mri import apply_model, load_model
 from noise_augmentation import *
 
+import nibabel as nib
+
 # -------------------------------------------------------------------------------------------------
 # setup for testing from cmd
 
@@ -133,7 +135,7 @@ def main():
                 image = np.transpose(image, (0, 1, 3, 2))
 
             RO, E1, frames, slices = image.shape
-            print(f"{args.input_dir}, images - {image.shape}")
+            print(f"{args.input_dir}, images - {image.shape}, {np.linalg.norm(image)}")
 
             if rep==0 and ii==0:
                 noisy_image = np.zeros((RO, E1, frames, slices, args.num_rep, N), dtype=image.dtype)
@@ -173,10 +175,11 @@ def main():
                                                 kspace_filter_T_sigma=[0],
                                                 phase_resolution_ratio=[1.0],
                                                 readout_resolution_ratio=[1.0],
-                                                rng=np.random.Generator(np.random.PCG64(8754132)),
+                                                rng=np.random.default_rng(np.random.randint(4528, 65536, 1)),
                                                 verbose=False)
 
             assert abs(sigma-noise_sigma)<0.00001
+            print(f"noise_sigma is {noise_sigma}")
 
             if nns.ndim==3:
                 nns = np.expand_dims(nns, axis=3)
@@ -185,18 +188,30 @@ def main():
 
             nns *= gmap
 
-            if ii < N-1:
+            if N==1 or ii < N-1:
                 data = nns + np.copy(image)
             else:
                 data = nns
 
             print(f"image - {np.linalg.norm(image)}")
 
-            y = image / noise_sigma
             data /= noise_sigma
             noisy_image[:,:,:,:,rep,ii] = np.copy(data)
 
-            np.save(os.path.join(args.output_dir, f"noisy_image_{sigma}.npy"), np.abs(noisy_image[:,:,:,:,rep,ii]))
+            np.save(os.path.join(args.output_dir, f"image_real_{sigma:.2f}.npy"), np.real(image))
+            np.save(os.path.join(args.output_dir, f"image_imag_{sigma:.2f}.npy"), np.imag(image))
+
+            np.save(os.path.join(args.output_dir, f"noisy_image_real_{sigma:.2f}.npy"), np.real(noisy_image[:,:,:,:,rep,ii]))
+            np.save(os.path.join(args.output_dir, f"noisy_image_imag_{sigma:.2f}.npy"), np.imag(noisy_image[:,:,:,:,rep,ii]))
+
+            np.save(os.path.join(args.output_dir, f"gmap_{sigma:.2f}.npy"), np.copy(gmap[:,:,0,:].squeeze()))
+
+            nib.save(nib.Nifti1Image(np.abs(noisy_image[:,:,:,:,rep,ii]), affine=np.eye(4)), os.path.join(args.output_dir, f"noisy_image_{sigma:.2f}.nii"))
+
+
+            noise = (data - image/noise_sigma) / gmap
+            for slc in range(slices):
+                print(f"rep - {rep}, sigma - {sigma:.2f}, data noise std - {np.mean(np.std(np.real(noise[:,:,:,slc]), axis=2))} - {np.mean(np.std(np.imag(noise[:,:,:,slc]), axis=2))}")
 
             gmap_used = np.copy(gmap[:,:,0,:].squeeze())
             if gmap_used.ndim==2:
@@ -204,24 +219,21 @@ def main():
 
             model.eval()
             output = apply_model(data, model, gmap_used, config=config, scaling_factor=args.scaling_factor, device=get_device())
+            output *= noise_sigma
 
-            pred_image[:,:,:,:,rep,ii] = output * noise_sigma
+            pred_image[:,:,:,:,rep,ii] = output
 
-            noise = (data - image/noise_sigma) / gmap
-            for slc in range(slices):
-                print(f"rep - {rep}, sigma - {sigma:.2f}, data noise std - {np.mean(np.std(np.real(noise[:,:,:,slc]), axis=2))} - {np.mean(np.std(np.imag(noise[:,:,:,slc]), axis=2))}")
+            nib.save(nib.Nifti1Image(np.abs(pred_image[:,:,:,:,rep,ii]), affine=np.eye(4)), os.path.join(args.output_dir, f"pred_image_{sigma:.2f}.nii"))
 
             y_hat = np.expand_dims(np.transpose(output, (3, 2, 0, 1)), axis=2)
             y_hat = np.concatenate((np.real(y_hat), np.imag(y_hat)), axis=2)
-
-            y = np.expand_dims(np.transpose(y, (3, 2, 0, 1)), axis=2)
-            y = np.concatenate((np.real(y), np.imag(y)), axis=2)
-
             y_hat = torch.from_numpy(y_hat).to(device=device)
+
+            y = np.expand_dims(np.transpose(image, (3, 2, 0, 1)), axis=2)
+            y = np.concatenate((np.real(y), np.imag(y)), axis=2)
             y = torch.from_numpy(y).to(device=device)
 
-            y *= noise_sigma
-            y_hat *= noise_sigma
+            print(f"image - {torch.norm(y)}")
 
             mse_loss = mse_loss_func(y_hat, y).item()
             l1_loss = l1_loss_func(y_hat, y).item()

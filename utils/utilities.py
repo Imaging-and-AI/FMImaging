@@ -200,8 +200,8 @@ def save_image_batch(complex_i, noisy, predi, clean):
         save_y = clean[:,:,0,:,:]
        
     B, T, H, W = save_x.shape
-    
-    max_col = 8
+
+    max_col = 16
     if B>max_col:
         num_row = B//max_col
         if max_col*num_row < B: 
@@ -228,7 +228,7 @@ def save_image_batch(complex_i, noisy, predi, clean):
                 composed_res[t, b*H:(b+1)*H, :W] = save_x[b,t,:,:].squeeze()
                 composed_res[t, b*H:(b+1)*H, W:2*W] = save_p[b,t,:,:].squeeze()
                 composed_res[t, b*H:(b+1)*H, 2*W:3*W] = save_y[b,t,:,:].squeeze()
-                
+
     composed_res = np.clip(composed_res, a_min=0.5*np.median(composed_res), a_max=np.percentile(composed_res, 90))
 
     temp = np.zeros_like(composed_res)
