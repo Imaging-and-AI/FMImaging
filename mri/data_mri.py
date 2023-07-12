@@ -313,6 +313,15 @@ class MRIDenoisingDatasetTrain():
                 noise_sigma = 0.0
                 nn = 0.0
 
+            # give it a bit perturbation for signal level
+            if np.random.uniform(0, 1) < self.snr_perturb_prob:
+                signal_level_delta = np.random.uniform(1.0, self.snr_perturb)
+
+                if(self.with_data_degrading):
+                    data_degraded *= signal_level_delta
+
+                data *= signal_level_delta
+
             # add noise to complex image and scale
             if(self.with_data_degrading):
                 noisy_data = data_degraded + nn
@@ -325,12 +334,6 @@ class MRIDenoisingDatasetTrain():
                 data /= noise_sigma
                 noisy_data /= noise_sigma
                 if(self.with_data_degrading): data_degraded /= noise_sigma
-
-            # give it a bit perturbation for noise level
-            if np.random.uniform(0, 1) < self.snr_perturb_prob:
-                noise_level_delta = np.random.normal(1.0, self.snr_perturb)
-                #data *= noise_level_delta
-                noisy_data *= noise_level_delta
 
             gmap = np.repeat(gmap[None,:,:], T, axis=0)
 
