@@ -134,10 +134,10 @@ class mri_ddp_base(run_ddp_base):
         vars['shuffle_in_windows'] = ["0"]
         vars['block_dense_connections'] = ["1"]
         vars['norm_modes'] = ["batch2d"]
-        vars['C'] = [32, 64]
-        vars['scale_ratio_in_mixers'] = [1.0]
+        vars['C'] = [64]
+        vars['scale_ratio_in_mixers'] = [1.0, 4.0]
 
-        vars['snr_perturb_prob'] = [0.0, 0.25]
+        vars['snr_perturb_prob'] = [0.0]
 
         vars['block_strs'] = [
                         [
@@ -306,8 +306,8 @@ class mri_ddp_base(run_ddp_base):
 
         curr_time = datetime.now()
         moment = curr_time.strftime('%Y%m%d_%H%M%S_%f')
-        #run_str = f"{a_type}-{cell_type}-{norm_mode}-{optim}-C-{c}-H-{n_heads}-MIXER-{mixer_type}-{int(scale_ratio_in_mixer)}-{'_'.join(bs)}-{moment}"
-        run_str = moment
+        run_str = f"{moment}_C-{c}-{int(scale_ratio_in_mixer)}"
+        #run_str = moment
 
         if config.run_extra_note is not None:
             run_str += "_" 
