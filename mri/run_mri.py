@@ -80,7 +80,7 @@ class mri_ddp_base(run_ddp_base):
         "--time", "12",
         "--num_uploaded", "12",
         #"--snr_perturb_prob", "0.25",
-        "--snr_perturb", "0.15",
+        "--snr_perturb", "10.0",
         #"--weighted_loss",
         #"--max_load", "10000",
 
@@ -133,19 +133,19 @@ class mri_ddp_base(run_ddp_base):
         vars['mixer_types'] = ["conv"]
         vars['shuffle_in_windows'] = ["0"]
         vars['block_dense_connections'] = ["1"]
-        vars['norm_modes'] = ["batch2d", "instance2d"]
+        vars['norm_modes'] = ["batch2d"]
         vars['C'] = [32, 64]
-        vars['scale_ratio_in_mixers'] = [1.0, 4.0]
+        vars['scale_ratio_in_mixers'] = [1.0]
 
-        vars['snr_perturb_prob'] = [0.0]
+        vars['snr_perturb_prob'] = [0.0, 0.25]
 
         vars['block_strs'] = [
                         [
-                            #["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                             ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
                             ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
                             ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
-                            ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"]
+                            ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
+                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                          ],
 
                         [
