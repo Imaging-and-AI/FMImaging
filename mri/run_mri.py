@@ -29,7 +29,7 @@ class mri_ddp_base(run_ddp_base):
         
         self.cmd.extend([
        
-        "--num_epochs", "150",
+        "--num_epochs", "75",
         "--batch_size", "16",
 
         "--window_size", "8", "8",
@@ -52,7 +52,7 @@ class mri_ddp_base(run_ddp_base):
         
         "--scheduler.ReduceLROnPlateau.patience", "0",
         "--scheduler.ReduceLROnPlateau.cooldown", "0",
-        "--scheduler.ReduceLROnPlateau.factor", "0.95",
+        "--scheduler.ReduceLROnPlateau.factor", "0.85",
         
         "--scheduler.OneCycleLR.pct_start", "0.2",
         
@@ -135,13 +135,14 @@ class mri_ddp_base(run_ddp_base):
         vars['block_dense_connections'] = ["1"]
         vars['norm_modes'] = ["batch2d"]
         vars['C'] = [64]
-        vars['scale_ratio_in_mixers'] = [1.0, 4.0]
+        vars['scale_ratio_in_mixers'] = [4.0]
 
         vars['snr_perturb_prob'] = [0.0]
 
         vars['block_strs'] = [
                         [
                             ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                            ["T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                             ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
                             ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
                             ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],

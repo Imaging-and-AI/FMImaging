@@ -208,7 +208,7 @@ class STCNNT_Task_Base(nn.Module, ABC):
         """
         logging.info(f"{Fore.YELLOW}Loading model from {self.config.load_path}{Style.RESET_ALL}")
 
-        device = get_device(device=device)
+        #device = get_device(device=device)
 
         status = torch.load(self.config.load_path, map_location=self.config.device)
         self.config = status['config']

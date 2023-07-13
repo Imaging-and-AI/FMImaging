@@ -265,7 +265,16 @@ def trainer(rank, global_rank, config, wandb_run):
         if ddp:
             config.device = torch.device(f'cuda:{rank}')
         model = STCNNT_MRI(config=config, total_steps=total_steps)
-        model.load_state_dict(status['model'])
+        if 'model_state' in status:
+            model.load_state_dict(status['model_state'])
+            
+            model.optim.load_state_dict(status['optimizer_state'])
+            optimizer_to(model.optim, device=model.config.device)
+
+            model.sched.load_state_dict(status['scheduler_state'])
+            model.stype = status['scheduler_type']
+            model.curr_epoch = status['epoch']
+            
         config.ddp = ddp
         
         print(f"after load saved model, the config for running - {config}")
@@ -274,6 +283,7 @@ def trainer(rank, global_rank, config, wandb_run):
         print(f"after load saved model, config.scheduler_type for running - {config.scheduler_type}")
         print(f"after load saved model, config.weighted_loss for running - {config.weighted_loss}")
         print(f"after load saved model, config.num_workers for running - {config.num_workers}")
+        print(f"after load saved model, model.curr_epoch for running - {model.curr_epoch}")
     else:
         load_path = None
         load_path = None
