@@ -297,23 +297,23 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             "C_out":C,
             "H":c.height[0],
             "W":c.width[0],
-            "a_type":c.a_type,            
+            "a_type":c.a_type,
             "window_size": c.window_size,
             "patch_size": c.patch_size,
             "is_causal":c.is_causal,
             "dropout_p":c.dropout_p,
             "n_head":c.n_head,
-            
+
             "kernel_size":(c.kernel_size, c.kernel_size),
             "stride":(c.stride, c.stride),
             "padding":(c.padding, c.padding),
-            
+
             "stride_t":(c.stride_t, c.stride_t),
-            
+
             "mixer_kernel_size":(c.mixer_kernel_size, c.mixer_kernel_size),
             "mixer_stride":(c.mixer_stride, c.mixer_stride),
             "mixer_padding":(c.mixer_padding, c.mixer_padding),
-            
+
             "norm_mode":c.norm_mode,
             "interpolate":"none",
             "interp_align_c":c.interp_align_c,
@@ -343,7 +343,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-                       
+
             if c.window_sizing_method == "keep_num_window":
                 kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]] , self.num_wind, self.num_patch, module_name="B00")
             elif c.window_sizing_method == "keep_window_size":
@@ -362,9 +362,9 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
-            
+
             kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[-1], patch_sizes[-1], module_name="output_0")
-                
+
             kwargs["att_types"] = self.block_str[0]
             self.output_B0 = STCNNT_Block(**kwargs)
 

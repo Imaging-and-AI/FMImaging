@@ -53,23 +53,13 @@ class STCNNT_Task_Base(nn.Module, ABC):
     def device(self):
         return next(self.parameters()).device
 
-    def configure_optim_groups(self):
-        """
-        Copied (and modified) from mingpt: https://github.com/karpathy/minGPT
-        This long function is unfortunately doing something very simple and is being very defensive:
-        We are separating out all parameters of the model into two buckets: those that will experience
-        weight decay for regularization and those that won't (biases, and layernorm/embedding weights).
-        We are then returning the optimizer groups.
-
-        @args (from config):
-            - weight_decay (float): weight decay coefficient for regularization
-        """
+    def get_decay_no_decay_para_groups(self, module):
         # separate out all parameters to those that will and won't experience regularizing weight decay
         decay = set()
         no_decay = set()
         whitelist_weight_modules = (nn.Linear, nn.Conv2d, nn.Conv3d)
         blacklist_weight_modules = (nn.LayerNorm, nn.BatchNorm2d, nn.BatchNorm3d, nn.InstanceNorm2d, nn.InstanceNorm3d, nn.parameter.Parameter)
-        for mn, m in self.named_modules():
+        for mn, m in module.named_modules():
             for pn, p in m.named_parameters():
                 fpn = '%s.%s' % (mn, pn) if mn else pn # full param name
                 # random note: because named_modules and named_parameters are recursive
@@ -88,12 +78,28 @@ class STCNNT_Task_Base(nn.Module, ABC):
                     no_decay.add(fpn)
 
         # validate that we considered every parameter
-        param_dict = {pn: p for pn, p in self.named_parameters()}
+        param_dict = {pn: p for pn, p in module.named_parameters()}
         inter_params = decay & no_decay
         union_params = decay | no_decay
         assert len(inter_params) == 0, "parameters %s made it into both decay/no_decay sets!" % (str(inter_params), )
         assert len(param_dict.keys() - union_params) == 0, "parameters %s were not separated into either decay/no_decay set!" \
                                                     % (str(param_dict.keys() - union_params), )
+
+        return decay, no_decay, param_dict
+
+    def configure_optim_groups(self):
+        """
+        Copied (and modified) from mingpt: https://github.com/karpathy/minGPT
+        This long function is unfortunately doing something very simple and is being very defensive:
+        We are separating out all parameters of the model into two buckets: those that will experience
+        weight decay for regularization and those that won't (biases, and layernorm/embedding weights).
+        We are then returning the optimizer groups.
+
+        @args (from config):
+            - weight_decay (float): weight decay coefficient for regularization
+        """
+
+        decay, no_decay, param_dict = self.get_decay_no_decay_para_groups(module=self)
 
         # create the pytorch optimizer object
         optim_groups = [
@@ -175,7 +181,7 @@ class STCNNT_Task_Base(nn.Module, ABC):
             self.loss_f should be set
         """
         pass
-    
+
     def save(self, epoch):
         """
         Save model checkpoints
@@ -198,7 +204,7 @@ class STCNNT_Task_Base(nn.Module, ABC):
             "scheduler_type":self.stype
         }, save_path)
 
-    def load(self, device=None):
+    def load(self, load_path, device=None):
         """
         Load a checkpoint from the load path in config
         @args:
@@ -206,30 +212,33 @@ class STCNNT_Task_Base(nn.Module, ABC):
         @args (from config):
             - load_path (str): path to load the weights from
         """
-        logging.info(f"{Fore.YELLOW}Loading model from {self.config.load_path}{Style.RESET_ALL}")
+        logging.info(f"{Fore.YELLOW}Loading model from {load_path}{Style.RESET_ALL}")
 
         #device = get_device(device=device)
 
-        status = torch.load(self.config.load_path, map_location=self.config.device)
-        self.config = status['config']
+        if os.path.isfile(load_path):
+            status = torch.load(load_path, map_location=self.config.device)
+            self.config = status['config']
 
-        if 'model_state' in status:
-            self.load_state_dict(status['model_state'])
+            if 'model_state' in status:
+                self.load_state_dict(status['model_state'])
+            else:
+                self.load_state_dict(status['model'])
+
+            if 'optimizer_state' in status:
+                self.optim.load_state_dict(status['optimizer_state'])
+                optimizer_to(self.optim, device=self.config.device)
+
+            if 'scheduler_state' in status:
+                self.sched.load_state_dict(status['scheduler_state'])
+
+            if 'scheduler_type' in status:
+                self.stype = status['scheduler_type']
+
+            if 'epoch' in status:
+                self.curr_epoch = status['epoch']
         else:
-            self.load_state_dict(status['model'])
-
-        if 'optimizer_state' in status:
-            self.optim.load_state_dict(status['optimizer_state'])
-            optimizer_to(self.optim, device=self.config.device)
-
-        if 'scheduler_state' in status:
-            self.sched.load_state_dict(status['scheduler_state'])
-
-        if 'scheduler_type' in status:
-            self.stype = status['scheduler_type']
-
-        if 'epoch' in status:
-            self.curr_epoch = status['epoch']
+            logging.warning(f"{Fore.YELLOW}{load_path} does not exist .... {Style.RESET_ALL}")
 
 # -------------------------------------------------------------------------------------------------
 

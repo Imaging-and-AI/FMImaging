@@ -201,6 +201,21 @@ def save_batch_samples(saved_path, fname, x, y, output, y_degraded, gmap_median,
            
 # -------------------------------------------------------------------------------------------------
 
+def distribute_learning_rates(rank, optim, src=0):
+    
+    N = len(optim.param_groups)
+    new_lr = torch.zeros(N).to(rank)
+    for ind in range(N):
+        new_lr[ind] = optim.param_groups[ind]["lr"]
+        
+    dist.broadcast(new_lr, src=0)
+    
+    if rank != src:
+        for ind in range(N):
+            optim.param_groups[ind]["lr"] = new_lr[ind].item()
+
+# -------------------------------------------------------------------------------------------------
+                    
 def trainer(rank, global_rank, config, wandb_run):
     """
     The trainer cycle. Allows training on cpu/single gpu/multiple gpu(ddp)
@@ -237,7 +252,11 @@ def trainer(rank, global_rank, config, wandb_run):
     c_time = config.time
     use_amp = config.use_amp
     num_workers = config.num_workers
-
+    lr_pre = config.lr_pre
+    lr_backbone = config.lr_backbone
+    lr_post = config.lr_post
+    continued_training = config.continued_training
+    
     ddp = config.ddp
     if ddp:
         config.device = torch.device(f'cuda:{rank}')
@@ -246,6 +265,8 @@ def trainer(rank, global_rank, config, wandb_run):
         load_path = config.load_path
         status = torch.load(config.load_path)
         config = status['config']
+        
+        # overwrite the config parameters with current settings
         config.losses = losses
         config.loss_weights = loss_weights
         config.optim = optim
@@ -261,19 +282,19 @@ def trainer(rank, global_rank, config, wandb_run):
         config.time = c_time
         config.use_amp = use_amp
         config.num_workers = num_workers
-
+        config.lr_pre = lr_pre
+        config.lr_backbone = lr_backbone
+        config.lr_post = lr_post
+        #config.load_path = load_path
+        
         if ddp:
             config.device = torch.device(f'cuda:{rank}')
-        model = STCNNT_MRI(config=config, total_steps=total_steps)
-        if 'model_state' in status:
-            model.load_state_dict(status['model_state'])
             
-            model.optim.load_state_dict(status['optimizer_state'])
-            optimizer_to(model.optim, device=model.config.device)
-
-            model.sched.load_state_dict(status['scheduler_state'])
-            model.stype = status['scheduler_type']
-            model.curr_epoch = status['epoch']
+        model = STCNNT_MRI(config=config, total_steps=total_steps)
+        
+        if 'backbone_state' in status:
+            print(f"load saved model, continued_training - {continued_training}")
+            model.load_from_status(status=status, device=config.device, load_others=continued_training)
             
         config.ddp = ddp
         
@@ -285,7 +306,6 @@ def trainer(rank, global_rank, config, wandb_run):
         print(f"after load saved model, config.num_workers for running - {config.num_workers}")
         print(f"after load saved model, model.curr_epoch for running - {model.curr_epoch}")
     else:
-        load_path = None
         load_path = None
         model = STCNNT_MRI(config=config, total_steps=total_steps)
 
@@ -628,6 +648,9 @@ def trainer(rank, global_rank, config, wandb_run):
 
             #print(f"--> mean SNR is {train_snr_meter.avg:.4f}")
             base_snr = train_snr_meter.avg
+            
+            all_lrs = [ pg['lr'] for pg in optim.param_groups ]
+            print(f"--> epoch {epoch}, learning rates are {all_lrs}")
 
         # -------------------------------------------------------
 
@@ -676,23 +699,10 @@ def trainer(rank, global_rank, config, wandb_run):
                 sched.step()
 
             if c.ddp:
-                new_lr_0 = torch.zeros(1).to(rank)
-                new_lr_0[0] = optim.param_groups[0]["lr"]
-                dist.broadcast(new_lr_0, src=0)
-
-                if not c.all_w_decay:
-                    new_lr_1 = torch.zeros(1).to(rank)
-                    new_lr_1[0] = optim.param_groups[1]["lr"]
-                    dist.broadcast(new_lr_1, src=0)
+                distribute_learning_rates(rank=rank, optim=optim, src=0)
+                                    
         else: # child processes
-            new_lr_0 = torch.zeros(1).to(rank)
-            dist.broadcast(new_lr_0, src=0)
-            optim.param_groups[0]["lr"] = new_lr_0.item()
-
-            if not c.all_w_decay:
-                new_lr_1 = torch.zeros(1).to(rank)
-                dist.broadcast(new_lr_1, src=0)
-                optim.param_groups[1]["lr"] = new_lr_1.item()
+            distribute_learning_rates(rank=rank, optim=optim, src=0)
 
 
     # test last model
