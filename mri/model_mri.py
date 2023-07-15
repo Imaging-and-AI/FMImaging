@@ -126,14 +126,22 @@ class STCNNT_MRI(STCNNT_Task_Base):
         """
         res_pre = self.pre(x)
         res_backbone = self.backbone(res_pre)
-        if isinstance(res_backbone, tuple):
-            logits = self.post(res_backbone[0])
-        else:
-            logits = self.post(res_backbone)
+        # if isinstance(res_backbone, tuple):
+        #     logits = self.post(res_backbone[0])
+        # else:
+        #     logits = self.post(res_backbone)
+
+        # if self.residual:
+        #     C = 2 if self.complex_i else 1
+        #     logits = x[:,:,:C] - logits
 
         if self.residual:
             C = 2 if self.complex_i else 1
-            logits = x[:,:,:C] - logits
+            res_backbone[1][0] = x[:,:,:C] - res_backbone[1][0]
+
+        y_hat = torch.cat(res_backbone[1], dim=2)
+
+        logits = self.post(y_hat)
 
         weights = None
         if snr is not None and base_snr_t>0:
@@ -517,6 +525,10 @@ class MRI_hrnet(STCNNT_MRI):
 
         res_backbone = self.backbone(res_pre)
 
+        if self.residual:
+            C = 2 if self.complex_i else 1
+            res_backbone[1][0] = x[:,:,:C] - res_backbone[1][0]
+
         num_resolution_levels = self.config.backbone_hrnet.num_resolution_levels
         if num_resolution_levels == 1:
             res_0, _ = self.post["P0"](res_backbone[1][0])
@@ -563,9 +575,9 @@ class MRI_hrnet(STCNNT_MRI):
         # res = self.post["output"](res)
         logits = self.post["output_conv"](res)
 
-        if self.residual:
-            C = 2 if self.complex_i else 1
-            logits = x[:,:,:C] - logits
+        # if self.residual:
+        #     C = 2 if self.complex_i else 1
+        #     logits = x[:,:,:C] - logits
 
         weights = None
         if snr is not None and base_snr_t>0:

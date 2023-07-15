@@ -22,13 +22,13 @@ class mri_ddp_base(run_ddp_base):
     
     def __init__(self, project, script_to_run) -> None:
         super().__init__(project, script_to_run)
-        
+
     def set_up_constants(self, config):
         
         super().set_up_constants(config)
-        
+
         self.cmd.extend([
-       
+
         "--num_epochs", "75",
         "--batch_size", "16",
 
@@ -46,29 +46,29 @@ class mri_ddp_base(run_ddp_base):
 
         "--num_workers", "64",
         "--prefetch_factor", "4",
-        
+
         "--scheduler_type", "ReduceLROnPlateau",
         #"--scheduler_type", "OneCycleLR",
-        
+
         "--scheduler.ReduceLROnPlateau.patience", "0",
         "--scheduler.ReduceLROnPlateau.cooldown", "0",
         "--scheduler.ReduceLROnPlateau.factor", "0.85",
-        
+
         "--scheduler.OneCycleLR.pct_start", "0.2",
-        
+
         # hrnet
         "--backbone_hrnet.num_resolution_levels", "2",
-        
-        # unet            
+
+        # unet
         "--backbone_unet.num_resolution_levels", "2",
-        
+
         # LLMs
         "--backbone_LLM.num_stages", "3",
-                        
+
         # small unet
         "--backbone_small_unet.channels", "16", "32", "64",   
         "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1",
-        
+
         "--min_noise_level", "2.0",
         "--max_noise_level", "24.0",
         #"--complex_i",
@@ -85,11 +85,13 @@ class mri_ddp_base(run_ddp_base):
         #"--max_load", "10000",
 
         #"--with_data_degrading",
-        
+
         #"--save_samples",
 
         # "--train_files", "train_3D_3T_retro_cine_2018.h5",  "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5", "train_3D_3T_perf_2018.h5","train_3D_3T_perf_2019.h5", "train_3D_3T_perf_2020.h5","train_3D_3T_perf_2021.h5", 
         # "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2d",
+
+        "--post_hrnet.block_str", "T1L1G1",
 
         "--train_files", "train_3D_3T_retro_cine_2018.h5",  
                         "train_3D_3T_retro_cine_2019.h5", 
@@ -100,28 +102,46 @@ class mri_ddp_base(run_ddp_base):
                         #"BWH_Perfusion_3T_2022.h5",
                         "MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", 
                         "MINNESOTA_UHVC_RetroCine_1p5T_2022.h5",
-        
+
         "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "3d",
 
         "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", 
                         "train_3D_3T_retro_cine_2020_small_2DT_test.h5", 
                         "train_3D_3T_retro_cine_2020_small_2D_test.h5", 
                         "train_3D_3T_retro_cine_2020_500_samples.h5",
-                        
+
         "--test_data_types", "3d", "2dt", "2d", "2dt" 
         ])
-        
+
         if config.tra_ratio > 0 and config.tra_ratio<=100:
             self.cmd.extend(["--ratio", f"{int(config.tra_ratio)}", f"{int(config.val_ratio)}", f"{int(config.test_ratio)}"])
-            
+
         self.cmd.extend(["--max_load", f"{int(config.max_load)}"])
 
+        self.cmd.extend(["--lr_pre", f"{config.lr_pre}"])
+        self.cmd.extend(["--lr_backbone", f"{config.lr_backbone}"])
+        self.cmd.extend(["--lr_post", f"{config.lr_post}"])
+
+        if config.not_load_pre:
+            self.cmd.extend(["--not_load_pre"])
+        if config.not_load_backbone:
+            self.cmd.extend(["--not_load_backbone"])
+        if config.not_load_post:
+            self.cmd.extend(["--not_load_post"])
+
+        if config.disable_pre:
+            self.cmd.extend(["--disable_pre"])
+        if config.disable_backbone:
+            self.cmd.extend(["--disable_backbone"])
+        if config.disable_post:
+            self.cmd.extend(["--disable_post"])
+
     def set_up_variables(self, config):
-        
+
         vars = dict()
-                
+
         vars['optim'] = ['sophia']
-        
+
         vars['backbone'] = ['hrnet']
         vars['cell_types'] = ["parallel"]
         vars['Q_K_norm'] = [True]
@@ -230,7 +250,7 @@ class mri_ddp_base(run_ddp_base):
                                             vars['losses'],
                                             vars['with_data_degrading']
                                             ):
-                                                                                        
+
                         # -------------------------------------------------------------
                         cmd_run = self.create_cmd_run(cmd_run=self.cmd.copy(), 
                                         config=config,
@@ -259,14 +279,14 @@ class mri_ddp_base(run_ddp_base):
                                         loss_weights=loss_and_weights[1],
                                         with_data_degrading=with_data_degrading
                                         )
-                        
+
                         if cmd_run:
                             print("---" * 20)
                             print(cmd_run)
                             print("---" * 20)
                             cmd_runs.append(cmd_run)
         return cmd_runs
-    
+
     def create_cmd_run(self, cmd_run, config, 
                         optim='adamw',
                         bk='hrnet', 
@@ -329,7 +349,7 @@ class mri_ddp_base(run_ddp_base):
         if with_data_degrading:
             cmd_run.extend(["--with_data_degrading"])
             run_str += "_with_data_degrading"
-            
+
         run_str += f"-{'_'.join(bs)}"
 
         cmd_run.extend(["--losses"])
@@ -341,7 +361,7 @@ class mri_ddp_base(run_ddp_base):
         ind = cmd_run.index("--run_name")
         cmd_run.pop(ind)
         cmd_run.pop(ind)
-        
+
         ind = cmd_run.index("--run_notes")
         cmd_run.pop(ind)
         cmd_run.pop(ind)
@@ -356,10 +376,24 @@ class mri_ddp_base(run_ddp_base):
         return cmd_run
 
     def arg_parser(self):
+
         parser = super().arg_parser()
         parser.add_argument("--max_load", type=int, default=-1, help="number of max loaded samples into the RAM")
+
+        parser.add_argument("--lr_pre", type=float, default=-1, help='learning rate for pre network')
+        parser.add_argument("--lr_backbone", type=float, default=-1, help='learning rate for backbone network')
+        parser.add_argument("--lr_post", type=float, default=-1, help='learning rate for post network')
+
+        parser.add_argument("--not_load_pre", action="store_true", help='if set, pre module will not be loaded.')
+        parser.add_argument("--not_load_backbone", action="store_true", help='if set, backbone module will not be loaded.')
+        parser.add_argument("--not_load_post", action="store_true", help='if set, pre module will not be loaded.')
+
+        parser.add_argument("--disable_pre", action="store_true", help='if set, pre module will have require_grad_(False).')
+        parser.add_argument("--disable_backbone", action="store_true", help='if set, backbone module will have require_grad_(False).')
+        parser.add_argument("--disable_post", action="store_true", help='if set, post module will have require_grad_(False).')
+
         return parser
-    
+
 # -------------------------------------------------------------
 
 def main():

@@ -231,11 +231,29 @@ def trainer(rank, global_rank, config, wandb_run):
     start = time()
     train_set, val_set, test_set = load_mri_data(config=config)
     logging.info(f"load_mri_data took {time() - start} seconds ...")
-    
+
     total_num_samples = sum([len(s) for s in train_set])
-    
+
     total_steps = compute_total_steps(config, total_num_samples)
     logging.info(f"total_steps for this run: {total_steps}, len(train_set) {[len(s) for s in train_set]}, batch {config.batch_size}")
+
+    # -----------------------------------------------
+
+    if not config.continued_training:
+        t0 = time()
+        num_samples = len(train_set[-1])
+        sampled_picked = np.random.randint(0, num_samples, size=32)
+        input_data  = torch.stack([train_set[-1][i][0] for i in sampled_picked])
+        print(f"LSUV prep data took {time()-t0 : .2f} seconds ...")
+
+    # -----------------------------------------------
+
+    if config.ddp:
+        device = torch.device(f"cuda:{rank}")
+    else:
+        device = config.device
+
+    # -----------------------------------------------
 
     num_epochs = config.num_epochs
     batch_size = config.batch_size
@@ -266,8 +284,6 @@ def trainer(rank, global_rank, config, wandb_run):
     not_load_post = config.not_load_post
 
     ddp = config.ddp
-    if ddp:
-        config.device = torch.device(f'cuda:{rank}')
 
     if config.load_path is not None:
         load_path = config.load_path
@@ -296,14 +312,12 @@ def trainer(rank, global_rank, config, wandb_run):
         config.disable_pre = disable_pre
         config.disable_backbone = disable_backbone
         config.disable_post = disable_post
+        config.post_hrnet = Nestedspace()
         config.post_hrnet.block_str = post_hrnet_block_str
         config.not_load_pre = not_load_pre
         config.not_load_backbone = not_load_backbone
         config.not_load_post = not_load_post
         #config.load_path = load_path
-        
-        if ddp:
-            config.device = torch.device(f'cuda:{rank}')
 
         if model_type == "STCNNT_MRI":
             model = STCNNT_MRI(config=config, total_steps=total_steps)
@@ -315,6 +329,11 @@ def trainer(rank, global_rank, config, wandb_run):
             if continued_training:
                 model.load_from_status(status=status, device=config.device, load_others=continued_training)
             else: # new stage training
+                model = model.to(device)
+                t0 = time()
+                LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
+                print(f"LSUVinit took {time()-t0 : .2f} seconds ...")
+
                 # ------------------------------
                 if not not_load_pre:
                     print(f"load saved model, pre_state")
@@ -325,6 +344,8 @@ def trainer(rank, global_rank, config, wandb_run):
                 if disable_pre:
                     print(f"load saved model, pre requires_grad_(False)")
                     model.pre.requires_grad_(False)
+                    for param in model.pre.parameters():
+                        param.requires_grad = False
                 else:
                     print(f"load saved model, pre requires_grad_(True)")
                 # ------------------------------
@@ -337,6 +358,8 @@ def trainer(rank, global_rank, config, wandb_run):
                 if disable_backbone:
                     print(f"load saved model, backbone requires_grad_(False)")
                     model.backbone.requires_grad_(False)
+                    for param in model.backbone.parameters():
+                        param.requires_grad = False
                 else:
                     print(f"load saved model, backbone requires_grad_(True)")
                 # ------------------------------
@@ -349,6 +372,8 @@ def trainer(rank, global_rank, config, wandb_run):
                 if disable_post:
                     print(f"load saved model, post requires_grad_(False)")
                     model.post.requires_grad_(False)
+                    for param in model.post.parameters():
+                        param.requires_grad = False
                 else:
                     print(f"load saved model, post requires_grad_(True)")
                 # ------------------------------
@@ -372,6 +397,11 @@ def trainer(rank, global_rank, config, wandb_run):
         else:
             model = MRI_hrnet(config=config, total_steps=total_steps)
 
+        model = model.to(device)
+        t0 = time()
+        LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
+        print(f"LSUVinit took {time()-t0 : .2f} seconds ...")
+
     if config.ddp:
         dist.barrier()
 
@@ -391,24 +421,7 @@ def trainer(rank, global_rank, config, wandb_run):
 
     # -----------------------------------------------
 
-    if load_path is None:
-        t0 = time()
-        num_samples = len(train_set[-1])
-        sampled_picked = np.random.randint(0, num_samples, size=32)
-        input_data  = torch.stack([train_set[-1][i][0] for i in sampled_picked])
-        print(f"LSUV prep data took {time()-t0 : .2f} seconds ...")
-    else:
-        print(f"{Fore.YELLOW}Ignore the LSUV initialization - load pre-trained model {load_path} ... {Style.RESET_ALL}")
-
-    # -----------------------------------------------
-
     if c.ddp:
-        device = torch.device(f"cuda:{rank}")
-        model = model.to(device)
-        if load_path is None:
-            t0 = time()
-            LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
-            print(f"LSUVinit took {time()-t0 : .2f} seconds ...")
         model = DDP(model, device_ids=[rank], find_unused_parameters=True)
         optim = model.module.optim
         sched = model.module.sched
@@ -419,13 +432,6 @@ def trainer(rank, global_rank, config, wandb_run):
         samplers = [DistributedSampler(train_set_x, shuffle=True) for train_set_x in train_set]
         shuffle = False
     else:
-        # No init required if not ddp
-        device = c.device
-        model = model.to(device)
-        if load_path is None:
-            t0 = time()
-            LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
-            print(f"LSUVinit took {time()-t0 : .2f} seconds ...")
         optim = model.optim
         sched = model.sched
         stype = model.stype
@@ -447,11 +453,11 @@ def trainer(rank, global_rank, config, wandb_run):
     train_loader = [DataLoader(dataset=train_set_x, batch_size=c.batch_size, shuffle=shuffle, sampler=samplers[i],
                                 num_workers=c.num_workers//len(train_set), prefetch_factor=c.prefetch_factor, drop_last=True,
                                 persistent_workers=c.num_workers>0) for i, train_set_x in enumerate(train_set)]
-    
+
     train_set_type = [train_set_x.data_type for train_set_x in train_set]
 
     # -----------------------------------------------
-    
+
     if rank<=0: # main or master process
         if c.ddp: setup_logger(config) # setup master process logging
 
@@ -461,7 +467,7 @@ def trainer(rank, global_rank, config, wandb_run):
             wandb_run.summary["total_mult_adds"] = c.total_mult_adds 
 
             wandb_run.define_metric("epoch")    
-            
+
             wandb_run.define_metric("train_loss_avg", step_metric='epoch')
             wandb_run.define_metric("train_mse_loss", step_metric='epoch')
             wandb_run.define_metric("train_l1_loss", step_metric='epoch')
@@ -473,7 +479,7 @@ def trainer(rank, global_rank, config, wandb_run):
             wandb_run.define_metric("train_perp", step_metric='epoch')
             wandb_run.define_metric("train_gaussian_deriv", step_metric='epoch')
             wandb_run.define_metric("train_gaussian3D_deriv", step_metric='epoch')
-            
+
             wandb_run.define_metric("val_loss_avg", step_metric='epoch')
             wandb_run.define_metric("val_mse_loss", step_metric='epoch')
             wandb_run.define_metric("val_l1_loss", step_metric='epoch')
@@ -566,6 +572,9 @@ def trainer(rank, global_rank, config, wandb_run):
         if image_save_step_size == 0: image_save_step_size = 1
 
         curr_lr = 0
+
+        all_lrs = [pg['lr'] for pg in optim.param_groups]
+        logging.info(f"{Fore.YELLOW}lrs for epoch {epoch} - {all_lrs}{Style.RESET_ALL}")
 
         with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
 
@@ -713,9 +722,6 @@ def trainer(rank, global_rank, config, wandb_run):
 
             #print(f"--> mean SNR is {train_snr_meter.avg:.4f}")
             base_snr = train_snr_meter.avg
-            
-            all_lrs = [ pg['lr'] for pg in optim.param_groups ]
-            print(f"--> epoch {epoch}, learning rates are {all_lrs}")
 
         # -------------------------------------------------------
 
@@ -874,19 +880,19 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
 
     shuffle = False
 
-    try:    
+    try:
         if c.ddp:
             loss_f = model.module.loss_f
         else:
             loss_f = model.loss_f
     except:
         loss_f = None
-        
+
     if c.ddp:
         sampler = [DistributedSampler(val_set_x, shuffle=False) for val_set_x in val_set]
     else:
         sampler = [None for _ in val_set]
-        
+
     batch_size = c.batch_size if isinstance(val_set[0], MRIDenoisingDatasetTrain) else 1
 
     val_loader = [DataLoader(dataset=val_set_x, batch_size=batch_size, shuffle=False, sampler=sampler[i],
@@ -895,7 +901,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
 
     val_loss_meter = AverageMeter()
     loss_meters = mri_trainer_meters(config=c, device=device) 
-    
+
     model.eval()
     model.to(device)
 
@@ -1088,11 +1094,11 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
 # -------------------------------------------------------------------------------------------------
 def _apply_model(model, x, g, scaling_factor, config, device, overlap=None):
     """Apply the inference
-    
+
     Input
         x : [1, T, 1, H, W], attention is alone T
         g : [1, T, 1, H, W]
-        
+
     Output
         res : [1, T, Cout, H, W]
     """
@@ -1166,30 +1172,30 @@ def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('
     print(f"---> apply_model, complex_i {config.complex_i}")
     print(f"---> apply_model, scaling_factor {scaling_factor}")
     print(f"---> apply_model, overlap {overlap}")
-    
+
     c = config
-    
+
     try:
         for k in range(SLC):
             imgslab = data[:,:,:,k]
             gmapslab = gmap[:,:,k]
-            
+
             H, W, T = imgslab.shape
-            
+
             x = np.transpose(imgslab, [2, 0, 1]).reshape([1, T, 1, H, W])
             g = np.repeat(gmapslab[np.newaxis, np.newaxis, np.newaxis, :, :], T, axis=1)
-            
+
             print(f"---> running_inference, input {x.shape} for slice {k}")
             output = _apply_model(model, x, g, scaling_factor, config, device, overlap)
-            
+
             output = np.transpose(output, (3, 4, 2, 1, 0))
-            
+
             if(k==0):
                 if config.complex_i:
                     data_filtered = np.zeros((output.shape[0], output.shape[1], T, SLC), dtype=data.dtype)
                 else:
                     data_filtered = np.zeros((output.shape[0], output.shape[1], T, SLC), dtype=np.float32)
-            
+
             if config.complex_i:
                 data_filtered[:,:,:,k] = output[:,:,0,:,0] + 1j*output[:,:,1,:,0]
             else:
@@ -1201,7 +1207,7 @@ def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('
 
     t1 = time()
     print(f"---> apply_model took {t1-t0} seconds ")
-        
+
     return data_filtered
 
 # -------------------------------------------------------------------------------------------------
@@ -1230,25 +1236,25 @@ def apply_model_3D(data, model, gmap, config, scaling_factor, device='cpu', over
     print(f"---> apply_model_3D, height and width {config.height, config.width}")
     print(f"---> apply_model_3D, complex_i {config.complex_i}")
     print(f"---> apply_model_3D, scaling_factor {scaling_factor}")
-    
+
     c = config
-    
-    try:           
+
+    try:
         x = np.transpose(data, [2, 0, 1]).reshape([1, SLC, 1, H, W])
         g = np.transpose(gmap, [2, 0, 1]).reshape([1, SLC, 1, H, W])
-        
+
         print(f"---> running_inference, input {x.shape} for volume")
         output = _apply_model(model, x, g, scaling_factor, config, device, overlap)
-            
+
         output = np.transpose(output, (3, 4, 2, 1, 0)) # [H, W, Cout, SLC, 1]
-                
+
         if config.complex_i:
             data_filtered = output[:,:,0,:,0] + 1j*output[:,:,1,:,0]
         else:
             data_filtered = output
 
         data_filtered = np.reshape(data_filtered, (H, W, SLC))
-        
+
     except Exception as e:
         print(e)
         data_filtered = copy.deepcopy(data)
@@ -1286,28 +1292,28 @@ def apply_model_2D(data, model, gmap, config, scaling_factor, device='cpu', over
     print(f"---> apply_model_2D, height and width {config.height, config.width}")
     print(f"---> apply_model_2D, complex_i {config.complex_i}")
     print(f"---> apply_model_2D, scaling_factor {scaling_factor}")
-    
+
     c = config
-    
-    try:           
+
+    try:
         x = np.transpose(data, [2, 0, 1]).reshape([SLC, 1, 1, H, W])
         g = np.transpose(gmap, [2, 0, 1]).reshape([SLC, 1, 1, H, W])
-        
+
         output = np.zeros([SLC, 1, 1, H, W])
-        
+
         print(f"---> running_inference, input {x.shape} for 2D")
         for slc in range(SLC):
             output[slc] = _apply_model(model, x[slc], g[slc], scaling_factor, config, device, overlap)
-            
+
         output = np.transpose(output, (3, 4, 2, 1, 0)) # [H, W, Cout, 1, SLC]
-                
+
         if config.complex_i:
             data_filtered = output[:,:,0,:,:] + 1j*output[:,:,1,:,:]
         else:
             data_filtered = output
 
         data_filtered = np.reshape(data_filtered, (H, W, SLC))
-        
+
     except Exception as e:
         print(e)
         data_filtered = copy.deepcopy(data)
