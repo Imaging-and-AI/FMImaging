@@ -197,6 +197,8 @@ class mri_ddp_base(run_ddp_base):
 
         vars['with_data_degrading'] = [False]
 
+        vars['not_add_noise'] = [False]
+
         return vars
 
     def run_vars(self, config, vars):
@@ -226,7 +228,8 @@ class mri_ddp_base(run_ddp_base):
                     bs, \
                     weighted_loss, \
                     loss_and_weights, \
-                    with_data_degrading \
+                    with_data_degrading, \
+                    not_add_noise \
                         in itertools.product( 
                                             vars['optim'],
                                             vars['mixer_types'], 
@@ -248,7 +251,8 @@ class mri_ddp_base(run_ddp_base):
                                             block_str,
                                             vars['weighted_loss'],
                                             vars['losses'],
-                                            vars['with_data_degrading']
+                                            vars['with_data_degrading'],
+                                            vars['not_add_noise']
                                             ):
 
                         # -------------------------------------------------------------
@@ -277,7 +281,8 @@ class mri_ddp_base(run_ddp_base):
                                         n_heads=n_heads,
                                         losses=loss_and_weights[0],
                                         loss_weights=loss_and_weights[1],
-                                        with_data_degrading=with_data_degrading
+                                        with_data_degrading=with_data_degrading,
+                                        not_add_noise=not_add_noise
                                         )
 
                         if cmd_run:
@@ -311,7 +316,8 @@ class mri_ddp_base(run_ddp_base):
                         n_heads=32,
                         losses=['mse', 'l1'],
                         loss_weights=['1.0', '1.0'],
-                        with_data_degrading=False
+                        with_data_degrading=False,
+                        not_add_noise=False
                         ):
 
         if c < n_heads:
@@ -349,6 +355,10 @@ class mri_ddp_base(run_ddp_base):
         if with_data_degrading:
             cmd_run.extend(["--with_data_degrading"])
             run_str += "_with_data_degrading"
+
+        if not_add_noise:
+            cmd_run.extend(["--not_add_noise"])
+            run_str += "_no_noise"
 
         run_str += f"-{'_'.join(bs)}"
 
