@@ -151,7 +151,7 @@ class Trainer_Base(ABC):
         To support the wandb sweep, the parameters are read from wandb and 
         broadcasted to all processes.
         """
-      
+
         # -------------------------------------------------------
         # get the rank and runtime info
         if self.config.ddp:
@@ -162,9 +162,9 @@ class Trainer_Base(ABC):
             rank = -1
             global_rank = -1
             world_size = 1
-            
+
         print(f"{Fore.RED}---> Run start on local rank {rank} - global rank {global_rank} <---{Style.RESET_ALL}", flush=True)
-            
+
         # -------------------------------------------------------
         # if sweeping, update the config with parameters from wandb
         # perform the wandb.init to create a run
@@ -192,53 +192,53 @@ class Trainer_Base(ABC):
         # if ddp is used, broadcast the parameters from rank0 to all other ranks
         if self.config.ddp:                                        
             if(self.config.sweep_id != 'none'):
-                
+
                 if rank<=0:
                     c_list = [self.config]
                     print(f"{Fore.RED}--->before, on local rank {rank}, {c_list[0].run_name}{Style.RESET_ALL}", flush=True)
                 else:
                     c_list = [None]
                     print(f"{Fore.RED}--->before, on local rank {rank}, {self.config.run_name}{Style.RESET_ALL}", flush=True)
-                
+
                 if world_size > 1:
                     torch.distributed.broadcast_object_list(c_list, src=0, group=None, device=rank)
-                    
+
                 print(f"{Fore.RED}--->after, on local rank {rank}, {c_list[0].run_name}{Style.RESET_ALL}", flush=True)
                 if rank>0:
                     self.config = c_list[0]
-                            
+
                 print(f"---> config synced for the local rank {rank}")                        
                 if world_size > 1: dist.barrier()
-                     
+
             print(f"{Fore.RED}---> Ready to run on local rank {rank}, {self.config.run_name}{Style.RESET_ALL}", flush=True)
-            
+
             if self.config.ddp:
                 self.config.device = torch.device(f'cuda:{rank}')
-                
+
         # -------------------------------------------------------
         # run the training for current rank and wandb run
         try: 
             self.run_task_trainer(rank=rank, global_rank=global_rank, wandb_run=wandb_run)
-                                    
+
             if wandb_run is not None:
                 wandb_run.finish()
-                    
+
             print(f"{Fore.RED}---> Run finished on local rank {rank} <---{Style.RESET_ALL}", flush=True)
-                    
+
         except KeyboardInterrupt:
             print(f"{Fore.YELLOW}Interrupted from the keyboard ...{Style.RESET_ALL}", flush=True)
 
             if self.config.ddp:
                 torch.distributed.destroy_process_group()
-                            
-            # make sure the runtime is cleaned, by brutelly removing processes
+
+            # make sure the runtime is cleaned, by brutally removing processes
             clean_after_training()
-            
+
             print(f"{Fore.YELLOW}Remove {wandb_run.name} ...{Style.RESET_ALL}", flush=True)
             #wandb_run.delete()
-        
+
     def train(self):
-           
+
         # -------------------------------------------------------
         # get the rank and runtime info
         if self.config.ddp:
@@ -248,7 +248,7 @@ class Trainer_Base(ABC):
             local_world_size = int(os.environ["LOCAL_WORLD_SIZE"])
 
             print(f"{Fore.YELLOW}---> dist.init_process_group on local rank {rank}, global rank {global_rank}, world size {world_size}, local World size {local_world_size} <---{Style.RESET_ALL}", flush=True)
-            
+
             if not dist.is_initialized():
                 torch.cuda.set_device(torch.device(f'cuda:{rank}'))
                 if torch.cuda.is_available():
@@ -257,16 +257,16 @@ class Trainer_Base(ABC):
                     dist.init_process_group(backend=torch.distributed.Backend.GLOO, rank=global_rank, world_size=world_size)
         else:
             rank = -1
-            global_rank = -1        
+            global_rank = -1
             print(f"---> ddp is off <---", flush=True)
-        
+
         # -------------------------------------------------------
         # set up and check the run arguments
         self.check_args()
-        setup_run(self.config)                
-                
+        setup_run(self.config)
+
         print(f"--------> run training on local rank {rank}", flush=True)
-                                
+
         # -------------------------------------------------------
         # note the sweep_id is used to control the condition
         # if doing sweep, get the parameters from wandb
@@ -274,17 +274,17 @@ class Trainer_Base(ABC):
         print("get sweep id : ", sweep_id, flush=True)
         if (sweep_id != "none"):
             print("start sweep runs ...", flush=True)
-                        
+
             if rank<=0:
                 wandb.agent(sweep_id, self.run_training, project=self.project, count=self.config.sweep_count)
             else:
                 print(f"--> local rank {rank} - not start another agent", flush=True)
-                self.run_training()             
+                self.run_training()
         else:
             # if not doing sweep, start a regular run
-            print("start a regular run ...", flush=True)        
+            print("start a regular run ...", flush=True)
             self.run_training()
-                    
+
         # -------------------------------------------------------
         # after the run, release the process groups
         if self.config.ddp:         

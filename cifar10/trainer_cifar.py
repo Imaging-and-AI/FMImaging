@@ -279,7 +279,7 @@ def trainer(rank, global_rank, config, wandb_run):
                 inputs = inputs.to(device)
                 labels = labels.to(device)
 
-                with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=c.use_amp):
+                with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
                     output = model(inputs)
                     loss = loss_f(output, labels)
                     loss = loss / c.iters_to_accumulate

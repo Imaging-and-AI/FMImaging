@@ -28,7 +28,7 @@ from model_base.losses import *
 from utils.save_model import save_final_model
 from utils.running_inference import running_inference
 
-from model_mri import STCNNT_MRI
+from model_mri import STCNNT_MRI, MRI_hrnet
 from data_mri import MRIDenoisingDatasetTrain, load_mri_data
 
 from colorama import Fore, Back, Style
@@ -207,9 +207,9 @@ def distribute_learning_rates(rank, optim, src=0):
     new_lr = torch.zeros(N).to(rank)
     for ind in range(N):
         new_lr[ind] = optim.param_groups[ind]["lr"]
-        
-    dist.broadcast(new_lr, src=0)
-    
+
+    dist.broadcast(new_lr, src=src)
+
     if rank != src:
         for ind in range(N):
             optim.param_groups[ind]["lr"] = new_lr[ind].item()
@@ -256,7 +256,15 @@ def trainer(rank, global_rank, config, wandb_run):
     lr_backbone = config.lr_backbone
     lr_post = config.lr_post
     continued_training = config.continued_training
-    
+    disable_pre = config.disable_pre
+    disable_backbone = config.disable_backbone
+    disable_post = config.disable_post
+    model_type = config.model_type
+    post_hrnet_block_str = config.post_hrnet.block_str
+    not_load_pre = config.not_load_pre
+    not_load_backbone = config.not_load_backbone
+    not_load_post = config.not_load_post
+
     ddp = config.ddp
     if ddp:
         config.device = torch.device(f'cuda:{rank}')
@@ -285,19 +293,71 @@ def trainer(rank, global_rank, config, wandb_run):
         config.lr_pre = lr_pre
         config.lr_backbone = lr_backbone
         config.lr_post = lr_post
+        config.disable_pre = disable_pre
+        config.disable_backbone = disable_backbone
+        config.disable_post = disable_post
+        config.post_hrnet.block_str = post_hrnet_block_str
+        config.not_load_pre = not_load_pre
+        config.not_load_backbone = not_load_backbone
+        config.not_load_post = not_load_post
         #config.load_path = load_path
         
         if ddp:
             config.device = torch.device(f'cuda:{rank}')
-            
-        model = STCNNT_MRI(config=config, total_steps=total_steps)
-        
+
+        if model_type == "STCNNT_MRI":
+            model = STCNNT_MRI(config=config, total_steps=total_steps)
+        else:
+            model = MRI_hrnet(config=config, total_steps=total_steps)
+
         if 'backbone_state' in status:
             print(f"load saved model, continued_training - {continued_training}")
-            model.load_from_status(status=status, device=config.device, load_others=continued_training)
-            
+            if continued_training:
+                model.load_from_status(status=status, device=config.device, load_others=continued_training)
+            else: # new stage training
+                # ------------------------------
+                if not not_load_pre:
+                    print(f"load saved model, pre_state")
+                    model.pre.load_state_dict(status['pre_state'])
+                else:
+                    print(f"load saved model, WITHOUT pre_state")
+
+                if disable_pre:
+                    print(f"load saved model, pre requires_grad_(False)")
+                    model.pre.requires_grad_(False)
+                else:
+                    print(f"load saved model, pre requires_grad_(True)")
+                # ------------------------------
+                if not not_load_backbone:
+                    print(f"load saved model, backbone_state")
+                    model.backbone.load_state_dict(status['backbone_state'])
+                else:
+                    print(f"load saved model, WITHOUT backbone_state")
+
+                if disable_backbone:
+                    print(f"load saved model, backbone requires_grad_(False)")
+                    model.backbone.requires_grad_(False)
+                else:
+                    print(f"load saved model, backbone requires_grad_(True)")
+                # ------------------------------
+                if not not_load_post:
+                    print(f"load saved model, post_state")
+                    model.post.load_state_dict(status['post_state'])
+                else:
+                    print(f"load saved model, WITHOUT post_state")
+
+                if disable_post:
+                    print(f"load saved model, post requires_grad_(False)")
+                    model.post.requires_grad_(False)
+                else:
+                    print(f"load saved model, post requires_grad_(True)")
+                # ------------------------------
+                model.a = status['a']
+                model.b = status['b']
+                # ---------------------------------------------------
+
         config.ddp = ddp
-        
+
         print(f"after load saved model, the config for running - {config}")
         print(f"after load saved model, config.use_amp for running - {config.use_amp}")
         print(f"after load saved model, config.optim for running - {config.optim}")
@@ -307,7 +367,10 @@ def trainer(rank, global_rank, config, wandb_run):
         print(f"after load saved model, model.curr_epoch for running - {model.curr_epoch}")
     else:
         load_path = None
-        model = STCNNT_MRI(config=config, total_steps=total_steps)
+        if model_type == "STCNNT_MRI":
+            model = STCNNT_MRI(config=config, total_steps=total_steps)
+        else:
+            model = MRI_hrnet(config=config, total_steps=total_steps)
 
     if config.ddp:
         dist.barrier()
@@ -604,6 +667,8 @@ def trainer(rank, global_rank, config, wandb_run):
 
                 train_snr_meter.update(torch.mean(snr), n=total)
 
+                output = output.to(x.dtype)
+
                 if rank<=0 and idx%image_save_step_size==0 and images_saved < config.num_saved_samples and config.save_samples:  
                     save_batch_samples(saved_path, f"tra_epoch_{images_saved}", x, y, output, y_degraded, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
                     images_saved += 1
@@ -732,7 +797,11 @@ def trainer(rank, global_rank, config, wandb_run):
             logging.info(f"--> {Fore.YELLOW}Save best mode at {fname_best}{Style.RESET_ALL}")
 
     # test best model, reload the weights
-    model = STCNNT_MRI(config=config, total_steps=total_steps)
+    if model_type == "STCNNT_MRI":
+        model = STCNNT_MRI(config=config, total_steps=total_steps)
+    else:
+        model = MRI_hrnet(config=config, total_steps=total_steps)
+
     model.load_state_dict(best_model_wts)
     model = model.to(device)
 
@@ -1303,20 +1372,37 @@ def load_model(saved_model_path, saved_model_config=None):
     
     config_file = saved_model_config
     if config_file is not None and os.path.isfile(config_file):
-        print(f"{Fore.YELLOW}Load in config file - {config_file}")
+        print(f"{Fore.YELLOW}Load in config file - {config_file}{Style.RESET_ALL}")
         with open(config_file, 'rb') as f:
             config = pickle.load(f)
 
     if saved_model_path.endswith(".pt") or saved_model_path.endswith(".pth"):
+
         status = torch.load(saved_model_path, map_location=get_device())
         config = status['config']
+
         if not torch.cuda.is_available():
             config.device = torch.device('cpu')
-        model = STCNNT_MRI(config=config)
-        if 'model' in status:
-            model.load_state_dict(status['model'])
+
+        if config.model_type == "STCNNT_MRI":
+            model = STCNNT_MRI(config=config)
         else:
+            model = MRI_hrnet(config=config)
+
+        if 'model' in status:
+            print(f"{Fore.YELLOW}Load in model {Style.RESET_ALL}")
+            model.load_state_dict(status['model'])
+        elif 'model_state' in status:
+            print(f"{Fore.YELLOW}Load in model_state {Style.RESET_ALL}")
             model.load_state_dict(status['model_state'])
+        elif 'backbone_state' in status:
+            print(f"{Fore.YELLOW}Load in pre/backbone/post states{Style.RESET_ALL}")
+            model.pre.load_state_dict(status['pre_state'])
+            model.backbone.load_state_dict(status['backbone_state'])
+            model.post.load_state_dict(status['post_state'])
+            model.a = status['a']
+            model.b = status['b']
+            
     elif saved_model_path.endswith(".pts"):
         model = torch.jit.load(saved_model_path, map_location=get_device())
     else:

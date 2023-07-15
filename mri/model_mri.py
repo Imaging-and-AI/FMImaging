@@ -198,7 +198,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
 
         return optim_groups
 
-    def save(self, epoch):
+    def save(self, epoch, only_paras=False):
         """
         Save model checkpoints
         @args:
@@ -211,18 +211,28 @@ class STCNNT_MRI(STCNNT_Task_Base):
         save_file_name = f"{run_name}_epoch-{epoch}.pth"
         save_path = os.path.join(self.config.check_path, save_file_name)
         logging.info(f"{Fore.YELLOW}Saving model status at {save_path}{Style.RESET_ALL}")
-        torch.save({
-            "epoch":epoch,
-            "pre_state": self.pre.state_dict(), 
-            "backbone_state": self.backbone.state_dict(), 
-            "post_state": self.post.state_dict(), 
-            "a": self.a,
-            "b": self.b,
-            "optimizer_state": self.optim.state_dict(), 
-            "scheduler_state": self.sched.state_dict(),
-            "config": self.config,
-            "scheduler_type":self.stype
-        }, save_path)
+        if only_paras:
+                torch.save({
+                "epoch":epoch,
+                "pre_state": self.pre.state_dict(), 
+                "backbone_state": self.backbone.state_dict(), 
+                "post_state": self.post.state_dict(), 
+                "a": self.a,
+                "b": self.b
+            }, save_path)
+        else:
+            torch.save({
+                "epoch":epoch,
+                "pre_state": self.pre.state_dict(), 
+                "backbone_state": self.backbone.state_dict(), 
+                "post_state": self.post.state_dict(), 
+                "a": self.a,
+                "b": self.b,
+                "optimizer_state": self.optim.state_dict(), 
+                "scheduler_state": self.sched.state_dict(),
+                "config": self.config,
+                "scheduler_type":self.stype
+            }, save_path)
 
     def load_from_status(self, status, device=None, load_others=True):
         """
@@ -351,135 +361,149 @@ class MRI_hrnet(STCNNT_MRI):
         self.num_wind = [c.height[0]//c.window_size[0], c.width[0]//c.window_size[1]]
         self.num_patch = [c.window_size[0]//c.patch_size[0], c.window_size[1]//c.patch_size[1]]
 
-        assert config.backbone_hrnet.num_resolution_levels >= 1 and config.backbone_hrnet.num_resolution_levels<= 5
+        assert config.backbone_hrnet.num_resolution_levels >= 1 and config.backbone_hrnet.num_resolution_levels<= 4
 
         window_sizes = []
         patch_sizes = []
 
-        if config.backbone_hrnet.num_resolution_levels >= 1:
+        if config.backbone_hrnet.num_resolution_levels == 1:
 
             kwargs["C_in"] = C
             kwargs["C_out"] = C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
             if c.window_sizing_method == "keep_num_window":
-                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]] , self.num_wind, self.num_patch, module_name="P0")
+                kwargs = set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]] , self.num_wind, self.num_patch, module_name="P0")
             elif c.window_sizing_method == "keep_window_size":
-                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], c.window_size, c.patch_size, module_name="P0")
+                kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], c.window_size, c.patch_size, module_name="P0")
             else: # mixed
-                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]] , self.num_wind, self.num_patch, module_name="P0")
+                kwargs = set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]] , self.num_wind, self.num_patch, module_name="P0")
 
             window_sizes.append(kwargs["window_size"])
             patch_sizes.append(kwargs["patch_size"])
 
-            kwargs["att_types"] = c.post_hrnet.block_str
+            kwargs["att_types"] = c.post_hrnet.block_str[0]
             self.post["P0"] = STCNNT_Block(**kwargs)
 
-            hrnet_C_out = C
+            hrnet_C_out = 2*C
 
-        if config.backbone_hrnet.num_resolution_levels >= 2:
+        if config.backbone_hrnet.num_resolution_levels == 2:
             kwargs["C_in"] = 2*C
             kwargs["C_out"] = 2*C
             kwargs["H"] = c.height[0] // 2
             kwargs["W"] = c.width[0] // 2
 
-            if c.window_sizing_method == "keep_num_window":
-                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], self.num_wind, self.num_patch, module_name="P1")
-            elif c.window_sizing_method == "keep_window_size":
-                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[0], patch_sizes[0], module_name="P1")
-            else: # mixed
-                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[0], patch_sizes[0], module_name="P1")
+            kwargs = set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], self.num_wind, self.num_patch, module_name="P1")
 
-            window_sizes.append(kwargs["window_size"])
-            patch_sizes.append(kwargs["patch_size"])
-
-            kwargs["att_types"] = c.post_hrnet.block_str
+            kwargs["att_types"] = c.post_hrnet.block_str[0]
             self.post["P1"] = STCNNT_Block(**kwargs)
 
-            self.post["up_1_0"] = UpSample(N=1, C_in=2*C, C_out=2*C, with_conv=True)
+            self.post["up_1_0"] = UpSample(N=1, C_in=4*C, C_out=4*C, with_conv=True)
+            # -----------------------------------------
+            kwargs["C_in"] = 4*C
+            kwargs["C_out"] = 2*C
+            kwargs["H"] = c.height[0]
+            kwargs["W"] = c.width[0]
+            kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], c.window_size, c.patch_size, module_name="P0")
 
-            hrnet_C_out += 2*C
+            kwargs["att_types"] = c.post_hrnet.block_str[0]
+            self.post["P0"] = STCNNT_Block(**kwargs)
+            # -----------------------------------------
+            hrnet_C_out = 3*C
 
-        if config.backbone_hrnet.num_resolution_levels >= 3:
+        if config.backbone_hrnet.num_resolution_levels == 3:
             kwargs["C_in"] = 4*C
             kwargs["C_out"] = 4*C
             kwargs["H"] = c.height[0] // 4
             kwargs["W"] = c.width[0] // 4
 
-            if c.window_sizing_method == "keep_num_window":
-                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], self.num_wind, self.num_patch, module_name="P2")
-            elif c.window_sizing_method == "keep_window_size":
-                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[1], patch_sizes[1], module_name="P2")
-            else: # mixed
-                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[1], patch_sizes[1], module_name="P2")
+            kwargs = set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], self.num_wind, self.num_patch, module_name="P2")
 
-            window_sizes.append(kwargs["window_size"])
-            patch_sizes.append(kwargs["patch_size"])
-
-            kwargs["att_types"] = c.post_hrnet.block_str
+            kwargs["att_types"] = c.post_hrnet.block_str[0]
             self.post["P2"] = STCNNT_Block(**kwargs)
 
-            self.post["up_2_1"] = UpSample(N=1, C_in=4*C, C_out=4*C, with_conv=True)
+            self.post["up_2_1"] = UpSample(N=1, C_in=8*C, C_out=8*C, with_conv=True)
+            # -----------------------------------------
+            kwargs["C_in"] = 8*C
+            kwargs["C_out"] = 4*C
+            kwargs["H"] = c.height[0] // 2
+            kwargs["W"] = c.width[0] // 2
 
-            hrnet_C_out += 4*C
+            kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], c.window_size, c.patch_size, module_name="P1")
 
-        if config.backbone_hrnet.num_resolution_levels >= 4:
+            kwargs["att_types"] = c.post_hrnet.block_str[0]
+            self.post["P1"] = STCNNT_Block(**kwargs)
+
+            self.post["up_1_0"] = UpSample(N=1, C_in=6*C, C_out=6*C, with_conv=True)
+            # -----------------------------------------
+            kwargs["C_in"] = 6*C
+            kwargs["C_out"] = 3*C
+            kwargs["H"] = c.height[0]
+            kwargs["W"] = c.width[0]
+            kwargs = set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], kwargs["window_size"], kwargs["patch_size"], module_name="P0")
+
+            kwargs["att_types"] = c.post_hrnet.block_str[0]
+            self.post["P0"] = STCNNT_Block(**kwargs)
+            # -----------------------------------------
+            hrnet_C_out = 4*C
+
+        if config.backbone_hrnet.num_resolution_levels == 4:
             kwargs["C_in"] = 8*C
             kwargs["C_out"] = 8*C
             kwargs["H"] = c.height[0] // 8
             kwargs["W"] = c.width[0] // 8
 
-            if c.window_sizing_method == "keep_num_window":
-                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], self.num_wind, self.num_patch, module_name="P2")
-            elif c.window_sizing_method == "keep_window_size":
-                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[2], patch_sizes[2], module_name="P2")
-            else: # mixed
-                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[2], patch_sizes[2], module_name="P2")
+            kwargs = set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], self.num_wind, self.num_patch, module_name="P3")
 
-            window_sizes.append(kwargs["window_size"])
-            patch_sizes.append(kwargs["patch_size"])
-
-            kwargs["att_types"] = c.post_hrnet.block_str
+            kwargs["att_types"] = c.post_hrnet.block_str[0]
             self.post["P3"] = STCNNT_Block(**kwargs)
 
-            self.post["up_3_2"] = UpSample(N=1, C_in=8*C, C_out=8*C, with_conv=True)
-
-            hrnet_C_out += 8*C
-
-        if config.backbone_hrnet.num_resolution_levels == 5:
+            self.post["up_3_2"] = UpSample(N=1, C_in=16*C, C_out=16*C, with_conv=True)
+            # -----------------------------------------
             kwargs["C_in"] = 16*C
-            kwargs["C_out"] = 16*C
-            kwargs["H"] = c.height[0] // 16
-            kwargs["W"] = c.width[0] // 16
+            kwargs["C_out"] = 8*C
+            kwargs["H"] = c.height[0] // 4
+            kwargs["W"] = c.width[0] // 4
 
-            if c.window_sizing_method == "keep_num_window":
-                kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], self.num_wind, self.num_patch, module_name="P2")
-            elif c.window_sizing_method == "keep_window_size":
-                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[3], patch_sizes[3], module_name="P2")
-            else: # mixed
-                kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[3], patch_sizes[3], module_name="P2")
+            kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], c.window_size, c.patch_size, module_name="P2")
 
-            window_sizes.append(kwargs["window_size"])
-            patch_sizes.append(kwargs["patch_size"])
+            kwargs["att_types"] = c.post_hrnet.block_str[0]
+            self.post["P2"] = STCNNT_Block(**kwargs)
 
-            kwargs["att_types"] = c.post_hrnet.block_str
-            self.post["P4"] = STCNNT_Block(**kwargs)
+            self.post["up_2_1"] = UpSample(N=1, C_in=12*C, C_out=12*C, with_conv=True)
+            # -----------------------------------------
+            kwargs["C_in"] = 12*C
+            kwargs["C_out"] = 6*C
+            kwargs["H"] = c.height[0] // 2
+            kwargs["W"] = c.width[0] // 2
+            kwargs = set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], kwargs["window_size"], kwargs["patch_size"], module_name="P1")
 
-            self.post["up_4_3"] = UpSample(N=1, C_in=16*C, C_out=16*C, with_conv=True)
+            kwargs["att_types"] = c.post_hrnet.block_str[0]
+            self.post["P1"] = STCNNT_Block(**kwargs)
 
-            hrnet_C_out += 16*C
+            self.post["up_1_0"] = UpSample(N=1, C_in=8*C, C_out=8*C, with_conv=True)
+            # -----------------------------------------
+            kwargs["C_in"] = 8*C
+            kwargs["C_out"] = 4*C
+            kwargs["H"] = c.height[0]
+            kwargs["W"] = c.width[0]
+            kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], c.window_size, c.patch_size, module_name="P0")
 
+            kwargs["att_types"] = c.post_hrnet.block_str[0]
+            self.post["P0"] = STCNNT_Block(**kwargs)
+            # -----------------------------------------
+            hrnet_C_out = 5*C
 
-        kwargs["C_in"] = hrnet_C_out
-        kwargs["C_out"] = hrnet_C_out // 2
-        kwargs["H"] = c.height[0]
-        kwargs["W"] = c.width[0]
-        kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]] , self.num_wind, self.num_patch, module_name="P0")
+        # kwargs["C_in"] = hrnet_C_out
+        # kwargs["C_out"] = hrnet_C_out
+        # kwargs["H"] = c.height[0]
+        # kwargs["W"] = c.width[0]
+        # kwargs = set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]] , self.num_wind, self.num_patch, module_name="P0")
 
-        kwargs["att_types"] = c.post_hrnet.block_str
-        self.post["output"] = STCNNT_Block(**kwargs)
+        # kwargs["att_types"] = c.post_hrnet.block_str[0]
+        # self.post["output"] = STCNNT_Block(**kwargs)
 
-        self.post["output_conv"] = Conv2DExt(kwargs["C_out"], config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
+        self.post["output_conv"] = Conv2DExt(hrnet_C_out, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
 
     def forward(self, x, snr=None, base_snr_t=-1):
@@ -495,65 +519,48 @@ class MRI_hrnet(STCNNT_MRI):
 
         num_resolution_levels = self.config.backbone_hrnet.num_resolution_levels
         if num_resolution_levels == 1:
-            res = self.post["P0"](res_backbone[1][0])
+            res_0, _ = self.post["P0"](res_backbone[1][0])
+            res = torch.cat((res_0, res_backbone[1][0]), dim=2)
 
         elif num_resolution_levels == 2:
-            res_1 = self.post["P1"](res_backbone[1][1])
+            res_1, _ = self.post["P1"](res_backbone[1][1])
+            res_1 = torch.cat((res_1, res_backbone[1][1]), dim=2)
             res_1 = self.post["up_1_0"](res_1)
 
-            res_0 = self.post["P0"](res_backbone[1][0])
-
-            res = torch.cat((res_0, res_1), dim=2)
+            res_0, _ = self.post["P0"](res_1)
+            res = torch.cat((res_0, res_backbone[1][0]), dim=2)
 
         elif num_resolution_levels == 3:
 
-            res_2 = self.post["P2"](res_backbone[1][2])
+            res_2, _ = self.post["P2"](res_backbone[1][2])
+            res_2 = torch.cat((res_2, res_backbone[1][2]), dim=2)
             res_2 = self.post["up_2_1"](res_2)
 
-            res_1 = self.post["P1"](res_backbone[1][1])
-            res_1 = torch.cat((res_2, res_1), dim=2)
+            res_1, _ = self.post["P1"](res_2)
+            res_1 = torch.cat((res_1, res_backbone[1][1]), dim=2)
             res_1 = self.post["up_1_0"](res_1)
 
-            res_0 = self.post["P0"](res_backbone[1][0])
-            res = torch.cat((res_0, res_1), dim=2)
+            res_0, _ = self.post["P0"](res_1)
+            res = torch.cat((res_1, res_backbone[1][0]), dim=2)
 
         elif num_resolution_levels == 4:
 
-            res_3 = self.post["P3"](res_backbone[1][3])
+            res_3, _ = self.post["P3"](res_backbone[1][3])
+            res_3 = torch.cat((res_3, res_backbone[1][3]), dim=2)
             res_3 = self.post["up_3_2"](res_3)
 
-            res_2 = self.post["P2"](res_backbone[1][2])
-            res_2 = torch.cat((res_3, res_2), dim=2)
+            res_2, _ = self.post["P2"](res_3)
+            res_2 = torch.cat((res_2, res_backbone[1][2]), dim=2)
             res_2 = self.post["up_2_1"](res_2)
 
-            res_1 = self.post["P1"](res_backbone[1][1])
-            res_1 = torch.cat((res_2, res_1), dim=2)
+            res_1, _ = self.post["P1"](res_2)
+            res_1 = torch.cat((res_1, res_backbone[1][1]), dim=2)
             res_1 = self.post["up_1_0"](res_1)
 
-            res_0 = self.post["P0"](res_backbone[1][0])
-            res = torch.cat((res_0, res_1), dim=2)
+            res_0, _ = self.post["P0"](res_1)
+            res = torch.cat((res_1, res_backbone[1][0]), dim=2)
 
-        elif num_resolution_levels == 5:
-
-            res_4 = self.post["P4"](res_backbone[1][4])
-            res_4 = self.post["up_4_3"](res_4)
-
-            res_3 = self.post["P3"](res_backbone[1][3])
-            res_3 = torch.cat((res_4, res_3), dim=2)
-            res_3 = self.post["up_3_2"](res_3)
-
-            res_2 = self.post["P2"](res_backbone[1][2])
-            res_2 = torch.cat((res_3, res_2), dim=2)
-            res_2 = self.post["up_2_1"](res_2)
-
-            res_1 = self.post["P1"](res_backbone[1][1])
-            res_1 = torch.cat((res_2, res_1), dim=2)
-            res_1 = self.post["up_1_0"](res_1)
-
-            res_0 = self.post["P0"](res_backbone[1][0])
-            res = torch.cat((res_0, res_1), dim=2)
-
-        res = self.post["output"](res)
+        # res = self.post["output"](res)
         logits = self.post["output_conv"](res)
 
         if self.residual:
