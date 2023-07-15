@@ -122,6 +122,8 @@ class mri_ddp_base(run_ddp_base):
         self.cmd.extend(["--lr_backbone", f"{config.lr_backbone}"])
         self.cmd.extend(["--lr_post", f"{config.lr_post}"])
 
+        self.cmd.extend(["--model_type", f"{config.model_type}"])
+
         if config.not_load_pre:
             self.cmd.extend(["--not_load_pre"])
         if config.not_load_backbone:
@@ -389,6 +391,8 @@ class mri_ddp_base(run_ddp_base):
 
         parser = super().arg_parser()
         parser.add_argument("--max_load", type=int, default=-1, help="number of max loaded samples into the RAM")
+
+        parser.add_argument("--model_type", type=str, default="STCNNT_MRI", help="STCNNT_MRI or MRI_hrnet")
 
         parser.add_argument("--lr_pre", type=float, default=-1, help='learning rate for pre network')
         parser.add_argument("--lr_backbone", type=float, default=-1, help='learning rate for backbone network')
