@@ -731,7 +731,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
         if self.num_resolution_levels == 1:
             y_hat_0, _ = self.output_B0(x_00)
             y_hat = y_hat_0
-            y_level_outputs = (y_hat_0, )
+            y_level_outputs = [y_hat_0]
 
         if self.num_resolution_levels == 2:
             y_hat_0 = x_01 + self.up_1_0(x_11)
@@ -742,7 +742,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
 
             y_hat = torch.cat((y_hat_0, self.up_1(y_hat_1)), dim=2)
 
-            y_level_outputs = (y_hat_0, y_hat_1)
+            y_level_outputs = [y_hat_0, y_hat_1]
 
         if self.num_resolution_levels == 3:
             y_hat_0 = x_02 + self.up_1_0(x_12) + self.up_2_0(x_22)
@@ -754,7 +754,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             y_hat_2, _ = self.output_B2(y_hat_2)
 
             y_hat = torch.cat((y_hat_0, self.up_1(y_hat_1), self.up_2(y_hat_2)), dim=2)
-            y_level_outputs = (y_hat_0, y_hat_1, y_hat_2)
+            y_level_outputs = [y_hat_0, y_hat_1, y_hat_2]
 
         if self.num_resolution_levels == 4:
             y_hat_0 = x_03 + self.up_1_0(x_13) + self.up_2_0(x_23) + self.up_3_0(x_33)
@@ -775,7 +775,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
                     self.up_3(y_hat_3)
                  ), dim=2)
 
-            y_level_outputs = (y_hat_0, y_hat_1, y_hat_2, y_hat_3)
+            y_level_outputs = [y_hat_0, y_hat_1, y_hat_2, y_hat_3]
 
         if self.num_resolution_levels == 5:
             y_hat_0 =               x_04    + self.up_1_0(x_14)         + self.up_2_0(x_24)         + self.up_3_0(x_34)         + self.up_4_0(x_44)
@@ -799,7 +799,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
                     self.up_4(y_hat_4)
                  ), dim=2)
 
-            y_level_outputs = (y_hat_0, y_hat_1, y_hat_2, y_hat_3, y_hat_4)
+            y_level_outputs = [y_hat_0, y_hat_1, y_hat_2, y_hat_3, y_hat_4]
 
         return y_hat, y_level_outputs
 

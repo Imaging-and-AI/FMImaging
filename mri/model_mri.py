@@ -55,6 +55,8 @@ class STCNNT_MRI(STCNNT_Task_Base):
 
         self.complex_i = config.complex_i
         self.residual = config.residual
+        self.C_in = config.C_in
+        self.C_out = config.C_out
 
         self.create_pre()
 
@@ -62,7 +64,9 @@ class STCNNT_MRI(STCNNT_Task_Base):
             self.backbone = CNNT_Unet(config=config)
 
         if config.backbone == "hrnet":
+            config.C_in = config.backbone_hrnet.C
             self.backbone = STCNNT_HRnet(config=config)
+            config.C_in = self.C_in
 
         if config.backbone == "unet":
             self.backbone = STCNNT_Unet(config=config)
@@ -85,11 +89,14 @@ class STCNNT_MRI(STCNNT_Task_Base):
             self.load(load_path=config.load_path, device=device)
 
     def create_pre(self):
+
+        config = self.config
+
         if self.config.backbone == "small_unet":
             self.pre = nn.Identity()
 
         if self.config.backbone == "hrnet":
-            self.pre = nn.Identity()
+            self.pre = Conv2DExt(config.C_in, config.backbone_hrnet.C, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
         if self.config.backbone == "unet":
             self.pre = nn.Identity()
@@ -111,7 +118,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
 
         if config.backbone == "unet":
             self.post = Conv2DExt(config.backbone_unet.C, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
-            
+
         if config.backbone == "LLM":
             output_C = int(np.power(2, config.backbone_LLM.num_stages-2)) if config.backbone_LLM.num_stages>2 else config.backbone_LLM.C
             self.post = Conv2DExt(output_C,config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
@@ -125,23 +132,25 @@ class STCNNT_MRI(STCNNT_Task_Base):
             - output (5D torch.Tensor): output image (denoised)
         """
         res_pre = self.pre(x)
-        res_backbone = self.backbone(res_pre)
-        # if isinstance(res_backbone, tuple):
-        #     logits = self.post(res_backbone[0])
-        # else:
-        #     logits = self.post(res_backbone)
 
-        # if self.residual:
-        #     C = 2 if self.complex_i else 1
-        #     logits = x[:,:,:C] - logits
+        B, T, C, H, W = res_pre.shape
 
-        if self.residual:
-            C = 2 if self.complex_i else 1
-            res_backbone[1][0] = x[:,:,:C] - res_backbone[1][0]
+        if self.config.backbone == "hrnet":
 
-        y_hat = torch.cat(res_backbone[1], dim=2)
+            y_hat, _ = self.backbone(res_pre)
 
-        logits = self.post(y_hat)
+            if self.residual:
+                y_hat[:,:, :C, :, :] = res_pre - y_hat[:,:, :C, :, :]
+
+            logits = self.post(y_hat)
+
+        else:
+            res_backbone = self.backbone(res_pre)
+            logits = self.post(res_backbone)
+
+            if self.residual:
+                C = 2 if self.complex_i else 1
+                logits = x[:,:,:C] - logits
 
         weights = None
         if snr is not None and base_snr_t>0:
@@ -522,12 +531,14 @@ class MRI_hrnet(STCNNT_MRI):
             - output (5D torch.Tensor): output image
         """
         res_pre = self.pre(x)
-
         res_backbone = self.backbone(res_pre)
 
         if self.residual:
-            C = 2 if self.complex_i else 1
-            res_backbone[1][0] = x[:,:,:C] - res_backbone[1][0]
+            res_backbone[1][0] = res_pre - res_backbone[1][0]
+
+        # if self.residual:
+        #     C = 2 if self.complex_i else 1
+        #     res_backbone[1][0] = x[:,:,:C] - res_backbone[1][0]
 
         num_resolution_levels = self.config.backbone_hrnet.num_resolution_levels
         if num_resolution_levels == 1:
