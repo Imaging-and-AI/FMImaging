@@ -334,7 +334,7 @@ class PSNR:
     def __call__(self, outputs, targets):
 
         num = self.range * self.range
-        den = torch.mean(torch.square(targets - outputs))
+        den = torch.mean(torch.square(targets - outputs)) + torch.finfo(torch.float16).eps
 
         return 10 * torch.log10(num/den)
 
@@ -354,7 +354,7 @@ class PSNR_Loss:
         B, T, C, H, W = targets.shape
 
         num = self.range * self.range
-        den = torch.square(targets - outputs) + 1e-8
+        den = torch.square(targets - outputs) + torch.finfo(torch.float16).eps
 
         if(weights is not None):
 

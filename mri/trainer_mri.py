@@ -327,7 +327,7 @@ def trainer(rank, global_rank, config, wandb_run):
         if 'backbone_state' in status:
             print(f"load saved model, continued_training - {continued_training}")
             if continued_training:
-                model.load_from_status(status=status, device=config.device, load_others=continued_training)
+                model.load_from_status(status=status, device=device, load_others=continued_training)
             else: # new stage training
                 model = model.to(device)
                 t0 = time()
