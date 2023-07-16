@@ -61,7 +61,7 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
         self.key = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_t, padding=padding, bias=False)
         self.query = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_t, padding=padding, bias=False)
         self.value = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
-           
+
         self.register_buffer("mask", torch.tril(torch.ones(1000, 1000, dtype=torch.bool)).view(1, 1, 1000, 1000))
 
     def forward(self, x):
@@ -162,7 +162,13 @@ class TemporalCnnAttention(CnnAttentionBase):
         self.key = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_t, padding=padding, bias=False)
         self.query = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_t, padding=padding, bias=False)
         self.value = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
-        
+
+        gpu_name = torch.cuda.get_device_name()
+        if gpu_name.find("A100") >= 0 or gpu_name.find("H100") >= 0:
+            self.flash_atten_type = torch.bfloat16
+        else:
+            self.flash_atten_type = torch.float32
+
     def forward(self, x):
         """
         @args:
@@ -209,7 +215,7 @@ class TemporalCnnAttention(CnnAttentionBase):
             #             enable_flash=True, enable_math=False, enable_mem_efficient=False
             #     ):
             original_dtype = k.dtype
-            y = F.scaled_dot_product_attention(q.type(torch.float16),k.type(torch.float16),v.type(torch.float16),dropout_p=self.att_dropout_p,is_causal=self.is_causal).type(original_dtype)
+            y = F.scaled_dot_product_attention(q.type(self.flash_atten_type), k.type(self.flash_atten_type), v.type(self.flash_atten_type), dropout_p=self.att_dropout_p,is_causal=self.is_causal).type(original_dtype)
         else:
             y = F.scaled_dot_product_attention(q,k,v,dropout_p=self.att_dropout_p,is_causal=self.is_causal)
 
