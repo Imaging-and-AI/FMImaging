@@ -40,7 +40,7 @@ class mri_ddp_base(run_ddp_base):
         "--clip_grad_norm", "1.0",
         "--weight_decay", "1",
 
-        "--use_amp", 
+        #"--use_amp", 
 
         "--iters_to_accumulate", "1",
 
@@ -91,7 +91,7 @@ class mri_ddp_base(run_ddp_base):
         # "--train_files", "train_3D_3T_retro_cine_2018.h5",  "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5", "train_3D_3T_perf_2018.h5","train_3D_3T_perf_2019.h5", "train_3D_3T_perf_2020.h5","train_3D_3T_perf_2021.h5", 
         # "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2d",
 
-        "--post_hrnet.block_str", "T1L1G1",
+        "--post_hrnet.block_str", "T1L1G1T1L1G1",
 
         "--train_files", "train_3D_3T_retro_cine_2018.h5",  
                         "train_3D_3T_retro_cine_2019.h5", 
@@ -163,8 +163,8 @@ class mri_ddp_base(run_ddp_base):
 
         vars['block_strs'] = [
                         [
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            ["T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
+                            #["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                            #["T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                             ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
                             ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
                             ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
@@ -181,8 +181,8 @@ class mri_ddp_base(run_ddp_base):
                     ]
 
         vars['losses'] = [
-            [["perpendicular", "psnr", "l1"], ['1.0', '1.0', '1.0', '1.0', '1.0']],
-            #[["perpendicular", "psnr", "l1", "gaussian", "gaussian3D"], ['1.0', '1.0', '1.0', '1.0', '1.0', '10.0', '10.0']],
+            [["mse", "perpendicular", "psnr", "l1"], ['1.0', '1.0', '1.0', '1.0', '1.0']],
+            [["perpendicular", "psnr", "l1", "gaussian", "gaussian3D"], ['1.0', '1.0', '1.0', '10.0', '10.0']],
             #[['perpendicular', 'ssim', 'psnr', 'l1'], ['1.0', '1.0', '1.0', '1.0', '1.0']],
             #[['psnr','l1', 'mse'], ['1.0', '1.0', '1.0', '1.0', '1.0']],
             #[['ssim', 'ssim3D', 'mse', 'l1', 'psnr'], ['0.1', '0.1', '1.0', '1.0', '1.0']], 
@@ -197,9 +197,9 @@ class mri_ddp_base(run_ddp_base):
 
         vars['n_heads'] = [32]
 
-        vars['with_data_degrading'] = [False]
+        vars['with_data_degrading'] = [False, True]
 
-        vars['not_add_noise'] = [False]
+        vars['not_add_noise'] = [False, True]
 
         return vars
 
@@ -335,7 +335,7 @@ class mri_ddp_base(run_ddp_base):
 
         curr_time = datetime.now()
         moment = curr_time.strftime('%Y%m%d_%H%M%S_%f')
-        run_str = f"{moment}_C-{c}-{int(scale_ratio_in_mixer)}"
+        run_str = f"{moment}_C-{c}-{int(scale_ratio_in_mixer)}_amp-{config.use_amp}"
         #run_str = moment
 
         if config.run_extra_note is not None:
