@@ -140,7 +140,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
             y_hat, _ = self.backbone(res_pre)
 
             if self.residual:
-                y_hat[:,:, :C, :, :] = res_pre - y_hat[:,:, :C, :, :]
+                y_hat[:,:, :C, :, :] = res_pre + y_hat[:,:, :C, :, :]
 
             logits = self.post(y_hat)
 
@@ -534,7 +534,7 @@ class MRI_hrnet(STCNNT_MRI):
         res_backbone = self.backbone(res_pre)
 
         if self.residual:
-            res_backbone[1][0] = res_pre - res_backbone[1][0]
+            res_backbone[1][0] = res_pre + res_backbone[1][0]
 
         # if self.residual:
         #     C = 2 if self.complex_i else 1

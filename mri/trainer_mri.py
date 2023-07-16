@@ -401,7 +401,7 @@ def trainer(rank, global_rank, config, wandb_run):
 
         model = model.to(device)
         t0 = time()
-        LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
+        #LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
         print(f"LSUVinit took {time()-t0 : .2f} seconds ...")
 
     if config.ddp:
@@ -650,6 +650,10 @@ def trainer(rank, global_rank, config, wandb_run):
 
                 end_timer(enable=c.with_timer, t=tm, msg="---> forward pass took ")
 
+                if torch.isnan(loss):
+                    print(f"Warning - loss is nan ... ")
+                    optim.zero_grad()
+                    continue
 
                 tm = start_timer(enable=c.with_timer)
                 scaler.scale(loss).backward()
@@ -663,7 +667,7 @@ def trainer(rank, global_rank, config, wandb_run):
                         nn.utils.clip_grad_norm_(model.parameters(), c.clip_grad_norm)
 
                     scaler.step(optim)
-                    optim.zero_grad(set_to_none=True)
+                    optim.zero_grad()
                     scaler.update()
 
                     if stype == "OneCycleLR": sched.step()
@@ -688,7 +692,7 @@ def trainer(rank, global_rank, config, wandb_run):
                 y_scaled = y
 
                 loss_meters.update(output_scaled, y_scaled)
-                                   
+
                 pbar.update(1)
                 log_str = create_log_str(config, epoch, rank, 
                                          x.shape, 

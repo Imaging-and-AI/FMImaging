@@ -199,10 +199,10 @@ class MSSSIM_Loss:
             - device (torch.device): device to run the loss on
         """
         self.complex_i = complex_i
-        self.data_range = data_range               
+        self.data_range = data_range
         self.msssim_loss = MS_SSIM(data_range=data_range, size_average=False, win_size=window_size, channel=1, spatial_dims=2)
-        
-                
+
+
     def __call__(self, outputs, targets, weights=None):
 
         B, T, C, H, W = targets.shape

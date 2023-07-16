@@ -10,6 +10,7 @@ import shutil
 import pickle
 import copy
 import time
+from colorama import Fore, Style
 
 class run_ddp_base(object):
     
@@ -135,7 +136,7 @@ class run_ddp_base(object):
         if load_path is not None:
             cmd_run.extend(["--load_path", load_path])
 
-        if config.continued_training is not None:
+        if config.continued_training:
             cmd_run.extend(["--continued_training"])
 
         print(f"Running command:\n{' '.join(cmd_run)}")
@@ -338,12 +339,15 @@ class run_ddp_base(object):
 
         for run_ind in run_lists:
             cmd_run = valid_cmd_runs[run_ind]
-            print("---" * 20)
-            print(f"Run - {run_ind} ...")
+            print("\n\n")
+            print("===" * 20)
+            print(f"{Fore.YELLOW}Run - {run_ind} ...{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}{cmd_run}{Style.RESET_ALL}")
+            print("--" * 20)
+            print(f"Running command:\n{Fore.GREEN}{' '.join(cmd_run)}{Style.RESET_ALL}")
             time.sleep(3)
-            print(cmd_run)
             subprocess.run(cmd_run)
-            print("---" * 20)
+            print("===" * 20)
 
             run_completed = []
             if os.path.isfile(self.run_record):
