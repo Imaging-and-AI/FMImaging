@@ -381,6 +381,8 @@ def trainer(rank, global_rank, config, wandb_run):
                 model.b = status['b']
                 # ---------------------------------------------------
 
+        model = model.to(device)
+
         config.ddp = ddp
 
         print(f"after load saved model, the config for running - {config}")
