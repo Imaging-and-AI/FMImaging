@@ -64,7 +64,7 @@ def arg_parser():
     parser.add_argument("--threeD_cutout_shuffle_time", action="store_true", help='shuffle along time to break temporal consistency; for 2D+T, should not set this option')
 
     # inference
-    parser.add_argument("--pad_time", action="store_true", help='whehter to pad along time when doing inference; if False, the entire series is inputted')
+    parser.add_argument("--pad_time", action="store_true", help='whether to pad along time when doing inference; if False, the entire series is inputted')
 
     # loss for mri
     parser.add_argument("--losses", nargs='+', type=str, default=["mse", "l1"], help='Any combination of "mse", "l1", "sobel", "ssim", "ssim3D", "psnr", "msssim", "perpendicular", "gaussian", "gaussian3D" ')

@@ -135,6 +135,9 @@ class run_ddp_base(object):
         if load_path is not None:
             cmd_run.extend(["--load_path", load_path])
 
+        if config.continued_training is not None:
+            cmd_run.extend(["--continued_training"])
+
         print(f"Running command:\n{' '.join(cmd_run)}")
 
         return cmd_run
@@ -264,6 +267,8 @@ class run_ddp_base(object):
         parser.add_argument("--run_extra_note", type=str, default=None, help="extra notes for the runs")
 
         parser.add_argument("--run_list", type=int, nargs='+', default=[-1], help="run list")
+
+        parser.add_argument("--continued_training", action="store_true", help='if set, it means a continued training loaded from checkpoints (optim and scheduler will be loaded); if not set, it mean a new stage of training.')
 
         return parser
 
