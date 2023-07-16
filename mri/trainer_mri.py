@@ -239,7 +239,7 @@ def trainer(rank, global_rank, config, wandb_run):
 
     # -----------------------------------------------
 
-    if not config.continued_training:
+    if (config.load_path is None) or (not config.continued_training):
         t0 = time()
         num_samples = len(train_set[-1])
         sampled_picked = np.random.randint(0, num_samples, size=32)
