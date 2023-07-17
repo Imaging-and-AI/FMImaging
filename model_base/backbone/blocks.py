@@ -118,13 +118,13 @@ class STCNNT_Block(nn.Module):
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
-        
+
         self.stride_t = stride_t
-        
+
         self.mixer_kernel_size = mixer_kernel_size
         self.mixer_stride = mixer_stride
         self.mixer_padding = mixer_padding
-        
+
         self.normalize_Q_K = normalize_Q_K
         self.cosine_att = cosine_att
         self.att_with_relative_postion_bias = att_with_relative_postion_bias
@@ -136,9 +136,9 @@ class STCNNT_Block(nn.Module):
         self.interpolate = interpolate
         self.interp_align_c = interp_align_c
         self.block_dense_connection = block_dense_connection
-                    
+
         self.shuffle_in_window = shuffle_in_window
-                    
+
         self.cells = []
 
         for i in range(len(att_types)//2):
@@ -186,10 +186,9 @@ class STCNNT_Block(nn.Module):
                                                                            mixer_kernel_size=mixer_kernel_size, mixer_stride=mixer_stride, mixer_padding=mixer_padding,
                                                                            normalize_Q_K=normalize_Q_K, att_dropout_p=att_dropout_p, dropout_p=dropout_p, 
                                                                            cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias, 
-                                                                           att_with_output_proj=att_with_output_proj, scale_ratio_in_mixer=scale_ratio_in_mixer,                                                                            
+                                                                           att_with_output_proj=att_with_output_proj, scale_ratio_in_mixer=scale_ratio_in_mixer,
                                                                            with_mixer=(mixer=='1'), norm_mode=norm_mode, shuffle_in_window=shuffle_in_window)))
 
-                
         self.make_block()
 
         self.interpolate = interpolate
@@ -205,10 +204,10 @@ class STCNNT_Block(nn.Module):
     def forward(self, x):
 
         num_cells = len(self.block)
-        
+
         if self.block_dense_connection:
             block_res = []
-            
+
             for c in range(num_cells):
                 if c ==0:
                     block_res.append(self.block[f"cell_{c}"](x))
@@ -217,7 +216,7 @@ class STCNNT_Block(nn.Module):
                     for k in block_res:
                         input = input + k
                     block_res.append(self.block[f"cell_{c}"](input))
-                    
+
             x = block_res[-1]
         else:
             for c in range(num_cells):
