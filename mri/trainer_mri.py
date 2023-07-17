@@ -220,19 +220,19 @@ def get_rank_str(rank):
     if rank == 0:
         return f"{Fore.BLUE}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
     if rank == 1:
-        return f"{Fore.GREEN}rank {rank} {Style.RESET_ALL}"
+        return f"{Fore.GREEN}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
     if rank == 2:
-        return f"{Fore.YELLOW}rank {rank} {Style.RESET_ALL}"
+        return f"{Fore.YELLOW}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
     if rank == 3:
-        return f"{Fore.MAGENTA}rank {rank} {Style.RESET_ALL}"
+        return f"{Fore.MAGENTA}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
     if rank == 4:
-        return f"{Fore.LIGHTYELLOW_EX}rank {rank} {Style.RESET_ALL}"
+        return f"{Fore.LIGHTYELLOW_EX}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
     if rank == 5:
         return f"{Fore.LIGHTBLUE_EX}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
     if rank == 6:
-        return f"{Fore.LIGHTRED_EX}rank {rank} {Style.RESET_ALL}"
+        return f"{Fore.LIGHTRED_EX}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
     if rank == 7:
-        return f"{Fore.LIGHTCYAN_EX}rank {rank} {Style.RESET_ALL}"
+        return f"{Fore.LIGHTCYAN_EX}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
 
     return f"{Fore.WHITE}{Style.BRIGHT}rank {rank} {Style.RESET_ALL}"
 
