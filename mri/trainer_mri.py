@@ -586,7 +586,10 @@ def trainer(rank, global_rank, config, wandb_run):
 
     logging.info(f"{rank_str}, {Fore.GREEN}----------> Start training loop <----------{Style.RESET_ALL}")
 
-    model.check_model_learnable_status(rank_str)
+    if c.ddp:
+        model.module.check_model_learnable_status(rank_str)
+    else:
+        model.check_model_learnable_status(rank_str)
 
     for epoch in range(curr_epoch, c.num_epochs):
         logging.info(f"{Fore.GREEN}{'-'*20} Epoch:{epoch}/{c.num_epochs}, {rank_str}, global rank {global_rank} {'-'*20}{Style.RESET_ALL}")
