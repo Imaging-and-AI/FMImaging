@@ -215,6 +215,34 @@ class STCNNT_MRI(STCNNT_Task_Base):
 
         return optim_groups
 
+    def check_model_learnable_status(self, rank_str=""):
+        num = 0
+        num_learnable = 0
+        for param in self.pre.parameters():
+            num += 1
+            if param.requires_grad:
+                num_learnable += 1
+
+        print(f"{rank_str} model, pre, learnable parameters {num_learnable} out of {num} ...")
+
+        num = 0
+        num_learnable = 0
+        for param in self.backbone.parameters():
+            num += 1
+            if param.requires_grad:
+                num_learnable += 1
+
+        print(f"{rank_str} model, backbone, learnable parameters {num_learnable} out of {num} ...")
+
+        num = 0
+        num_learnable = 0
+        for param in self.post.parameters():
+            num += 1
+            if param.requires_grad:
+                num_learnable += 1
+
+        print(f"{rank_str} model, post, learnable parameters {num_learnable} out of {num} ...")
+
     def save(self, epoch, only_paras=False):
         """
         Save model checkpoints

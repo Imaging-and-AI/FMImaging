@@ -142,6 +142,9 @@ class run_ddp_base(object):
         if config.use_amp:
             cmd_run.extend(["--use_amp"])
 
+        if config.save_samples:
+            cmd_run.extend(["--save_samples"])
+
         print(f"Running command:\n{' '.join(cmd_run)}")
 
         return cmd_run
@@ -276,6 +279,8 @@ class run_ddp_base(object):
 
         parser.add_argument("--use_amp", action="store_true", help='if set, use mixed precision training.')
 
+        parser.add_argument("--save_samples", action="store_true", help='if set, save training and validation samples.')
+
         return parser
 
     def get_valid_runs(self, config):
@@ -338,6 +343,7 @@ class run_ddp_base(object):
         valid_cmd_runs = self.get_valid_runs(config)
 
         run_lists = config.run_list
+        print(f"Running run_lists: {Fore.GREEN}{run_lists}{Style.RESET_ALL}")
 
         if run_lists[0] < 0:
             run_lists = range(len(valid_cmd_runs))

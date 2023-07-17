@@ -69,7 +69,7 @@ class mri_ddp_base(run_ddp_base):
         "--backbone_small_unet.channels", "16", "32", "64",   
         "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1",
 
-        "--min_noise_level", "2.0",
+        #"--min_noise_level", "2.0",
         "--max_noise_level", "24.0",
         #"--complex_i",
         #"--residual",
@@ -182,7 +182,7 @@ class mri_ddp_base(run_ddp_base):
 
         vars['losses'] = [
             [["mse", "perpendicular", "psnr", "l1"], ['1.0', '1.0', '1.0', '1.0', '1.0']],
-            [["perpendicular", "psnr", "l1", "gaussian", "gaussian3D"], ['1.0', '1.0', '1.0', '10.0', '10.0']],
+            [["mse", "perpendicular", "psnr", "l1", "gaussian", "gaussian3D", "ssim"], ['0.1', '1.0', '1.0', '1.0', '20.0', '20.0', "5.0"]],
             #[['perpendicular', 'ssim', 'psnr', 'l1'], ['1.0', '1.0', '1.0', '1.0', '1.0']],
             #[['psnr','l1', 'mse'], ['1.0', '1.0', '1.0', '1.0', '1.0']],
             #[['ssim', 'ssim3D', 'mse', 'l1', 'psnr'], ['0.1', '0.1', '1.0', '1.0', '1.0']], 
@@ -196,10 +196,6 @@ class mri_ddp_base(run_ddp_base):
         vars['weighted_loss'] = [True]
 
         vars['n_heads'] = [32]
-
-        vars['with_data_degrading'] = [False, True]
-
-        vars['not_add_noise'] = [False, True]
 
         return vars
 
@@ -229,9 +225,7 @@ class mri_ddp_base(run_ddp_base):
                     complex_i,\
                     bs, \
                     weighted_loss, \
-                    loss_and_weights, \
-                    with_data_degrading, \
-                    not_add_noise \
+                    loss_and_weights \
                         in itertools.product( 
                                             vars['optim'],
                                             vars['mixer_types'], 
@@ -252,9 +246,7 @@ class mri_ddp_base(run_ddp_base):
                                             vars['complex_i'],
                                             block_str,
                                             vars['weighted_loss'],
-                                            vars['losses'],
-                                            vars['with_data_degrading'],
-                                            vars['not_add_noise']
+                                            vars['losses']
                                             ):
 
                         # -------------------------------------------------------------
@@ -282,9 +274,7 @@ class mri_ddp_base(run_ddp_base):
                                         snr_perturb_prob=snr_perturb_prob,
                                         n_heads=n_heads,
                                         losses=loss_and_weights[0],
-                                        loss_weights=loss_and_weights[1],
-                                        with_data_degrading=with_data_degrading,
-                                        not_add_noise=not_add_noise
+                                        loss_weights=loss_and_weights[1]
                                         )
 
                         if cmd_run:
@@ -317,9 +307,7 @@ class mri_ddp_base(run_ddp_base):
                         snr_perturb_prob=0,
                         n_heads=32,
                         losses=['mse', 'l1'],
-                        loss_weights=['1.0', '1.0'],
-                        with_data_degrading=False,
-                        not_add_noise=False
+                        loss_weights=['1.0', '1.0']
                         ):
 
         if c < n_heads:
@@ -354,21 +342,27 @@ class mri_ddp_base(run_ddp_base):
             cmd_run.extend(["--weighted_loss"])
             run_str += "_weighted_loss"
 
-        if with_data_degrading:
+        if config.with_data_degrading:
             cmd_run.extend(["--with_data_degrading"])
             run_str += "_with_data_degrading"
 
-        if not_add_noise:
+        if config.not_add_noise:
             cmd_run.extend(["--not_add_noise"])
             run_str += "_no_noise"
 
         run_str += f"-{'_'.join(bs)}"
 
         cmd_run.extend(["--losses"])
-        cmd_run.extend(losses)
+        if config.losses is not None:
+            cmd_run.extend(config.losses)
+        else:
+            cmd_run.extend(losses)
 
         cmd_run.extend(["--loss_weights"])
-        cmd_run.extend(loss_weights)
+        if config.loss_weights is not None:
+            cmd_run.extend(config.loss_weights)
+        else:
+            cmd_run.extend(loss_weights)
 
         ind = cmd_run.index("--run_name")
         cmd_run.pop(ind)
@@ -377,6 +371,8 @@ class mri_ddp_base(run_ddp_base):
         ind = cmd_run.index("--run_notes")
         cmd_run.pop(ind)
         cmd_run.pop(ind)
+
+        cmd_run.extend([f"--min_noise_level {config.min_noise_level}"])
 
         cmd_run.extend([
             "--run_name", f"{config.project}-{bk.upper()}-{run_str}",
@@ -394,6 +390,11 @@ class mri_ddp_base(run_ddp_base):
 
         parser.add_argument("--model_type", type=str, default="STCNNT_MRI", help="STCNNT_MRI or MRI_hrnet")
 
+        parser.add_argument("--losses", nargs='+', type=str, default=None, help='Any combination of "mse", "l1", "sobel", "ssim", "ssim3D", "psnr", "msssim", "perpendicular", "gaussian", "gaussian3D" ')
+        parser.add_argument('--loss_weights', nargs='+', type=float, default=None, help='to balance multiple losses, weights can be supplied')
+
+        parser.add_argument("--min_noise_level", type=float, default=2.0, help='minimal noise level')
+
         parser.add_argument("--lr_pre", type=float, default=-1, help='learning rate for pre network')
         parser.add_argument("--lr_backbone", type=float, default=-1, help='learning rate for backbone network')
         parser.add_argument("--lr_post", type=float, default=-1, help='learning rate for post network')
@@ -405,6 +406,9 @@ class mri_ddp_base(run_ddp_base):
         parser.add_argument("--disable_pre", action="store_true", help='if set, pre module will have require_grad_(False).')
         parser.add_argument("--disable_backbone", action="store_true", help='if set, backbone module will have require_grad_(False).')
         parser.add_argument("--disable_post", action="store_true", help='if set, post module will have require_grad_(False).')
+
+        parser.add_argument("--not_add_noise", action="store_true", help='if set, will not add noise to images.')
+        parser.add_argument("--with_data_degrading", action="store_true", help='if set, degrade image before adding noise.')
 
         return parser
 

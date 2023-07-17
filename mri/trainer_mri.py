@@ -135,7 +135,7 @@ def create_log_str(config, epoch, rank, data_shape, gmap_median, noise_sigma, lo
 
     mse, l1, ssim, ssim3D, psnr_loss, psnr, perp,  gaussian, gaussian3D = loss_meters.get_loss()
 
-    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.WHITE}{Back.LIGHTBLUE_EX}{Style.NORMAL}gmap {gmap_median:.2f}, sigma {noise_sigma:.2f}{snr_str}{Style.RESET_ALL} {C}mse {mse:.4f}, l1 {l1:.4f}, perp {perp:.4f}, ssim {ssim:.4f}, ssim3D {ssim3D:.4f}, gaussian {gaussian:.4f}, gaussian3D {gaussian3D:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}{Style.RESET_ALL}{lr_str}"
+    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.WHITE}{Back.LIGHTBLUE_EX}{Style.NORMAL}gmap {gmap_median:.2f}, sigma {noise_sigma:.2f}{snr_str}{Style.RESET_ALL} {C}mse {mse:.4f}, l1 {l1:.4f}, perp {perp:.4f}, ssim {ssim:.4f}, ssim3D {ssim3D:.4f}, gaussian {gaussian:.4f}, gaussian3D {gaussian3D:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}{Style.RESET_ALL}{lr_str}"
 
     return str
 
@@ -202,7 +202,7 @@ def save_batch_samples(saved_path, fname, x, y, output, y_degraded, gmap_median,
 # -------------------------------------------------------------------------------------------------
 
 def distribute_learning_rates(rank, optim, src=0):
-    
+
     N = len(optim.param_groups)
     new_lr = torch.zeros(N).to(rank)
     for ind in range(N):
@@ -215,7 +215,29 @@ def distribute_learning_rates(rank, optim, src=0):
             optim.param_groups[ind]["lr"] = new_lr[ind].item()
 
 # -------------------------------------------------------------------------------------------------
-                    
+
+def get_rank_str(rank):
+    if rank == 0:
+        return f"{Fore.BLUE}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
+    if rank == 1:
+        return f"{Fore.GREEN}rank {rank} {Style.RESET_ALL}"
+    if rank == 2:
+        return f"{Fore.YELLOW}rank {rank} {Style.RESET_ALL}"
+    if rank == 3:
+        return f"{Fore.MAGENTA}rank {rank} {Style.RESET_ALL}"
+    if rank == 4:
+        return f"{Fore.LIGHTYELLOW_EX}rank {rank} {Style.RESET_ALL}"
+    if rank == 5:
+        return f"{Fore.LIGHTBLUE_EX}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
+    if rank == 6:
+        return f"{Fore.LIGHTRED_EX}rank {rank} {Style.RESET_ALL}"
+    if rank == 7:
+        return f"{Fore.LIGHTCYAN_EX}rank {rank} {Style.RESET_ALL}"
+
+    return f"{Fore.WHITE}{Style.BRIGHT}rank {rank} {Style.RESET_ALL}"
+
+# -------------------------------------------------------------------------------------------------
+
 def trainer(rank, global_rank, config, wandb_run):
     """
     The trainer cycle. Allows training on cpu/single gpu/multiple gpu(ddp)
@@ -228,14 +250,19 @@ def trainer(rank, global_rank, config, wandb_run):
         - val_set (torch Dataset list): the data to validate each epoch
         - test_set (torch Dataset list): the data to test model at the end
     """
+
+    rank_str = get_rank_str(rank)
+
+    # -----------------------------------------------
+
     start = time()
     train_set, val_set, test_set = load_mri_data(config=config)
-    logging.info(f"load_mri_data took {time() - start} seconds ...")
+    logging.info(f"{rank_str}, load_mri_data took {time() - start} seconds ...")
 
     total_num_samples = sum([len(s) for s in train_set])
 
     total_steps = compute_total_steps(config, total_num_samples)
-    logging.info(f"total_steps for this run: {total_steps}, len(train_set) {[len(s) for s in train_set]}, batch {config.batch_size}")
+    logging.info(f"{rank_str}, total_steps for this run: {total_steps}, len(train_set) {[len(s) for s in train_set]}, batch {config.batch_size}")
 
     # -----------------------------------------------
 
@@ -244,12 +271,13 @@ def trainer(rank, global_rank, config, wandb_run):
         num_samples = len(train_set[-1])
         sampled_picked = np.random.randint(0, num_samples, size=32)
         input_data  = torch.stack([train_set[-1][i][0] for i in sampled_picked])
-        print(f"LSUV prep data took {time()-t0 : .2f} seconds ...")
+        print(f"{rank_str}, LSUV prep data took {time()-t0 : .2f} seconds ...")
 
     # -----------------------------------------------
 
     if config.ddp:
         device = torch.device(f"cuda:{rank}")
+        config.device = device
     else:
         device = config.device
 
@@ -289,8 +317,9 @@ def trainer(rank, global_rank, config, wandb_run):
         load_path = config.load_path
         status = torch.load(config.load_path)
         config = status['config']
-        
+
         # overwrite the config parameters with current settings
+        config.device = device
         config.losses = losses
         config.loss_weights = loss_weights
         config.optim = optim
@@ -319,79 +348,85 @@ def trainer(rank, global_rank, config, wandb_run):
         config.not_load_post = not_load_post
         #config.load_path = load_path
 
+        print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
+
         if model_type == "STCNNT_MRI":
             model = STCNNT_MRI(config=config, total_steps=total_steps)
         else:
             model = MRI_hrnet(config=config, total_steps=total_steps)
 
         if 'backbone_state' in status:
-            print(f"load saved model, continued_training - {continued_training}")
+            print(f"{rank_str}, load saved model, continued_training - {continued_training}")
             if continued_training:
                 model.load_from_status(status=status, device=device, load_others=continued_training)
             else: # new stage training
                 model = model.to(device)
                 t0 = time()
                 LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
-                print(f"LSUVinit took {time()-t0 : .2f} seconds ...")
+                print(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
 
                 # ------------------------------
                 if not not_load_pre:
-                    print(f"load saved model, pre_state")
+                    print(f"{rank_str}, {Fore.YELLOW}load saved model, pre_state{Style.RESET_ALL}")
                     model.pre.load_state_dict(status['pre_state'])
                 else:
-                    print(f"load saved model, WITHOUT pre_state")
+                    print(f"{rank_str}, {Fore.RED}load saved model, WITHOUT pre_state{Style.RESET_ALL}")
 
                 if disable_pre:
-                    print(f"load saved model, pre requires_grad_(False)")
+                    print(f"{rank_str}, {Fore.YELLOW}load saved model, pre requires_grad_(False){Style.RESET_ALL}")
                     model.pre.requires_grad_(False)
                     for param in model.pre.parameters():
                         param.requires_grad = False
                 else:
-                    print(f"load saved model, pre requires_grad_(True)")
+                    print(f"{rank_str}, {Fore.RED}load saved model, pre requires_grad_(True){Style.RESET_ALL}")
                 # ------------------------------
                 if not not_load_backbone:
-                    print(f"load saved model, backbone_state")
+                    print(f"{rank_str}, {Fore.YELLOW}load saved model, backbone_state{Style.RESET_ALL}")
                     model.backbone.load_state_dict(status['backbone_state'])
                 else:
-                    print(f"load saved model, WITHOUT backbone_state")
+                    print(f"{rank_str}, {Fore.RED}load saved model, WITHOUT backbone_state{Style.RESET_ALL}")
 
                 if disable_backbone:
-                    print(f"load saved model, backbone requires_grad_(False)")
+                    print(f"{rank_str}, {Fore.YELLOW}load saved model, backbone requires_grad_(False){Style.RESET_ALL}")
                     model.backbone.requires_grad_(False)
                     for param in model.backbone.parameters():
                         param.requires_grad = False
                 else:
-                    print(f"load saved model, backbone requires_grad_(True)")
+                    print(f"{rank_str}, {Fore.RED}load saved model, backbone requires_grad_(True){Style.RESET_ALL}")
                 # ------------------------------
                 if not not_load_post:
-                    print(f"load saved model, post_state")
+                    print(f"{rank_str}, {Fore.YELLOW}load saved model, post_state{Style.RESET_ALL}")
                     model.post.load_state_dict(status['post_state'])
                 else:
-                    print(f"load saved model, WITHOUT post_state")
+                    print(f"{rank_str}, {Fore.RED}load saved model, WITHOUT post_state{Style.RESET_ALL}")
 
                 if disable_post:
-                    print(f"load saved model, post requires_grad_(False)")
+                    print(f"{rank_str}, {Fore.YELLOW}load saved model, post requires_grad_(False){Style.RESET_ALL}")
                     model.post.requires_grad_(False)
                     for param in model.post.parameters():
                         param.requires_grad = False
                 else:
-                    print(f"load saved model, post requires_grad_(True)")
+                    print(f"{rank_str}, {Fore.RED}load saved model, post requires_grad_(True){Style.RESET_ALL}")
                 # ------------------------------
+
                 model.a = status['a']
                 model.b = status['b']
+
                 # ---------------------------------------------------
 
         model = model.to(device)
 
         config.ddp = ddp
 
-        print(f"after load saved model, the config for running - {config}")
-        print(f"after load saved model, config.use_amp for running - {config.use_amp}")
-        print(f"after load saved model, config.optim for running - {config.optim}")
-        print(f"after load saved model, config.scheduler_type for running - {config.scheduler_type}")
-        print(f"after load saved model, config.weighted_loss for running - {config.weighted_loss}")
-        print(f"after load saved model, config.num_workers for running - {config.num_workers}")
-        print(f"after load saved model, model.curr_epoch for running - {model.curr_epoch}")
+        print(f"{rank_str}, after load saved model, the config for running - {config}")
+        print(f"{rank_str}, after load saved model, config.use_amp for running - {config.use_amp}")
+        print(f"{rank_str}, after load saved model, config.optim for running - {config.optim}")
+        print(f"{rank_str}, after load saved model, config.scheduler_type for running - {config.scheduler_type}")
+        print(f"{rank_str}, after load saved model, config.weighted_loss for running - {config.weighted_loss}")
+        print(f"{rank_str}, after load saved model, config.num_workers for running - {config.num_workers}")
+        print(f"{rank_str}, after load saved model, model.curr_epoch for running - {model.curr_epoch}")
+        print(f"{rank_str}, {Fore.RED}after load saved model, model.device - {model.device}{Style.RESET_ALL}")
+        print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
     else:
         load_path = None
         if model_type == "STCNNT_MRI":
@@ -402,7 +437,7 @@ def trainer(rank, global_rank, config, wandb_run):
         model = model.to(device)
         t0 = time()
         LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
-        print(f"LSUVinit took {time()-t0 : .2f} seconds ...")
+        print(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
 
     if config.ddp:
         dist.barrier()
@@ -448,7 +483,7 @@ def trainer(rank, global_rank, config, wandb_run):
     elif c.backbone == 'unet':
         model_str = f"C {c.backbone_unet.C}, {c.n_head} heads, {c.backbone_unet.block_str}"
 
-    logging.info(f"{Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, {c.optim}, {c.global_lr}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, weighted loss {c.weighted_loss}, data degrading {c.with_data_degrading}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, amp {c.use_amp}, {model_str}{Style.RESET_ALL}")
+    logging.info(f"{rank_str}, {Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, {c.optim}, {c.global_lr}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, weighted loss {c.weighted_loss}, data degrading {c.with_data_degrading}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, amp {c.use_amp}, {model_str}{Style.RESET_ALL}")
 
     # -----------------------------------------------
 
@@ -547,12 +582,14 @@ def trainer(rank, global_rank, config, wandb_run):
 
         base_snr = np.abs(np.median(mean_signal)) / 2
 
-        logging.info(f"{Fore.YELLOW}base_snr {base_snr:.4f}, Mean signal {np.abs(np.median(mean_signal)):.4f}, median {np.abs(np.median(median_signal)):.4f}, from {len(mean_signal)} images {Style.RESET_ALL}")
+        logging.info(f"{rank_str}, {Fore.YELLOW}base_snr {base_snr:.4f}, Mean signal {np.abs(np.median(mean_signal)):.4f}, median {np.abs(np.median(median_signal)):.4f}, from {len(mean_signal)} images {Style.RESET_ALL}")
 
-    logging.info(f"{Fore.GREEN}----------> Start training loop <----------{Style.RESET_ALL}")
+    logging.info(f"{rank_str}, {Fore.GREEN}----------> Start training loop <----------{Style.RESET_ALL}")
+
+    model.check_model_learnable_status(rank_str)
 
     for epoch in range(curr_epoch, c.num_epochs):
-        logging.info(f"{Fore.GREEN}{'-'*20} Epoch:{epoch}/{c.num_epochs}, rank {rank}, global rank {global_rank} {'-'*20}{Style.RESET_ALL}")
+        logging.info(f"{Fore.GREEN}{'-'*20} Epoch:{epoch}/{c.num_epochs}, {rank_str}, global rank {global_rank} {'-'*20}{Style.RESET_ALL}")
 
         if config.save_samples:
             saved_path = os.path.join(config.log_path, config.run_name, f"tra_{epoch}")
@@ -576,7 +613,7 @@ def trainer(rank, global_rank, config, wandb_run):
         curr_lr = 0
 
         all_lrs = [pg['lr'] for pg in optim.param_groups]
-        logging.info(f"{Fore.YELLOW}lrs for epoch {epoch} - {all_lrs}{Style.RESET_ALL}")
+        logging.info(f"{rank_str}, {Fore.WHITE}{Style.BRIGHT}learning rate for epoch {epoch} - {all_lrs}{Style.RESET_ALL}")
 
         with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
 
