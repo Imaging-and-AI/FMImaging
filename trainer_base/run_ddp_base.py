@@ -10,7 +10,7 @@ import shutil
 import pickle
 import copy
 import time
-from colorama import Fore, Style
+from colorama import Fore, Back, Style
 
 class run_ddp_base(object):
     
@@ -355,7 +355,7 @@ class run_ddp_base(object):
             print(f"{Fore.YELLOW}Run - {run_ind} ...{Style.RESET_ALL}")
             print(f"{Fore.GREEN}{cmd_run}{Style.RESET_ALL}")
             print("--" * 20)
-            print(f"Running command:\n{' '.join(cmd_run)}")
+            print(f"Running command:\n{Fore.WHITE}{Back.BLUE}{' '.join(cmd_run)}{Style.RESET_ALL}")
             time.sleep(3)
             subprocess.run(cmd_run)
             print("===" * 20)
