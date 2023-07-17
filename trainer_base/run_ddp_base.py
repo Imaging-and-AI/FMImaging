@@ -355,7 +355,7 @@ class run_ddp_base(object):
             print(f"{Fore.YELLOW}Run - {run_ind} ...{Style.RESET_ALL}")
             print(f"{Fore.GREEN}{cmd_run}{Style.RESET_ALL}")
             print("--" * 20)
-            print(f"Running command:\n{Fore.GREEN}{' '.join(cmd_run)}{Style.RESET_ALL}")
+            print(f"Running command:\n{' '.join(cmd_run)}")
             time.sleep(3)
             subprocess.run(cmd_run)
             print("===" * 20)
