@@ -5,6 +5,7 @@
     "version": "0.2.0",
     "configurations": [
 
+
         {
             "name": "Python: Current File",
             "type": "python",
@@ -216,9 +217,9 @@
             "console": "integratedTerminal",
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "3,7"},
             "args": [
-                "--standalone", "--nproc_per_node", "2", "--data_root", "/data/mri/data", "--tra_ratio", "5", "--run_extra_note", "model_sizes", "--load_path", "/export/Lab-Xue/projects/mri/checkpoints/mri-HRNET-20230716_020226_211903_C-32-1_complex_residual_weighted_loss-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-22.pth", "--run_list", "0", 
+                "--standalone", "--nproc_per_node", "2", "--data_root", "/data/mri/data", "--tra_ratio", "5", "--run_extra_note", "model_sizes", "--load_path", "/export/Lab-Xue/projects/mri/checkpoints/mri-HRNET-20230716_020226_211903_C-32-1_complex_residual_weighted_loss-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-70.pth", "--run_list", "0", 
                 "--lr_pre", "1e-5", "--lr_backbone", "1e-5", "--lr_post", "1e-4",
-                "--disable_pre", "--disable_backbone", "--not_load_post", "--model_type", "MRI_hrnet"
+                "--disable_pre", "--disable_backbone", "--not_load_post", "--model_type", "MRI_hrnet", "--min_noise_level", "12.0", "--losses", "mse", "perpendicular", "psnr", "l1", "gradient", "gradient3D", "ssim", "--loss_weights", "0.1", "1.0", "1.0", "1.0", "10.0", "10.0", "1.0"
             ]
         },
         {

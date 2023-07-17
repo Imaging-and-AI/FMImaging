@@ -360,7 +360,7 @@ class mri_ddp_base(run_ddp_base):
 
         cmd_run.extend(["--loss_weights"])
         if config.loss_weights is not None:
-            cmd_run.extend(config.loss_weights)
+            cmd_run.extend([f"{lw}" for lw in config.loss_weights])
         else:
             cmd_run.extend(loss_weights)
 
@@ -372,7 +372,7 @@ class mri_ddp_base(run_ddp_base):
         cmd_run.pop(ind)
         cmd_run.pop(ind)
 
-        cmd_run.extend([f"--min_noise_level {config.min_noise_level}"])
+        cmd_run.extend(["--min_noise_level", f"{config.min_noise_level}"])
 
         cmd_run.extend([
             "--run_name", f"{config.project}-{bk.upper()}-{run_str}",
