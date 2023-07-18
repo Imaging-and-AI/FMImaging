@@ -48,6 +48,8 @@ def arg_parser():
     parser.add_argument("--input_fname", type=str, default="im", help='input file name')
     parser.add_argument("--gmap_fname", type=str, default="gfactor", help='gmap input file name')
 
+    parser.add_argument("--model_type", type=str, default=None, help="if set, overwrite the config setting, STCNNT_MRI or MRI_hrnet, MRI_double_net")
+    
     return parser.parse_args()
 
 def check_args(args):
@@ -76,7 +78,7 @@ def main():
     print(args)
     
     print(f"{Fore.YELLOW}Load in model file - {args.saved_model_path}")
-    model, config = load_model(args.saved_model_path, args.saved_model_config)
+    model, config = load_model(args.saved_model_path, args.saved_model_config, args.model_type)
     
     patch_size_inference = args.patch_size_inference
               

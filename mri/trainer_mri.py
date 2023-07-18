@@ -356,6 +356,7 @@ def trainer(rank, global_rank, config, wandb_run):
         config.not_load_pre = not_load_pre
         config.not_load_backbone = not_load_backbone
         config.not_load_post = not_load_post
+        config.model_type = model_type
         #config.load_path = load_path
 
         print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
@@ -432,6 +433,7 @@ def trainer(rank, global_rank, config, wandb_run):
         print(f"{rank_str}, after load saved model, config.weighted_loss for running - {config.weighted_loss}")
         print(f"{rank_str}, after load saved model, config.num_workers for running - {config.num_workers}")
         print(f"{rank_str}, after load saved model, model.curr_epoch for running - {model.curr_epoch}")
+        print(f"{rank_str}, {Fore.GREEN}after load saved model, model type - {config.model_type}{Style.RESET_ALL}")
         print(f"{rank_str}, {Fore.RED}after load saved model, model.device - {model.device}{Style.RESET_ALL}")
         print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
     else:
@@ -1414,7 +1416,7 @@ def compare_model(config, model, model_jit, model_onnx, device='cpu', x=None):
 
 # -------------------------------------------------------------------------------------------------
 
-def load_model(saved_model_path, saved_model_config=None):
+def load_model(saved_model_path, saved_model_config=None, model_type=None):
     """
     load a ".pt" or ".pts" model
     @rets:
@@ -1436,6 +1438,10 @@ def load_model(saved_model_path, saved_model_config=None):
 
         if not torch.cuda.is_available():
             config.device = torch.device('cpu')
+
+        if model_type is not None:
+            config.model_type = model_type
+            print(f"Use the input model type - {model_type}")
 
         model = create_model(config, config.model_type, total_steps=-1)
 

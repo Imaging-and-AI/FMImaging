@@ -257,7 +257,7 @@
             "console": "integratedTerminal",
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10"},
             "args": [
-                "--input_dir", "/export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/res/DebugOutput/", "--output_dir", "/export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/res_ai/", "--im_scaling", "1", "--gmap_scaling", "1", "--saved_model_path", "/export/Lab-Xue/projects/mri/models/mri-HRNET-20230708_034122_305779_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_03-41-31-20230708_best.pt", 
+                "--input_dir", "/export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/res/DebugOutput/", "--output_dir", "/export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/res_ai/", "--im_scaling", "1", "--gmap_scaling", "1", "--saved_model_path", "/export/Lab-Xue/projects/mri/checkpoints/mri-HRNET-20230716_190117_960318_C-32-1_amp-False_complex_residual_weighted_loss-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-24.pth", 
                 "--input_fname", "input", "--gmap_fname", "gmap", 
                 "--scaling_factor", "0.25"
             ]
