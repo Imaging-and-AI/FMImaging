@@ -369,7 +369,7 @@ def trainer(rank, global_rank, config, wandb_run):
             else: # new stage training
                 model = model.to(device)
                 t0 = time()
-                LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
+                LSUVinit(model, input_data.to(device=device), verbose=True, cuda=True)
                 print(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
 
                 # ------------------------------
@@ -440,7 +440,7 @@ def trainer(rank, global_rank, config, wandb_run):
 
         model = model.to(device)
         t0 = time()
-        LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
+        LSUVinit(model, input_data.to(device=device), verbose=True, cuda=True)
         print(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
 
     if config.ddp:

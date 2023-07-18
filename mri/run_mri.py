@@ -91,7 +91,7 @@ class mri_ddp_base(run_ddp_base):
         # "--train_files", "train_3D_3T_retro_cine_2018.h5",  "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5", "train_3D_3T_perf_2018.h5","train_3D_3T_perf_2019.h5", "train_3D_3T_perf_2020.h5","train_3D_3T_perf_2021.h5", 
         # "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2d",
 
-        "--post_hrnet.block_str", "T1L1G1T1L1G1", "T1L1G1T1L1G1",
+        "--post_hrnet.block_str", "T1L1G1", "T1L1G1",
 
         "--train_files", "train_3D_3T_retro_cine_2018.h5",  
                         "train_3D_3T_retro_cine_2019.h5", 

@@ -56,7 +56,7 @@ def svd_orthonormal(w):
     return q.astype(np.float32)
 
 def store_activations(self, input, output):
-    gg['act_dict'] = output.data.cpu().numpy();
+    gg['act_dict'] = output.data.cpu().numpy()
     #print('act shape = ', gg['act_dict'].shape)
     return
 

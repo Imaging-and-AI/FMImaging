@@ -62,7 +62,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
         print(f"{Fore.YELLOW}{Back.WHITE}===> MRI - create pre <==={Style.RESET_ALL}")
         self.create_pre()
 
-        print(f"{Fore.GREEM}{Back.WHITE}===> MRI - backbone <==={Style.RESET_ALL}")
+        print(f"{Fore.GREEN}{Back.WHITE}===> MRI - backbone <==={Style.RESET_ALL}")
         if config.backbone == "small_unet":
             self.backbone = CNNT_Unet(config=config)
 

@@ -356,7 +356,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
 
             kwargs["att_types"] = self.block_str[0]
             self.B00 = STCNNT_Block(**kwargs)
-            print(f"B00 -- {kwargs["""C_in"""]} to {kwargs["""C_out"""]} --- {kwargs["""att_types"""]}")
+            print(f"B00 -- {kwargs['C_in']} to {kwargs['C_out']} --- {kwargs['att_types']}")
 
             # output stage 0
             kwargs["C_in"] = self.C
@@ -368,7 +368,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
 
             kwargs["att_types"] = self.block_str[0]
             self.output_B0 = STCNNT_Block(**kwargs)
-            print(f"B0 -- {kwargs["""C_in"""]} to {kwargs["""C_out"""]} --- {kwargs["""att_types"""]}")
+            print(f"B0 -- {kwargs['C_in']} to {kwargs['C_out']} --- {kwargs['att_types']}")
 
         if num_resolution_levels >= 2:
             # define B01
@@ -379,7 +379,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[0], patch_sizes[0], module_name="B01")
             kwargs["att_types"] = self.block_str[0]
             self.B01 = STCNNT_Block(**kwargs)
-            print(f"B01 -- {kwargs["""C_in"""]} to {kwargs["""C_out"""]} --- {kwargs["""att_types"""]}")
+            print(f"B01 -- {kwargs['C_in']} to {kwargs['C_out']} --- {kwargs['att_types']}")
 
             # define B11
             kwargs["C_in"] = 2*self.C
@@ -399,7 +399,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
 
             kwargs["att_types"] = self.block_str[1]
             self.B11 = STCNNT_Block(**kwargs)
-            print(f"B11 -- {kwargs["""C_in"""]} to {kwargs["""C_out"""]} --- {kwargs["""att_types"""]}")
+            print(f"B11 -- {kwargs['C_in']} to {kwargs['C_out']} --- {kwargs['att_types']}")
 
             # define down sample
             self.down_00_11 = DownSample(N=1, C_in=self.C, C_out=2*self.C, use_interpolation=use_interpolation, with_conv=True)
@@ -412,7 +412,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[-1], patch_sizes[-1], module_name="output_1")
             kwargs["att_types"] = self.block_str[1]
             self.output_B1 = STCNNT_Block(**kwargs)
-            print(f"output_1 -- {kwargs["""C_in"""]} to {kwargs["""C_out"""]} --- {kwargs["""att_types"""]}")
+            print(f"output_1 -- {kwargs['C_in']} to {kwargs['C_out']} --- {kwargs['att_types']}")
 
         if num_resolution_levels >= 3:
             # define B02
@@ -423,7 +423,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[0], patch_sizes[0], module_name="B02")
             kwargs["att_types"] = self.block_str[0]
             self.B02 = STCNNT_Block(**kwargs)
-            print(f"B02 -- {kwargs["""C_in"""]} to {kwargs["""C_out"""]} --- {kwargs["""att_types"""]}")
+            print(f"B02 -- {kwargs['C_in']} to {kwargs['C_out']} --- {kwargs['att_types']}")
 
             # define B12
             kwargs["C_in"] = 2*self.C
@@ -433,7 +433,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[1], patch_sizes[1], module_name="B12")
             kwargs["att_types"] = self.block_str[1]
             self.B12 = STCNNT_Block(**kwargs)
-            print(f"B12 -- {kwargs["""C_in"""]} to {kwargs["""C_out"""]} --- {kwargs["""att_types"""]}")
+            print(f"B12 -- {kwargs['C_in']} to {kwargs['C_out']} --- {kwargs['att_types']}")
 
             # define B22
             kwargs["C_in"] = 4*self.C
@@ -452,7 +452,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
 
             kwargs["att_types"] = self.block_str[2]
             self.B22 = STCNNT_Block(**kwargs)
-            print(f"B22 -- {kwargs["""C_in"""]} to {kwargs["""C_out"""]} --- {kwargs["""att_types"""]}")
+            print(f"B22 -- {kwargs['C_in']} to {kwargs['C_out']} --- {kwargs['att_types']}")
 
             # define down sample
             self.down_01_12 = DownSample(N=1, C_in=self.C, C_out=2*self.C, use_interpolation=use_interpolation, with_conv=True)
@@ -467,7 +467,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[-1], patch_sizes[-1], module_name="output_B2")
             kwargs["att_types"] = self.block_str[2]
             self.output_B2 = STCNNT_Block(**kwargs)
-            print(f"output_B2 -- {kwargs["""C_in"""]} to {kwargs["""C_out"""]} --- {kwargs["""att_types"""]}")
+            print(f"output_B2 -- {kwargs['C_in']} to {kwargs['C_out']} --- {kwargs['att_types']}")
 
         if num_resolution_levels >= 4:
             # define B03
@@ -478,7 +478,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[0], patch_sizes[0], module_name="B03")
             kwargs["att_types"] = self.block_str[0]
             self.B03 = STCNNT_Block(**kwargs)
-            print(f"B03 -- {kwargs["""C_in"""]} to {kwargs["""C_out"""]} --- {kwargs["""att_types"""]}")
+            print(f"B03 -- {kwargs['C_in']} to {kwargs['C_out']} --- {kwargs['att_types']}")
 
             # define B13
             kwargs["C_in"] = 2*self.C
@@ -488,7 +488,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[1], patch_sizes[1], module_name="B13")
             kwargs["att_types"] = self.block_str[1]
             self.B13 = STCNNT_Block(**kwargs)
-            print(f"B13 -- {kwargs["""C_in"""]} to {kwargs["""C_out"""]} --- {kwargs["""att_types"""]}")
+            print(f"B13 -- {kwargs['C_in']} to {kwargs['C_out']} --- {kwargs['att_types']}")
 
             # define B23
             kwargs["C_in"] = 4*self.C
@@ -498,7 +498,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[2], patch_sizes[2], module_name="B23")
             kwargs["att_types"] = self.block_str[2]
             self.B23 = STCNNT_Block(**kwargs)
-            print(f"B23 -- {kwargs["""C_in"""]} to {kwargs["""C_out"""]} --- {kwargs["""att_types"""]}")
+            print(f"B23 -- {kwargs['C_in']} to {kwargs['C_out']} --- {kwargs['att_types']}")
 
             # define B33
             kwargs["C_in"] = 8*self.C
@@ -518,7 +518,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
 
             kwargs["att_types"] = self.block_str[3]
             self.B33 = STCNNT_Block(**kwargs)
-            print(f"B33 -- {kwargs["""C_in"""]} to {kwargs["""C_out"""]} --- {kwargs["""att_types"""]}")
+            print(f"B33 -- {kwargs['C_in']} to {kwargs['C_out']} --- {kwargs['att_types']}")
 
             # define down sample
             self.down_02_13 = DownSample(N=1, C_in=self.C, C_out=2*self.C, use_interpolation=use_interpolation, with_conv=True)
@@ -536,7 +536,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[-1], patch_sizes[-1], module_name="output_B3")
             kwargs["att_types"] = self.block_str[3]
             self.output_B3 = STCNNT_Block(**kwargs)
-            print(f"output_B3 -- {kwargs["""C_in"""]} to {kwargs["""C_out"""]} --- {kwargs["""att_types"""]}")
+            print(f"output_B3 -- {kwargs['C_in']} to {kwargs['C_out']} --- {kwargs['att_types']}")
 
         if num_resolution_levels >= 5:
             # define B04
@@ -547,7 +547,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[0], patch_sizes[0], module_name="B04")
             kwargs["att_types"] = self.block_str[0]
             self.B04 = STCNNT_Block(**kwargs)
-            print(f"B04 -- {kwargs["""C_in"""]} to {kwargs["""C_out"""]} --- {kwargs["""att_types"""]}")
+            print(f"B04 -- {kwargs['C_in']} to {kwargs['C_out']} --- {kwargs['att_types']}")
 
             # define B14
             kwargs["C_in"] = 2*self.C
@@ -557,7 +557,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[1], patch_sizes[1], module_name="B14")
             kwargs["att_types"] = self.block_str[1]
             self.B14 = STCNNT_Block(**kwargs)
-            print(f"B14 -- {kwargs["""C_in"""]} to {kwargs["""C_out"""]} --- {kwargs["""att_types"""]}")
+            print(f"B14 -- {kwargs['C_in']} to {kwargs['C_out']} --- {kwargs['att_types']}")
 
             # define B24
             kwargs["C_in"] = 4*self.C
@@ -567,7 +567,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[2], patch_sizes[2], module_name="B24")
             kwargs["att_types"] = self.block_str[2]
             self.B24 = STCNNT_Block(**kwargs)
-            print(f"B24 -- {kwargs["""C_in"""]} to {kwargs["""C_out"""]} --- {kwargs["""att_types"""]}")
+            print(f"B24 -- {kwargs['C_in']} to {kwargs['C_out']} --- {kwargs['att_types']}")
 
             # define B34
             kwargs["C_in"] = 8*self.C
@@ -577,7 +577,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[3], patch_sizes[3], module_name="B34")
             kwargs["att_types"] = self.block_str[3]
             self.B34 = STCNNT_Block(**kwargs)
-            print(f"B34 -- {kwargs["""C_in"""]} to {kwargs["""C_out"""]} --- {kwargs["""att_types"""]}")
+            print(f"B34 -- {kwargs['C_in']} to {kwargs['C_out']} --- {kwargs['att_types']}")
 
             # define B44
             kwargs["C_in"] = 16*self.C
@@ -599,7 +599,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
 
             kwargs["att_types"] = self.block_str[4]
             self.B44 = STCNNT_Block(**kwargs)
-            print(f"B44 -- {kwargs["""C_in"""]} to {kwargs["""C_out"""]} --- {kwargs["""att_types"""]}")
+            print(f"B44 -- {kwargs['C_in']} to {kwargs['C_out']} --- {kwargs['att_types']}")
 
             # define down sample
             self.down_03_14 = DownSample(N=1, C_in=self.C, C_out=2*self.C, use_interpolation=use_interpolation, with_conv=True)
@@ -624,7 +624,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[-1], patch_sizes[-1], module_name="output_B4")
             kwargs["att_types"] = self.block_str[4]
             self.output_B4 = STCNNT_Block(**kwargs)
-            print(f"output_B4 -- {kwargs["""C_in"""]} to {kwargs["""C_out"""]} --- {kwargs["""att_types"""]}")
+            print(f"output_B4 -- {kwargs['C_in']} to {kwargs['C_out']} --- {kwargs['att_types']}")
 
         # fusion stage
         self.down_0_1 = DownSample(N=1, C_in=self.C, C_out=2*self.C, use_interpolation=use_interpolation, with_conv=True)
@@ -660,17 +660,18 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
         self.up_3 = UpSample(N=3, C_in=8*self.C, C_out=8*self.C, with_conv=True)
         self.up_4 = UpSample(N=4, C_in=16*self.C, C_out=16*self.C, with_conv=True)
 
+
     def check_class_specific_parameters(self, config):
         if not "backbone_hrnet" in config:
             raise "backbone_hrnet namespace should exist in config"
-               
-        err_str = lambda x : f"{x} should exist in config.backbone_hrnet"        
 
-        para_list = ["C", "num_resolution_levels", "block_str", "use_interpolation"]        
-        for arg_name in para_list:            
+        err_str = lambda x : f"{x} should exist in config.backbone_hrnet"
+
+        para_list = ["C", "num_resolution_levels", "block_str", "use_interpolation"]
+        for arg_name in para_list:
             if not arg_name in config.backbone_hrnet:
                 raise ValueError(err_str(arg_name))
-            
+
 
     def forward(self, x):
         """
@@ -830,7 +831,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
 
 def tests():
 
-    B,T,C,H,W = 2, 12, 1, 256, 256
+    B,T,C,H,W = 2, 48, 1, 256, 256
     test_in = torch.rand(B,T,C,H,W, dtype=torch.float32)
 
     parser = add_backbone_STCNNT_args()
