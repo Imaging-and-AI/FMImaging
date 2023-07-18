@@ -86,14 +86,14 @@ def arg_parser():
     parser.add_argument("--disable_backbone", action="store_true", help='if set, backbone module will have require_grad_(False).')
     parser.add_argument("--disable_post", action="store_true", help='if set, post module will have require_grad_(False).')
 
-    parser.add_argument('--post_hrnet.block_str', dest='post_hrnet.block_str', nargs='+', type=str, default=['T1L1G1'], help="hrnet MR post network block string.")
+    parser.add_argument('--post_hrnet.block_str', dest='post_hrnet.block_str', nargs='+', type=str, default=['T1L1G1', 'T1L1G1'], help="hrnet MR post network block string, from the low resolution level to high resolution level.")
 
     parser.add_argument("--continued_training", action="store_true", help='if set, it means a continued training loaded from checkpoints (optim and scheduler will be loaded); if not set, it mean a new stage of training.')
 
     # training
     parser.add_argument('--num_uploaded', type=int, default=12, help='number of images uploaded to wandb')
 
-    parser.add_argument("--model_type", type=str, default="STCNNT_MRI", help="STCNNT_MRI or MRI_hrnet")
+    parser.add_argument("--model_type", type=str, default="STCNNT_MRI", help="STCNNT_MRI or MRI_hrnet, MRI_double_net")
 
     ns = Nestedspace()
     args = parser.parse_args(namespace=ns)

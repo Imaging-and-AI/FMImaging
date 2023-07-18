@@ -170,7 +170,7 @@
             "program": "./mri/main_mri.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "7"},
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "0"},
             "args": [
                 "--project", "mri", 
                 "--data_root", "/data/mri/data", "--check_path", "/data/mri/checkpoints", "--model_path", "/data/mri/models", "--log_path", "/data/mri/logs", "--results_path", "/data/mri/results", "--summary_depth", "6", "--save_cycle", "200", "--device", "cuda", "--project", "mri", "--num_epochs", "100", "--batch_size", "16", "--weight_decay", "1", "--weighted_loss", 
@@ -191,8 +191,10 @@
                 "--lr_backbone", "0.00001", 
                 "--lr_post", "0.0001", 
                 "--not_load_post",
-                //"--disable_backbone",
-                "--model_type", "MRI_hrnet",
+                "--disable_pre",
+                "--disable_backbone",
+                //"--model_type", "MRI_hrnet",
+                "--model_type", "MRI_double_net",
                 "--load_path", "/export/Lab-Xue/projects/mri/checkpoints/mri-HRNET-20230716_190117_960318_C-32-1_amp-False_complex_residual_weighted_loss-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-28.pth"
             ]
         },

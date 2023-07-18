@@ -4,9 +4,10 @@ Model(s) used for MRI
 import os
 import sys
 import logging
+import copy
 import abc 
 from abc import ABC
-from colorama import Fore, Style
+from colorama import Fore, Back, Style
 
 import torch
 import torch.nn as nn
@@ -58,8 +59,10 @@ class STCNNT_MRI(STCNNT_Task_Base):
         self.C_in = config.C_in
         self.C_out = config.C_out
 
+        print(f"{Fore.YELLOW}{Back.WHITE}===> MRI - create pre <==={Style.RESET_ALL}")
         self.create_pre()
 
+        print(f"{Fore.GREEM}{Back.WHITE}===> MRI - backbone <==={Style.RESET_ALL}")
         if config.backbone == "small_unet":
             self.backbone = CNNT_Unet(config=config)
 
@@ -74,6 +77,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
         if config.backbone == "LLM":
             self.backbone = STCNNT_LLMnet(config=config) 
 
+        print(f"{Fore.RED}{Back.WHITE}===> MRI - post <==={Style.RESET_ALL}")
         self.create_post()
 
         # if use weighted loss
@@ -87,6 +91,8 @@ class STCNNT_MRI(STCNNT_Task_Base):
 
         if config.load_path is not None:
             self.load(load_path=config.load_path, device=device)
+
+        print(f"{Fore.BLUE}{Back.WHITE}===> MRI - done <==={Style.RESET_ALL}")
 
     def create_pre(self):
 
@@ -351,11 +357,13 @@ class MRI_hrnet(STCNNT_MRI):
 
     def create_post(self):
 
-        self.post = torch.nn.ModuleDict()
-
         config = self.config
+        assert config.backbone_hrnet.num_resolution_levels >= 1 and config.backbone_hrnet.num_resolution_levels<= 4
 
         c = config
+
+        self.post = torch.nn.ModuleDict()
+
         self.num_wind = [c.height[0]//c.window_size[0], c.width[0]//c.window_size[1]]
         self.num_patch = [c.window_size[0]//c.patch_size[0], c.window_size[1]//c.patch_size[1]]
 
@@ -403,10 +411,10 @@ class MRI_hrnet(STCNNT_MRI):
             "shuffle_in_window": c.shuffle_in_window,
         }
 
+        self.block_str = c.post_hrnet.block_str if len(c.post_hrnet.block_str)>=config.backbone_hrnet.num_resolution_levels else [c.post_hrnet.block_str[0] for n in range(config.backbone_hrnet.num_resolution_levels)]
+
         self.num_wind = [c.height[0]//c.window_size[0], c.width[0]//c.window_size[1]]
         self.num_patch = [c.window_size[0]//c.patch_size[0], c.window_size[1]//c.patch_size[1]]
-
-        assert config.backbone_hrnet.num_resolution_levels >= 1 and config.backbone_hrnet.num_resolution_levels<= 4
 
         window_sizes = []
         patch_sizes = []
@@ -427,7 +435,7 @@ class MRI_hrnet(STCNNT_MRI):
             window_sizes.append(kwargs["window_size"])
             patch_sizes.append(kwargs["patch_size"])
 
-            kwargs["att_types"] = c.post_hrnet.block_str[0]
+            kwargs["att_types"] = self.block_str[0]
             self.post["P0"] = STCNNT_Block(**kwargs)
 
             hrnet_C_out = 2*C
@@ -440,7 +448,7 @@ class MRI_hrnet(STCNNT_MRI):
 
             kwargs = set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], self.num_wind, self.num_patch, module_name="P1")
 
-            kwargs["att_types"] = c.post_hrnet.block_str[0]
+            kwargs["att_types"] = self.block_str[0]
             self.post["P1"] = STCNNT_Block(**kwargs)
 
             self.post["up_1_0"] = UpSample(N=1, C_in=4*C, C_out=4*C, with_conv=True)
@@ -451,7 +459,7 @@ class MRI_hrnet(STCNNT_MRI):
             kwargs["W"] = c.width[0]
             kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], c.window_size, c.patch_size, module_name="P0")
 
-            kwargs["att_types"] = c.post_hrnet.block_str[0]
+            kwargs["att_types"] = self.block_str[1]
             self.post["P0"] = STCNNT_Block(**kwargs)
             # -----------------------------------------
             hrnet_C_out = 3*C
@@ -464,7 +472,7 @@ class MRI_hrnet(STCNNT_MRI):
 
             kwargs = set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], self.num_wind, self.num_patch, module_name="P2")
 
-            kwargs["att_types"] = c.post_hrnet.block_str[0]
+            kwargs["att_types"] = self.block_str[0]
             self.post["P2"] = STCNNT_Block(**kwargs)
 
             self.post["up_2_1"] = UpSample(N=1, C_in=8*C, C_out=8*C, with_conv=True)
@@ -476,7 +484,7 @@ class MRI_hrnet(STCNNT_MRI):
 
             kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], c.window_size, c.patch_size, module_name="P1")
 
-            kwargs["att_types"] = c.post_hrnet.block_str[0]
+            kwargs["att_types"] = self.block_str[1]
             self.post["P1"] = STCNNT_Block(**kwargs)
 
             self.post["up_1_0"] = UpSample(N=1, C_in=6*C, C_out=6*C, with_conv=True)
@@ -487,7 +495,7 @@ class MRI_hrnet(STCNNT_MRI):
             kwargs["W"] = c.width[0]
             kwargs = set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], kwargs["window_size"], kwargs["patch_size"], module_name="P0")
 
-            kwargs["att_types"] = c.post_hrnet.block_str[0]
+            kwargs["att_types"] = self.block_str[2]
             self.post["P0"] = STCNNT_Block(**kwargs)
             # -----------------------------------------
             hrnet_C_out = 4*C
@@ -500,7 +508,7 @@ class MRI_hrnet(STCNNT_MRI):
 
             kwargs = set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], self.num_wind, self.num_patch, module_name="P3")
 
-            kwargs["att_types"] = c.post_hrnet.block_str[0]
+            kwargs["att_types"] = self.block_str[0]
             self.post["P3"] = STCNNT_Block(**kwargs)
 
             self.post["up_3_2"] = UpSample(N=1, C_in=16*C, C_out=16*C, with_conv=True)
@@ -512,7 +520,7 @@ class MRI_hrnet(STCNNT_MRI):
 
             kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], c.window_size, c.patch_size, module_name="P2")
 
-            kwargs["att_types"] = c.post_hrnet.block_str[0]
+            kwargs["att_types"] = self.block_str[1]
             self.post["P2"] = STCNNT_Block(**kwargs)
 
             self.post["up_2_1"] = UpSample(N=1, C_in=12*C, C_out=12*C, with_conv=True)
@@ -523,7 +531,7 @@ class MRI_hrnet(STCNNT_MRI):
             kwargs["W"] = c.width[0] // 2
             kwargs = set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], kwargs["window_size"], kwargs["patch_size"], module_name="P1")
 
-            kwargs["att_types"] = c.post_hrnet.block_str[0]
+            kwargs["att_types"] = self.block_str[2]
             self.post["P1"] = STCNNT_Block(**kwargs)
 
             self.post["up_1_0"] = UpSample(N=1, C_in=8*C, C_out=8*C, with_conv=True)
@@ -534,19 +542,10 @@ class MRI_hrnet(STCNNT_MRI):
             kwargs["W"] = c.width[0]
             kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], c.window_size, c.patch_size, module_name="P0")
 
-            kwargs["att_types"] = c.post_hrnet.block_str[0]
+            kwargs["att_types"] = self.block_str[3]
             self.post["P0"] = STCNNT_Block(**kwargs)
             # -----------------------------------------
             hrnet_C_out = 5*C
-
-        # kwargs["C_in"] = hrnet_C_out
-        # kwargs["C_out"] = hrnet_C_out
-        # kwargs["H"] = c.height[0]
-        # kwargs["W"] = c.width[0]
-        # kwargs = set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]] , self.num_wind, self.num_patch, module_name="P0")
-
-        # kwargs["att_types"] = c.post_hrnet.block_str[0]
-        # self.post["output"] = STCNNT_Block(**kwargs)
 
         self.post["output_conv"] = Conv2DExt(hrnet_C_out, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
@@ -617,6 +616,74 @@ class MRI_hrnet(STCNNT_MRI):
         # if self.residual:
         #     C = 2 if self.complex_i else 1
         #     logits = x[:,:,:C] - logits
+
+        weights = None
+        if snr is not None and base_snr_t>0:
+            weights = self.compute_weights(snr, base_snr_t)
+
+        return logits, weights
+    
+# -------------------------------------------------------------------------------------------------
+# MRI model with loading backbone, double network
+
+class MRI_double_net(STCNNT_MRI):
+    """
+    MRI_double_net
+    Using the hrnet backbone, plus a unet post network
+    """
+    def __init__(self, config, total_steps=1) -> None:
+        """
+        @args:
+            - config (Namespace): runtime namespace for setup
+            - total_steps (int): total training steps. used for OneCycleLR
+        """
+        assert config.backbone == 'hrnet'
+        super().__init__(config=config, total_steps=1)
+
+    def create_post(self):
+
+        config = self.config
+        assert config.backbone_hrnet.num_resolution_levels >= 1 and config.backbone_hrnet.num_resolution_levels<= 4
+
+        C = config.backbone_hrnet.C
+
+        hrnet_C_out = int(C * sum([np.power(2, k) for k in range(config.backbone_hrnet.num_resolution_levels)]))
+
+        config_post = copy.deepcopy(config)
+        config_post.backbone_hrnet.block_str = config.post_hrnet.block_str
+
+        self.post = torch.nn.ModuleDict()
+
+        config_post.C_in = hrnet_C_out
+        config_post.backbone_hrnet.C = hrnet_C_out
+        self.post['post_main'] = STCNNT_HRnet(config=config_post)
+
+        hrnet_C_out = int(config_post.backbone_hrnet.C * sum([np.power(2, k) for k in range(config_post.backbone_hrnet.num_resolution_levels)]))
+
+        self.post["output_conv"] = Conv2DExt(hrnet_C_out, config_post.C_out, kernel_size=config_post.kernel_size, stride=config_post.stride, padding=config_post.padding, bias=True)
+
+
+    def forward(self, x, snr=None, base_snr_t=-1):
+        """
+        @args:
+            - x (5D torch.Tensor): input image
+        @rets:
+            - output (5D torch.Tensor): output image
+        """
+        res_pre = self.pre(x)
+        B, T, C, H, W = res_pre.shape
+        y_hat, _ = self.backbone(res_pre)
+
+        if self.residual:
+            y_hat[:,:, :C, :, :] = res_pre + y_hat[:,:, :C, :, :]
+
+        res, _ = self.post['post_main'](y_hat)
+
+        B, T, C, H, W = y_hat.shape
+        if self.residual:
+            res[:,:, :C, :, :] = res[:,:, :C, :, :] + y_hat
+
+        logits = self.post["output_conv"](res)
 
         weights = None
         if snr is not None and base_snr_t>0:

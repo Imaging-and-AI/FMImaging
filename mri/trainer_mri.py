@@ -28,7 +28,7 @@ from model_base.losses import *
 from utils.save_model import save_final_model
 from utils.running_inference import running_inference
 
-from model_mri import STCNNT_MRI, MRI_hrnet
+from model_mri import STCNNT_MRI, MRI_hrnet, MRI_double_net
 from data_mri import MRIDenoisingDatasetTrain, load_mri_data
 
 from colorama import Fore, Back, Style
@@ -236,6 +236,16 @@ def get_rank_str(rank):
 
     return f"{Fore.WHITE}{Style.BRIGHT}rank {rank} {Style.RESET_ALL}"
 
+def create_model(config, model_type, total_steps):
+    if model_type == "STCNNT_MRI":
+        model = STCNNT_MRI(config=config, total_steps=total_steps)
+    elif model_type == "MRI_hrnet":
+        model = MRI_hrnet(config=config, total_steps=total_steps)
+    else:
+        model = MRI_double_net(config=config, total_steps=total_steps)
+
+    return model
+
 # -------------------------------------------------------------------------------------------------
 
 def trainer(rank, global_rank, config, wandb_run):
@@ -350,10 +360,7 @@ def trainer(rank, global_rank, config, wandb_run):
 
         print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
 
-        if model_type == "STCNNT_MRI":
-            model = STCNNT_MRI(config=config, total_steps=total_steps)
-        else:
-            model = MRI_hrnet(config=config, total_steps=total_steps)
+        model = create_model(config, model_type, total_steps)
 
         if 'backbone_state' in status:
             print(f"{rank_str}, load saved model, continued_training - {continued_training}")
@@ -429,10 +436,7 @@ def trainer(rank, global_rank, config, wandb_run):
         print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
     else:
         load_path = None
-        if model_type == "STCNNT_MRI":
-            model = STCNNT_MRI(config=config, total_steps=total_steps)
-        else:
-            model = MRI_hrnet(config=config, total_steps=total_steps)
+        model = create_model(config, config.model_type, total_steps)
 
         model = model.to(device)
         t0 = time()
@@ -503,7 +507,7 @@ def trainer(rank, global_rank, config, wandb_run):
             wandb_run.summary["total_params"] = c.total_params
             wandb_run.summary["total_mult_adds"] = c.total_mult_adds 
 
-            wandb_run.define_metric("epoch")    
+            wandb_run.define_metric("epoch")
 
             wandb_run.define_metric("train_loss_avg", step_metric='epoch')
             wandb_run.define_metric("train_mse_loss", step_metric='epoch')
@@ -849,10 +853,7 @@ def trainer(rank, global_rank, config, wandb_run):
             logging.info(f"--> {Fore.YELLOW}Save best mode at {fname_best}{Style.RESET_ALL}")
 
     # test best model, reload the weights
-    if model_type == "STCNNT_MRI":
-        model = STCNNT_MRI(config=config, total_steps=total_steps)
-    else:
-        model = MRI_hrnet(config=config, total_steps=total_steps)
+    model = create_model(config, config.model_type, total_steps)
 
     model.load_state_dict(best_model_wts)
     model = model.to(device)
@@ -1436,10 +1437,7 @@ def load_model(saved_model_path, saved_model_config=None):
         if not torch.cuda.is_available():
             config.device = torch.device('cpu')
 
-        if config.model_type == "STCNNT_MRI":
-            model = STCNNT_MRI(config=config)
-        else:
-            model = MRI_hrnet(config=config)
+        model = create_model(config, config.model_type, total_steps=-1)
 
         if 'model' in status:
             print(f"{Fore.YELLOW}Load in model {Style.RESET_ALL}")
@@ -1454,7 +1452,7 @@ def load_model(saved_model_path, saved_model_config=None):
             model.post.load_state_dict(status['post_state'])
             model.a = status['a']
             model.b = status['b']
-            
+
     elif saved_model_path.endswith(".pts"):
         model = torch.jit.load(saved_model_path, map_location=get_device())
     else:
