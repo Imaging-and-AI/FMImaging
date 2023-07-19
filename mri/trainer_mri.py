@@ -236,7 +236,7 @@ def get_rank_str(rank):
 
     return f"{Fore.WHITE}{Style.BRIGHT}rank {rank} {Style.RESET_ALL}"
 
-def create_model(config, model_type, total_steps):
+def create_model(config, model_type, total_steps=-1):
     if model_type == "STCNNT_MRI":
         model = STCNNT_MRI(config=config, total_steps=total_steps)
     elif model_type == "MRI_hrnet":
