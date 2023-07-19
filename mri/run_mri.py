@@ -70,7 +70,7 @@ class mri_ddp_base(run_ddp_base):
         "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1",
 
         #"--min_noise_level", "2.0",
-        "--max_noise_level", "24.0",
+        #"--max_noise_level", "24.0",
         #"--complex_i",
         #"--residual",
         #"--losses", "mse", "l1",
@@ -373,6 +373,7 @@ class mri_ddp_base(run_ddp_base):
         cmd_run.pop(ind)
 
         cmd_run.extend(["--min_noise_level", f"{config.min_noise_level}"])
+        cmd_run.extend(["--max_noise_level", f"{config.max_noise_level}"])
 
         cmd_run.extend([
             "--run_name", f"{config.project}-{bk.upper()}-{run_str}",
@@ -393,8 +394,9 @@ class mri_ddp_base(run_ddp_base):
         parser.add_argument("--losses", nargs='+', type=str, default=None, help='Any combination of "mse", "l1", "sobel", "ssim", "ssim3D", "psnr", "msssim", "perpendicular", "gaussian", "gaussian3D" ')
         parser.add_argument('--loss_weights', nargs='+', type=float, default=None, help='to balance multiple losses, weights can be supplied')
 
-        parser.add_argument("--min_noise_level", type=float, default=2.0, help='minimal noise level')
-
+        parser.add_argument("--min_noise_level", type=float, default=1.0, help='minimal noise level')
+        parser.add_argument("--max_noise_level", type=float, default=24.0, help='maximal noise level')
+        
         parser.add_argument("--lr_pre", type=float, default=-1, help='learning rate for pre network')
         parser.add_argument("--lr_backbone", type=float, default=-1, help='learning rate for backbone network')
         parser.add_argument("--lr_post", type=float, default=-1, help='learning rate for post network')

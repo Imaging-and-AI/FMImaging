@@ -249,7 +249,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
 
         print(f"{rank_str} model, post, learnable parameters {num_learnable} out of {num} ...")
 
-    def save(self, epoch, only_paras=False):
+    def save(self, epoch, only_paras=False, save_file_name=None):
         """
         Save model checkpoints
         @args:
@@ -258,8 +258,10 @@ class STCNNT_MRI(STCNNT_Task_Base):
             - date (datetime str): runtime date
             - checkpath (str): directory to save checkpoint in
         """
-        run_name = self.config.run_name.replace(" ", "_")
-        save_file_name = f"{run_name}_epoch-{epoch}.pth"
+        if save_file_name is None:
+            run_name = self.config.run_name.replace(" ", "_")
+            save_file_name = f"{run_name}_epoch-{epoch}.pth"
+            
         save_path = os.path.join(self.config.check_path, save_file_name)
         logging.info(f"{Fore.YELLOW}Saving model status at {save_path}{Style.RESET_ALL}")
         if only_paras:
