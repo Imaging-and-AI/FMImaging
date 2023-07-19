@@ -229,7 +229,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
             if param.requires_grad:
                 num_learnable += 1
 
-        print(f"{rank_str} model, pre, learnable parameters {num_learnable} out of {num} ...")
+        print(f"{rank_str} model, pre, learnable tensors {num_learnable} out of {num} ...")
 
         num = 0
         num_learnable = 0
@@ -238,7 +238,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
             if param.requires_grad:
                 num_learnable += 1
 
-        print(f"{rank_str} model, backbone, learnable parameters {num_learnable} out of {num} ...")
+        print(f"{rank_str} model, backbone, learnable tensors {num_learnable} out of {num} ...")
 
         num = 0
         num_learnable = 0
@@ -247,7 +247,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
             if param.requires_grad:
                 num_learnable += 1
 
-        print(f"{rank_str} model, post, learnable parameters {num_learnable} out of {num} ...")
+        print(f"{rank_str} model, post, learnable tensors {num_learnable} out of {num} ...")
 
     def save(self, epoch, only_paras=False, save_file_name=None):
         """
