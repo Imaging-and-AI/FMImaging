@@ -52,7 +52,7 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
 
         self.is_causal = is_causal
         self.stride_f = stride_t[0]
-        
+
         assert self.C_out % self.n_head == 0, \
             f"Number of output channles {self.C_out} should be divisible by number of heads {self.n_head}"
 
@@ -67,7 +67,7 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
     def attention(self, k, q, v):
         B, T, C_prime, H_prime, W_prime = k.shape
         H = torch.div(self.C_out, self.n_head, rounding_mode="floor")
-        
+
         k = k.view(B, T, self.n_head, H, H_prime, W_prime).transpose(1, 2)
         q = q.view(B, T, self.n_head, H, H_prime, W_prime).transpose(1, 2)            
         v = v.view(B, T, self.n_head, H, H_prime*self.stride_f, W_prime*self.stride_f).transpose(1, 2)
@@ -84,23 +84,23 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
                 eps = torch.finfo(k.dtype).eps
                 k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
                 q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
-                
+
             att = (q.view(B, nh, T, hc*H_prime*W_prime) @ k.view(B, nh, T, hc*H_prime*W_prime).transpose(-2, -1))\
                     * torch.tensor(1.0 / math.sqrt(hc*H_prime*W_prime))
 
         y = att @ v.contiguous().view(B, nh, T, H*H_prime*self.stride_f*W_prime*self.stride_f)
         y = y.transpose(1, 2).contiguous().view(B, T, self.C_out, H_prime*self.stride_f, W_prime*self.stride_f)
-        
+
         return y
 
     def einsum_attention(self, k, q, v):
-        
+
         B, T, C_prime, H_prime, W_prime = k.shape
-        
+
         H = torch.div(self.C_out, self.n_head, rounding_mode="floor")
         D = H*H_prime*W_prime
         Hv, Wv = v.shape[-2:]
-        
+
         k = k.view(B, T, self.n_head, D)
         q = q.view(B, T, self.n_head, D)
         v = v.view(B, T, self.n_head, H*Hv*Wv)
@@ -113,9 +113,9 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
                 eps = torch.finfo(k.dtype).eps
                 k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
                 q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
-                
+
             att = torch.einsum("BTND, BKND -> BNTK", q, k) * torch.tensor(1.0 / math.sqrt(D))
-                    
+
         # if causality is needed, apply the mask
         if(self.is_causal):
             att = att.masked_fill(self.mask[:,:,:T,:T] == 0, float("-inf"))
@@ -123,11 +123,11 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
         att = F.softmax(att, dim=-1)
         att = self.attn_drop(att)
 
-        # (B, nh, T, K) * (B, K, nh, P)
+        # (B, nh, T, K) * (B, K, nh, D)
         y = torch.einsum("BNTK, BKND -> BTND", att, v).contiguous().view(B, T, self.C_out, Hv, Wv)
-        
+
         return y
-    
+
     def forward(self, x):
         """
         @args:
@@ -144,20 +144,20 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
         k = self.key(x)
         q = self.query(x)
         v = self.value(x)
-                        
+
         # if self.normalize_Q_K:
         #     eps = torch.finfo(k.dtype).eps
         #     # add normalization for k and q, along C, H, W
         #     k = (k - torch.mean(k, dim=(-3, -2, -1), keepdim=True)) / ( torch.sqrt(torch.var(k, dim=(-3, -2, -1), keepdim=True) + eps) )
         #     q = (q - torch.mean(q, dim=(-3, -2, -1), keepdim=True)) / ( torch.sqrt(torch.var(q, dim=(-3, -2, -1), keepdim=True) + eps) )
-                                        
+
         # y_tmp = self.attention(torch.clone(k), torch.clone(q), torch.clone(v))
         # assert torch.allclose(y_tmp, y)
         y = self.einsum_attention(k, q, v)
         y = self.output_proj(y)
 
         return y
-        
+
 class TemporalCnnAttention(CnnAttentionBase):
     """
     Multi-head cnn attention model for complete temporal attention with flash attention implementation
@@ -224,7 +224,7 @@ class TemporalCnnAttention(CnnAttentionBase):
         # apply the key, query and value matrix
         k = self.key(x)
         q = self.query(x)
-        
+
         _, _, C_prime, H_prime, W_prime = k.shape
         
         if self.normalize_Q_K:
@@ -232,7 +232,7 @@ class TemporalCnnAttention(CnnAttentionBase):
             # add normalization for k and q, along [C_prime, H_prime, W_prime]
             k = (k - torch.mean(k, dim=(-3, -2, -1), keepdim=True)) / ( torch.sqrt(torch.var(k, dim=(-3, -2, -1), keepdim=True) + eps) )
             q = (q - torch.mean(q, dim=(-3, -2, -1), keepdim=True)) / ( torch.sqrt(torch.var(q, dim=(-3, -2, -1), keepdim=True) + eps) )
-            
+
         k = k.view(B, T, self.n_head, torch.div(self.C_out, self.n_head, rounding_mode="floor"), H_prime, W_prime).transpose(1, 2)
         q = q.view(B, T, self.n_head, torch.div(self.C_out, self.n_head, rounding_mode="floor"), H_prime, W_prime).transpose(1, 2)            
         v = self.value(x).view(B, T, self.n_head, torch.div(self.C_out, self.n_head, rounding_mode="floor"), H_prime*self.stride_f, W_prime*self.stride_f).transpose(1, 2)
@@ -244,7 +244,7 @@ class TemporalCnnAttention(CnnAttentionBase):
         q = q.view(B, nh, T, hc*H_prime*W_prime)
         k = k.view(B, nh, T, hc*H_prime*W_prime)
         v = v.view(B, nh, T, hc*H_prime*W_prime*self.stride_f*self.stride_f)
-        
+
         if self.cosine_att:
             q = F.normalize(q,dim=-1) / torch.tensor(1.0 / math.sqrt(hc*H_prime*W_prime))
             k = F.normalize(k,dim=-1)
