@@ -136,7 +136,7 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
                 x_in = torch.from_numpy(image_batch[i:i+batch_size]).to(device=device, dtype=torch_dtype)
 
                 with torch.autocast(device_type='cuda', dtype=dtype, enabled=(not is_script_model)):
-                    res, _ = model(x_in)
+                    res = model(x_in)
 
                 res = res.cpu().detach().numpy()
 

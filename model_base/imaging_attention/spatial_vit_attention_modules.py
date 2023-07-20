@@ -90,6 +90,89 @@ class SpatialViTAttention(CnnAttentionBase):
             self.define_relative_position_bias_table(num_win_h=self.num_wind[0], num_win_w=self.num_wind[1])
             self.define_relative_position_index(num_win_h=self.num_wind[0], num_win_w=self.num_wind[1])
         
+    def attention(self, k, q, v):
+        B, T, num_win_h, num_win_w, C, wh, ww = k.shape
+
+        assert self.num_wind[0] == num_win_h
+        assert self.num_wind[1] == num_win_w
+
+        # format the window
+        hc = torch.div(C*wh*ww, self.n_head, rounding_mode="floor")
+
+        k = k.reshape((B, T, num_win_h*num_win_w, self.n_head, hc)).transpose(2, 3) # [B, T, num_heads, num_windows, hc]
+        q = q.reshape((B, T, num_win_h*num_win_w, self.n_head, hc)).transpose(2, 3)
+        v = v.reshape((B, T, num_win_h*num_win_w, self.n_head, hc)).transpose(2, 3)
+        
+        # [B, T, num_heads, num_windows, hc] x [B, T, num_heads, hc, num_windows] -> (B, T, num_heads, num_windows, num_windows)
+        if self.cosine_att:
+            att = F.normalize(q, dim=-1) @ F.normalize(k, dim=-1).transpose(-2, -1)
+        else:
+            if self.normalize_Q_K:
+                eps = torch.finfo(k.dtype).eps
+                k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
+                q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
+                               
+            att = q @ k.transpose(-2, -1) * torch.tensor(1.0 / math.sqrt(hc))
+        
+        att = F.softmax(att, dim=-1)
+        
+        # add the relative positional bias
+        if self.att_with_relative_postion_bias:
+            relative_position_bias = self.get_relative_position_bias(num_win_h, num_win_w)
+            att = att + relative_position_bias
+
+        att = self.attn_drop(att)
+                
+        # (B, T, num_heads, num_windows, num_windows) * (B, T, num_heads, num_windows, hc)
+        y = att @ v
+        y = y.transpose(2, 3) # (B, T, num_windows, num_heads, hc)
+        y = torch.reshape(y, (B, T, num_win_h, num_win_w, C, wh, ww))
+        
+        y = self.grid2im(y)
+        
+        return y
+    
+    def einsum_attention(self, k, q, v):
+        B, T, num_win_h, num_win_w, C, wh, ww = k.shape
+
+        assert self.num_wind[0] == num_win_h
+        assert self.num_wind[1] == num_win_w
+
+        # format the window
+        hc = torch.div(C*wh*ww, self.n_head, rounding_mode="floor")
+
+        k = k.view((B, T, num_win_h*num_win_w, self.n_head, hc))
+        q = q.view((B, T, num_win_h*num_win_w, self.n_head, hc))
+        v = v.view((B, T, num_win_h*num_win_w, self.n_head, hc))
+        
+        if self.cosine_att:
+            att = torch.einsum("BTWND, BTSND -> BTNWS", F.normalize(q, dim=-1), F.normalize(k, dim=-1))
+        else:       
+            if self.normalize_Q_K:
+                eps = torch.finfo(k.dtype).eps
+                k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
+                q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
+                
+            att = torch.einsum("BTWND, BTSND -> BTNWS", q, k) * torch.tensor(1.0 / math.sqrt(hc))
+                   
+        att = F.softmax(att, dim=-1)
+        
+        # add the relative positional bias
+        if self.att_with_relative_postion_bias:
+            relative_position_bias = self.get_relative_position_bias(num_win_h, num_win_w)
+            att = att + relative_position_bias
+
+        att = self.attn_drop(att)
+                
+        # (B, T, num_heads, num_windows, num_windows) * (B, T, num_windows, num_heads, hc)
+
+        y = torch.einsum("BTNWS, BTWND -> BTSND", att, v)
+        y = y.view(B, T, num_win_h, num_win_w, C, wh, ww)
+       
+        y = self.grid2im(y)
+        
+        return y
+    
     def forward(self, x):
         """
         @args:
@@ -126,43 +209,7 @@ class SpatialViTAttention(CnnAttentionBase):
             q = self.query(x)
             v = self.value(x)
             
-        B, T, num_win_h, num_win_w, C, wh, ww = k.shape
-
-        assert self.num_wind[0] == num_win_h
-        assert self.num_wind[1] == num_win_w
-
-        # format the window
-        hc = torch.div(C*wh*ww, self.n_head, rounding_mode="floor")
-
-        k = k.reshape((B, T, num_win_h*num_win_w, self.n_head, hc)).transpose(2, 3) # [B, T, num_heads, num_windows, hc]
-        q = q.reshape((B, T, num_win_h*num_win_w, self.n_head, hc)).transpose(2, 3)
-        v = v.reshape((B, T, num_win_h*num_win_w, self.n_head, hc)).transpose(2, 3)
-        
-        # [B, T, num_heads, num_windows, hc] x [B, T, num_heads, hc, num_windows] -> (B, T, num_heads, num_windows, num_windows)
-        if self.cosine_att:
-            att = F.normalize(q, dim=-1) @ F.normalize(k, dim=-1).transpose(-2, -1)
-        else:
-            if self.normalize_Q_K:
-                eps = torch.finfo(k.dtype).eps
-                k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
-                q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
-                               
-            att = q @ k.transpose(-2, -1) * torch.tensor(1.0 / math.sqrt(hc))
-        
-        att = F.softmax(att, dim=-1)
-        # add the relative positional bias
-        if self.att_with_relative_postion_bias:
-            relative_position_bias = self.get_relative_position_bias(num_win_h, num_win_w)
-            att = att + relative_position_bias
-
-        att = self.attn_drop(att)
-                
-        # (B, T, num_heads, num_windows, num_windows) * (B, T, num_heads, num_windows, hc)
-        y = att @ v
-        y = y.transpose(2, 3) # (B, T, num_windows, num_heads, hc)
-        y = torch.reshape(y, (B, T, num_win_h, num_win_w, C, wh, ww))
-        
-        y = self.grid2im(y)
+        y = self.einsum_attention(k, q, v)
         
         y = self.output_proj(y)
 
@@ -272,5 +319,55 @@ def tests():
     
     print("Passed all tests")
 
+# -------------------------------------------------------------------------------------------------
+
+def benchmark():
+    
+    from utils.benchmark import benchmark_all, benchmark_memory, pytorch_profiler
+    from utils.setup_training import set_seed
+    from colorama import Fore, Style
+        
+    set_seed(seed=53)
+    
+    device = get_device()
+    
+    B, T, C, H, W = 16, 12, 3, 128, 128
+    C_out = 64
+    test_in = torch.rand(B,T,C,H,W, dtype=torch.float32, device=device)
+       
+    print(test_in[6:9,2:6, 2, 54, 34])
+    print(test_in[11:,7:, 2, 54, 34])
+       
+    import torch.utils.benchmark as benchmark
+    
+    print(f"{Fore.GREEN}-------------> Vit attention <----------------------{Style.RESET_ALL}")
+    
+    m = SpatialViTAttention(window_size=None, num_wind=[4, 8],
+                                        a_type="conv", 
+                                        C_in=C, C_out=C_out, 
+                                        H=H, W=W, 
+                                        cosine_att=True, 
+                                        normalize_Q_K=True, 
+                                        att_with_relative_postion_bias=True,
+                                        att_with_output_proj=0.1)
+
+    m.to(device=device)
+                
+    with torch.inference_mode():
+        y = m(test_in)
+                    
+    benchmark_all(m, test_in, grad=None, repeats=40, desc='SpatialViTAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    
+    benchmark_memory(m, test_in, desc='SpatialViTAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
+    
+    def loss(model, x):
+        y = model(x)
+        l = torch.sum(y)
+        return l
+    
+    pytorch_profiler(loss, m, test_in, trace_filename='/export/Lab-Xue/projects/mri/profiling/SpatialViTAttention.json', backward=True, amp=True, amp_dtype=torch.bfloat16, cpu=False, verbose=True)
+
+# -------------------------------------------------------------------------------------------------
 if __name__=="__main__":
-    tests()
+    #tests()
+    benchmark()

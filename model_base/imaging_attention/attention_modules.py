@@ -41,16 +41,6 @@ from utils import get_device, model_info, get_gpu_ram_usage, create_generic_clas
 # -------------------------------------------------------------------------------------------------
 # Extensions and helpers
 
-class NewGELU(nn.Module):
-    """
-    Borrowed from the minGPT repo.
-    
-    Implementation of the GELU activation function currently in Google BERT repo (identical to OpenAI GPT).
-    Reference: Gaussian Error Linear Units (GELU) paper: https://arxiv.org/abs/1606.08415
-    """
-    def forward(self, x):
-        return 0.5 * x * (1.0 + torch.tanh(math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3.0))))
-
 def compute_conv_output_shape(h_w, kernel_size, stride, pad, dilation):
     """
     Utility function for computing output of convolutions given the setup
@@ -79,8 +69,11 @@ class Conv2DExt(nn.Module):
     def forward(self, input):
         # requires input to have 5 dimensions
         B, T, C, H, W = input.shape
-        y = self.conv2d(input.reshape((B*T, C, H, W)))
-        return torch.reshape(y, [B, T, *y.shape[1:]])
+        y = self.conv2d(input.view((B*T, C, H, W)))
+        return y.view([B, T, *y.shape[1:]]) #torch.reshape(y, [B, T, *y.shape[1:]])
+    
+        #y = self.conv2d(input.view((B*T, C, H, W)))        
+        #return y.view([B, T, *y.shape[1:]])
 
 class Conv2DGridExt(nn.Module):
     # Extends torch 2D conv for grid attention with 7D inputs

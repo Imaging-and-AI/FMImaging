@@ -350,6 +350,9 @@ class mri_ddp_base(run_ddp_base):
             cmd_run.extend(["--not_add_noise"])
             run_str += "_no_noise"
 
+        if config.disable_LSUV:
+            cmd_run.extend(["--disable_LSUV"])
+
         run_str += f"-{'_'.join(bs)}"
 
         cmd_run.extend(["--losses"])
@@ -408,6 +411,8 @@ class mri_ddp_base(run_ddp_base):
         parser.add_argument("--disable_pre", action="store_true", help='if set, pre module will have require_grad_(False).')
         parser.add_argument("--disable_backbone", action="store_true", help='if set, backbone module will have require_grad_(False).')
         parser.add_argument("--disable_post", action="store_true", help='if set, post module will have require_grad_(False).')
+
+        parser.add_argument("--disable_LSUV", action="store_true", help='if set, do not perform LSUV init.')
 
         parser.add_argument("--not_add_noise", action="store_true", help='if set, will not add noise to images.')
         parser.add_argument("--with_data_degrading", action="store_true", help='if set, degrade image before adding noise.')

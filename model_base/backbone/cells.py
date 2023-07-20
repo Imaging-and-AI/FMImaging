@@ -157,7 +157,7 @@ class STCNNT_Cell(nn.Module):
             self.input_proj = nn.Identity()
 
         if(att_mode=="temporal"):
-            self.attn = TemporalCnnAttention(C_in=C_in, C_out=C_out, H=self.H, W=self.W,
+            self.attn = TemporalCnnStandardAttention(C_in=C_in, C_out=C_out, H=self.H, W=self.W,
                                              is_causal=is_causal, n_head=n_head, 
                                              kernel_size=kernel_size, stride=stride, padding=padding, 
                                              stride_t=stride_t, 
@@ -205,7 +205,7 @@ class STCNNT_Cell(nn.Module):
                 
                 self.mlp = nn.Sequential(
                     Conv2DExt(C_out, mixer_cha, kernel_size=mixer_kernel_size, stride=mixer_stride, padding=mixer_padding, bias=True),
-                    NewGELU(),
+                    torch.nn.GELU(approximate='tanh'),
                     Conv2DExt(mixer_cha, C_out, kernel_size=mixer_kernel_size, stride=mixer_stride, padding=mixer_padding, bias=True)
                 )
             elif self.mixer_type == "lin":
@@ -219,7 +219,7 @@ class STCNNT_Cell(nn.Module):
                     
                 self.mlp = nn.Sequential(
                     nn.Linear(D, D_prime, bias=True),
-                    NewGELU(),
+                    torch.nn.GELU(approximate='tanh'),
                     nn.Linear(D_prime, D, bias=True)
                 )
             else:
@@ -335,7 +335,7 @@ class STCNNT_Parallel_Cell(nn.Module):
             self.input_proj = nn.Identity()
 
         if(att_mode=="temporal"):
-            self.attn = TemporalCnnAttention(C_in=C_in, C_out=C_out, 
+            self.attn = TemporalCnnStandardAttention(C_in=C_in, C_out=C_out, 
                                              H=H, W=W,
                                              is_causal=is_causal, n_head=n_head, 
                                              kernel_size=kernel_size, stride=stride, padding=padding, 
@@ -387,7 +387,7 @@ class STCNNT_Parallel_Cell(nn.Module):
                 
                 self.mlp = nn.Sequential(
                     Conv2DExt(C_in, mixer_cha, kernel_size=mixer_kernel_size, stride=mixer_stride, padding=mixer_padding, bias=True),
-                    NewGELU(),
+                    torch.nn.GELU(approximate='tanh'),
                     Conv2DExt(mixer_cha, C_out, kernel_size=mixer_kernel_size, stride=mixer_stride, padding=mixer_padding, bias=True)
                 )
             elif self.mixer_type == "lin":
@@ -403,7 +403,7 @@ class STCNNT_Parallel_Cell(nn.Module):
                     
                 self.mlp = nn.Sequential(
                     nn.Linear(D, D_prime, bias=True),
-                    NewGELU(),
+                    torch.nn.GELU(approximate='tanh'),
                     nn.Linear(D_prime, D_out, bias=True)
                 )
             else:

@@ -73,6 +73,8 @@ def arg_parser():
     parser.add_argument("--residual", action="store_true", help='add long term residual connection')
     parser.add_argument("--weighted_loss", action="store_true", help='if set, weight loss by gfactor and noise values')
 
+    parser.add_argument("--disable_LSUV", action="store_true", help='if set, do not perform LSUV initialization.')
+
     # learn rate for pre/backbone/post, if < 0, using the global lr
     parser.add_argument("--lr_pre", type=float, default=-1, help='learning rate for pre network')
     parser.add_argument("--lr_backbone", type=float, default=-1, help='learning rate for backbone network')

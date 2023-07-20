@@ -130,7 +130,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
             self.post = Conv2DExt(output_C,config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
 
-    def forward(self, x, snr=None, base_snr_t=-1):
+    def forward(self, x):
         """
         @args:
             - x (5D torch.Tensor): input image
@@ -158,11 +158,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
                 C = 2 if self.complex_i else 1
                 logits = x[:,:,:C] - logits
 
-        weights = None
-        if snr is not None and base_snr_t>0:
-            weights = self.compute_weights(snr, base_snr_t)
-
-        return logits, weights
+        return logits
 
     def compute_weights(self, snr, base_snr_t):
         weights = self.a - self.b * torch.sigmoid(snr-base_snr_t)
@@ -183,7 +179,6 @@ class STCNNT_MRI(STCNNT_Task_Base):
         self.loss_f = Combined_Loss(self.config.losses, self.config.loss_weights,
                                     complex_i=self.config.complex_i, device=device)
 
-        self.ssim_loss_f = SSIM_Loss(window_size=5, complex_i=self.complex_i, device=device)
 
     def configure_optim_groups_lr(self, module, lr=-1):
         """
@@ -552,7 +547,7 @@ class MRI_hrnet(STCNNT_MRI):
         self.post["output_conv"] = Conv2DExt(hrnet_C_out, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
 
-    def forward(self, x, snr=None, base_snr_t=-1):
+    def forward(self, x):
         """
         @args:
             - x (5D torch.Tensor): input image
@@ -619,11 +614,7 @@ class MRI_hrnet(STCNNT_MRI):
         #     C = 2 if self.complex_i else 1
         #     logits = x[:,:,:C] - logits
 
-        weights = None
-        if snr is not None and base_snr_t>0:
-            weights = self.compute_weights(snr, base_snr_t)
-
-        return logits, weights
+        return logits
     
 # -------------------------------------------------------------------------------------------------
 # MRI model with loading backbone, double network
@@ -665,7 +656,7 @@ class MRI_double_net(STCNNT_MRI):
         self.post["output_conv"] = Conv2DExt(hrnet_C_out, config_post.C_out, kernel_size=config_post.kernel_size, stride=config_post.stride, padding=config_post.padding, bias=True)
 
 
-    def forward(self, x, snr=None, base_snr_t=-1):
+    def forward(self, x):
         """
         @args:
             - x (5D torch.Tensor): input image
@@ -687,8 +678,4 @@ class MRI_double_net(STCNNT_MRI):
 
         logits = self.post["output_conv"](res)
 
-        weights = None
-        if snr is not None and base_snr_t>0:
-            weights = self.compute_weights(snr, base_snr_t)
-
-        return logits, weights
+        return logits

@@ -275,13 +275,13 @@ def trainer(rank, global_rank, config, wandb_run):
     logging.info(f"{rank_str}, total_steps for this run: {total_steps}, len(train_set) {[len(s) for s in train_set]}, batch {config.batch_size}")
 
     # -----------------------------------------------
-
-    if (config.load_path is None) or (not config.continued_training):
-        t0 = time()
-        num_samples = len(train_set[-1])
-        sampled_picked = np.random.randint(0, num_samples, size=32)
-        input_data  = torch.stack([train_set[-1][i][0] for i in sampled_picked])
-        print(f"{rank_str}, LSUV prep data took {time()-t0 : .2f} seconds ...")
+    if not config.disable_LSUV:
+        if (config.load_path is None) or (not config.continued_training):
+            t0 = time()
+            num_samples = len(train_set[-1])
+            sampled_picked = np.random.randint(0, num_samples, size=32)
+            input_data  = torch.stack([train_set[-1][i][0] for i in sampled_picked])
+            print(f"{rank_str}, LSUV prep data took {time()-t0 : .2f} seconds ...")
 
     # -----------------------------------------------
 
@@ -320,6 +320,8 @@ def trainer(rank, global_rank, config, wandb_run):
     not_load_pre = config.not_load_pre
     not_load_backbone = config.not_load_backbone
     not_load_post = config.not_load_post
+    run_name = config.run_name
+    run_note = config.run_note
 
     ddp = config.ddp
 
@@ -357,6 +359,8 @@ def trainer(rank, global_rank, config, wandb_run):
         config.not_load_backbone = not_load_backbone
         config.not_load_post = not_load_post
         config.model_type = model_type
+        config.run_name = run_name
+        config.run_note = run_note
         #config.load_path = load_path
 
         print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
@@ -369,9 +373,10 @@ def trainer(rank, global_rank, config, wandb_run):
                 model.load_from_status(status=status, device=device, load_others=continued_training)
             else: # new stage training
                 model = model.to(device)
-                t0 = time()
-                LSUVinit(model, input_data.to(device=device), verbose=True, cuda=True)
-                print(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
+                if not config.disable_LSUV:
+                    t0 = time()
+                    LSUVinit(model, input_data.to(device=device), verbose=True, cuda=True)
+                    print(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
 
                 # ------------------------------
                 if not not_load_pre:
@@ -441,14 +446,20 @@ def trainer(rank, global_rank, config, wandb_run):
         model = create_model(config, config.model_type, total_steps)
 
         model = model.to(device)
-        t0 = time()
-        LSUVinit(model, input_data.to(device=device), verbose=True, cuda=True)
-        print(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
+        if not config.disable_LSUV:
+            t0 = time()
+            LSUVinit(model, input_data.to(device=device), verbose=True, cuda=True)
+            print(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
 
     if config.ddp:
         dist.barrier()
 
     c = config
+
+    # import torch._dynamo
+    # torch._dynamo.config.suppress_errors = True
+    # torch._dynamo.config.skip_nnmodule_hook_guards=False
+    # model = torch.compile(model, mode="reduce-overhead")
 
     if rank<=0:
 
@@ -470,7 +481,6 @@ def trainer(rank, global_rank, config, wandb_run):
         sched = model.module.sched
         stype = model.module.stype
         loss_f = model.module.loss_f
-        ssim_loss_f = model.module.ssim_loss_f
         curr_epoch = model.module.curr_epoch
         samplers = [DistributedSampler(train_set_x, shuffle=True) for train_set_x in train_set]
         shuffle = False
@@ -479,7 +489,6 @@ def trainer(rank, global_rank, config, wandb_run):
         sched = model.sched
         stype = model.stype
         loss_f = model.loss_f
-        ssim_loss_f = model.ssim_loss_f
         curr_epoch = model.curr_epoch
         samplers = [None for _ in train_set]
         shuffle = True
@@ -677,7 +686,9 @@ def trainer(rank, global_rank, config, wandb_run):
                 noise_sigmas = torch.reshape(noise_sigmas, (B, 1, 1, 1, 1))
 
                 with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
-                    output, weights = model(x, snr, base_snr_t)
+                    output = model(x)
+
+                    weights = model.compute_weights(snr, base_snr_t)
 
                     weights *= weights_t
 
@@ -999,7 +1010,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                     # run normal inference
                     x = x.to(device)
                     y = y.to(device)
-                    output, _ = model(x)
+                    output = model(x)
                 else:
                     two_D = False
                     cutout_in = cutout

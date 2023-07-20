@@ -64,6 +64,70 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
 
         self.register_buffer("mask", torch.tril(torch.ones(1000, 1000, dtype=torch.bool)).view(1, 1, 1000, 1000))
 
+    def attention(self, k, q, v):
+        B, T, C_prime, H_prime, W_prime = k.shape
+        H = torch.div(self.C_out, self.n_head, rounding_mode="floor")
+        
+        k = k.view(B, T, self.n_head, H, H_prime, W_prime).transpose(1, 2)
+        q = q.view(B, T, self.n_head, H, H_prime, W_prime).transpose(1, 2)            
+        v = v.view(B, T, self.n_head, H, H_prime*self.stride_f, W_prime*self.stride_f).transpose(1, 2)
+
+        # k, q, v are [B, nh, T, hc, H', W']
+
+        B, nh, T, hc, H_prime, W_prime = k.shape
+
+        # (B, nh, T, hc, H', W') x (B, nh, hc, H', W', T) -> (B, nh, T, T)
+        if self.cosine_att:
+            att = F.normalize(q.view(B, nh, T, hc*H_prime*W_prime), dim=-1) @ F.normalize(k.view(B, nh, T, hc*H_prime*W_prime), dim=-1).transpose(-2, -1)
+        else:
+            if self.normalize_Q_K:
+                eps = torch.finfo(k.dtype).eps
+                k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
+                q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
+                
+            att = (q.view(B, nh, T, hc*H_prime*W_prime) @ k.view(B, nh, T, hc*H_prime*W_prime).transpose(-2, -1))\
+                    * torch.tensor(1.0 / math.sqrt(hc*H_prime*W_prime))
+
+        y = att @ v.contiguous().view(B, nh, T, H*H_prime*self.stride_f*W_prime*self.stride_f)
+        y = y.transpose(1, 2).contiguous().view(B, T, self.C_out, H_prime*self.stride_f, W_prime*self.stride_f)
+        
+        return y
+
+    def einsum_attention(self, k, q, v):
+        
+        B, T, C_prime, H_prime, W_prime = k.shape
+        
+        H = torch.div(self.C_out, self.n_head, rounding_mode="floor")
+        D = H*H_prime*W_prime
+        Hv, Wv = v.shape[-2:]
+        
+        k = k.view(B, T, self.n_head, D)
+        q = q.view(B, T, self.n_head, D)
+        v = v.view(B, T, self.n_head, H*Hv*Wv)
+
+        # (B, T, nh, D) x (B, K, nh, D) -> (B, nh, T, K)
+        if self.cosine_att:
+            att = torch.einsum("BTND, BKND -> BNTK", F.normalize(q, dim=-1), F.normalize(k, dim=-1))
+        else:
+            if self.normalize_Q_K:
+                eps = torch.finfo(k.dtype).eps
+                k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
+                q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
+                
+            att = torch.einsum("BTND, BKND -> BNTK", q, k) * torch.tensor(1.0 / math.sqrt(D))
+                    
+        # if causality is needed, apply the mask
+        if(self.is_causal):
+            att = att.masked_fill(self.mask[:,:,:T,:T] == 0, float("-inf"))
+
+        att = F.softmax(att, dim=-1)
+        att = self.attn_drop(att)
+
+        # (B, nh, T, K) * (B, K, nh, P)
+        y = torch.einsum("BNTK, BKND -> BTND", att, v).contiguous().view(B, T, self.C_out, Hv, Wv)
+        
+        return y
+    
     def forward(self, x):
         """
         @args:
@@ -79,41 +143,17 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
         # apply the key, query and value matrix
         k = self.key(x)
         q = self.query(x)
-        
-        _, _, C_prime, H_prime, W_prime = k.shape
-        
-        if self.normalize_Q_K:
-            eps = torch.finfo(k.dtype).eps
-            # add normalization for k and q, along [C_prime, H_prime, W_prime]
-            k = (k - torch.mean(k, dim=(-3, -2, -1), keepdim=True)) / ( torch.sqrt(torch.var(k, dim=(-3, -2, -1), keepdim=True) + eps) )
-            q = (q - torch.mean(q, dim=(-3, -2, -1), keepdim=True)) / ( torch.sqrt(torch.var(q, dim=(-3, -2, -1), keepdim=True) + eps) )
-            
-        k = k.view(B, T, self.n_head, torch.div(self.C_out, self.n_head, rounding_mode="floor"), H_prime, W_prime).transpose(1, 2)
-        q = q.view(B, T, self.n_head, torch.div(self.C_out, self.n_head, rounding_mode="floor"), H_prime, W_prime).transpose(1, 2)            
-        v = self.value(x).view(B, T, self.n_head, torch.div(self.C_out, self.n_head, rounding_mode="floor"), H_prime*self.stride_f, W_prime*self.stride_f).transpose(1, 2)
-
-        # k, q, v are [B, nh, T, hc, H', W']
-
-        B, nh, T, hc, H_prime, W_prime = k.shape
-
-        # (B, nh, T, hc, H', W') x (B, nh, hc, H', W', T) -> (B, nh, T, T)
-        if self.cosine_att:
-            att = F.normalize(q.view(B, nh, T, hc*H_prime*W_prime), dim=-1) @ F.normalize(k.view(B, nh, T, hc*H_prime*W_prime), dim=-1).transpose(-2, -1)
-        else:       
-            att = (q.view(B, nh, T, hc*H_prime*W_prime) @ k.view(B, nh, T, hc*H_prime*W_prime).transpose(-2, -1))\
-                    * torch.tensor(1.0 / math.sqrt(hc*H_prime*W_prime))
-
-        # if causality is needed, apply the mask
-        if(self.is_causal):
-            att = att.masked_fill(self.mask[:,:,:T,:T] == 0, float("-inf"))
-
-        att = F.softmax(att, dim=-1)
-        att = self.attn_drop(att)
-
-        # (B, nh, T, T) * (B, nh, T, hc, H', W')
-        y = att @ v.view(B, nh, T, hc*H_prime*W_prime*self.stride_f*self.stride_f)
-        y = y.transpose(1, 2).contiguous().view(B, T, self.C_out, H_prime*self.stride_f, W_prime*self.stride_f)
-        
+        v = self.value(x)
+                        
+        # if self.normalize_Q_K:
+        #     eps = torch.finfo(k.dtype).eps
+        #     # add normalization for k and q, along C, H, W
+        #     k = (k - torch.mean(k, dim=(-3, -2, -1), keepdim=True)) / ( torch.sqrt(torch.var(k, dim=(-3, -2, -1), keepdim=True) + eps) )
+        #     q = (q - torch.mean(q, dim=(-3, -2, -1), keepdim=True)) / ( torch.sqrt(torch.var(q, dim=(-3, -2, -1), keepdim=True) + eps) )
+                                        
+        # y_tmp = self.attention(torch.clone(k), torch.clone(q), torch.clone(v))
+        # assert torch.allclose(y_tmp, y)
+        y = self.einsum_attention(k, q, v)
         y = self.output_proj(y)
 
         return y
@@ -231,11 +271,14 @@ class TemporalCnnAttention(CnnAttentionBase):
 
 def tests():
     # tests
-
+    
     B, T, C, H, W = 2, 4, 3, 64, 64
-    C_out = 8
-    test_in = torch.rand(B,T,C,H,W)
+    C_out = 8    
 
+    device = get_device()
+    
+    test_in = torch.rand(B,T,C,H,W, device=device)
+    
     print("Begin Testing")
 
     causals = [True, False]
@@ -245,7 +288,7 @@ def tests():
         for normalize_Q_K in normalize_Q_Ks:
             for att_with_output_proj in att_with_output_projs:
 
-                temporal = TemporalCnnAttention(C, C_out=C_out, is_causal=causal, normalize_Q_K=normalize_Q_K, att_with_output_proj=att_with_output_proj)
+                temporal = TemporalCnnAttention(C, C_out=C_out, is_causal=causal, normalize_Q_K=normalize_Q_K, att_with_output_proj=att_with_output_proj).to(device=device)
                 test_out = temporal(test_in)
 
                 Bo, To, Co, Ho, Wo = test_out.shape
@@ -255,5 +298,94 @@ def tests():
 
     print("Passed all tests")
 
+def benchmark():
+    
+    from utils.benchmark import benchmark_all, benchmark_memory, pytorch_profiler
+    from utils.setup_training import set_seed
+    from colorama import Fore, Style
+        
+    set_seed(seed=53)
+    
+    device = get_device()
+    
+    B, T, C, H, W = 16, 12, 3, 128, 128
+    C_out = 64
+    test_in = torch.rand(B,T,C,H,W, dtype=torch.float32, device=device)
+       
+    print(test_in[6:9,2:6, 2, 54, 34])
+    print(test_in[11:,7:, 2, 54, 34])
+       
+    import torch.utils.benchmark as benchmark
+    
+    X1 = torch.randn(100, 534, 12, 256, dtype=torch.float32, device=device)    
+    X2 = torch.randn(100, 534, 12, 256, dtype=torch.float32, device=device)
+    
+    R1 = torch.einsum("ntdg, ncdg -> ndtc", X1, X2)
+    R2 = torch.einsum("ntdg, ncdg -> ntdc", X1, X2)
+
+    def f1(X1, X2):
+        a = torch.einsum("ntdg, ncdg -> ndtc", X1, X2)
+        
+    def f2(X1, X2):
+        a = X1.transpose(1, 2)
+        b = X2.permute((0, 2, 3, 1))
+        c = a @ b
+
+    t0 = benchmark.Timer(
+        stmt='f1(X1, X2)',
+        globals={'f1':f1, 'X1': X1, 'X2':X2})
+    
+    print(t0.timeit(100))
+    
+    t0 = benchmark.Timer(
+        stmt='f2(X1, X2)',
+        globals={'f2':f2, 'X1': X1, 'X2':X2})
+    
+    print(t0.timeit(100))
+
+    print(f"{Fore.GREEN}-------------> Flash temporal attention <----------------------{Style.RESET_ALL}")
+    temporal = TemporalCnnAttention(C_in=C, 
+                                    C_out=C_out, 
+                                    H=H, W=W,
+                                    n_head=32,                                      
+                                    cosine_att=True,
+                                    normalize_Q_K=True, 
+                                    att_with_output_proj=0.1)
+
+    temporal.to(device=device)
+                
+    with torch.inference_mode():
+        y = temporal(test_in)
+                    
+    benchmark_all(temporal, test_in, grad=None, repeats=40, desc='TemporalCnnAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    
+    benchmark_memory(temporal, test_in, desc='TemporalCnnAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
+    
+    print(f"{Fore.YELLOW}-------------> Standard temporal attention <----------------------{Style.RESET_ALL}")
+    temporal = TemporalCnnStandardAttention(C_in=C, 
+                                    C_out=C_out, 
+                                    H=H, W=W,
+                                    n_head=32,                                      
+                                    cosine_att=True,
+                                    normalize_Q_K=True, 
+                                    att_with_output_proj=0.1)
+
+    temporal.to(device=device)
+                
+    with torch.inference_mode():
+        y = temporal(test_in)
+                    
+    benchmark_all(temporal, test_in, grad=None, repeats=40, desc='TemporalCnnStandardAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    
+    benchmark_memory(temporal, test_in, desc='TemporalCnnStandardAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
+        
+    def loss(model, x):
+        y = model(x)
+        l = torch.sum(y)
+        return l
+    
+    pytorch_profiler(loss, temporal, test_in, trace_filename='/export/Lab-Xue/projects/mri/profiling/TemporalCnnAttention.json', backward=True, amp=True, amp_dtype=torch.bfloat16, cpu=False, verbose=True)
+    
 if __name__=="__main__":
     tests()
+    benchmark()
