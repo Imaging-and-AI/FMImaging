@@ -37,7 +37,8 @@ class SpatialGlobalAttention(CnnAttentionBase):
                  normalize_Q_K=False, 
                  att_with_relative_postion_bias=True,
                  att_with_output_proj=True,
-                 shuffle_in_window=True):
+                 shuffle_in_window=True,
+                 use_einsum=True):
         """
         Defines the layer for a cnn attention on spatial dimension with local windows and patches.
 
@@ -70,7 +71,8 @@ class SpatialGlobalAttention(CnnAttentionBase):
         self.num_wind = num_wind
         self.num_patch = num_patch
         self.shuffle_in_window = shuffle_in_window
-        
+        self.use_einsum = use_einsum
+
         self.set_and_check_wind()
         self.set_and_check_patch()
 
@@ -97,7 +99,75 @@ class SpatialGlobalAttention(CnnAttentionBase):
         if self.att_with_relative_postion_bias:
             self.define_relative_position_bias_table(num_win_h=self.num_wind[0], num_win_w=self.num_wind[1])
             self.define_relative_position_index(num_win_h=self.num_wind[0], num_win_w=self.num_wind[1])
+
+    def attention(self, k, q, v):
+        B, T, num_patch_h_per_win, num_patch_w_per_win, num_win_h, num_win_w, C, ph, pw = k.shape
+
+        # format the window
+        hc = torch.div(C*ph*pw, self.n_head, rounding_mode="floor")
+
+        # k, q, v will be [B, T, num_patch_h_per_win*num_patch_w_per_win, self.n_head, num_win_h*num_win_w, hc]
+        k = k.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc)).transpose(3, 4)         
+        q = q.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc)).transpose(3, 4)
+        v = v.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc)).transpose(3, 4)
+        
+        if self.shuffle_in_window:
             
+            # random permute within a window
+            patch_indexes = torch.zeros([num_win_h*num_win_w, num_patch_h_per_win*num_patch_w_per_win], dtype=torch.long)
+            for w in range(num_win_h*num_win_w):
+                patch_indexes[w, :] = torch.randperm(num_patch_h_per_win*num_patch_w_per_win)
+            
+            reverse_patch_indexes = num_patch_h_per_win*num_patch_w_per_win - 1 - patch_indexes
+            reverse_patch_indexes = torch.flip(reverse_patch_indexes, dims=(1,))
+            
+            k_shuffled = torch.clone(k)
+            q_shuffled = torch.clone(q)
+            v_shuffled = torch.clone(v)
+            
+            for w in range(num_win_h*num_win_w):
+                k_shuffled[:, :, :, :, w] = k[:, :, patch_indexes[w, :], :, w]
+                q_shuffled[:, :, :, :, w] = q[:, :, patch_indexes[w, :], :, w]
+                v_shuffled[:, :, :, :, w] = v[:, :, patch_indexes[w, :], :, w]
+                
+            k = k_shuffled
+            q = q_shuffled
+            v = v_shuffled
+            
+        # [B, T, num_patches, num_heads, num_windows, hc] x [B, T, num_patches, num_heads, hc, num_windows] -> (B, T, num_patches, num_heads, num_windows, num_windows)
+        if self.cosine_att:
+            att = F.normalize(q, dim=-1) @ F.normalize(k, dim=-1).transpose(-2, -1)
+        else:
+            if self.normalize_Q_K:
+                eps = torch.finfo(k.dtype).eps
+                k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
+                q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
+                            
+            att = q @ k.transpose(-2, -1) * torch.tensor(1.0 / math.sqrt(hc))
+        
+        att = F.softmax(att, dim=-1)        
+        if self.att_with_relative_postion_bias:
+            relative_position_bias = self.get_relative_position_bias(num_win_h, num_win_w)
+            att = att + relative_position_bias
+            
+        att = self.attn_drop(att)
+        
+        # (B, T, num_patches, num_heads, num_windows, num_windows) * (B, T, num_patches, num_heads, num_windows, hc)
+        y = att @ v # (B, T, num_patches, num_heads, num_windows, hc)
+        y = y.transpose(3, 4) # (B, T, num_patches, num_windows, num_heads, hc)
+
+        if self.shuffle_in_window:        
+            y_restored = torch.clone(y)
+            for w in range(num_win_h*num_win_w):
+                y_restored[:, :, :, w] = y[:, :, reverse_patch_indexes[w, :], w]
+                        
+            y = torch.reshape(y_restored, (B, T, num_patch_h_per_win, num_patch_w_per_win, num_win_h, num_win_w, C, ph, pw))
+        else:
+            y = torch.reshape(y, (B, T, num_patch_h_per_win, num_patch_w_per_win, num_win_h, num_win_w, C, ph, pw))
+            
+        y = self.grid2im(y)
+
+        return y
 
     def forward(self, x):
         """
@@ -324,5 +394,76 @@ def tests():
     
     print("Passed all tests")
 
+# -------------------------------------------------------------------------------------------------
+
+def benchmark():
+
+    from utils.benchmark import benchmark_all, benchmark_memory, pytorch_profiler
+    from utils.setup_training import set_seed
+    from colorama import Fore, Style
+
+    set_seed(seed=53)
+
+    device = get_device()
+
+    B, T, C, H, W = 16, 12, 3, 128, 128
+    C_out = 64
+    test_in = torch.rand(B,T,C,H,W, dtype=torch.float32, device=device)
+
+    import torch.utils.benchmark as benchmark
+
+    print(f"{Fore.GREEN}-------------> SpatialLocalAttention <----------------------{Style.RESET_ALL}")
+
+    m = SpatialLocalAttention(C_in=C, C_out=C_out, H=H, W=W,
+                            window_size=[16, 16], patch_size=[2, 2], 
+                            num_wind=[8, 8], num_patch=[4, 4], 
+                            a_type="conv", n_head=8,
+                            kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), 
+                            att_dropout_p=0.0, 
+                            cosine_att=True, 
+                            normalize_Q_K=True, 
+                            att_with_relative_postion_bias=True,
+                            att_with_output_proj=True,
+                            use_einsum=True)
+
+    m.to(device=device)
+
+    with torch.inference_mode():
+        y = m(test_in)
+
+    benchmark_all(m, test_in, grad=None, repeats=80, desc='SpatialLocalAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+
+    benchmark_memory(m, test_in, desc='SpatialLocalAttention-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
+
+    m = SpatialLocalAttention(C_in=C, C_out=C_out, H=H, W=W,
+                            window_size=[16, 16], patch_size=[2, 2], 
+                            num_wind=[8, 8], num_patch=[4, 4], 
+                            a_type="conv", n_head=8,
+                            kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), 
+                            att_dropout_p=0.0, 
+                            cosine_att=True, 
+                            normalize_Q_K=True, 
+                            att_with_relative_postion_bias=True,
+                            att_with_output_proj=True,
+                            use_einsum=False)
+
+    m.to(device=device)
+
+    with torch.inference_mode():
+        y = m(test_in)
+
+    benchmark_all(m, test_in, grad=None, repeats=80, desc='SpatialLocalAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+
+    benchmark_memory(m, test_in, desc='SpatialLocalAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
+
+    # def loss(model, x):
+    #     y = model(x)
+    #     l = torch.sum(y)
+    #     return l
+
+    # pytorch_profiler(loss, m, test_in, trace_filename='/export/Lab-Xue/projects/mri/profiling/SpatialViTAttention.json', backward=True, amp=True, amp_dtype=torch.bfloat16, cpu=False, verbose=True)
+
+# -------------------------------------------------------------------------------------------------
 if __name__=="__main__":
     tests()
+    benchmark()

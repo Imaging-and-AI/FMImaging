@@ -35,7 +35,8 @@ class SpatialViTAttention(CnnAttentionBase):
                  cosine_att=False, 
                  normalize_Q_K=False, 
                  att_with_relative_postion_bias=True,
-                 att_with_output_proj=True):
+                 att_with_output_proj=True,
+                 use_einsum=True):
         """
         Defines the layer for a cnn attention on spatial dimension with local windows
 
@@ -68,6 +69,7 @@ class SpatialViTAttention(CnnAttentionBase):
         self.a_type = a_type
         self.window_size = window_size
         self.num_wind = num_wind
+        self.use_einsum = use_einsum
 
         self.set_and_check_wind()
 
@@ -91,7 +93,7 @@ class SpatialViTAttention(CnnAttentionBase):
             self.define_relative_position_index(num_win_h=self.num_wind[0], num_win_w=self.num_wind[1])
 
     def attention(self, k, q, v):
-        B, T, num_win_h, num_win_w, C, wh, ww = k.shape
+        B, T, num_win_h, num_win_w, wh, ww, C = k.shape
 
         assert self.num_wind[0] == num_win_h
         assert self.num_wind[1] == num_win_w
@@ -99,7 +101,7 @@ class SpatialViTAttention(CnnAttentionBase):
         # format the window
         hc = torch.div(C*wh*ww, self.n_head, rounding_mode="floor")
 
-        k = k.reshape((B, T, num_win_h*num_win_w, self.n_head, hc)).transpose(2, 3) # [B, T, num_heads, num_windows, hc]
+        k = k.reshape((B, T, num_win_h*num_win_w, self.n_head, hc)).transpose(2, 3)
         q = q.reshape((B, T, num_win_h*num_win_w, self.n_head, hc)).transpose(2, 3)
         v = v.reshape((B, T, num_win_h*num_win_w, self.n_head, hc)).transpose(2, 3)
 
@@ -126,7 +128,7 @@ class SpatialViTAttention(CnnAttentionBase):
         # (B, T, num_heads, num_windows, num_windows) * (B, T, num_heads, num_windows, hc)
         y = att @ v
         y = y.transpose(2, 3) # (B, T, num_windows, num_heads, hc)
-        y = torch.reshape(y, (B, T, num_win_h, num_win_w, C, wh, ww))
+        y = torch.reshape(y, (B, T, num_win_h, num_win_w, wh, ww, C))
 
         y = self.grid2im(y)
 
@@ -141,9 +143,9 @@ class SpatialViTAttention(CnnAttentionBase):
         # format the window
         hc = torch.div(C*wh*ww, self.n_head, rounding_mode="floor")
 
-        k = k.view((B, T, num_win_h*num_win_w, self.n_head, hc))
-        q = q.view((B, T, num_win_h*num_win_w, self.n_head, hc))
-        v = v.view((B, T, num_win_h*num_win_w, self.n_head, hc))
+        k = k.reshape((B, T, num_win_h*num_win_w, self.n_head, hc))
+        q = q.reshape((B, T, num_win_h*num_win_w, self.n_head, hc))
+        v = v.reshape((B, T, num_win_h*num_win_w, self.n_head, hc))
 
         if self.cosine_att:
             att = torch.einsum("BTWND, BTSND -> BTNWS", F.normalize(q, dim=-1), F.normalize(k, dim=-1))
@@ -167,7 +169,7 @@ class SpatialViTAttention(CnnAttentionBase):
         # (B, T, num_heads, num_windows, num_windows) * (B, T, num_windows, num_heads, hc)
 
         y = torch.einsum("BTNWS, BTSND -> BTWND", att, v)
-        y = y.view(B, T, num_win_h, num_win_w, wh, ww, C)
+        y = y.reshape(B, T, num_win_h, num_win_w, wh, ww, C)
 
         y = self.grid2im(y)
 
@@ -209,7 +211,14 @@ class SpatialViTAttention(CnnAttentionBase):
             q = self.query(x)
             v = self.value(x)
 
-        y = self.einsum_attention(k, q, v)
+        # y_tmp = self.attention(torch.clone(k), torch.clone(q), torch.clone(v))
+        # y = self.einsum_attention(k, q, v)
+        # assert torch.allclose(y_tmp, y)
+
+        if self.use_einsum:
+            y = self.einsum_attention(k, q, v)
+        else:
+            y = self.attention(k, q, v)
 
         y = self.output_proj(y)
 
@@ -358,25 +367,45 @@ def benchmark():
                                         cosine_att=True, 
                                         normalize_Q_K=True, 
                                         att_with_relative_postion_bias=True,
-                                        att_with_output_proj=0.1)
+                                        att_with_output_proj=0.1,
+                                        use_einsum=True)
 
     m.to(device=device)
 
     with torch.inference_mode():
         y = m(test_in)
 
-    benchmark_all(m, test_in, grad=None, repeats=40, desc='SpatialViTAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_all(m, test_in, grad=None, repeats=80, desc='SpatialViTAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+
+    benchmark_memory(m, test_in, desc='SpatialViTAttention-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
+
+    m = SpatialViTAttention(window_size=None, num_wind=[4, 8],
+                                        a_type="conv", 
+                                        C_in=C, C_out=C_out, 
+                                        H=H, W=W, 
+                                        cosine_att=True, 
+                                        normalize_Q_K=True, 
+                                        att_with_relative_postion_bias=True,
+                                        att_with_output_proj=0.1,
+                                        use_einsum=False)
+
+    m.to(device=device)
+
+    with torch.inference_mode():
+        y = m(test_in)
+
+    benchmark_all(m, test_in, grad=None, repeats=80, desc='SpatialViTAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
     benchmark_memory(m, test_in, desc='SpatialViTAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
-    def loss(model, x):
-        y = model(x)
-        l = torch.sum(y)
-        return l
+    # def loss(model, x):
+    #     y = model(x)
+    #     l = torch.sum(y)
+    #     return l
 
-    pytorch_profiler(loss, m, test_in, trace_filename='/export/Lab-Xue/projects/mri/profiling/SpatialViTAttention.json', backward=True, amp=True, amp_dtype=torch.bfloat16, cpu=False, verbose=True)
+    # pytorch_profiler(loss, m, test_in, trace_filename='/export/Lab-Xue/projects/mri/profiling/SpatialViTAttention.json', backward=True, amp=True, amp_dtype=torch.bfloat16, cpu=False, verbose=True)
 
 # -------------------------------------------------------------------------------------------------
 if __name__=="__main__":
-    #tests()
+    tests()
     benchmark()
