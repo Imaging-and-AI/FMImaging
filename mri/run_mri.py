@@ -339,7 +339,9 @@ class mri_ddp_base(run_ddp_base):
             run_str += "_residual"
 
         if weighted_loss:
-            cmd_run.extend(["--weighted_loss"])
+            cmd_run.extend(["--weighted_loss_snr"])
+            cmd_run.extend(["--weighted_loss_temporal"])
+            cmd_run.extend(["--weighted_loss_added_noise"])
             run_str += "_weighted_loss"
 
         if config.with_data_degrading:

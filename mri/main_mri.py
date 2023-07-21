@@ -71,7 +71,10 @@ def arg_parser():
     parser.add_argument('--loss_weights', nargs='+', type=float, default=[1.0, 1.0], help='to balance multiple losses, weights can be supplied')
     parser.add_argument("--complex_i", action="store_true", help='whether we are dealing with complex images or not')
     parser.add_argument("--residual", action="store_true", help='add long term residual connection')
-    parser.add_argument("--weighted_loss", action="store_true", help='if set, weight loss by gfactor and noise values')
+
+    parser.add_argument("--weighted_loss_snr", action="store_true", help='if set, weight loss by the original signal levels')
+    parser.add_argument("--weighted_loss_temporal", action="store_true", help='if set, weight loss by temporal/slice signal variation')
+    parser.add_argument("--weighted_loss_added_noise", action="store_true", help='if set, weight loss by added noise strength')
 
     parser.add_argument("--disable_LSUV", action="store_true", help='if set, do not perform LSUV initialization.')
 

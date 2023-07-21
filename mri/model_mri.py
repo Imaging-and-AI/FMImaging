@@ -130,7 +130,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
             self.post = Conv2DExt(output_C,config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
 
-    def forward(self, x):
+    def forward(self, x, snr=None, base_snr_t=-1):
         """
         @args:
             - x (5D torch.Tensor): input image
@@ -158,7 +158,11 @@ class STCNNT_MRI(STCNNT_Task_Base):
                 C = 2 if self.complex_i else 1
                 logits = x[:,:,:C] - logits
 
-        return logits
+        if base_snr_t > 0:
+            weights = self.compute_weights(snr=snr, base_snr_t=base_snr_t)
+            return logits, weights
+        else:
+            return logits
 
     def compute_weights(self, snr, base_snr_t):
         weights = self.a - self.b * torch.sigmoid(snr-base_snr_t)
@@ -547,7 +551,7 @@ class MRI_hrnet(STCNNT_MRI):
         self.post["output_conv"] = Conv2DExt(hrnet_C_out, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
 
-    def forward(self, x):
+    def forward(self, x, snr=-1, base_snr_t=-1):
         """
         @args:
             - x (5D torch.Tensor): input image
@@ -614,8 +618,12 @@ class MRI_hrnet(STCNNT_MRI):
         #     C = 2 if self.complex_i else 1
         #     logits = x[:,:,:C] - logits
 
-        return logits
-    
+        if snr > 0 and base_snr_t > 0:
+            weights = self.compute_weights(snr=snr, base_snr_t=base_snr_t)
+            return logits, weights
+        else:
+            return logits
+
 # -------------------------------------------------------------------------------------------------
 # MRI model with loading backbone, double network
 
@@ -656,7 +664,7 @@ class MRI_double_net(STCNNT_MRI):
         self.post["output_conv"] = Conv2DExt(hrnet_C_out, config_post.C_out, kernel_size=config_post.kernel_size, stride=config_post.stride, padding=config_post.padding, bias=True)
 
 
-    def forward(self, x):
+    def forward(self, x, snr=-1, base_snr_t=-1):
         """
         @args:
             - x (5D torch.Tensor): input image
@@ -678,4 +686,8 @@ class MRI_double_net(STCNNT_MRI):
 
         logits = self.post["output_conv"](res)
 
-        return logits
+        if snr > 0 and base_snr_t > 0:
+            weights = self.compute_weights(snr=snr, base_snr_t=base_snr_t)
+            return logits, weights
+        else:
+            return logits

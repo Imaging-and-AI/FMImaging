@@ -304,7 +304,9 @@ def trainer(rank, global_rank, config, wandb_run):
     scheduler_type = config.scheduler_type
     losses = config.losses
     loss_weights = config.loss_weights
-    weighted_loss = config.weighted_loss
+    weighted_loss_snr = config.weighted_loss_snr
+    weighted_loss_temporal = config.weighted_loss_temporal
+    weighted_loss_added_noise = config.weighted_loss_added_noise
     save_samples = config.save_samples
     num_saved_samples = config.num_saved_samples
     height = config.height
@@ -343,7 +345,9 @@ def trainer(rank, global_rank, config, wandb_run):
         config.global_lr = lr
         config.num_epochs = num_epochs
         config.batch_size = batch_size
-        config.weighted_loss = weighted_loss
+        config.weighted_loss_snr = weighted_loss_snr
+        config.weighted_loss_temporal = weighted_loss_temporal
+        config.weighted_loss_added_noise = weighted_loss_added_noise
         config.save_samples = save_samples
         config.num_saved_samples = num_saved_samples
         config.height = height
@@ -439,7 +443,9 @@ def trainer(rank, global_rank, config, wandb_run):
         print(f"{rank_str}, after load saved model, config.use_amp for running - {config.use_amp}")
         print(f"{rank_str}, after load saved model, config.optim for running - {config.optim}")
         print(f"{rank_str}, after load saved model, config.scheduler_type for running - {config.scheduler_type}")
-        print(f"{rank_str}, after load saved model, config.weighted_loss for running - {config.weighted_loss}")
+        print(f"{rank_str}, after load saved model, config.weighted_loss_snr for running - {config.weighted_loss_snr}")
+        print(f"{rank_str}, after load saved model, config.weighted_loss_temporal for running - {config.weighted_loss_temporal}")
+        print(f"{rank_str}, after load saved model, config.weighted_loss_added_noise for running - {config.weighted_loss_added_noise}")
         print(f"{rank_str}, after load saved model, config.num_workers for running - {config.num_workers}")
         print(f"{rank_str}, after load saved model, model.curr_epoch for running - {model.curr_epoch}")
         print(f"{rank_str}, {Fore.GREEN}after load saved model, model type - {config.model_type}{Style.RESET_ALL}")
@@ -502,7 +508,7 @@ def trainer(rank, global_rank, config, wandb_run):
     elif c.backbone == 'unet':
         model_str = f"C {c.backbone_unet.C}, {c.n_head} heads, {c.backbone_unet.block_str}"
 
-    logging.info(f"{rank_str}, {Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, {c.optim}, {c.global_lr}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, weighted loss {c.weighted_loss}, data degrading {c.with_data_degrading}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, amp {c.use_amp}, {model_str}{Style.RESET_ALL}")
+    logging.info(f"{rank_str}, {Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, {c.optim}, {c.global_lr}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, weighted loss - snr {c.weighted_loss_snr} - tempoeral {c.weighted_loss_temporal} - added_noise {c.weighted_loss_added_noise}, data degrading {c.with_data_degrading}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, amp {c.use_amp}, {model_str}{Style.RESET_ALL}")
 
     # -----------------------------------------------
 
@@ -590,7 +596,7 @@ def trainer(rank, global_rank, config, wandb_run):
     base_snr = 0
     beta_snr = 0.9
     beta_counter = 0
-    if c.weighted_loss:
+    if c.weighted_loss_snr:
         # get the base_snr
         mean_signal = list()
         median_signal = list()
@@ -663,13 +669,14 @@ def trainer(rank, global_rank, config, wandb_run):
 
                 B, T, C, H, W = x.shape
 
-                # compute temporal std
-                if C == 3:
-                    std_t = torch.std(torch.abs(y[:,:,0,:,:] + 1j * y[:,:,1,:,:]), dim=1)
-                else:
-                    std_t = torch.std(y(y[:,:,0,:,:], dim=1))
+                if c.weighted_loss_temporal:
+                    # compute temporal std
+                    if C == 3:
+                        std_t = torch.std(torch.abs(y[:,:,0,:,:] + 1j * y[:,:,1,:,:]), dim=1)
+                    else:
+                        std_t = torch.std(y(y[:,:,0,:,:], dim=1))
 
-                weights_t = torch.mean(std_t, dim=(-2, -1))
+                    weights_t = torch.mean(std_t, dim=(-2, -1))
 
                 # compute snr
                 signal = torch.mean(torch.linalg.norm(y, dim=2, keepdim=True), dim=(1, 2, 3, 4))
@@ -677,35 +684,42 @@ def trainer(rank, global_rank, config, wandb_run):
                 snr = signal / gmaps_median
                 snr = snr.to(device)
 
-                if c.weighted_loss:
+                # base_snr : original snr in the clean patch
+                # noise_sigmas: added noise
+                # weighted_t: temporal/slice signal variation
+
+                if c.weighted_loss_snr:
                     beta_counter += 1
                     base_snr = beta_snr * base_snr + (1-beta_snr) * torch.mean(snr).item()
                     base_snr_t = base_snr / (1 - np.power(beta_snr, beta_counter))
-
-                    # give low SNR patches more weights
-                    #weights = 5.0 - 4.0 * torch.sigmoid(snr-base_snr_t)
                 else:
                     base_snr_t = -1
 
                 noise_sigmas = torch.reshape(noise_sigmas, (B, 1, 1, 1, 1))
 
                 with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
-                    output = model(x)
-
-                    if c.ddp:
-                        weights = model.module.compute_weights(snr, base_snr_t)
+                    if c.weighted_loss_snr:
+                        output, weights = model(x, snr, base_snr_t)
+                        if c.weighted_loss_temporal:
+                            weights *= weights_t
                     else:
-                        weights = model.compute_weights(snr, base_snr_t)
-
-                    weights *= weights_t
+                        output = model(x)
+                        if c.weighted_loss_temporal:
+                            weights = weights_t
 
                     if torch.sum(noise_sigmas).item() > 0:
-                        if c.weighted_loss:
-                            loss = loss_f(output*noise_sigmas, y*noise_sigmas, weights=weights.to(device))
+                        if c.weighted_loss_snr or c.weighted_loss_temporal:
+                            if c.weighted_loss_added_noise:
+                                loss = loss_f(output*noise_sigmas, y*noise_sigmas, weights=weights.to(device))
+                            else:
+                                loss = loss_f(output, y, weights=weights.to(device))
                         else:
-                            loss = loss_f(output*noise_sigmas, y*noise_sigmas)
+                            if c.weighted_loss_added_noise:
+                                loss = loss_f(output*noise_sigmas, y*noise_sigmas)
+                            else:
+                                loss = loss_f(output, y)
                     else:
-                        if c.weighted_loss:
+                        if c.weighted_loss_snr or c.weighted_loss_temporal:
                             loss = loss_f(output, y, weights=weights.to(device))
                         else:
                             loss = loss_f(output, y)
