@@ -692,7 +692,10 @@ def trainer(rank, global_rank, config, wandb_run):
                 with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
                     output = model(x)
 
-                    weights = model.compute_weights(snr, base_snr_t)
+                    if c.ddp:
+                        weights = model.module.compute_weights(snr, base_snr_t)
+                    else:
+                        weights = model.compute_weights(snr, base_snr_t)
 
                     weights *= weights_t
 
