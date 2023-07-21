@@ -220,8 +220,6 @@ class TemporalCnnAttention(CnnAttentionBase):
         else:
             self.flash_atten_type = torch.float32
 
-        torch.backends.cuda.enable_flash_sdp(True)
-        torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=False, enable_mem_efficient=False)
 
     def forward(self, x):
         """
@@ -364,10 +362,13 @@ def benchmark():
     print(t0.timeit(100))
 
     print(f"{Fore.GREEN}-------------> Flash temporal attention <----------------------{Style.RESET_ALL}")
+
+    torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=False, enable_mem_efficient=False)
+
     temporal = TemporalCnnAttention(C_in=C, 
                                     C_out=C_out, 
                                     H=H, W=W,
-                                    n_head=32,                                      
+                                    n_head=32,
                                     cosine_att=True,
                                     normalize_Q_K=True, 
                                     att_with_output_proj=0.1)
