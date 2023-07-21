@@ -101,39 +101,39 @@ class SpatialGlobalAttention(CnnAttentionBase):
             self.define_relative_position_index(num_win_h=self.num_wind[0], num_win_w=self.num_wind[1])
 
     def attention(self, k, q, v):
-        B, T, num_patch_h_per_win, num_patch_w_per_win, num_win_h, num_win_w, C, ph, pw = k.shape
+        B, T, num_patch_h_per_win, num_patch_w_per_win, num_win_h, num_win_w, ph, pw, C = k.shape
 
         # format the window
         hc = torch.div(C*ph*pw, self.n_head, rounding_mode="floor")
 
         # k, q, v will be [B, T, num_patch_h_per_win*num_patch_w_per_win, self.n_head, num_win_h*num_win_w, hc]
-        k = k.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc)).transpose(3, 4)         
+        k = k.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc)).transpose(3, 4)
         q = q.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc)).transpose(3, 4)
         v = v.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc)).transpose(3, 4)
-        
+
         if self.shuffle_in_window:
-            
+
             # random permute within a window
             patch_indexes = torch.zeros([num_win_h*num_win_w, num_patch_h_per_win*num_patch_w_per_win], dtype=torch.long)
             for w in range(num_win_h*num_win_w):
                 patch_indexes[w, :] = torch.randperm(num_patch_h_per_win*num_patch_w_per_win)
-            
+
             reverse_patch_indexes = num_patch_h_per_win*num_patch_w_per_win - 1 - patch_indexes
             reverse_patch_indexes = torch.flip(reverse_patch_indexes, dims=(1,))
-            
+
             k_shuffled = torch.clone(k)
             q_shuffled = torch.clone(q)
             v_shuffled = torch.clone(v)
-            
+
             for w in range(num_win_h*num_win_w):
                 k_shuffled[:, :, :, :, w] = k[:, :, patch_indexes[w, :], :, w]
                 q_shuffled[:, :, :, :, w] = q[:, :, patch_indexes[w, :], :, w]
                 v_shuffled[:, :, :, :, w] = v[:, :, patch_indexes[w, :], :, w]
-                
+
             k = k_shuffled
             q = q_shuffled
             v = v_shuffled
-            
+
         # [B, T, num_patches, num_heads, num_windows, hc] x [B, T, num_patches, num_heads, hc, num_windows] -> (B, T, num_patches, num_heads, num_windows, num_windows)
         if self.cosine_att:
             att = F.normalize(q, dim=-1) @ F.normalize(k, dim=-1).transpose(-2, -1)
@@ -142,29 +142,97 @@ class SpatialGlobalAttention(CnnAttentionBase):
                 eps = torch.finfo(k.dtype).eps
                 k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
                 q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
-                            
+
             att = q @ k.transpose(-2, -1) * torch.tensor(1.0 / math.sqrt(hc))
-        
-        att = F.softmax(att, dim=-1)        
+
+        att = F.softmax(att, dim=-1)
         if self.att_with_relative_postion_bias:
             relative_position_bias = self.get_relative_position_bias(num_win_h, num_win_w)
             att = att + relative_position_bias
-            
+
         att = self.attn_drop(att)
-        
+
         # (B, T, num_patches, num_heads, num_windows, num_windows) * (B, T, num_patches, num_heads, num_windows, hc)
         y = att @ v # (B, T, num_patches, num_heads, num_windows, hc)
         y = y.transpose(3, 4) # (B, T, num_patches, num_windows, num_heads, hc)
 
-        if self.shuffle_in_window:        
+        if self.shuffle_in_window:
             y_restored = torch.clone(y)
             for w in range(num_win_h*num_win_w):
                 y_restored[:, :, :, w] = y[:, :, reverse_patch_indexes[w, :], w]
-                        
-            y = torch.reshape(y_restored, (B, T, num_patch_h_per_win, num_patch_w_per_win, num_win_h, num_win_w, C, ph, pw))
+
+            y = torch.reshape(y_restored, (B, T, num_patch_h_per_win, num_patch_w_per_win, num_win_h, num_win_w, ph, pw, C))
         else:
-            y = torch.reshape(y, (B, T, num_patch_h_per_win, num_patch_w_per_win, num_win_h, num_win_w, C, ph, pw))
-            
+            y = torch.reshape(y, (B, T, num_patch_h_per_win, num_patch_w_per_win, num_win_h, num_win_w, ph, pw, C))
+
+        y = self.grid2im(y)
+
+        return y
+
+    def einsum_attention(self, k, q, v):
+        B, T, num_patch_h_per_win, num_patch_w_per_win, num_win_h, num_win_w, ph, pw, C = k.shape
+
+        # format the window
+        hc = torch.div(C*ph*pw, self.n_head, rounding_mode="floor")
+
+        # k, q, v will be [B, T, num_patch_h_per_win*num_patch_w_per_win, self.n_head, num_win_h*num_win_w, hc]
+        k = k.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc))
+        q = q.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc))
+        v = v.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc))
+
+        if self.shuffle_in_window:
+
+            # random permute within a window
+            patch_indexes = torch.zeros([num_win_h*num_win_w, num_patch_h_per_win*num_patch_w_per_win], dtype=torch.long)
+            for w in range(num_win_h*num_win_w):
+                patch_indexes[w, :] = torch.randperm(num_patch_h_per_win*num_patch_w_per_win)
+
+            reverse_patch_indexes = num_patch_h_per_win*num_patch_w_per_win - 1 - patch_indexes
+            reverse_patch_indexes = torch.flip(reverse_patch_indexes, dims=(1,))
+
+            k_shuffled = torch.clone(k)
+            q_shuffled = torch.clone(q)
+            v_shuffled = torch.clone(v)
+
+            for w in range(num_win_h*num_win_w):
+                k_shuffled[:, :, :, w] = k[:, :, patch_indexes[w, :], w]
+                q_shuffled[:, :, :, w] = q[:, :, patch_indexes[w, :], w]
+                v_shuffled[:, :, :, w] = v[:, :, patch_indexes[w, :], w]
+
+            k = k_shuffled
+            q = q_shuffled
+            v = v_shuffled
+
+        # [B, T, num_patches, num_windows, num_heads, hc] x [B, T, num_patches, num_windows, num_heads, hc] -> (B, T, num_patches, num_heads, num_windows, num_windows)
+        if self.cosine_att:
+            att = torch.einsum("BTPWND, BTPIND -> BTPNWI", F.normalize(q, dim=-1), F.normalize(k, dim=-1))
+        else:
+            if self.normalize_Q_K:
+                eps = torch.finfo(k.dtype).eps
+                k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
+                q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
+
+            att = torch.einsum("BTPWND, BTPIND -> BTPNWI", q, k) * torch.tensor(1.0 / math.sqrt(hc))
+
+        att = F.softmax(att, dim=-1)
+        if self.att_with_relative_postion_bias:
+            relative_position_bias = self.get_relative_position_bias(num_win_h, num_win_w)
+            att = att + relative_position_bias
+
+        att = self.attn_drop(att)
+
+        # (B, T, num_patches, num_heads, num_windows, num_windows) * (B, T, num_patches, num_windows, num_heads, hc)
+        y = torch.einsum("BTPNWI, BTPIND -> BTPWND", att, v)
+
+        if self.shuffle_in_window:
+            y_restored = torch.clone(y)
+            for w in range(num_win_h*num_win_w):
+                y_restored[:, :, :, w] = y[:, :, reverse_patch_indexes[w, :], w]
+
+            y = torch.reshape(y_restored, (B, T, num_patch_h_per_win, num_patch_w_per_win, num_win_h, num_win_w, ph, pw, C))
+        else:
+            y = y.reshape(B, T, num_patch_h_per_win, num_patch_w_per_win, num_win_h, num_win_w, ph, pw, C)
+
         y = self.grid2im(y)
 
         return y
@@ -186,116 +254,58 @@ class SpatialGlobalAttention(CnnAttentionBase):
             q = self.query(x)
             v = self.value(x)
 
-            k = self.im2grid(k) # (B, T, num_patch_per_win, num_patch_per_win, num_win_h, num_win_w, C, Ps, Ps)
+            k = self.im2grid(k) # (B, T, num_patch_per_win, num_patch_per_win, num_win_h, num_win_w, Ps, Ps, C)
             q = self.im2grid(q)
             v = self.im2grid(v)
         else:
-            x = self.im2grid(x) # (B, T, num_patch_per_win, num_patch_per_win, num_win_h, num_win_w, C_in, Ps, Ps)
-            k = self.key(x) # (B, T, num_patch_per_win, num_patch_per_win, num_win_h, num_win_w, C, Ps, Ps)
+            x = self.im2grid(x) # (B, T, num_patch_per_win, num_patch_per_win, num_win_h, num_win_w, Ps, Ps, C_in)
+            k = self.key(x) # (B, T, num_patch_per_win, num_patch_per_win, num_win_h, num_win_w, Ps, Ps, C)
             q = self.query(x)
             v = self.value(x)
-            
-        B, T, num_patch_h_per_win, num_patch_w_per_win, num_win_h, num_win_w, C, ph, pw = k.shape
 
-        # format the window
-        hc = torch.div(C*ph*pw, self.n_head, rounding_mode="floor")
-
-        # k, q, v will be [B, T, num_patch_h_per_win*num_patch_w_per_win, self.n_head, num_win_h*num_win_w, hc]
-        k = k.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc)).transpose(3, 4)         
-        q = q.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc)).transpose(3, 4)
-        v = v.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc)).transpose(3, 4)
-        
-        if self.shuffle_in_window:
-            
-            # random permute within a window
-            patch_indexes = torch.zeros([num_win_h*num_win_w, num_patch_h_per_win*num_patch_w_per_win], dtype=torch.long)
-            for w in range(num_win_h*num_win_w):
-                patch_indexes[w, :] = torch.randperm(num_patch_h_per_win*num_patch_w_per_win)
-            
-            reverse_patch_indexes = num_patch_h_per_win*num_patch_w_per_win - 1 - patch_indexes
-            reverse_patch_indexes = torch.flip(reverse_patch_indexes, dims=(1,))
-            
-            k_shuffled = torch.clone(k)
-            q_shuffled = torch.clone(q)
-            v_shuffled = torch.clone(v)
-            
-            for w in range(num_win_h*num_win_w):
-                k_shuffled[:, :, :, :, w] = k[:, :, patch_indexes[w, :], :, w]
-                q_shuffled[:, :, :, :, w] = q[:, :, patch_indexes[w, :], :, w]
-                v_shuffled[:, :, :, :, w] = v[:, :, patch_indexes[w, :], :, w]
-                
-            k = k_shuffled
-            q = q_shuffled
-            v = v_shuffled
-            
-        # [B, T, num_patches, num_heads, num_windows, hc] x [B, T, num_patches, num_heads, hc, num_windows] -> (B, T, num_patches, num_heads, num_windows, num_windows)
-        if self.cosine_att:
-            att = F.normalize(q, dim=-1) @ F.normalize(k, dim=-1).transpose(-2, -1)
+        #y1 = self.attention(torch.clone(k), torch.clone(q), torch.clone(v))
+        if self.use_einsum:
+            y = self.einsum_attention(k, q, v)
         else:
-            if self.normalize_Q_K:
-                eps = torch.finfo(k.dtype).eps
-                k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
-                q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
-                            
-            att = q @ k.transpose(-2, -1) * torch.tensor(1.0 / math.sqrt(hc))
-        
-        att = F.softmax(att, dim=-1)        
-        if self.att_with_relative_postion_bias:
-            relative_position_bias = self.get_relative_position_bias(num_win_h, num_win_w)
-            att = att + relative_position_bias
-            
-        att = self.attn_drop(att)
-        
-        # (B, T, num_patches, num_heads, num_windows, num_windows) * (B, T, num_patches, num_heads, num_windows, hc)
-        y = att @ v # (B, T, num_patches, num_heads, num_windows, hc)
-        y = y.transpose(3, 4) # (B, T, num_patches, num_windows, num_heads, hc)
+            y = self.attention(k, q, v)
 
-        if self.shuffle_in_window:        
-            y_restored = torch.clone(y)
-            for w in range(num_win_h*num_win_w):
-                y_restored[:, :, :, w] = y[:, :, reverse_patch_indexes[w, :], w]
-                        
-            y = torch.reshape(y_restored, (B, T, num_patch_h_per_win, num_patch_w_per_win, num_win_h, num_win_w, C, ph, pw))
-        else:
-            y = torch.reshape(y, (B, T, num_patch_h_per_win, num_patch_w_per_win, num_win_h, num_win_w, C, ph, pw))
-            
-        y = self.grid2im(y)
-        
+        #print(torch.allclose(y1, y))
+
         y = self.output_proj(y)
 
         return y
 
     def im2grid(self, x):
         """
-        Reshape the input into windows of local areas        
+        Reshape the input into windows of local areas
         """
         b, t, c, h, w = x.shape
 
-        wind_view = rearrange(x, 'b t c (num_win_h num_patch_h patch_size_h) (num_win_w num_patch_w patch_size_w) -> b t num_win_h num_win_w num_patch_h num_patch_w c patch_size_h patch_size_w', 
+        wind_view = rearrange(x, 'b t c (num_win_h num_patch_h patch_size_h) (num_win_w num_patch_w patch_size_w) -> b t num_patch_h num_patch_w num_win_h num_win_w patch_size_h patch_size_w c', 
                               num_win_h=self.num_wind[0], num_patch_h=h//(self.num_wind[0]*self.patch_size[0]), patch_size_h=self.patch_size[0], 
                               num_win_w=self.num_wind[1], num_patch_w=w//(self.num_wind[0]*self.patch_size[1]), patch_size_w=self.patch_size[1])
-        
-        wind_view = torch.permute(wind_view, (0, 1, 4, 5, 2, 3, 6, 7, 8))
-        
+
+        #wind_view = torch.permute(wind_view, (0, 1, 4, 5, 2, 3, 6, 7, 8))
+
         return wind_view
 
     def grid2im(self, x):
         """
         Reshape the windows back into the complete image
         """
-        b, t, num_patch_h, num_patch_w, num_win_h, num_win_w, c, ph, pw = x.shape
+        b, t, num_patch_h, num_patch_w, num_win_h, num_win_w, ph, pw, c = x.shape
 
-        im_view = torch.permute(x, (0, 1, 4, 5, 2, 3, 6, 7, 8))
-        
-        im_view = rearrange(im_view, 'b t num_win_h num_win_w num_patch_h num_patch_w c patch_size_h patch_size_w -> b t c (num_win_h num_patch_h patch_size_h) (num_win_w num_patch_w patch_size_w)', 
+        #im_view = torch.permute(x, (0, 1, 4, 5, 2, 3, 6, 7, 8))
+
+        im_view = rearrange(x, 'b t num_patch_h num_patch_w num_win_h num_win_w patch_size_h patch_size_w c -> b t c (num_win_h num_patch_h patch_size_h) (num_win_w num_patch_w patch_size_w)', 
                               num_win_h=num_win_h, num_patch_h=num_patch_h, patch_size_h=ph, 
                               num_win_w=num_win_w, num_patch_w=num_patch_w, patch_size_w=pw)
         return im_view
-    
+
 # -------------------------------------------------------------------------------------------------
 
 def tests():
-    
+    import time
     print("Begin Testing")
 
     t = np.arange(256)
@@ -310,12 +320,12 @@ def tests():
     C_out = 8
     test_in = t.repeat(B, T, 1, 1, 1)
     print(test_in.shape)
-    
+
     spacial_vit = SpatialGlobalAttention(H=H, W=W, window_size=[8, 8], patch_size=[4, 4], num_wind=None, num_patch=None, a_type="conv", C_in=C, C_out=C_out)
-    
+
     a = spacial_vit.im2grid(test_in)  
     b = spacial_vit.grid2im(a)
-    
+
     gt = torch.tensor([[[[ 64.,  65.,  66.,  67.],
           [ 80.,  81.,  82.,  83.],
           [ 96.,  97.,  98.,  99.],
@@ -336,62 +346,72 @@ def tests():
           [216., 217., 218., 219.],
           [232., 233., 234., 235.],
           [248., 249., 250., 251.]]]])
-    
-    if torch.norm(a[0, 0, 1, 0, :, :, 0, :, :] - gt)>1e-3:
+
+    if torch.norm(a[0, 0, 1, 0, :, :, :, :, 0] - gt)>1e-3:
         raise "im2grid test failed"
-    
+
     if torch.norm(b-test_in)<1e-3:   
         print("Passed im2grid test")
     else:
         raise "im2grid test failed"
-       
+
     a_types = ["conv", "lin"]
     normalize_Q_Ks = [True, False]
     cosine_atts = [True, False]
     att_with_relative_postion_biases = [True, False]
     att_with_output_projs = [True, False]
 
+    device = get_device()
+
     B, T, C, H1, W1 = 2, 4, 2, 256, 256
     C_out = 8
-    test_in = torch.rand(B, T, C, H1, W1)
+    test_in = torch.rand(B, T, C, H1, W1).to(device=device)
     print(test_in.shape)
     
     B, T, C, H2, W2 = 2, 4, 2, 128, 128
     C_out = 8
-    test_in2 = torch.rand(B, T, C, H2, W2)
+    test_in2 = torch.rand(B, T, C, H2, W2).to(device=device)
     print(test_in2.shape)
-    
-    for a_type in a_types:
-        for normalize_Q_K in normalize_Q_Ks:
-            for att_with_output_proj in att_with_output_projs:
-                for cosine_att in cosine_atts:
-                    for att_with_relative_postion_bias in att_with_relative_postion_biases:
 
-                        m = SpatialGlobalAttention(window_size=[8, 8], patch_size=[4, 4], 
-                                                   num_wind=None, num_patch=None, 
-                                                    a_type=a_type, 
-                                                    C_in=C, C_out=C_out, 
-                                                    H=H1, W=W1, 
-                                                    cosine_att=cosine_att, 
-                                                    normalize_Q_K=normalize_Q_K, 
-                                                    att_with_relative_postion_bias=att_with_relative_postion_bias,
-                                                    att_with_output_proj=att_with_output_proj)
-                        test_out = m(test_in)
+    with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
+        for a_type in a_types:
+            for normalize_Q_K in normalize_Q_Ks:
+                for att_with_output_proj in att_with_output_projs:
+                    for cosine_att in cosine_atts:
+                        for att_with_relative_postion_bias in att_with_relative_postion_biases:
+                            t0 = time.time()
+                            m = SpatialGlobalAttention(window_size=[32, 32], patch_size=[8, 8], 
+                                                    num_wind=None, num_patch=None, 
+                                                        a_type=a_type, 
+                                                        C_in=C, C_out=C_out, 
+                                                        H=H1, W=W1, 
+                                                        cosine_att=cosine_att, 
+                                                        normalize_Q_K=normalize_Q_K, 
+                                                        att_with_relative_postion_bias=att_with_relative_postion_bias,
+                                                        att_with_output_proj=att_with_output_proj)
 
-                        Bo, To, Co, Ho, Wo = test_out.shape
-                        assert B==Bo and T==To and Co==C_out and H1==Ho and W1==Wo
-                        
-                        loss = nn.MSELoss()
-                        mse = loss(test_in, test_out[:,:,:C,:,:])
-                        mse.backward()
-                        
-                        test_out = m(test_in2)
+                            m.to(device=device)
+                            test_out = m(test_in)
+                            t1 = time.time()
+                            print(f"forward pass - {t1-t0} seconds")
 
-                        Bo, To, Co, Ho, Wo = test_out.shape
-                        assert B==Bo and T==To and Co==C_out and H2==Ho and W2==Wo
-                
+                            Bo, To, Co, Ho, Wo = test_out.shape
+                            assert B==Bo and T==To and Co==C_out and H1==Ho and W1==Wo
+
+                            t0 = time.time()
+                            loss = nn.MSELoss()
+                            mse = loss(test_in, test_out[:,:,:C,:,:])
+                            mse.backward()
+                            t1 = time.time()
+                            print(f"backward pass - {t1-t0} seconds")
+
+                            test_out = m(test_in2)
+
+                            Bo, To, Co, Ho, Wo = test_out.shape
+                            assert B==Bo and T==To and Co==C_out and H2==Ho and W2==Wo
+
     print("Passed SpatialGlobalAttention tests")
-    
+
     print("Passed all tests")
 
 # -------------------------------------------------------------------------------------------------
@@ -412,18 +432,19 @@ def benchmark():
 
     import torch.utils.benchmark as benchmark
 
-    print(f"{Fore.GREEN}-------------> SpatialLocalAttention <----------------------{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}-------------> SpatialGlobalAttention <----------------------{Style.RESET_ALL}")
 
-    m = SpatialLocalAttention(C_in=C, C_out=C_out, H=H, W=W,
-                            window_size=[16, 16], patch_size=[2, 2], 
-                            num_wind=[8, 8], num_patch=[4, 4], 
+    m = SpatialGlobalAttention(C_in=C, C_out=C_out, H=H, W=H,
+                            window_size=[32, 32], patch_size=[4, 4], 
+                            num_wind=[4, 4], num_patch=[8, 8], 
                             a_type="conv", n_head=8,
                             kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), 
-                            att_dropout_p=0.0, 
+                            att_dropout_p=0.1, 
                             cosine_att=True, 
                             normalize_Q_K=True, 
                             att_with_relative_postion_bias=True,
                             att_with_output_proj=True,
+                            shuffle_in_window=False,
                             use_einsum=True)
 
     m.to(device=device)
@@ -431,20 +452,21 @@ def benchmark():
     with torch.inference_mode():
         y = m(test_in)
 
-    benchmark_all(m, test_in, grad=None, repeats=80, desc='SpatialLocalAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_all(m, test_in, grad=None, repeats=80, desc='SpatialGlobalAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
-    benchmark_memory(m, test_in, desc='SpatialLocalAttention-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
+    benchmark_memory(m, test_in, desc='SpatialGlobalAttention-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
-    m = SpatialLocalAttention(C_in=C, C_out=C_out, H=H, W=W,
-                            window_size=[16, 16], patch_size=[2, 2], 
-                            num_wind=[8, 8], num_patch=[4, 4], 
+    m = SpatialGlobalAttention(C_in=C, C_out=C_out, H=H, W=H,
+                            window_size=[32, 32], patch_size=[4, 4], 
+                            num_wind=[4, 4], num_patch=[8, 8], 
                             a_type="conv", n_head=8,
                             kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), 
-                            att_dropout_p=0.0, 
+                            att_dropout_p=0.1, 
                             cosine_att=True, 
                             normalize_Q_K=True, 
                             att_with_relative_postion_bias=True,
                             att_with_output_proj=True,
+                            shuffle_in_window=False,
                             use_einsum=False)
 
     m.to(device=device)
@@ -452,9 +474,9 @@ def benchmark():
     with torch.inference_mode():
         y = m(test_in)
 
-    benchmark_all(m, test_in, grad=None, repeats=80, desc='SpatialLocalAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_all(m, test_in, grad=None, repeats=80, desc='SpatialGlobalAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
-    benchmark_memory(m, test_in, desc='SpatialLocalAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
+    benchmark_memory(m, test_in, desc='SpatialGlobalAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
     # def loss(model, x):
     #     y = model(x)

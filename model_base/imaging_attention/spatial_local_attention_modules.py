@@ -161,7 +161,7 @@ class SpatialLocalAttention(CnnAttentionBase):
                 k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
                 q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
 
-            att = q @ k.transpose(-2, -1) * torch.tensor(1.0 / math.sqrt(hc))
+            att = torch.einsum("BTWPND, BTWQND -> BTWNPQ", q, k) * torch.tensor(1.0 / math.sqrt(hc))
 
         att = F.softmax(att, dim=-1)
         if self.att_with_relative_postion_bias:
@@ -239,7 +239,9 @@ class SpatialLocalAttention(CnnAttentionBase):
 # -------------------------------------------------------------------------------------------------
 
 def tests():
-    
+
+    import time
+
     print("Begin Testing")
 
     t = np.arange(256)
@@ -259,7 +261,7 @@ def tests():
                                         num_wind=[2,2], num_patch=[2, 2],
                                         a_type="conv", C_in=C, C_out=C_out)
     
-    a = spacial_vit.im2grid(test_in)  
+    a = spacial_vit.im2grid(test_in) # b t num_win_h num_win_w num_patch_h num_patch_w patch_size_h patch_size_w c
     b = spacial_vit.grid2im(a)
     
     gt = torch.tensor([[[[128., 129., 130., 131.],
@@ -283,7 +285,7 @@ def tests():
           [228., 229., 230., 231.],
           [244., 245., 246., 247.]]]])
     
-    if torch.norm(a[0, 0, 1, 0, :, :, 0, :, :] - gt)>1e-3:
+    if torch.norm(a[0, 0, 1, 0, :, :, :, :, 1] - gt)>1e-3:
         raise "im2grid test failed"
     
     if torch.norm(b-test_in)<1e-3:   
@@ -297,22 +299,25 @@ def tests():
     att_with_relative_postion_biases = [True, False]
     att_with_output_projs = [True, False]
 
+    device = get_device()
+
     B, T, C, H1, W1 = 2, 4, 2, 256, 256
     C_out = 8
-    test_in = torch.rand(B, T, C, H1, W1)
+    test_in = torch.rand(B, T, C, H1, W1).to(device=device)
     print(test_in.shape)
     
     B, T, C, H2, W2 = 2, 4, 2, 128, 128
     C_out = 8
-    test_in2 = torch.rand(B, T, C, H2, W2)
+    test_in2 = torch.rand(B, T, C, H2, W2).to(device=device)
     print(test_in2.shape)
-    
+
     for a_type in a_types:
         for normalize_Q_K in normalize_Q_Ks:
             for att_with_output_proj in att_with_output_projs:
                 for cosine_att in cosine_atts:
                     for att_with_relative_postion_bias in att_with_relative_postion_biases:
 
+                        t0 = time.time()
                         m = SpatialLocalAttention(H=H1, W=W1, window_size=None, patch_size=None, 
                                                             num_wind=[8, 8], num_patch=[4, 4], 
                                                             a_type=a_type, 
@@ -321,15 +326,22 @@ def tests():
                                                             normalize_Q_K=normalize_Q_K, 
                                                             att_with_relative_postion_bias=att_with_relative_postion_bias,
                                                             att_with_output_proj=att_with_output_proj)
+                        m.to(device=device)
                         test_out = m(test_in)
+
+                        t1 = time.time()
+                        print(f"forward pass - {t1-t0} seconds")
 
                         Bo, To, Co, Ho, Wo = test_out.shape
                         assert B==Bo and T==To and Co==C_out and H1==Ho and W1==Wo
-                        
+
+                        t0 = time.time()
                         loss = nn.MSELoss()
                         mse = loss(test_in, test_out[:,:,:C,:,:])
                         mse.backward()
-                        
+                        t1 = time.time()
+                        print(f"backward pass - {t1-t0} seconds")
+
                         test_out = m(test_in2)
 
                         Bo, To, Co, Ho, Wo = test_out.shape

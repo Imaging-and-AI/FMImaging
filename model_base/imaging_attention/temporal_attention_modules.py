@@ -289,8 +289,9 @@ class TemporalCnnAttention(CnnAttentionBase):
 
 def tests():
     # tests
-    
-    B, T, C, H, W = 2, 4, 3, 64, 64
+    import time
+
+    B, T, C, H, W = 2, 16, 3, 128, 128
     C_out = 8    
 
     device = get_device()
@@ -305,9 +306,35 @@ def tests():
     for causal in causals:
         for normalize_Q_K in normalize_Q_Ks:
             for att_with_output_proj in att_with_output_projs:
-
+                t0 = time.time()
                 temporal = TemporalCnnAttention(C, C_out=C_out, is_causal=causal, normalize_Q_K=normalize_Q_K, att_with_output_proj=att_with_output_proj).to(device=device)
                 test_out = temporal(test_in)
+                t1 = time.time()
+                print(f"forward pass - {t1-t0} seconds")
+
+                t0 = time.time()
+                loss = nn.MSELoss()
+                mse = loss(test_in, test_out[:,:,:C,:,:])
+                mse.backward()
+                t1 = time.time()
+                print(f"backward pass - {t1-t0} seconds")
+
+                Bo, To, Co, Ho, Wo = test_out.shape
+                assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
+
+                # --------------------------------------
+                t0 = time.time()
+                temporal = TemporalCnnStandardAttention(C, C_out=C_out, is_causal=causal, normalize_Q_K=normalize_Q_K, att_with_output_proj=att_with_output_proj).to(device=device)
+                test_out = temporal(test_in)
+                t1 = time.time()
+                print(f"forward pass - {t1-t0} seconds")
+
+                t0 = time.time()
+                loss = nn.MSELoss()
+                mse = loss(test_in, test_out[:,:,:C,:,:])
+                mse.backward()
+                t1 = time.time()
+                print(f"backward pass - {t1-t0} seconds")
 
                 Bo, To, Co, Ho, Wo = test_out.shape
                 assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
@@ -317,33 +344,30 @@ def tests():
     print("Passed all tests")
 
 def benchmark():
-    
+
     from utils.benchmark import benchmark_all, benchmark_memory, pytorch_profiler
     from utils.setup_training import set_seed
     from colorama import Fore, Style
-        
+
     set_seed(seed=53)
-    
+
     device = get_device()
-    
-    B, T, C, H, W = 16, 12, 3, 128, 128
+
+    B, T, C, H, W = 16, 64, 3, 64, 64
     C_out = 64
     test_in = torch.rand(B,T,C,H,W, dtype=torch.float32, device=device)
-       
-    print(test_in[6:9,2:6, 2, 54, 34])
-    print(test_in[11:,7:, 2, 54, 34])
-       
+
     import torch.utils.benchmark as benchmark
-    
+
     X1 = torch.randn(100, 534, 12, 256, dtype=torch.float32, device=device)    
     X2 = torch.randn(100, 534, 12, 256, dtype=torch.float32, device=device)
-    
+
     R1 = torch.einsum("ntdg, ncdg -> ndtc", X1, X2)
     R2 = torch.einsum("ntdg, ncdg -> ntdc", X1, X2)
 
     def f1(X1, X2):
         a = torch.einsum("ntdg, ncdg -> ndtc", X1, X2)
-        
+
     def f2(X1, X2):
         a = X1.transpose(1, 2)
         b = X2.permute((0, 2, 3, 1))
@@ -352,13 +376,13 @@ def benchmark():
     t0 = benchmark.Timer(
         stmt='f1(X1, X2)',
         globals={'f1':f1, 'X1': X1, 'X2':X2})
-    
+
     print(t0.timeit(100))
-    
+
     t0 = benchmark.Timer(
         stmt='f2(X1, X2)',
         globals={'f2':f2, 'X1': X1, 'X2':X2})
-    
+
     print(t0.timeit(100))
 
     print(f"{Fore.GREEN}-------------> Flash temporal attention <----------------------{Style.RESET_ALL}")
@@ -374,14 +398,14 @@ def benchmark():
                                     att_with_output_proj=0.1)
 
     temporal.to(device=device)
-                
+
     with torch.inference_mode():
         y = temporal(test_in)
-                    
+
     benchmark_all(temporal, test_in, grad=None, repeats=80, desc='TemporalCnnAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
-    
+
     benchmark_memory(temporal, test_in, desc='TemporalCnnAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
-    
+
     print(f"{Fore.YELLOW}-------------> Standard temporal attention <----------------------{Style.RESET_ALL}")
     temporal = TemporalCnnStandardAttention(C_in=C, 
                                     C_out=C_out, 
@@ -393,12 +417,12 @@ def benchmark():
                                     use_einsum=True)
 
     temporal.to(device=device)
-                
+
     with torch.inference_mode():
         y = temporal(test_in)
 
     benchmark_all(temporal, test_in, grad=None, repeats=80, desc='TemporalCnnStandardAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
-    
+
     benchmark_memory(temporal, test_in, desc='TemporalCnnStandardAttention-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
     temporal = TemporalCnnStandardAttention(C_in=C, 
@@ -411,7 +435,7 @@ def benchmark():
                                     use_einsum=False)
 
     temporal.to(device=device)
-                
+
     with torch.inference_mode():
         y = temporal(test_in)
 

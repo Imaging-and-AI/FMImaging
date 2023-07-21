@@ -257,7 +257,9 @@ class SpatialViTAttention(CnnAttentionBase):
 # -------------------------------------------------------------------------------------------------
 
 def tests():
-    
+
+    import time
+
     print("Begin Testing")
 
     t = np.arange(256)
@@ -294,22 +296,25 @@ def tests():
     att_with_relative_postion_biases = [True, False]
     att_with_output_projs = [True, False]
 
+    device = get_device()
+
     B, T, C, H1, W1 = 2, 4, 2, 256, 256
     C_out = 8
-    test_in = torch.rand(B, T, C, H1, W1)
+    test_in = torch.rand(B, T, C, H1, W1).to(device=device)
     print(test_in.shape)
     
     B, T, C, H2, W2 = 2, 4, 2, 128, 128
     C_out = 8
-    test_in2 = torch.rand(B, T, C, H2, W2)
+    test_in2 = torch.rand(B, T, C, H2, W2).to(device=device)
     print(test_in2.shape)
-    
+
     for a_type in a_types:
         for normalize_Q_K in normalize_Q_Ks:
             for att_with_output_proj in att_with_output_projs:
                 for cosine_att in cosine_atts:
                     for att_with_relative_postion_bias in att_with_relative_postion_biases:
 
+                        t0 = time.time()
                         spacial_vit = SpatialViTAttention(window_size=None, num_wind=[4, 8],
                                                           a_type=a_type, 
                                                           C_in=C, C_out=C_out, 
@@ -318,15 +323,21 @@ def tests():
                                                           normalize_Q_K=normalize_Q_K, 
                                                           att_with_relative_postion_bias=att_with_relative_postion_bias,
                                                           att_with_output_proj=att_with_output_proj)
+                        spacial_vit.to(device=device)
                         test_out = spacial_vit(test_in)
+                        t1 = time.time()
+                        print(f"forward pass - {t1-t0} seconds")
 
                         Bo, To, Co, Ho, Wo = test_out.shape
                         assert B==Bo and T==To and Co==C_out and H1==Ho and W1==Wo
-                        
+
+                        t0 = time.time()
                         loss = nn.MSELoss()
                         mse = loss(test_in, test_out[:,:,:C,:,:])
                         mse.backward()
-                        
+                        t1 = time.time()
+                        print(f"backward pass - {t1-t0} seconds")
+
                         if a_type == "conv":
                             test_out = spacial_vit(test_in2)
 
