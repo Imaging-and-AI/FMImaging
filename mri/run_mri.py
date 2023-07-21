@@ -323,7 +323,7 @@ class mri_ddp_base(run_ddp_base):
 
         curr_time = datetime.now()
         moment = curr_time.strftime('%Y%m%d_%H%M%S_%f')
-        run_str = f"{moment}_C-{c}-{int(scale_ratio_in_mixer)}_amp-{config.use_amp}"
+        run_str = f"{config.model_type}_{moment}_C-{c}-{int(scale_ratio_in_mixer)}_amp-{config.use_amp}"
         #run_str = moment
 
         if config.run_extra_note is not None:
@@ -379,8 +379,8 @@ class mri_ddp_base(run_ddp_base):
         cmd_run.extend(["--max_noise_level", f"{config.max_noise_level}"])
 
         cmd_run.extend([
-            "--run_name", f"{config.project}-{bk.upper()}-{run_str}",
-            "--run_notes", f"{config.project}-{bk.upper()}-{run_str}",
+            "--run_name", f"{config.project}-{run_str}",
+            "--run_notes", f"{config.project}-{run_str}",
             "--snr_perturb_prob", f"{snr_perturb_prob}",
             "--n_head", f"{n_heads}"
         ])

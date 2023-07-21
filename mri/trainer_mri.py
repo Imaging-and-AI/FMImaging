@@ -293,6 +293,10 @@ def trainer(rank, global_rank, config, wandb_run):
 
     # -----------------------------------------------
 
+    print(f"{rank_str}, {Style.BRIGHT}{Fore.RED}{Back.LIGHTWHITE_EX}RUN NAME - {config.run_name}{Style.RESET_ALL}")
+
+    # -----------------------------------------------
+
     num_epochs = config.num_epochs
     batch_size = config.batch_size
     lr = config.global_lr
