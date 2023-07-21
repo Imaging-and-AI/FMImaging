@@ -221,6 +221,7 @@ class TemporalCnnAttention(CnnAttentionBase):
             self.flash_atten_type = torch.float32
 
         torch.backends.cuda.enable_flash_sdp(True)
+        torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=False, enable_mem_efficient=False)
 
     def forward(self, x):
         """
