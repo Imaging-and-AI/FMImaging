@@ -204,10 +204,13 @@ class SpatialLocalAttention(CnnAttentionBase):
             q = self.query(x)
             v = self.value(x)
 
+        #y1 = self.attention(torch.clone(k), torch.clone(q), torch.clone(v))
         if self.use_einsum:
             y = self.einsum_attention(k, q, v)
         else:
             y = self.attention(k, q, v)
+
+        #assert torch.allclose(y1, y)
 
         y = self.output_proj(y)
 

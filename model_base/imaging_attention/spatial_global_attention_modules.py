@@ -248,7 +248,7 @@ class SpatialGlobalAttention(CnnAttentionBase):
         B, T, C, H, W = x.size()
 
         assert C == self.C_in, f"Input channel {C} does not match expected input channel {self.C_in}"
-            
+
         if self.a_type=="conv":
             k = self.key(x) # (B, T, C, H_prime, W_prime)
             q = self.query(x)
@@ -269,7 +269,7 @@ class SpatialGlobalAttention(CnnAttentionBase):
         else:
             y = self.attention(k, q, v)
 
-        #print(torch.allclose(y1, y))
+        #assert torch.allclose(y1, y)
 
         y = self.output_proj(y)
 
@@ -281,11 +281,17 @@ class SpatialGlobalAttention(CnnAttentionBase):
         """
         b, t, c, h, w = x.shape
 
-        wind_view = rearrange(x, 'b t c (num_win_h num_patch_h patch_size_h) (num_win_w num_patch_w patch_size_w) -> b t num_patch_h num_patch_w num_win_h num_win_w patch_size_h patch_size_w c', 
+        # wind_view = rearrange(x, 'b t c (num_win_h num_patch_h patch_size_h) (num_win_w num_patch_w patch_size_w) -> b t num_patch_h num_patch_w num_win_h num_win_w patch_size_h patch_size_w c', 
+        #                       num_win_h=self.num_wind[0], num_patch_h=h//(self.num_wind[0]*self.patch_size[0]), patch_size_h=self.patch_size[0], 
+        #                       num_win_w=self.num_wind[1], num_patch_w=w//(self.num_wind[0]*self.patch_size[1]), patch_size_w=self.patch_size[1])
+
+        #wind_view = torch.permute(wind_view, (0, 1, 4, 5, 2, 3, 6, 7, 8))
+
+        wind_view = rearrange(x, 'b t c (num_win_h num_patch_h patch_size_h) (num_win_w num_patch_w patch_size_w) -> b t c num_patch_h num_patch_w num_win_h num_win_w patch_size_h patch_size_w', 
                               num_win_h=self.num_wind[0], num_patch_h=h//(self.num_wind[0]*self.patch_size[0]), patch_size_h=self.patch_size[0], 
                               num_win_w=self.num_wind[1], num_patch_w=w//(self.num_wind[0]*self.patch_size[1]), patch_size_w=self.patch_size[1])
 
-        #wind_view = torch.permute(wind_view, (0, 1, 4, 5, 2, 3, 6, 7, 8))
+        wind_view = torch.permute(wind_view, (0, 1, 3, 4, 5, 6, 7, 8, 2))
 
         return wind_view
 
@@ -295,11 +301,16 @@ class SpatialGlobalAttention(CnnAttentionBase):
         """
         b, t, num_patch_h, num_patch_w, num_win_h, num_win_w, ph, pw, c = x.shape
 
-        #im_view = torch.permute(x, (0, 1, 4, 5, 2, 3, 6, 7, 8))
-
-        im_view = rearrange(x, 'b t num_patch_h num_patch_w num_win_h num_win_w patch_size_h patch_size_w c -> b t c (num_win_h num_patch_h patch_size_h) (num_win_w num_patch_w patch_size_w)', 
+        im_view = torch.permute(x, (0, 1, 8, 2, 3, 4, 5, 6, 7))
+        im_view = rearrange(im_view, 'b t c num_patch_h num_patch_w num_win_h num_win_w patch_size_h patch_size_w -> b t c (num_win_h num_patch_h patch_size_h) (num_win_w num_patch_w patch_size_w)', 
                               num_win_h=num_win_h, num_patch_h=num_patch_h, patch_size_h=ph, 
                               num_win_w=num_win_w, num_patch_w=num_patch_w, patch_size_w=pw)
+
+        #im_view = torch.permute(x, (0, 1, 4, 5, 2, 3, 6, 7, 8))
+
+        # im_view = rearrange(x, 'b t num_patch_h num_patch_w num_win_h num_win_w patch_size_h patch_size_w c -> b t c (num_win_h num_patch_h patch_size_h) (num_win_w num_patch_w patch_size_w)', 
+        #                       num_win_h=num_win_h, num_patch_h=num_patch_h, patch_size_h=ph, 
+        #                       num_win_w=num_win_w, num_patch_w=num_patch_w, patch_size_w=pw)
         return im_view
 
 # -------------------------------------------------------------------------------------------------
