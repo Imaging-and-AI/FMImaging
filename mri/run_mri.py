@@ -193,7 +193,10 @@ class mri_ddp_base(run_ddp_base):
 
         vars['complex_i'] = [True]
         vars['residual'] = [True]
-        vars['weighted_loss'] = [True]
+
+        vars['weighted_loss_snr'] = [True]
+        vars['weighted_loss_temporal'] = [True]
+        vars['weighted_loss_added_noise'] = [True]
 
         vars['n_heads'] = [32]
 
@@ -224,7 +227,9 @@ class mri_ddp_base(run_ddp_base):
                     scale_ratio_in_mixer, \
                     complex_i,\
                     bs, \
-                    weighted_loss, \
+                    weighted_loss_snr, \
+                    weighted_loss_temporal, \
+                    weighted_loss_added_noise, \
                     loss_and_weights \
                         in itertools.product( 
                                             vars['optim'],
@@ -245,7 +250,9 @@ class mri_ddp_base(run_ddp_base):
                                             vars['scale_ratio_in_mixers'],
                                             vars['complex_i'],
                                             block_str,
-                                            vars['weighted_loss'],
+                                            vars['weighted_loss_snr'],
+                                            vars['weighted_loss_temporal'],
+                                            vars['weighted_loss_added_noise'],
                                             vars['losses']
                                             ):
 
@@ -270,7 +277,9 @@ class mri_ddp_base(run_ddp_base):
                                         load_path=config.load_path,
                                         complex_i=complex_i,
                                         residual=residual,
-                                        weighted_loss=weighted_loss,
+                                        weighted_loss_snr=weighted_loss_snr,
+                                        weighted_loss_temporal=weighted_loss_temporal,
+                                        weighted_loss_added_noise=weighted_loss_added_noise,
                                         snr_perturb_prob=snr_perturb_prob,
                                         n_heads=n_heads,
                                         losses=loss_and_weights[0],
@@ -303,7 +312,9 @@ class mri_ddp_base(run_ddp_base):
                         load_path=None,
                         complex_i=True,
                         residual=True,
-                        weighted_loss=True,
+                        weighted_loss_snr=True,
+                        weighted_loss_temporal=True,
+                        weighted_loss_added_noise=True,
                         snr_perturb_prob=0,
                         n_heads=32,
                         losses=['mse', 'l1'],
@@ -338,11 +349,18 @@ class mri_ddp_base(run_ddp_base):
             cmd_run.extend(["--residual"])
             run_str += "_residual"
 
-        if weighted_loss:
-            cmd_run.extend(["--weighted_loss_snr"])
-            cmd_run.extend(["--weighted_loss_temporal"])
-            cmd_run.extend(["--weighted_loss_added_noise"])
+        if weighted_loss_snr or weighted_loss_temporal or weighted_loss_added_noise:
             run_str += "_weighted_loss"
+
+        if weighted_loss_snr:
+            cmd_run.extend(["--weighted_loss_snr"])
+            run_str += "_snr"
+        if weighted_loss_temporal:
+            cmd_run.extend(["--weighted_loss_temporal"])
+            run_str += "_temporal"
+        if weighted_loss_added_noise:
+            cmd_run.extend(["--weighted_loss_added_noise"])
+            run_str += "_added_noise"
 
         if config.with_data_degrading:
             cmd_run.extend(["--with_data_degrading"])
