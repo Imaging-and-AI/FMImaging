@@ -321,7 +321,7 @@ def trainer(rank, global_rank, config, wandb_run):
     not_load_backbone = config.not_load_backbone
     not_load_post = config.not_load_post
     run_name = config.run_name
-    run_note = config.run_note
+    run_notes = config.run_notes
 
     ddp = config.ddp
 
@@ -360,7 +360,7 @@ def trainer(rank, global_rank, config, wandb_run):
         config.not_load_post = not_load_post
         config.model_type = model_type
         config.run_name = run_name
-        config.run_note = run_note
+        config.run_notes = run_notes
         #config.load_path = load_path
 
         print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")

@@ -166,6 +166,9 @@ def add_backbone_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for
     
     parser.add_argument('--backbone', type=str, default="hrnet", help="which backbone model to use, 'hrnet', 'unet', 'LLM', 'small_unet' ")
     
+    parser.add_argument("--use_einsum", action="store_true", help='if set, use einsum implementation.')
+    parser.add_argument("--temporal_flash_attention", action="store_true", help='if set, temporal attention uses flash attention implementation.')
+    
     # hrnet
     parser.add_argument('--backbone_hrnet.C', dest='backbone_hrnet.C', type=int, default=32, help="number of channels in main body of hrnet")
     parser.add_argument('--backbone_hrnet.num_resolution_levels', dest='backbone_hrnet.num_resolution_levels', type=int, default=2, help="number of resolution levels; image size reduce by x2 for every level")

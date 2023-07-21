@@ -183,7 +183,10 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             "num_patch": self.num_patch,
             
             "mixer_type": c.mixer_type,
-            "shuffle_in_window": c.shuffle_in_window
+            "shuffle_in_window": c.shuffle_in_window,
+            
+            "use_einsum": c.use_einsum,
+            "temporal_flash_attention": c.temporal_flash_attention
         }
 
         if num_stages >= 1:

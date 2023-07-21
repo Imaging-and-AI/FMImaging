@@ -283,7 +283,9 @@ def tests():
             
     a = spacial_vit.im2grid(test_in)  
     b = spacial_vit.grid2im(a)
-    
+
+    assert torch.allclose(test_in, b)
+       
     if torch.norm(b-test_in)<1e-3:   
         print("Passed im2grid test")
     else:

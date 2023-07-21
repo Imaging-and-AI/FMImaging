@@ -52,7 +52,7 @@ class mri_ddp_base(run_ddp_base):
 
         "--scheduler.ReduceLROnPlateau.patience", "0",
         "--scheduler.ReduceLROnPlateau.cooldown", "0",
-        "--scheduler.ReduceLROnPlateau.factor", "0.85",
+        "--scheduler.ReduceLROnPlateau.factor", "0.9",
 
         "--scheduler.OneCycleLR.pct_start", "0.2",
 

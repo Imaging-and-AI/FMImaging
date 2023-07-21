@@ -267,6 +267,8 @@ def tests():
     a = spacial_vit.im2grid(test_in) # b t num_win_h num_win_w num_patch_h num_patch_w patch_size_h patch_size_w c
     b = spacial_vit.grid2im(a)
     
+    assert torch.allclose(test_in, b)
+       
     gt = torch.tensor([[[[128., 129., 130., 131.],
           [144., 145., 146., 147.],
           [160., 161., 162., 163.],
