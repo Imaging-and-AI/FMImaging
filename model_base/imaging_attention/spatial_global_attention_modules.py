@@ -454,6 +454,8 @@ def benchmark():
     C_out = 64
     test_in = torch.rand(B,T,C,H,W, dtype=torch.float32, device=device)
 
+    repeats = 200
+
     import torch.utils.benchmark as benchmark
 
     print(f"{Fore.GREEN}-------------> SpatialGlobalAttention <----------------------{Style.RESET_ALL}")
@@ -466,7 +468,7 @@ def benchmark():
                             att_dropout_p=0.0, 
                             cosine_att=True, 
                             normalize_Q_K=True, 
-                            att_with_relative_postion_bias=True,
+                            att_with_relative_postion_bias=False,
                             att_with_output_proj=True,
                             shuffle_in_window=False,
                             use_einsum=True)
@@ -476,7 +478,7 @@ def benchmark():
     with torch.inference_mode():
         y = m(test_in)
 
-    benchmark_all(m, test_in, grad=None, repeats=80, desc='SpatialGlobalAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_all(m, test_in, grad=None, repeats=repeats, desc='SpatialGlobalAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
     benchmark_memory(m, test_in, desc='SpatialGlobalAttention-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
@@ -488,7 +490,7 @@ def benchmark():
                             att_dropout_p=0.0, 
                             cosine_att=True, 
                             normalize_Q_K=True, 
-                            att_with_relative_postion_bias=True,
+                            att_with_relative_postion_bias=False,
                             att_with_output_proj=True,
                             shuffle_in_window=False,
                             use_einsum=False)
@@ -498,7 +500,7 @@ def benchmark():
     with torch.inference_mode():
         y = m(test_in)
 
-    benchmark_all(m, test_in, grad=None, repeats=80, desc='SpatialGlobalAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_all(m, test_in, grad=None, repeats=repeats, desc='SpatialGlobalAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
     benchmark_memory(m, test_in, desc='SpatialGlobalAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 

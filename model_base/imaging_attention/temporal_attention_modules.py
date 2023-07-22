@@ -27,7 +27,7 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), \
                     stride_t=(2,2), att_dropout_p=0.0, 
                     cosine_att=False, normalize_Q_K=False, att_with_output_proj=True,
-                    use_einsum=True):
+                    use_einsum=False):
         """
         Defines the layer for a cnn self-attention on temporal axis
 

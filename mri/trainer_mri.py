@@ -1469,8 +1469,6 @@ def load_model(saved_model_path, saved_model_config=None, model_type=None):
 
         status = torch.load(saved_model_path, map_location=get_device())
         config = status['config']
-        config.use_einsum = True
-        config.temporal_flash_attention = False
 
         if not torch.cuda.is_available():
             config.device = torch.device('cpu')

@@ -39,7 +39,7 @@ class SpatialLocalAttention(CnnAttentionBase):
                  normalize_Q_K=False, 
                  att_with_relative_postion_bias=True,
                  att_with_output_proj=True,
-                 use_einsum=True):
+                 use_einsum=False):
         """
         Defines the layer for a cnn attention on spatial dimension with local windows and patches.
 
@@ -149,13 +149,17 @@ class SpatialLocalAttention(CnnAttentionBase):
         # format the window
         hc = torch.div(C*ph*pw, self.n_head, rounding_mode="floor")
 
+        #print(f"hc {hc}, has_flash_attention {self.has_flash_attention}, att_with_relative_postion_bias {self.att_with_relative_postion_bias}")
+
         if self.has_flash_attention and hc <= 256 and (not self.att_with_relative_postion_bias):
+            #print(f"run flash attention ... ")
             D = B*T*num_win_h*num_win_w
             k = k.reshape((D, num_patch_h_per_win*num_patch_w_per_win, self.n_head, hc))
             q = q.reshape((D, num_patch_h_per_win*num_patch_w_per_win, self.n_head, hc))
             v = v.reshape((D, num_patch_h_per_win*num_patch_w_per_win, self.n_head, hc))
             y = self.perform_flash_atten(k, q, v)
         else:
+            #print(f"run einsum implementation ... ")
             # k, q, v will be [B, T, num_win_h*num_win_w, self.n_head, num_patch_h_per_win*num_patch_w_per_win, hc]
             k = k.reshape((B, T, num_win_h*num_win_w, num_patch_h_per_win*num_patch_w_per_win, self.n_head, hc))
             q = q.reshape((B, T, num_win_h*num_win_w, num_patch_h_per_win*num_patch_w_per_win, self.n_head, hc))
@@ -380,6 +384,8 @@ def benchmark():
 
     device = get_device()
 
+    repeats = 200
+
     B, T, C, H, W = 16, 12, 3, 128, 128
     C_out = 64
     test_in = torch.rand(B,T,C,H,W, dtype=torch.float32, device=device)
@@ -396,7 +402,7 @@ def benchmark():
                             att_dropout_p=0.0, 
                             cosine_att=True, 
                             normalize_Q_K=True, 
-                            att_with_relative_postion_bias=True,
+                            att_with_relative_postion_bias=False,
                             att_with_output_proj=True,
                             use_einsum=True)
 
@@ -405,7 +411,7 @@ def benchmark():
     with torch.inference_mode():
         y = m(test_in)
 
-    benchmark_all(m, test_in, grad=None, repeats=80, desc='SpatialLocalAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_all(m, test_in, grad=None, repeats=repeats, desc='SpatialLocalAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
     benchmark_memory(m, test_in, desc='SpatialLocalAttention-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
@@ -417,7 +423,7 @@ def benchmark():
                             att_dropout_p=0.0, 
                             cosine_att=True, 
                             normalize_Q_K=True, 
-                            att_with_relative_postion_bias=True,
+                            att_with_relative_postion_bias=False,
                             att_with_output_proj=True,
                             use_einsum=False)
 
@@ -426,7 +432,7 @@ def benchmark():
     with torch.inference_mode():
         y = m(test_in)
 
-    benchmark_all(m, test_in, grad=None, repeats=80, desc='SpatialLocalAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_all(m, test_in, grad=None, repeats=repeats, desc='SpatialLocalAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
     benchmark_memory(m, test_in, desc='SpatialLocalAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 

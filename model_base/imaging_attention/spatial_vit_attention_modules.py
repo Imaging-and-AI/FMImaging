@@ -37,7 +37,7 @@ class SpatialViTAttention(CnnAttentionBase):
                  normalize_Q_K=False, 
                  att_with_relative_postion_bias=True,
                  att_with_output_proj=True,
-                 use_einsum=True):
+                 use_einsum=False):
         """
         Defines the layer for a cnn attention on spatial dimension with local windows
 
@@ -368,6 +368,8 @@ def benchmark():
 
     device = get_device()
 
+    repeats = 200
+
     B, T, C, H, W = 16, 12, 3, 128, 128
     C_out = 64
     n_head = 64
@@ -396,7 +398,7 @@ def benchmark():
     with torch.inference_mode():
         y = m(test_in)
 
-    benchmark_all(m, test_in, grad=None, repeats=80, desc='SpatialViTAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_all(m, test_in, grad=None, repeats=repeats, desc='SpatialViTAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
     benchmark_memory(m, test_in, desc='SpatialViTAttention-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
@@ -416,7 +418,7 @@ def benchmark():
     with torch.inference_mode():
         y = m(test_in)
 
-    benchmark_all(m, test_in, grad=None, repeats=80, desc='SpatialViTAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_all(m, test_in, grad=None, repeats=repeats, desc='SpatialViTAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
     benchmark_memory(m, test_in, desc='SpatialViTAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
