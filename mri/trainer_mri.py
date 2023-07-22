@@ -328,6 +328,7 @@ def trainer(rank, global_rank, config, wandb_run):
     not_load_post = config.not_load_post
     run_name = config.run_name
     run_notes = config.run_notes
+    disable_LSUV = config.disable_LSUV
 
     ddp = config.ddp
 
@@ -369,6 +370,7 @@ def trainer(rank, global_rank, config, wandb_run):
         config.model_type = model_type
         config.run_name = run_name
         config.run_notes = run_notes
+        config.disable_LSUV = disable_LSUV
         #config.load_path = load_path
 
         print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
