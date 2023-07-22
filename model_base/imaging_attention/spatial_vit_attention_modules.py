@@ -17,6 +17,7 @@ from torch.nn import functional as F
 from einops import rearrange
 
 from attention_modules import *
+from flash_attn import flash_attn_qkvpacked_func, flash_attn_func
 
 # -------------------------------------------------------------------------------------------------
 # CNN attention with the ViT style - an image is split into windows. Attention coefficients are computed among all windows.
@@ -143,34 +144,40 @@ class SpatialViTAttention(CnnAttentionBase):
         # format the window
         hc = torch.div(C*wh*ww, self.n_head, rounding_mode="floor")
 
-        k = k.reshape((B, T, num_win_h*num_win_w, self.n_head, hc))
-        q = q.reshape((B, T, num_win_h*num_win_w, self.n_head, hc))
-        v = v.reshape((B, T, num_win_h*num_win_w, self.n_head, hc))
-
-        if self.cosine_att:
-            att = torch.einsum("BTWND, BTSND -> BTNWS", F.normalize(q, dim=-1), F.normalize(k, dim=-1))
+        if self.has_flash_attention and hc <= 256 and (not self.att_with_relative_postion_bias):
+            k = k.reshape((B*T, num_win_h*num_win_w, self.n_head, hc))
+            q = q.reshape((B*T, num_win_h*num_win_w, self.n_head, hc))
+            v = v.reshape((B*T, num_win_h*num_win_w, self.n_head, hc))
+            y = self.perform_flash_atten(k, q, v)
         else:
-            if self.normalize_Q_K:
-                eps = torch.finfo(k.dtype).eps
-                k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
-                q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
+            k = k.reshape((B, T, num_win_h*num_win_w, self.n_head, hc))
+            q = q.reshape((B, T, num_win_h*num_win_w, self.n_head, hc))
+            v = v.reshape((B, T, num_win_h*num_win_w, self.n_head, hc))
 
-            att = torch.einsum("BTWND, BTSND -> BTNWS", q, k) * torch.tensor(1.0 / math.sqrt(hc))
+            if self.cosine_att:
+                att = torch.einsum("BTWND, BTSND -> BTNWS", F.normalize(q, dim=-1), F.normalize(k, dim=-1))
+            else:
+                if self.normalize_Q_K:
+                    eps = torch.finfo(k.dtype).eps
+                    k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
+                    q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
 
-        att = F.softmax(att, dim=-1)
+                att = torch.einsum("BTWND, BTSND -> BTNWS", q, k) * torch.tensor(1.0 / math.sqrt(hc))
 
-        # add the relative positional bias
-        if self.att_with_relative_postion_bias:
-            relative_position_bias = self.get_relative_position_bias(num_win_h, num_win_w)
-            att = att + relative_position_bias
+            att = F.softmax(att, dim=-1)
 
-        att = self.attn_drop(att)
+            # add the relative positional bias
+            if self.att_with_relative_postion_bias:
+                relative_position_bias = self.get_relative_position_bias(num_win_h, num_win_w)
+                att = att + relative_position_bias
 
-        # (B, T, num_heads, num_windows, num_windows) * (B, T, num_windows, num_heads, hc)
+            att = self.attn_drop(att)
 
-        y = torch.einsum("BTNWS, BTSND -> BTWND", att, v)
+            # (B, T, num_heads, num_windows, num_windows) * (B, T, num_windows, num_heads, hc)
+
+            y = torch.einsum("BTNWS, BTSND -> BTWND", att, v)
+
         y = y.reshape(B, T, num_win_h, num_win_w, wh, ww, C)
-
         y = self.grid2im(y)
 
         return y
@@ -299,7 +306,7 @@ def tests():
 
     device = get_device()
 
-    B, T, C, H1, W1 = 2, 4, 2, 256, 256
+    B, T, C, H1, W1 = 2, 4, 2, 64, 64
     C_out = 8
     test_in = torch.rand(B, T, C, H1, W1).to(device=device)
     print(test_in.shape)
@@ -316,7 +323,7 @@ def tests():
                     for att_with_relative_postion_bias in att_with_relative_postion_biases:
 
                         t0 = time.time()
-                        spacial_vit = SpatialViTAttention(window_size=None, num_wind=[4, 8],
+                        spacial_vit = SpatialViTAttention(window_size=None, num_wind=[8, 8],
                                                           a_type=a_type, 
                                                           C_in=C, C_out=C_out, 
                                                           H=H1, W=W1, 
@@ -363,6 +370,7 @@ def benchmark():
 
     B, T, C, H, W = 16, 12, 3, 128, 128
     C_out = 64
+    n_head = 64
     test_in = torch.rand(B,T,C,H,W, dtype=torch.float32, device=device)
 
     print(test_in[6:9,2:6, 2, 54, 34])
@@ -372,10 +380,11 @@ def benchmark():
 
     print(f"{Fore.GREEN}-------------> Vit attention <----------------------{Style.RESET_ALL}")
 
-    m = SpatialViTAttention(window_size=None, num_wind=[4, 8],
+    m = SpatialViTAttention(window_size=None, num_wind=[8, 8],
                                         a_type="conv", 
                                         C_in=C, C_out=C_out, 
                                         H=H, W=W, 
+                                        n_head=n_head,
                                         cosine_att=True, 
                                         normalize_Q_K=True, 
                                         att_with_relative_postion_bias=True,
@@ -391,10 +400,11 @@ def benchmark():
 
     benchmark_memory(m, test_in, desc='SpatialViTAttention-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
-    m = SpatialViTAttention(window_size=None, num_wind=[4, 8],
+    m = SpatialViTAttention(window_size=None, num_wind=[8, 8],
                                         a_type="conv", 
                                         C_in=C, C_out=C_out, 
                                         H=H, W=W, 
+                                        n_head=n_head,
                                         cosine_att=True, 
                                         normalize_Q_K=True, 
                                         att_with_relative_postion_bias=True,

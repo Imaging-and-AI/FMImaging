@@ -36,6 +36,11 @@ model=/export/Lab-Xue/projects/mri/checkpoints/mri-HRNET-20230716_190117_960318_
 RES_DIR=res_double_net
 model_type_str=MRI_double_net
 
+# new training
+model=/export/Lab-Xue/projects/mri/test/mri_hrnet/mri-HRNET-20230720_002927_C-32-1_amp-False_complex_residual_weighted_loss-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_19-01-29-20230716_best.pt
+RES_DIR=res_double_net
+model_type_str=MRI_double_net
+
 scaling_factor=1.0
 
 export CUDA_VISIBLE_DEVICES=7

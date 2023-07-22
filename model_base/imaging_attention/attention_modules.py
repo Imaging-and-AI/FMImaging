@@ -38,6 +38,12 @@ sys.path.insert(1, str(Project_DIR))
 
 from utils import get_device, model_info, get_gpu_ram_usage, create_generic_class_str
 
+try:
+    from flash_attn import flash_attn_qkvpacked_func, flash_attn_func
+    FLASH_ATTEN=True
+except:
+    FLASH_ATTEN=False
+    
 # -------------------------------------------------------------------------------------------------
 # Extensions and helpers
 
@@ -250,7 +256,34 @@ class CnnAttentionBase(nn.Module):
             self.attn_drop = nn.Dropout(p=att_dropout_p)
         else:
             self.attn_drop = nn.Identity()
-                        
+
+        self.has_flash_attention = FLASH_ATTEN
+
+        self.flash_atten_type = torch.float32
+        if torch.cuda.is_available():
+            gpu_name = torch.cuda.get_device_name()
+            if gpu_name.find("A100") >= 0 or gpu_name.find("H100") >= 0:
+                self.flash_atten_type = torch.bfloat16
+
+    def perform_flash_atten(self, k, q, v):
+        softmax_scale = None
+        if self.cosine_att:
+            q = F.normalize(q, dim=-1)
+            k = F.normalize(k, dim=-1)
+            softmax_scale = 1
+        elif self.normalize_Q_K:
+            eps = torch.finfo(k.dtype).eps
+            k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
+            q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
+
+        original_dtype = k.dtype
+        if self.training:
+            y = flash_attn_func(q.type(self.flash_atten_type), k.type(self.flash_atten_type), v.type(self.flash_atten_type), dropout_p=self.att_dropout_p, softmax_scale=softmax_scale, causal=False).type(original_dtype)
+        else:
+            y = flash_attn_func(q.type(self.flash_atten_type), k.type(self.flash_atten_type), v.type(self.flash_atten_type), dropout_p=0.0, softmax_scale=softmax_scale, causal=False).type(original_dtype)
+
+        return y
+
     def define_relative_position_bias_table(self, num_win_h=100, num_win_w=100):
         # define a parameter table of relative position bias
         self.relative_position_bias_table = nn.Parameter(

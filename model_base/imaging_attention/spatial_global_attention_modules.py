@@ -175,63 +175,73 @@ class SpatialGlobalAttention(CnnAttentionBase):
         # format the window
         hc = torch.div(C*ph*pw, self.n_head, rounding_mode="floor")
 
-        # k, q, v will be [B, T, num_patch_h_per_win*num_patch_w_per_win, self.n_head, num_win_h*num_win_w, hc]
-        k = k.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc))
-        q = q.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc))
-        v = v.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc))
+        if self.has_flash_attention and hc <= 256 and (not self.att_with_relative_postion_bias) and (not self.shuffle_in_window):
+            D = B*T*num_patch_h_per_win*num_patch_w_per_win
 
-        if self.shuffle_in_window:
+            k = k.reshape((D, num_win_h*num_win_w, self.n_head, hc))
+            q = q.reshape((D, num_win_h*num_win_w, self.n_head, hc))
+            v = v.reshape((D, num_win_h*num_win_w, self.n_head, hc))
 
-            # random permute within a window
-            patch_indexes = torch.zeros([num_win_h*num_win_w, num_patch_h_per_win*num_patch_w_per_win], dtype=torch.long)
-            for w in range(num_win_h*num_win_w):
-                patch_indexes[w, :] = torch.randperm(num_patch_h_per_win*num_patch_w_per_win)
-
-            reverse_patch_indexes = num_patch_h_per_win*num_patch_w_per_win - 1 - patch_indexes
-            reverse_patch_indexes = torch.flip(reverse_patch_indexes, dims=(1,))
-
-            k_shuffled = torch.clone(k)
-            q_shuffled = torch.clone(q)
-            v_shuffled = torch.clone(v)
-
-            for w in range(num_win_h*num_win_w):
-                k_shuffled[:, :, :, w] = k[:, :, patch_indexes[w, :], w]
-                q_shuffled[:, :, :, w] = q[:, :, patch_indexes[w, :], w]
-                v_shuffled[:, :, :, w] = v[:, :, patch_indexes[w, :], w]
-
-            k = k_shuffled
-            q = q_shuffled
-            v = v_shuffled
-
-        # [B, T, num_patches, num_windows, num_heads, hc] x [B, T, num_patches, num_windows, num_heads, hc] -> (B, T, num_patches, num_heads, num_windows, num_windows)
-        if self.cosine_att:
-            att = torch.einsum("BTPWND, BTPIND -> BTPNWI", F.normalize(q, dim=-1), F.normalize(k, dim=-1))
-        else:
-            if self.normalize_Q_K:
-                eps = torch.finfo(k.dtype).eps
-                k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
-                q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
-
-            att = torch.einsum("BTPWND, BTPIND -> BTPNWI", q, k) * torch.tensor(1.0 / math.sqrt(hc))
-
-        att = F.softmax(att, dim=-1)
-        if self.att_with_relative_postion_bias:
-            relative_position_bias = self.get_relative_position_bias(num_win_h, num_win_w)
-            att = att + relative_position_bias
-
-        att = self.attn_drop(att)
-
-        # (B, T, num_patches, num_heads, num_windows, num_windows) * (B, T, num_patches, num_windows, num_heads, hc)
-        y = torch.einsum("BTPNWI, BTPIND -> BTPWND", att, v)
-
-        if self.shuffle_in_window:
-            y_restored = torch.clone(y)
-            for w in range(num_win_h*num_win_w):
-                y_restored[:, :, :, w] = y[:, :, reverse_patch_indexes[w, :], w]
-
-            y = torch.reshape(y_restored, (B, T, num_patch_h_per_win, num_patch_w_per_win, num_win_h, num_win_w, ph, pw, C))
-        else:
+            y = self.perform_flash_atten(k, q, v)
             y = y.reshape(B, T, num_patch_h_per_win, num_patch_w_per_win, num_win_h, num_win_w, ph, pw, C)
+        else:
+            # k, q, v will be [B, T, num_patch_h_per_win*num_patch_w_per_win, self.n_head, num_win_h*num_win_w, hc]
+            k = k.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc))
+            q = q.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc))
+            v = v.reshape((B, T, num_patch_h_per_win*num_patch_w_per_win, num_win_h*num_win_w, self.n_head, hc))
+
+            if self.shuffle_in_window:
+
+                # random permute within a window
+                patch_indexes = torch.zeros([num_win_h*num_win_w, num_patch_h_per_win*num_patch_w_per_win], dtype=torch.long)
+                for w in range(num_win_h*num_win_w):
+                    patch_indexes[w, :] = torch.randperm(num_patch_h_per_win*num_patch_w_per_win)
+
+                reverse_patch_indexes = num_patch_h_per_win*num_patch_w_per_win - 1 - patch_indexes
+                reverse_patch_indexes = torch.flip(reverse_patch_indexes, dims=(1,))
+
+                k_shuffled = torch.clone(k)
+                q_shuffled = torch.clone(q)
+                v_shuffled = torch.clone(v)
+
+                for w in range(num_win_h*num_win_w):
+                    k_shuffled[:, :, :, w] = k[:, :, patch_indexes[w, :], w]
+                    q_shuffled[:, :, :, w] = q[:, :, patch_indexes[w, :], w]
+                    v_shuffled[:, :, :, w] = v[:, :, patch_indexes[w, :], w]
+
+                k = k_shuffled
+                q = q_shuffled
+                v = v_shuffled
+
+            # [B, T, num_patches, num_windows, num_heads, hc] x [B, T, num_patches, num_windows, num_heads, hc] -> (B, T, num_patches, num_heads, num_windows, num_windows)
+            if self.cosine_att:
+                att = torch.einsum("BTPWND, BTPIND -> BTPNWI", F.normalize(q, dim=-1), F.normalize(k, dim=-1))
+            else:
+                if self.normalize_Q_K:
+                    eps = torch.finfo(k.dtype).eps
+                    k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
+                    q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
+
+                att = torch.einsum("BTPWND, BTPIND -> BTPNWI", q, k) * torch.tensor(1.0 / math.sqrt(hc))
+
+            att = F.softmax(att, dim=-1)
+            if self.att_with_relative_postion_bias:
+                relative_position_bias = self.get_relative_position_bias(num_win_h, num_win_w)
+                att = att + relative_position_bias
+
+            att = self.attn_drop(att)
+
+            # (B, T, num_patches, num_heads, num_windows, num_windows) * (B, T, num_patches, num_windows, num_heads, hc)
+            y = torch.einsum("BTPNWI, BTPIND -> BTPWND", att, v)
+
+            if self.shuffle_in_window:
+                y_restored = torch.clone(y)
+                for w in range(num_win_h*num_win_w):
+                    y_restored[:, :, :, w] = y[:, :, reverse_patch_indexes[w, :], w]
+
+                y = torch.reshape(y_restored, (B, T, num_patch_h_per_win, num_patch_w_per_win, num_win_h, num_win_w, ph, pw, C))
+            else:
+                y = y.reshape(B, T, num_patch_h_per_win, num_patch_w_per_win, num_win_h, num_win_w, ph, pw, C)
 
         y = self.grid2im(y)
 
