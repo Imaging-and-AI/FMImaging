@@ -18,8 +18,6 @@ from einops import rearrange
 
 from attention_modules import *
 
-
-
 # -------------------------------------------------------------------------------------------------
 # CNN attention with the spatial local patching - an image is split into windows. A window is split into patches.
 # Attention coefficients are computed among all patches within a window.

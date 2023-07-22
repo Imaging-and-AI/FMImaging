@@ -14,8 +14,6 @@ from torch.nn import functional as F
 
 from attention_modules import *
 
-from flash_attn import flash_attn_qkvpacked_func, flash_attn_func
-
 # -------------------------------------------------------------------------------------------------
 # Temporal attention layer. Attention is computed between images along dimension T.
 

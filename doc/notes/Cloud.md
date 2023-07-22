@@ -50,11 +50,13 @@ done
 
 # scp model
 model=/export/Lab-Xue/projects/mri/test/complex_model/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt
+model=/export/Lab-Xue/projects/mri/test/mri-STCNNT_MRI_20230721_225151_726014_C-32-1_amp-True_complex_residual_weighted_loss-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-61.pth
 
 for n in fsi{1..16}
 do
     echo "copy to $n ..."
-    VM_name=$n.eastus2.cloudapp.azure.com    
+    VM_name=$n.eastus2.cloudapp.azure.com
+    ssh -i ~/.ssh/xueh2-a100.pem gtuser@$VM_name 'mkdir -p /export/Lab-Xue/projects/mri/models/'
     scp -i ~/.ssh/xueh2-a100.pem $model gtuser@$VM_name:/export/Lab-Xue/projects/mri/models/
 done
 

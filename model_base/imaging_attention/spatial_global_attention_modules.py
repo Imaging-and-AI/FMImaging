@@ -77,7 +77,7 @@ class SpatialGlobalAttention(CnnAttentionBase):
         self.set_and_check_patch()
 
         self.validate_window_patch()
-        
+
         assert self.C_out*self.patch_size[0]*self.patch_size[1] % self.n_head == 0, \
             f"Number of pixels in a window {self.C_out*self.patch_size[0]*self.patch_size[1]} should be divisible by number of heads {self.n_head}"
 

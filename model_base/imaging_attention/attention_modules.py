@@ -43,7 +43,7 @@ try:
     FLASH_ATTEN=True
 except:
     FLASH_ATTEN=False
-    
+
 # -------------------------------------------------------------------------------------------------
 # Extensions and helpers
 

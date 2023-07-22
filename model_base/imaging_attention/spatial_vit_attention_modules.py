@@ -17,7 +17,6 @@ from torch.nn import functional as F
 from einops import rearrange
 
 from attention_modules import *
-from flash_attn import flash_attn_qkvpacked_func, flash_attn_func
 
 # -------------------------------------------------------------------------------------------------
 # CNN attention with the ViT style - an image is split into windows. Attention coefficients are computed among all windows.
