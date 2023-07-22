@@ -821,7 +821,7 @@ def trainer(rank, global_rank, config, wandb_run):
                 best_val_loss = val_losses[0]
                 best_model_wts = copy.deepcopy(model_e.state_dict())
                 run_name = config.run_name.replace(" ", "_")
-                model_e.save(epoch, only_paras=True, save_file_name=f"{run_name}_epoch_{epoch}_best")
+                model_e.save(epoch, only_paras=True, save_file_name=f"{run_name}_epoch_{epoch}_best.pth")
                 if wandb_run is not None:
                     wandb_run.log({"epoch": epoch, "best_val_loss":best_val_loss})
 
