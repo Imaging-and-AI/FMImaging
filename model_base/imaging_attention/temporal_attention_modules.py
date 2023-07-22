@@ -225,31 +225,15 @@ class TemporalCnnAttention(CnnAttentionBase):
         # apply the key, query and value matrix
         k = self.key(x)
         q = self.query(x)
+        v = self.value(x)
 
         _, _, C_prime, H_prime, W_prime = k.shape
 
-        # if self.normalize_Q_K:
-        #     eps = torch.finfo(k.dtype).eps
-        #     # add normalization for k and q, along [C_prime, H_prime, W_prime]
-        #     k = (k - torch.mean(k, dim=(-3, -2, -1), keepdim=True)) / ( torch.sqrt(torch.var(k, dim=(-3, -2, -1), keepdim=True) + eps) )
-        #     q = (q - torch.mean(q, dim=(-3, -2, -1), keepdim=True)) / ( torch.sqrt(torch.var(q, dim=(-3, -2, -1), keepdim=True) + eps) )
-
         H = torch.div(C_prime*H_prime*W_prime, self.n_head, rounding_mode="floor")
-
-        # k = k.view(B, T, self.n_head, H, H_prime, W_prime).transpose(1, 2)
-        # q = q.view(B, T, self.n_head, H, H_prime, W_prime).transpose(1, 2)
-        # v = self.value(x).view(B, T, self.n_head, H, H_prime*self.stride_f, W_prime*self.stride_f).transpose(1, 2)
-
-        # B, nh, T, hc, H_prime, W_prime = k.shape
-
-        # ### START OF FLASH ATTENTION IMPLEMENTATION ###
-        # q = q.view(B, nh, T, hc*H_prime*W_prime)
-        # k = k.view(B, nh, T, hc*H_prime*W_prime)
-        # v = v.view(B, nh, T, hc*H_prime*W_prime*self.stride_f*self.stride_f)
 
         k = k.view(B, T, self.n_head, H).transpose(1, 2)
         q = q.view(B, T, self.n_head, H).transpose(1, 2)
-        v = self.value(x).view(B, T, self.n_head, H*self.stride_f*self.stride_f).transpose(1, 2)
+        v = v.view(B, T, self.n_head, H*self.stride_f*self.stride_f).transpose(1, 2)
 
         ### START OF FLASH ATTENTION IMPLEMENTATION ###
         if self.cosine_att:
