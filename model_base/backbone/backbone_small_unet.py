@@ -31,6 +31,7 @@ sys.path.insert(1, str(Project_DIR))
 from losses import *
 from imaging_attention import *
 from backbone import *
+from backbone_base import STCNNT_Base_Runtime, set_window_patch_sizes_keep_num_window, set_window_patch_sizes_keep_window_size
 from utils import get_device, create_generic_class_str, add_backbone_STCNNT_args, Nestedspace
 
 __all__ = ['CNNT_Unet']
@@ -152,13 +153,16 @@ class CNNT_Unet(STCNNT_Base_Runtime):
             "num_patch": self.num_patch,
             
             "mixer_type": c.mixer_type,
-            "shuffle_in_window": c.shuffle_in_window
+            "shuffle_in_window": c.shuffle_in_window,
+            
+            "use_einsum": c.use_einsum,
+            "temporal_flash_attention": c.temporal_flash_attention
         }
 
         window_sizes = []
         patch_sizes = []
                
-        kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]] , self.num_wind, self.num_patch, module_name="D1")
+        kwargs = set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]] , self.num_wind, self.num_patch, module_name="D1")
         window_sizes.append(kwargs["window_size"])
         patch_sizes.append(kwargs["patch_size"])
         
@@ -169,7 +173,7 @@ class CNNT_Unet(STCNNT_Base_Runtime):
         kwargs["C_out"] = channels[1]
         kwargs["H"] = c.height[0]//2
         kwargs["W"] = c.width[0]//2
-        kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[0], patch_sizes[0], module_name="D2")
+        kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[0], patch_sizes[0], module_name="D2")
         window_sizes.append(kwargs["window_size"])
         patch_sizes.append(kwargs["patch_size"])
         kwargs["att_types"] = block_str[1]
@@ -181,7 +185,7 @@ class CNNT_Unet(STCNNT_Base_Runtime):
         kwargs["W"] = c.width[0]//4
         kwargs["interpolate"] = "up"
         
-        kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], [v//2 for v in self.num_wind], self.num_patch, module_name="U1")
+        kwargs = set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], [v//2 for v in self.num_wind], self.num_patch, module_name="U1")
         window_sizes.append(kwargs["window_size"])
         patch_sizes.append(kwargs["patch_size"])
         kwargs["att_types"] = block_str[-1]
@@ -192,7 +196,7 @@ class CNNT_Unet(STCNNT_Base_Runtime):
         kwargs["H"] = c.height[0]//2
         kwargs["W"] = c.width[0]//2
         
-        kwargs = self.set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]] , window_sizes[1], patch_sizes[1], module_name="U2")
+        kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]] , window_sizes[1], patch_sizes[1], module_name="U2")
         kwargs["att_types"] = block_str[1]
         self.up2 = STCNNT_Block(**kwargs)
 
@@ -202,7 +206,7 @@ class CNNT_Unet(STCNNT_Base_Runtime):
         kwargs["W"] = c.width[0]
         kwargs["interpolate"] = "none"
         
-        kwargs = self.set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], self.num_wind, self.num_patch, module_name="final")
+        kwargs = set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], self.num_wind, self.num_patch, module_name="final")
         kwargs["att_types"] = block_str[0]
         self.final = STCNNT_Block(**kwargs)
 

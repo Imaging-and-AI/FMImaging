@@ -166,11 +166,14 @@ def add_backbone_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for
     
     parser.add_argument('--backbone', type=str, default="hrnet", help="which backbone model to use, 'hrnet', 'unet', 'LLM', 'small_unet' ")
     
+    parser.add_argument("--use_einsum", action="store_true", help='if set, use einsum implementation.')
+    parser.add_argument("--temporal_flash_attention", action="store_true", help='if set, temporal attention uses flash attention implementation.')
+    
     # hrnet
     parser.add_argument('--backbone_hrnet.C', dest='backbone_hrnet.C', type=int, default=32, help="number of channels in main body of hrnet")
     parser.add_argument('--backbone_hrnet.num_resolution_levels', dest='backbone_hrnet.num_resolution_levels', type=int, default=2, help="number of resolution levels; image size reduce by x2 for every level")
     parser.add_argument('--backbone_hrnet.block_str', dest='backbone_hrnet.block_str', nargs='+', type=str, default=['T1L1G1'], help="block string \
-        to define the attention layers in blocks; if multiple strings are given, each is for a resolution level.")    
+        to define the attention layers in blocks; if multiple strings are given, each is for a resolution level.")
     parser.add_argument('--backbone_hrnet.use_interpolation', dest='backbone_hrnet.use_interpolation', type=int, default=1, help="whether to use interpolation in downsample layer; if False, use stride convolution")
     
     # unet            

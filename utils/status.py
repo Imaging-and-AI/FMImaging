@@ -47,7 +47,7 @@ def get_cuda_info(device):
 
 def support_bfloat16(device):
     info =  get_cuda_info(device)
-    if info["gpu_name"].find("A100") >= 0:
+    if info["gpu_name"].find("A100") >= 0 or info["gpu_name"].find("H100") >= 0:
         return True
     else:
         return False

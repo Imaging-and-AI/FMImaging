@@ -10,6 +10,7 @@ import shutil
 import pickle
 import copy
 import time
+from colorama import Fore, Back, Style
 
 class run_ddp_base(object):
     
@@ -135,6 +136,15 @@ class run_ddp_base(object):
         if load_path is not None:
             cmd_run.extend(["--load_path", load_path])
 
+        if config.continued_training:
+            cmd_run.extend(["--continued_training"])
+
+        if config.use_amp:
+            cmd_run.extend(["--use_amp"])
+
+        if config.save_samples:
+            cmd_run.extend(["--save_samples"])
+
         print(f"Running command:\n{' '.join(cmd_run)}")
 
         return cmd_run
@@ -247,13 +257,13 @@ class run_ddp_base(object):
         parser.add_argument("--data_root", type=str, default=None, help="data folder; if None, use the project folder")
 
         parser.add_argument("--standalone", action="store_true", help='whether to run in the standalone mode')
-        parser.add_argument("--nproc_per_node", type=int, default=2, help="number of processes per node")
+        parser.add_argument("--nproc_per_node", type=int, default=4, help="number of processes per node")
         parser.add_argument("--nnodes", type=str, default="1", help="number of nodes")
         parser.add_argument("--node_rank", type=int, default=0, help="current node rank")
         parser.add_argument("--master_port", type=int, default=9050, help="torchrun port")
         parser.add_argument("--rdzv_id", type=int, default=100, help="run id")
         parser.add_argument("--rdzv_backend", type=str, default="c10d", help="backend of torchrun")
-        parser.add_argument("--rdzv_endpoint", type=str, default="localhost:9001", help="master node endpoint")
+        parser.add_argument("--rdzv_endpoint", type=str, default="172.16.0.4", help="master node endpoint")
         parser.add_argument("--load_path", type=str, default=None, help="check point file to load if provided")
         parser.add_argument("--clean_checkpoints", action="store_true", help='whether to delete previous check point files')
         parser.add_argument("--with_timer", action="store_true", help='whether to train with timing')
@@ -264,6 +274,12 @@ class run_ddp_base(object):
         parser.add_argument("--run_extra_note", type=str, default=None, help="extra notes for the runs")
 
         parser.add_argument("--run_list", type=int, nargs='+', default=[-1], help="run list")
+
+        parser.add_argument("--continued_training", action="store_true", help='if set, it means a continued training loaded from checkpoints (optim and scheduler will be loaded); if not set, it mean a new stage of training.')
+
+        parser.add_argument("--use_amp", action="store_true", help='if set, use mixed precision training.')
+
+        parser.add_argument("--save_samples", action="store_true", help='if set, save training and validation samples.')
 
         return parser
 
@@ -327,18 +343,22 @@ class run_ddp_base(object):
         valid_cmd_runs = self.get_valid_runs(config)
 
         run_lists = config.run_list
+        print(f"Running run_lists: {Fore.GREEN}{run_lists}{Style.RESET_ALL}")
 
         if run_lists[0] < 0:
             run_lists = range(len(valid_cmd_runs))
 
         for run_ind in run_lists:
             cmd_run = valid_cmd_runs[run_ind]
-            print("---" * 20)
-            print(f"Run - {run_ind} ...")
+            print("\n\n")
+            print("===" * 20)
+            print(f"{Fore.YELLOW}Run - {run_ind} ...{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}{cmd_run}{Style.RESET_ALL}")
+            print("--" * 20)
+            print(f"Running command:\n{Fore.WHITE}{Back.BLUE}{' '.join(cmd_run)}{Style.RESET_ALL}")
             time.sleep(3)
-            print(cmd_run)
             subprocess.run(cmd_run)
-            print("---" * 20)
+            print("===" * 20)
 
             run_completed = []
             if os.path.isfile(self.run_record):

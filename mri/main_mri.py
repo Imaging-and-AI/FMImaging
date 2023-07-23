@@ -64,21 +64,45 @@ def arg_parser():
     parser.add_argument("--threeD_cutout_shuffle_time", action="store_true", help='shuffle along time to break temporal consistency; for 2D+T, should not set this option')
 
     # inference
-    parser.add_argument("--pad_time", action="store_true", help='whehter to pad along time when doing inference; if False, the entire series is inputted')
-    
+    parser.add_argument("--pad_time", action="store_true", help='whether to pad along time when doing inference; if False, the entire series is inputted')
+
     # loss for mri
     parser.add_argument("--losses", nargs='+', type=str, default=["mse", "l1"], help='Any combination of "mse", "l1", "sobel", "ssim", "ssim3D", "psnr", "msssim", "perpendicular", "gaussian", "gaussian3D" ')
     parser.add_argument('--loss_weights', nargs='+', type=float, default=[1.0, 1.0], help='to balance multiple losses, weights can be supplied')
     parser.add_argument("--complex_i", action="store_true", help='whether we are dealing with complex images or not')
     parser.add_argument("--residual", action="store_true", help='add long term residual connection')
-    parser.add_argument("--weighted_loss", action="store_true", help='if set, weight loss by gfactor and noise values')
+
+    parser.add_argument("--weighted_loss_snr", action="store_true", help='if set, weight loss by the original signal levels')
+    parser.add_argument("--weighted_loss_temporal", action="store_true", help='if set, weight loss by temporal/slice signal variation')
+    parser.add_argument("--weighted_loss_added_noise", action="store_true", help='if set, weight loss by added noise strength')
+
+    parser.add_argument("--disable_LSUV", action="store_true", help='if set, do not perform LSUV initialization.')
+
+    # learn rate for pre/backbone/post, if < 0, using the global lr
+    parser.add_argument("--lr_pre", type=float, default=-1, help='learning rate for pre network')
+    parser.add_argument("--lr_backbone", type=float, default=-1, help='learning rate for backbone network')
+    parser.add_argument("--lr_post", type=float, default=-1, help='learning rate for post network')
+
+    parser.add_argument("--not_load_pre", action="store_true", help='if set, pre module will not be loaded.')
+    parser.add_argument("--not_load_backbone", action="store_true", help='if set, backbone module will not be loaded.')
+    parser.add_argument("--not_load_post", action="store_true", help='if set, pre module will not be loaded.')
+
+    parser.add_argument("--disable_pre", action="store_true", help='if set, pre module will have require_grad_(False).')
+    parser.add_argument("--disable_backbone", action="store_true", help='if set, backbone module will have require_grad_(False).')
+    parser.add_argument("--disable_post", action="store_true", help='if set, post module will have require_grad_(False).')
+
+    parser.add_argument('--post_hrnet.block_str', dest='post_hrnet.block_str', nargs='+', type=str, default=['T1L1G1', 'T1L1G1'], help="hrnet MR post network block string, from the low resolution level to high resolution level.")
+
+    parser.add_argument("--continued_training", action="store_true", help='if set, it means a continued training loaded from checkpoints (optim and scheduler will be loaded); if not set, it mean a new stage of training.')
 
     # training
     parser.add_argument('--num_uploaded', type=int, default=12, help='number of images uploaded to wandb')
 
+    parser.add_argument("--model_type", type=str, default="STCNNT_MRI", help="STCNNT_MRI or MRI_hrnet, MRI_double_net")
+
     ns = Nestedspace()
     args = parser.parse_args(namespace=ns)
-    
+
     return args
 
 # -------------------------------------------------------------------------------------------------
@@ -96,39 +120,39 @@ class MriTrainer(Trainer_Base):
         """
         checks the cmd args to make sure they are correct
         """
-        
+
         super().check_args()
-        
+
         self.config.C_in = 3 if self.config.complex_i else 2
         self.config.C_out = 2 if self.config.complex_i else 1
 
         if self.config.data_root is None:
             self.config.data_root = "/export/Lab-Xue/projects/mri/data"
-            
+
     def set_up_config_for_sweep(self, wandb_config):
         super().set_up_config_for_sweep(wandb_config=wandb_config)
-        
+
         self.config.backbone = wandb_config.backbone
-        
+
         self.config.optim = wandb_config.optim
-        
+
         self.config.height = wandb_config.width
         self.config.width = wandb_config.width
-        
+
         self.config.train_files = wandb_config.train_files[0]
         self.config.train_data_types = wandb_config.train_files[1]
-        
+
         self.config.test_files = None
         self.config.test_data_types = None
-        
+
     def run_task_trainer(self, rank=-1, global_rank=-1, wandb_run=None):
         trainer(rank=rank, global_rank=global_rank, config=self.config, wandb_run=wandb_run)
-        
+
 # -------------------------------------------------------------------------------------------------
 def main():
 
     config_default = arg_parser()
-    
+
     trainer = MriTrainer(config_default)
     trainer.train()
 

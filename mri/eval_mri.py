@@ -46,10 +46,12 @@ def arg_parser():
     parser.add_argument("--pad_time", action="store_true", help="with to pad along time")
     parser.add_argument("--patch_size_inference", type=int, default=-1, help='patch size for inference; if <=0, use the config setup')
     parser.add_argument("--num_uploaded", type=int, default=16, help='number of sample uploaded')
-    
+
     parser.add_argument("--save_samples", action="store_true", help='whether to save some train/val/test samples')
     parser.add_argument("--num_saved_samples", type=int, default=16, help='number of saved samples')
-    
+
+    parser.add_argument("--model_type", type=str, default=None, help="if set, overwrite the config setting, STCNNT_MRI or MRI_hrnet, MRI_double_net")
+
     #parser = add_shared_STCNNT_args(parser=parser)
 
     return parser.parse_args()
@@ -112,9 +114,9 @@ def save_results(config, losses, id=""):
 def main():
 
     c = check_args(arg_parser())
-    
+
     patch_size_inference = c.patch_size_inference
-    
+
     config_file = c.saved_model_config
     if os.path.isfile(config_file):
         print(f"{Fore.YELLOW}Load in config file - {config_file}")
@@ -123,7 +125,7 @@ def main():
     else:
         record = torch.load(c.saved_model_path)
         config = record['config']
-    
+
     config.data_root = c.data_root
     config.results_path = c.results_path
     config.log_path = c.results_path
@@ -134,20 +136,20 @@ def main():
     config.num_uploaded = c.num_uploaded
     config.save_samples = c.save_samples
     config.num_saved_samples = c.num_saved_samples
-    
+
     if patch_size_inference > 0:
         config.height[-1] = patch_size_inference
         config.width[-1] = patch_size_inference
-    
+
     setup_run(config, dirs=["log_path"])
 
     print(f"{Fore.YELLOW}Load in model file - {config.saved_model_path}")
-    model, _ = load_model(c.saved_model_path, c.saved_model_config)
+    model, _ = load_model(c.saved_model_path, c.saved_model_config, c.model_type)
     run = wandb.init(project=config.project, entity=config.wandb_entity, config=config,
                         name=f"Test_{config.run_name}_inference_{config.height[-1]}", notes=config.run_notes)
 
     print(f"Wandb name:\n{run.name}")
-    
+
     try: 
         test_set, _ = load_mri_test_data(config=config)
         losses = eval_val(rank=-1, model=model, config=config, val_set=test_set, epoch=-1, device=get_device(), wandb_run=run, id="test")
@@ -156,6 +158,6 @@ def main():
     except KeyboardInterrupt:
         print(f"{Fore.YELLOW}Interrupted from the keyboard ...{Style.RESET_ALL}", flush=True)
         clean_after_training()
-        
+
 if __name__=="__main__":
     main()

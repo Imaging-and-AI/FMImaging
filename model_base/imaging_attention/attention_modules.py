@@ -41,16 +41,6 @@ from utils import get_device, model_info, get_gpu_ram_usage, create_generic_clas
 # -------------------------------------------------------------------------------------------------
 # Extensions and helpers
 
-class NewGELU(nn.Module):
-    """
-    Borrowed from the minGPT repo.
-    
-    Implementation of the GELU activation function currently in Google BERT repo (identical to OpenAI GPT).
-    Reference: Gaussian Error Linear Units (GELU) paper: https://arxiv.org/abs/1606.08415
-    """
-    def forward(self, x):
-        return 0.5 * x * (1.0 + torch.tanh(math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3.0))))
-
 def compute_conv_output_shape(h_w, kernel_size, stride, pad, dilation):
     """
     Utility function for computing output of convolutions given the setup
@@ -80,7 +70,10 @@ class Conv2DExt(nn.Module):
         # requires input to have 5 dimensions
         B, T, C, H, W = input.shape
         y = self.conv2d(input.reshape((B*T, C, H, W)))
-        return torch.reshape(y, [B, T, *y.shape[1:]])
+        return y.reshape([B, T, *y.shape[1:]]) #torch.reshape(y, [B, T, *y.shape[1:]])
+
+        #y = self.conv2d(input.view((B*T, C, H, W)))
+        #return y.view([B, T, *y.shape[1:]])
 
 class Conv2DGridExt(nn.Module):
     # Extends torch 2D conv for grid attention with 7D inputs
@@ -91,12 +84,12 @@ class Conv2DGridExt(nn.Module):
 
     def forward(self, input):
         # requires input to have 7 dimensions
-        B, T, C, Hg, Wg, Gh, Gw = input.shape
-        input = input.permute(0,1,3,4,2,5,6)
+        B, T, Hg, Wg, Gh, Gw, C = input.shape
+        input = input.permute(0,1,2,3,6,4,5)
         y = self.conv2d(input.reshape((-1, C, Gh, Gw)))
-        y = y.reshape(B, T, Hg, Wg, *y.shape[-3:])
+        y = y.reshape(B, T, Hg, Wg, *y.shape[-3:]) # B, T, Hg, Wg, C, Gh, Gw
 
-        return y.permute(0,1,4,2,3,5,6)
+        return y.permute(0,1,2,3,5,6,4)
   
 class LinearGridExt(nn.Module):
     # Extends torch linear layer for grid attention with 7D inputs
@@ -107,9 +100,9 @@ class LinearGridExt(nn.Module):
 
     def forward(self, input):
         # requires input to have 7 dimensions
-        *S, C, Gh, Gw = input.shape
+        *S, Gh, Gw, C = input.shape
         y = self.linear(input.reshape((-1, C*Gh*Gw)))
-        y = y.reshape((*S, -1, Gh, Gw))
+        y = y.reshape((*S, Gh, Gw, -1))
 
         return y
 

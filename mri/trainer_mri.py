@@ -28,7 +28,7 @@ from model_base.losses import *
 from utils.save_model import save_final_model
 from utils.running_inference import running_inference
 
-from model_mri import STCNNT_MRI
+from model_mri import STCNNT_MRI, MRI_hrnet, MRI_double_net
 from data_mri import MRIDenoisingDatasetTrain, load_mri_data
 
 from colorama import Fore, Back, Style
@@ -135,7 +135,7 @@ def create_log_str(config, epoch, rank, data_shape, gmap_median, noise_sigma, lo
 
     mse, l1, ssim, ssim3D, psnr_loss, psnr, perp,  gaussian, gaussian3D = loss_meters.get_loss()
 
-    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}rank {rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.WHITE}{Back.LIGHTBLUE_EX}{Style.NORMAL}gmap {gmap_median:.2f}, sigma {noise_sigma:.2f}{snr_str}{Style.RESET_ALL} {C}mse {mse:.4f}, l1 {l1:.4f}, perp {perp:.4f}, ssim {ssim:.4f}, ssim3D {ssim3D:.4f}, gaussian {gaussian:.4f}, gaussian3D {gaussian3D:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}{Style.RESET_ALL}{lr_str}"
+    str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.WHITE}{Back.LIGHTBLUE_EX}{Style.NORMAL}gmap {gmap_median:.2f}, sigma {noise_sigma:.2f}{snr_str}{Style.RESET_ALL} {C}mse {mse:.4f}, l1 {l1:.4f}, perp {perp:.4f}, ssim {ssim:.4f}, ssim3D {ssim3D:.4f}, gaussian {gaussian:.4f}, gaussian3D {gaussian3D:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}{Style.RESET_ALL}{lr_str}"
 
     return str
 
@@ -201,6 +201,53 @@ def save_batch_samples(saved_path, fname, x, y, output, y_degraded, gmap_median,
            
 # -------------------------------------------------------------------------------------------------
 
+def distribute_learning_rates(rank, optim, src=0):
+
+    N = len(optim.param_groups)
+    new_lr = torch.zeros(N).to(rank)
+    for ind in range(N):
+        new_lr[ind] = optim.param_groups[ind]["lr"]
+
+    dist.broadcast(new_lr, src=src)
+
+    if rank != src:
+        for ind in range(N):
+            optim.param_groups[ind]["lr"] = new_lr[ind].item()
+
+# -------------------------------------------------------------------------------------------------
+
+def get_rank_str(rank):
+    if rank == 0:
+        return f"{Fore.BLUE}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
+    if rank == 1:
+        return f"{Fore.GREEN}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
+    if rank == 2:
+        return f"{Fore.YELLOW}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
+    if rank == 3:
+        return f"{Fore.MAGENTA}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
+    if rank == 4:
+        return f"{Fore.LIGHTYELLOW_EX}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
+    if rank == 5:
+        return f"{Fore.LIGHTBLUE_EX}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
+    if rank == 6:
+        return f"{Fore.LIGHTRED_EX}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
+    if rank == 7:
+        return f"{Fore.LIGHTCYAN_EX}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
+
+    return f"{Fore.WHITE}{Style.BRIGHT}rank {rank} {Style.RESET_ALL}"
+
+def create_model(config, model_type, total_steps=-1):
+    if model_type == "STCNNT_MRI":
+        model = STCNNT_MRI(config=config, total_steps=total_steps)
+    elif model_type == "MRI_hrnet":
+        model = MRI_hrnet(config=config, total_steps=total_steps)
+    else:
+        model = MRI_double_net(config=config, total_steps=total_steps)
+
+    return model
+
+# -------------------------------------------------------------------------------------------------
+
 def trainer(rank, global_rank, config, wandb_run):
     """
     The trainer cycle. Allows training on cpu/single gpu/multiple gpu(ddp)
@@ -213,14 +260,42 @@ def trainer(rank, global_rank, config, wandb_run):
         - val_set (torch Dataset list): the data to validate each epoch
         - test_set (torch Dataset list): the data to test model at the end
     """
+
+    rank_str = get_rank_str(rank)
+
+    # -----------------------------------------------
+
     start = time()
     train_set, val_set, test_set = load_mri_data(config=config)
-    logging.info(f"load_mri_data took {time() - start} seconds ...")
-    
+    logging.info(f"{rank_str}, load_mri_data took {time() - start} seconds ...")
+
     total_num_samples = sum([len(s) for s in train_set])
-    
+
     total_steps = compute_total_steps(config, total_num_samples)
-    logging.info(f"total_steps for this run: {total_steps}, len(train_set) {[len(s) for s in train_set]}, batch {config.batch_size}")
+    logging.info(f"{rank_str}, total_steps for this run: {total_steps}, len(train_set) {[len(s) for s in train_set]}, batch {config.batch_size}")
+
+    # -----------------------------------------------
+    if not config.disable_LSUV:
+        if (config.load_path is None) or (not config.continued_training):
+            t0 = time()
+            num_samples = len(train_set[-1])
+            sampled_picked = np.random.randint(0, num_samples, size=32)
+            input_data  = torch.stack([train_set[-1][i][0] for i in sampled_picked])
+            print(f"{rank_str}, LSUV prep data took {time()-t0 : .2f} seconds ...")
+
+    # -----------------------------------------------
+
+    if config.ddp:
+        device = torch.device(f"cuda:{rank}")
+        config.device = device
+    else:
+        device = config.device
+
+    # -----------------------------------------------
+
+    print(f"{rank_str}, {Style.BRIGHT}{Fore.RED}{Back.LIGHTWHITE_EX}RUN NAME - {config.run_name}{Style.RESET_ALL}")
+
+    # -----------------------------------------------
 
     num_epochs = config.num_epochs
     batch_size = config.batch_size
@@ -229,7 +304,9 @@ def trainer(rank, global_rank, config, wandb_run):
     scheduler_type = config.scheduler_type
     losses = config.losses
     loss_weights = config.loss_weights
-    weighted_loss = config.weighted_loss
+    weighted_loss_snr = config.weighted_loss_snr
+    weighted_loss_temporal = config.weighted_loss_temporal
+    weighted_loss_added_noise = config.weighted_loss_added_noise
     save_samples = config.save_samples
     num_saved_samples = config.num_saved_samples
     height = config.height
@@ -237,15 +314,30 @@ def trainer(rank, global_rank, config, wandb_run):
     c_time = config.time
     use_amp = config.use_amp
     num_workers = config.num_workers
+    lr_pre = config.lr_pre
+    lr_backbone = config.lr_backbone
+    lr_post = config.lr_post
+    continued_training = config.continued_training
+    disable_pre = config.disable_pre
+    disable_backbone = config.disable_backbone
+    disable_post = config.disable_post
+    model_type = config.model_type
+    post_hrnet_block_str = config.post_hrnet.block_str
+    not_load_pre = config.not_load_pre
+    not_load_backbone = config.not_load_backbone
+    not_load_post = config.not_load_post
+    run_name = config.run_name
+    run_notes = config.run_notes
 
     ddp = config.ddp
-    if ddp:
-        config.device = torch.device(f'cuda:{rank}')
 
     if config.load_path is not None:
         load_path = config.load_path
         status = torch.load(config.load_path)
         config = status['config']
+
+        # overwrite the config parameters with current settings
+        config.device = device
         config.losses = losses
         config.loss_weights = loss_weights
         config.optim = optim
@@ -253,7 +345,9 @@ def trainer(rank, global_rank, config, wandb_run):
         config.global_lr = lr
         config.num_epochs = num_epochs
         config.batch_size = batch_size
-        config.weighted_loss = weighted_loss
+        config.weighted_loss_snr = weighted_loss_snr
+        config.weighted_loss_temporal = weighted_loss_temporal
+        config.weighted_loss_added_noise = weighted_loss_added_noise
         config.save_samples = save_samples
         config.num_saved_samples = num_saved_samples
         config.height = height
@@ -261,38 +355,121 @@ def trainer(rank, global_rank, config, wandb_run):
         config.time = c_time
         config.use_amp = use_amp
         config.num_workers = num_workers
+        config.lr_pre = lr_pre
+        config.lr_backbone = lr_backbone
+        config.lr_post = lr_post
+        config.disable_pre = disable_pre
+        config.disable_backbone = disable_backbone
+        config.disable_post = disable_post
+        config.post_hrnet = Nestedspace()
+        config.post_hrnet.block_str = post_hrnet_block_str
+        config.not_load_pre = not_load_pre
+        config.not_load_backbone = not_load_backbone
+        config.not_load_post = not_load_post
+        config.model_type = model_type
+        config.run_name = run_name
+        config.run_notes = run_notes
+        #config.load_path = load_path
 
-        if ddp:
-            config.device = torch.device(f'cuda:{rank}')
-        model = STCNNT_MRI(config=config, total_steps=total_steps)
-        if 'model_state' in status:
-            model.load_state_dict(status['model_state'])
-            
-            model.optim.load_state_dict(status['optimizer_state'])
-            optimizer_to(model.optim, device=model.config.device)
+        print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
 
-            model.sched.load_state_dict(status['scheduler_state'])
-            model.stype = status['scheduler_type']
-            model.curr_epoch = status['epoch']
-            
+        model = create_model(config, model_type, total_steps)
+
+        if 'backbone_state' in status:
+            print(f"{rank_str}, load saved model, continued_training - {continued_training}")
+            if continued_training:
+                model.load_from_status(status=status, device=device, load_others=continued_training)
+            else: # new stage training
+                model = model.to(device)
+                if not config.disable_LSUV:
+                    t0 = time()
+                    LSUVinit(model, input_data.to(device=device), verbose=True, cuda=True)
+                    print(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
+
+                # ------------------------------
+                if not not_load_pre:
+                    print(f"{rank_str}, {Fore.YELLOW}load saved model, pre_state{Style.RESET_ALL}")
+                    model.pre.load_state_dict(status['pre_state'])
+                else:
+                    print(f"{rank_str}, {Fore.RED}load saved model, WITHOUT pre_state{Style.RESET_ALL}")
+
+                if disable_pre:
+                    print(f"{rank_str}, {Fore.YELLOW}load saved model, pre requires_grad_(False){Style.RESET_ALL}")
+                    model.pre.requires_grad_(False)
+                    for param in model.pre.parameters():
+                        param.requires_grad = False
+                else:
+                    print(f"{rank_str}, {Fore.RED}load saved model, pre requires_grad_(True){Style.RESET_ALL}")
+                # ------------------------------
+                if not not_load_backbone:
+                    print(f"{rank_str}, {Fore.YELLOW}load saved model, backbone_state{Style.RESET_ALL}")
+                    model.backbone.load_state_dict(status['backbone_state'])
+                else:
+                    print(f"{rank_str}, {Fore.RED}load saved model, WITHOUT backbone_state{Style.RESET_ALL}")
+
+                if disable_backbone:
+                    print(f"{rank_str}, {Fore.YELLOW}load saved model, backbone requires_grad_(False){Style.RESET_ALL}")
+                    model.backbone.requires_grad_(False)
+                    for param in model.backbone.parameters():
+                        param.requires_grad = False
+                else:
+                    print(f"{rank_str}, {Fore.RED}load saved model, backbone requires_grad_(True){Style.RESET_ALL}")
+                # ------------------------------
+                if not not_load_post:
+                    print(f"{rank_str}, {Fore.YELLOW}load saved model, post_state{Style.RESET_ALL}")
+                    model.post.load_state_dict(status['post_state'])
+                else:
+                    print(f"{rank_str}, {Fore.RED}load saved model, WITHOUT post_state{Style.RESET_ALL}")
+
+                if disable_post:
+                    print(f"{rank_str}, {Fore.YELLOW}load saved model, post requires_grad_(False){Style.RESET_ALL}")
+                    model.post.requires_grad_(False)
+                    for param in model.post.parameters():
+                        param.requires_grad = False
+                else:
+                    print(f"{rank_str}, {Fore.RED}load saved model, post requires_grad_(True){Style.RESET_ALL}")
+                # ------------------------------
+
+                model.a = status['a']
+                model.b = status['b']
+
+                # ---------------------------------------------------
+
+        model = model.to(device)
+
         config.ddp = ddp
-        
-        print(f"after load saved model, the config for running - {config}")
-        print(f"after load saved model, config.use_amp for running - {config.use_amp}")
-        print(f"after load saved model, config.optim for running - {config.optim}")
-        print(f"after load saved model, config.scheduler_type for running - {config.scheduler_type}")
-        print(f"after load saved model, config.weighted_loss for running - {config.weighted_loss}")
-        print(f"after load saved model, config.num_workers for running - {config.num_workers}")
-        print(f"after load saved model, model.curr_epoch for running - {model.curr_epoch}")
+
+        print(f"{rank_str}, after load saved model, the config for running - {config}")
+        print(f"{rank_str}, after load saved model, config.use_amp for running - {config.use_amp}")
+        print(f"{rank_str}, after load saved model, config.optim for running - {config.optim}")
+        print(f"{rank_str}, after load saved model, config.scheduler_type for running - {config.scheduler_type}")
+        print(f"{rank_str}, after load saved model, config.weighted_loss_snr for running - {config.weighted_loss_snr}")
+        print(f"{rank_str}, after load saved model, config.weighted_loss_temporal for running - {config.weighted_loss_temporal}")
+        print(f"{rank_str}, after load saved model, config.weighted_loss_added_noise for running - {config.weighted_loss_added_noise}")
+        print(f"{rank_str}, after load saved model, config.num_workers for running - {config.num_workers}")
+        print(f"{rank_str}, after load saved model, model.curr_epoch for running - {model.curr_epoch}")
+        print(f"{rank_str}, {Fore.GREEN}after load saved model, model type - {config.model_type}{Style.RESET_ALL}")
+        print(f"{rank_str}, {Fore.RED}after load saved model, model.device - {model.device}{Style.RESET_ALL}")
+        print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
     else:
         load_path = None
-        load_path = None
-        model = STCNNT_MRI(config=config, total_steps=total_steps)
+        model = create_model(config, config.model_type, total_steps)
+
+        model = model.to(device)
+        if not config.disable_LSUV:
+            t0 = time()
+            LSUVinit(model, input_data.to(device=device), verbose=True, cuda=True)
+            print(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
 
     if config.ddp:
         dist.barrier()
 
     c = config
+
+    # import torch._dynamo
+    # torch._dynamo.config.suppress_errors = True
+    # torch._dynamo.config.skip_nnmodule_hook_guards=False
+    # model = torch.compile(model, mode="reduce-overhead")
 
     if rank<=0:
 
@@ -308,46 +485,20 @@ def trainer(rank, global_rank, config, wandb_run):
 
     # -----------------------------------------------
 
-    if load_path is None:
-        t0 = time()
-        num_samples = len(train_set[-1])
-        sampled_picked = np.random.randint(0, num_samples, size=32)
-        input_data  = torch.stack([train_set[-1][i][0] for i in sampled_picked])
-        print(f"LSUV prep data took {time()-t0 : .2f} seconds ...")
-    else:
-        print(f"{Fore.YELLOW}Ignore the LSUV initialization - load pre-trained model {load_path} ... {Style.RESET_ALL}")
-
-    # -----------------------------------------------
-
     if c.ddp:
-        device = torch.device(f"cuda:{rank}")
-        model = model.to(device)
-        if load_path is None:
-            t0 = time()
-            LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
-            print(f"LSUVinit took {time()-t0 : .2f} seconds ...")
         model = DDP(model, device_ids=[rank], find_unused_parameters=True)
         optim = model.module.optim
         sched = model.module.sched
         stype = model.module.stype
         loss_f = model.module.loss_f
-        ssim_loss_f = model.module.ssim_loss_f
         curr_epoch = model.module.curr_epoch
         samplers = [DistributedSampler(train_set_x, shuffle=True) for train_set_x in train_set]
         shuffle = False
     else:
-        # No init required if not ddp
-        device = c.device
-        model = model.to(device)
-        if load_path is None:
-            t0 = time()
-            LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
-            print(f"LSUVinit took {time()-t0 : .2f} seconds ...")
         optim = model.optim
         sched = model.sched
         stype = model.stype
         loss_f = model.loss_f
-        ssim_loss_f = model.ssim_loss_f
         curr_epoch = model.curr_epoch
         samplers = [None for _ in train_set]
         shuffle = True
@@ -357,18 +508,18 @@ def trainer(rank, global_rank, config, wandb_run):
     elif c.backbone == 'unet':
         model_str = f"C {c.backbone_unet.C}, {c.n_head} heads, {c.backbone_unet.block_str}"
 
-    logging.info(f"{Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, {c.optim}, {c.global_lr}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, weighted loss {c.weighted_loss}, data degrading {c.with_data_degrading}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, amp {c.use_amp}, {model_str}{Style.RESET_ALL}")
+    logging.info(f"{rank_str}, {Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, {c.optim}, {c.global_lr}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, weighted loss - snr {c.weighted_loss_snr} - tempoeral {c.weighted_loss_temporal} - added_noise {c.weighted_loss_added_noise}, data degrading {c.with_data_degrading}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, amp {c.use_amp}, {model_str}{Style.RESET_ALL}")
 
     # -----------------------------------------------
 
     train_loader = [DataLoader(dataset=train_set_x, batch_size=c.batch_size, shuffle=shuffle, sampler=samplers[i],
                                 num_workers=c.num_workers//len(train_set), prefetch_factor=c.prefetch_factor, drop_last=True,
                                 persistent_workers=c.num_workers>0) for i, train_set_x in enumerate(train_set)]
-    
+
     train_set_type = [train_set_x.data_type for train_set_x in train_set]
 
     # -----------------------------------------------
-    
+
     if rank<=0: # main or master process
         if c.ddp: setup_logger(config) # setup master process logging
 
@@ -377,8 +528,8 @@ def trainer(rank, global_rank, config, wandb_run):
             wandb_run.summary["total_params"] = c.total_params
             wandb_run.summary["total_mult_adds"] = c.total_mult_adds 
 
-            wandb_run.define_metric("epoch")    
-            
+            wandb_run.define_metric("epoch")
+
             wandb_run.define_metric("train_loss_avg", step_metric='epoch')
             wandb_run.define_metric("train_mse_loss", step_metric='epoch')
             wandb_run.define_metric("train_l1_loss", step_metric='epoch')
@@ -390,7 +541,7 @@ def trainer(rank, global_rank, config, wandb_run):
             wandb_run.define_metric("train_perp", step_metric='epoch')
             wandb_run.define_metric("train_gaussian_deriv", step_metric='epoch')
             wandb_run.define_metric("train_gaussian3D_deriv", step_metric='epoch')
-            
+
             wandb_run.define_metric("val_loss_avg", step_metric='epoch')
             wandb_run.define_metric("val_mse_loss", step_metric='epoch')
             wandb_run.define_metric("val_l1_loss", step_metric='epoch')
@@ -445,7 +596,7 @@ def trainer(rank, global_rank, config, wandb_run):
     base_snr = 0
     beta_snr = 0.9
     beta_counter = 0
-    if c.weighted_loss:
+    if c.weighted_loss_snr:
         # get the base_snr
         mean_signal = list()
         median_signal = list()
@@ -456,12 +607,17 @@ def trainer(rank, global_rank, config, wandb_run):
 
         base_snr = np.abs(np.median(mean_signal)) / 2
 
-        logging.info(f"{Fore.YELLOW}base_snr {base_snr:.4f}, Mean signal {np.abs(np.median(mean_signal)):.4f}, median {np.abs(np.median(median_signal)):.4f}, from {len(mean_signal)} images {Style.RESET_ALL}")
+        logging.info(f"{rank_str}, {Fore.YELLOW}base_snr {base_snr:.4f}, Mean signal {np.abs(np.median(mean_signal)):.4f}, median {np.abs(np.median(median_signal)):.4f}, from {len(mean_signal)} images {Style.RESET_ALL}")
 
-    logging.info(f"{Fore.GREEN}----------> Start training loop <----------{Style.RESET_ALL}")
+    logging.info(f"{rank_str}, {Fore.GREEN}----------> Start training loop <----------{Style.RESET_ALL}")
+
+    if c.ddp:
+        model.module.check_model_learnable_status(rank_str)
+    else:
+        model.check_model_learnable_status(rank_str)
 
     for epoch in range(curr_epoch, c.num_epochs):
-        logging.info(f"{Fore.GREEN}{'-'*20} Epoch:{epoch}/{c.num_epochs}, rank {rank}, global rank {global_rank} {'-'*20}{Style.RESET_ALL}")
+        logging.info(f"{Fore.GREEN}{'-'*20} Epoch:{epoch}/{c.num_epochs}, {rank_str}, global rank {global_rank} {'-'*20}{Style.RESET_ALL}")
 
         if config.save_samples:
             saved_path = os.path.join(config.log_path, config.run_name, f"tra_{epoch}")
@@ -483,6 +639,9 @@ def trainer(rank, global_rank, config, wandb_run):
         if image_save_step_size == 0: image_save_step_size = 1
 
         curr_lr = 0
+
+        all_lrs = [pg['lr'] for pg in optim.param_groups]
+        logging.info(f"{rank_str}, {Fore.WHITE}{Style.BRIGHT}learning rate for epoch {epoch} - {all_lrs}{Style.RESET_ALL}")
 
         with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
 
@@ -510,13 +669,14 @@ def trainer(rank, global_rank, config, wandb_run):
 
                 B, T, C, H, W = x.shape
 
-                # compute temporal std
-                if C == 3:
-                    std_t = torch.std(torch.abs(y[:,:,0,:,:] + 1j * y[:,:,1,:,:]), dim=1)
-                else:
-                    std_t = torch.std(y(y[:,:,0,:,:], dim=1))
+                if c.weighted_loss_temporal:
+                    # compute temporal std
+                    if C == 3:
+                        std_t = torch.std(torch.abs(y[:,:,0,:,:] + 1j * y[:,:,1,:,:]), dim=1)
+                    else:
+                        std_t = torch.std(y(y[:,:,0,:,:], dim=1))
 
-                weights_t = torch.mean(std_t, dim=(-2, -1))
+                    weights_t = torch.mean(std_t, dim=(-2, -1))
 
                 # compute snr
                 signal = torch.mean(torch.linalg.norm(y, dim=2, keepdim=True), dim=(1, 2, 3, 4))
@@ -524,30 +684,42 @@ def trainer(rank, global_rank, config, wandb_run):
                 snr = signal / gmaps_median
                 snr = snr.to(device)
 
-                if c.weighted_loss:
+                # base_snr : original snr in the clean patch
+                # noise_sigmas: added noise
+                # weighted_t: temporal/slice signal variation
+
+                if c.weighted_loss_snr:
                     beta_counter += 1
                     base_snr = beta_snr * base_snr + (1-beta_snr) * torch.mean(snr).item()
                     base_snr_t = base_snr / (1 - np.power(beta_snr, beta_counter))
-
-                    # give low SNR patches more weights
-                    #weights = 5.0 - 4.0 * torch.sigmoid(snr-base_snr_t)
                 else:
                     base_snr_t = -1
 
                 noise_sigmas = torch.reshape(noise_sigmas, (B, 1, 1, 1, 1))
 
                 with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
-                    output, weights = model(x, snr, base_snr_t)
-
-                    weights *= weights_t
+                    if c.weighted_loss_snr:
+                        output, weights = model(x, snr, base_snr_t)
+                        if c.weighted_loss_temporal:
+                            weights *= weights_t
+                    else:
+                        output = model(x)
+                        if c.weighted_loss_temporal:
+                            weights = weights_t
 
                     if torch.sum(noise_sigmas).item() > 0:
-                        if c.weighted_loss:
-                            loss = loss_f(output*noise_sigmas, y*noise_sigmas, weights=weights.to(device))
+                        if c.weighted_loss_snr or c.weighted_loss_temporal:
+                            if c.weighted_loss_added_noise:
+                                loss = loss_f(output*noise_sigmas, y*noise_sigmas, weights=weights.to(device))
+                            else:
+                                loss = loss_f(output, y, weights=weights.to(device))
                         else:
-                            loss = loss_f(output*noise_sigmas, y*noise_sigmas)
+                            if c.weighted_loss_added_noise:
+                                loss = loss_f(output*noise_sigmas, y*noise_sigmas)
+                            else:
+                                loss = loss_f(output, y)
                     else:
-                        if c.weighted_loss:
+                        if c.weighted_loss_snr or c.weighted_loss_temporal:
                             loss = loss_f(output, y, weights=weights.to(device))
                         else:
                             loss = loss_f(output, y)
@@ -556,6 +728,10 @@ def trainer(rank, global_rank, config, wandb_run):
 
                 end_timer(enable=c.with_timer, t=tm, msg="---> forward pass took ")
 
+                if torch.isnan(loss):
+                    print(f"Warning - loss is nan ... ")
+                    optim.zero_grad()
+                    continue
 
                 tm = start_timer(enable=c.with_timer)
                 scaler.scale(loss).backward()
@@ -569,7 +745,7 @@ def trainer(rank, global_rank, config, wandb_run):
                         nn.utils.clip_grad_norm_(model.parameters(), c.clip_grad_norm)
 
                     scaler.step(optim)
-                    optim.zero_grad(set_to_none=True)
+                    optim.zero_grad()
                     scaler.update()
 
                     if stype == "OneCycleLR": sched.step()
@@ -584,15 +760,17 @@ def trainer(rank, global_rank, config, wandb_run):
 
                 train_snr_meter.update(torch.mean(snr), n=total)
 
+                output = output.to(x.dtype)
+
                 if rank<=0 and idx%image_save_step_size==0 and images_saved < config.num_saved_samples and config.save_samples:  
-                    save_batch_samples(saved_path, f"tra_epoch_{images_saved}", x, y, output, y_degraded, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
+                    save_batch_samples(saved_path, f"tra_epoch_{epoch}_{images_saved}", x, y, output, y_degraded, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
                     images_saved += 1
 
                 output_scaled = output
                 y_scaled = y
 
                 loss_meters.update(output_scaled, y_scaled)
-                                   
+
                 pbar.update(1)
                 log_str = create_log_str(config, epoch, rank, 
                                          x.shape, 
@@ -640,6 +818,8 @@ def trainer(rank, global_rank, config, wandb_run):
             if val_losses[0] < best_val_loss:
                 best_val_loss = val_losses[0]
                 best_model_wts = copy.deepcopy(model_e.state_dict())
+                run_name = config.run_name.replace(" ", "_")
+                model_e.save(epoch, only_paras=True, save_file_name=f"{run_name}_epoch_{epoch}_best")
                 if wandb_run is not None:
                     wandb_run.log({"epoch": epoch, "best_val_loss":best_val_loss})
 
@@ -676,23 +856,10 @@ def trainer(rank, global_rank, config, wandb_run):
                 sched.step()
 
             if c.ddp:
-                new_lr_0 = torch.zeros(1).to(rank)
-                new_lr_0[0] = optim.param_groups[0]["lr"]
-                dist.broadcast(new_lr_0, src=0)
-
-                if not c.all_w_decay:
-                    new_lr_1 = torch.zeros(1).to(rank)
-                    new_lr_1[0] = optim.param_groups[1]["lr"]
-                    dist.broadcast(new_lr_1, src=0)
+                distribute_learning_rates(rank=rank, optim=optim, src=0)
+                                    
         else: # child processes
-            new_lr_0 = torch.zeros(1).to(rank)
-            dist.broadcast(new_lr_0, src=0)
-            optim.param_groups[0]["lr"] = new_lr_0.item()
-
-            if not c.all_w_decay:
-                new_lr_1 = torch.zeros(1).to(rank)
-                dist.broadcast(new_lr_1, src=0)
-                optim.param_groups[1]["lr"] = new_lr_1.item()
+            distribute_learning_rates(rank=rank, optim=optim, src=0)
 
 
     # test last model
@@ -722,7 +889,8 @@ def trainer(rank, global_rank, config, wandb_run):
             logging.info(f"--> {Fore.YELLOW}Save best mode at {fname_best}{Style.RESET_ALL}")
 
     # test best model, reload the weights
-    model = STCNNT_MRI(config=config, total_steps=total_steps)
+    model = create_model(config, config.model_type, total_steps)
+
     model.load_state_dict(best_model_wts)
     model = model.to(device)
 
@@ -795,19 +963,19 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
 
     shuffle = False
 
-    try:    
+    try:
         if c.ddp:
             loss_f = model.module.loss_f
         else:
             loss_f = model.loss_f
     except:
         loss_f = None
-        
+
     if c.ddp:
         sampler = [DistributedSampler(val_set_x, shuffle=False) for val_set_x in val_set]
     else:
         sampler = [None for _ in val_set]
-        
+
     batch_size = c.batch_size if isinstance(val_set[0], MRIDenoisingDatasetTrain) else 1
 
     val_loader = [DataLoader(dataset=val_set_x, batch_size=batch_size, shuffle=False, sampler=sampler[i],
@@ -816,7 +984,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
 
     val_loss_meter = AverageMeter()
     loss_meters = mri_trainer_meters(config=c, device=device) 
-    
+
     model.eval()
     model.to(device)
 
@@ -863,7 +1031,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                     # run normal inference
                     x = x.to(device)
                     y = y.to(device)
-                    output, _ = model(x)
+                    output = model(x)
                 else:
                     two_D = False
                     cutout_in = cutout
@@ -1009,11 +1177,11 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
 # -------------------------------------------------------------------------------------------------
 def _apply_model(model, x, g, scaling_factor, config, device, overlap=None):
     """Apply the inference
-    
+
     Input
         x : [1, T, 1, H, W], attention is alone T
         g : [1, T, 1, H, W]
-        
+
     Output
         res : [1, T, Cout, H, W]
     """
@@ -1087,30 +1255,30 @@ def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('
     print(f"---> apply_model, complex_i {config.complex_i}")
     print(f"---> apply_model, scaling_factor {scaling_factor}")
     print(f"---> apply_model, overlap {overlap}")
-    
+
     c = config
-    
+
     try:
         for k in range(SLC):
             imgslab = data[:,:,:,k]
             gmapslab = gmap[:,:,k]
-            
+
             H, W, T = imgslab.shape
-            
+
             x = np.transpose(imgslab, [2, 0, 1]).reshape([1, T, 1, H, W])
             g = np.repeat(gmapslab[np.newaxis, np.newaxis, np.newaxis, :, :], T, axis=1)
-            
+
             print(f"---> running_inference, input {x.shape} for slice {k}")
             output = _apply_model(model, x, g, scaling_factor, config, device, overlap)
-            
+
             output = np.transpose(output, (3, 4, 2, 1, 0))
-            
+
             if(k==0):
                 if config.complex_i:
                     data_filtered = np.zeros((output.shape[0], output.shape[1], T, SLC), dtype=data.dtype)
                 else:
                     data_filtered = np.zeros((output.shape[0], output.shape[1], T, SLC), dtype=np.float32)
-            
+
             if config.complex_i:
                 data_filtered[:,:,:,k] = output[:,:,0,:,0] + 1j*output[:,:,1,:,0]
             else:
@@ -1122,7 +1290,7 @@ def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('
 
     t1 = time()
     print(f"---> apply_model took {t1-t0} seconds ")
-        
+
     return data_filtered
 
 # -------------------------------------------------------------------------------------------------
@@ -1151,25 +1319,25 @@ def apply_model_3D(data, model, gmap, config, scaling_factor, device='cpu', over
     print(f"---> apply_model_3D, height and width {config.height, config.width}")
     print(f"---> apply_model_3D, complex_i {config.complex_i}")
     print(f"---> apply_model_3D, scaling_factor {scaling_factor}")
-    
+
     c = config
-    
-    try:           
+
+    try:
         x = np.transpose(data, [2, 0, 1]).reshape([1, SLC, 1, H, W])
         g = np.transpose(gmap, [2, 0, 1]).reshape([1, SLC, 1, H, W])
-        
+
         print(f"---> running_inference, input {x.shape} for volume")
         output = _apply_model(model, x, g, scaling_factor, config, device, overlap)
-            
+
         output = np.transpose(output, (3, 4, 2, 1, 0)) # [H, W, Cout, SLC, 1]
-                
+
         if config.complex_i:
             data_filtered = output[:,:,0,:,0] + 1j*output[:,:,1,:,0]
         else:
             data_filtered = output
 
         data_filtered = np.reshape(data_filtered, (H, W, SLC))
-        
+
     except Exception as e:
         print(e)
         data_filtered = copy.deepcopy(data)
@@ -1207,28 +1375,28 @@ def apply_model_2D(data, model, gmap, config, scaling_factor, device='cpu', over
     print(f"---> apply_model_2D, height and width {config.height, config.width}")
     print(f"---> apply_model_2D, complex_i {config.complex_i}")
     print(f"---> apply_model_2D, scaling_factor {scaling_factor}")
-    
+
     c = config
-    
-    try:           
+
+    try:
         x = np.transpose(data, [2, 0, 1]).reshape([SLC, 1, 1, H, W])
         g = np.transpose(gmap, [2, 0, 1]).reshape([SLC, 1, 1, H, W])
-        
+
         output = np.zeros([SLC, 1, 1, H, W])
-        
+
         print(f"---> running_inference, input {x.shape} for 2D")
         for slc in range(SLC):
             output[slc] = _apply_model(model, x[slc], g[slc], scaling_factor, config, device, overlap)
-            
+
         output = np.transpose(output, (3, 4, 2, 1, 0)) # [H, W, Cout, 1, SLC]
-                
+
         if config.complex_i:
             data_filtered = output[:,:,0,:,:] + 1j*output[:,:,1,:,:]
         else:
             data_filtered = output
 
         data_filtered = np.reshape(data_filtered, (H, W, SLC))
-        
+
     except Exception as e:
         print(e)
         data_filtered = copy.deepcopy(data)
@@ -1282,7 +1450,7 @@ def compare_model(config, model, model_jit, model_onnx, device='cpu', x=None):
 
 # -------------------------------------------------------------------------------------------------
 
-def load_model(saved_model_path, saved_model_config=None):
+def load_model(saved_model_path, saved_model_config=None, model_type=None):
     """
     load a ".pt" or ".pts" model
     @rets:
@@ -1293,20 +1461,38 @@ def load_model(saved_model_path, saved_model_config=None):
     
     config_file = saved_model_config
     if config_file is not None and os.path.isfile(config_file):
-        print(f"{Fore.YELLOW}Load in config file - {config_file}")
+        print(f"{Fore.YELLOW}Load in config file - {config_file}{Style.RESET_ALL}")
         with open(config_file, 'rb') as f:
             config = pickle.load(f)
 
     if saved_model_path.endswith(".pt") or saved_model_path.endswith(".pth"):
+
         status = torch.load(saved_model_path, map_location=get_device())
         config = status['config']
+
         if not torch.cuda.is_available():
             config.device = torch.device('cpu')
-        model = STCNNT_MRI(config=config)
+
+        if model_type is not None:
+            config.model_type = model_type
+            print(f"Use the input model type - {model_type}")
+
+        model = create_model(config, config.model_type, total_steps=-1)
+
         if 'model' in status:
+            print(f"{Fore.YELLOW}Load in model {Style.RESET_ALL}")
             model.load_state_dict(status['model'])
-        else:
+        elif 'model_state' in status:
+            print(f"{Fore.YELLOW}Load in model_state {Style.RESET_ALL}")
             model.load_state_dict(status['model_state'])
+        elif 'backbone_state' in status:
+            print(f"{Fore.YELLOW}Load in pre/backbone/post states{Style.RESET_ALL}")
+            model.pre.load_state_dict(status['pre_state'])
+            model.backbone.load_state_dict(status['backbone_state'])
+            model.post.load_state_dict(status['post_state'])
+            model.a = status['a']
+            model.b = status['b']
+
     elif saved_model_path.endswith(".pts"):
         model = torch.jit.load(saved_model_path, map_location=get_device())
     else:

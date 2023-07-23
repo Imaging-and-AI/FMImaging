@@ -64,7 +64,9 @@ class STCNNT_Cell(nn.Module):
                  scale_ratio_in_mixer=4.0, 
                  with_mixer=True, 
                  norm_mode="layer",
-                 shuffle_in_window=True):
+                 shuffle_in_window=False,
+                 use_einsum=True,
+                 temporal_flash_attention=False):
         """
         Complete transformer cell
 
@@ -133,6 +135,9 @@ class STCNNT_Cell(nn.Module):
         self.norm_mode = norm_mode
         self.shuffle_in_window = shuffle_in_window
         
+        self.use_einsum = use_einsum
+        self.temporal_flash_attention = temporal_flash_attention
+        
         if(norm_mode=="layer"):
             self.n1 = nn.LayerNorm([C_in, H, W])
             self.n2 = nn.LayerNorm([C_out, H, W])
@@ -157,13 +162,23 @@ class STCNNT_Cell(nn.Module):
             self.input_proj = nn.Identity()
 
         if(att_mode=="temporal"):
-            self.attn = TemporalCnnAttention(C_in=C_in, C_out=C_out, H=self.H, W=self.W,
-                                             is_causal=is_causal, n_head=n_head, 
-                                             kernel_size=kernel_size, stride=stride, padding=padding, 
-                                             stride_t=stride_t, 
-                                             cosine_att=cosine_att, normalize_Q_K=normalize_Q_K, 
-                                             att_dropout_p=att_dropout_p, 
-                                             att_with_output_proj=att_with_output_proj)
+            if self.temporal_flash_attention:
+                self.attn = TemporalCnnAttention(C_in=C_in, C_out=C_out, H=self.H, W=self.W,
+                                                is_causal=is_causal, n_head=n_head, 
+                                                kernel_size=kernel_size, stride=stride, padding=padding, 
+                                                stride_t=stride_t, 
+                                                cosine_att=cosine_att, normalize_Q_K=normalize_Q_K, 
+                                                att_dropout_p=att_dropout_p, 
+                                                att_with_output_proj=att_with_output_proj)
+            else:
+                self.attn = TemporalCnnStandardAttention(C_in=C_in, C_out=C_out, H=self.H, W=self.W,
+                                                is_causal=is_causal, n_head=n_head, 
+                                                kernel_size=kernel_size, stride=stride, padding=padding, 
+                                                stride_t=stride_t, 
+                                                cosine_att=cosine_att, normalize_Q_K=normalize_Q_K, 
+                                                att_dropout_p=att_dropout_p, 
+                                                att_with_output_proj=att_with_output_proj,
+                                                use_einsum=self.use_einsum)
         elif(att_mode=="local"):
             self.attn = SpatialLocalAttention(C_in=C_in, C_out=C_out, H=self.H, W=self.W, 
                                               window_size=window_size, patch_size=patch_size, 
@@ -173,7 +188,8 @@ class STCNNT_Cell(nn.Module):
                                               normalize_Q_K=normalize_Q_K, 
                                               cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias,
                                               att_dropout_p=att_dropout_p, 
-                                              att_with_output_proj=att_with_output_proj)
+                                              att_with_output_proj=att_with_output_proj,
+                                              use_einsum=self.use_einsum)
         elif(att_mode=="global"):
             self.attn = SpatialGlobalAttention(C_in=C_in, C_out=C_out, H=self.H, W=self.W, 
                                                window_size=window_size, patch_size=patch_size, 
@@ -184,7 +200,8 @@ class STCNNT_Cell(nn.Module):
                                                cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias,
                                                att_dropout_p=att_dropout_p, 
                                                att_with_output_proj=att_with_output_proj,
-                                               shuffle_in_window=shuffle_in_window)
+                                               shuffle_in_window=shuffle_in_window,
+                                               use_einsum=self.use_einsum)
         elif(att_mode=="vit"):
             self.attn = SpatialViTAttention(C_in=C_in, C_out=C_out, H=self.H, W=self.W, 
                                             window_size=window_size, num_wind=num_wind, 
@@ -192,7 +209,8 @@ class STCNNT_Cell(nn.Module):
                                             normalize_Q_K=normalize_Q_K, 
                                             cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias,
                                             att_dropout_p=att_dropout_p, 
-                                            att_with_output_proj=att_with_output_proj)
+                                            att_with_output_proj=att_with_output_proj,
+                                            use_einsum=self.use_einsum)
         else:
             raise NotImplementedError(f"Attention mode not implemented: {att_mode}")
                     
@@ -205,7 +223,7 @@ class STCNNT_Cell(nn.Module):
                 
                 self.mlp = nn.Sequential(
                     Conv2DExt(C_out, mixer_cha, kernel_size=mixer_kernel_size, stride=mixer_stride, padding=mixer_padding, bias=True),
-                    NewGELU(),
+                    torch.nn.GELU(approximate='tanh'),
                     Conv2DExt(mixer_cha, C_out, kernel_size=mixer_kernel_size, stride=mixer_stride, padding=mixer_padding, bias=True)
                 )
             elif self.mixer_type == "lin":
@@ -219,7 +237,7 @@ class STCNNT_Cell(nn.Module):
                     
                 self.mlp = nn.Sequential(
                     nn.Linear(D, D_prime, bias=True),
-                    NewGELU(),
+                    torch.nn.GELU(approximate='tanh'),
                     nn.Linear(D_prime, D, bias=True)
                 )
             else:
@@ -275,7 +293,9 @@ class STCNNT_Parallel_Cell(nn.Module):
                  scale_ratio_in_mixer=4.0, 
                  with_mixer=True, 
                  norm_mode="layer",
-                 shuffle_in_window=True):
+                 shuffle_in_window=False,
+                 use_einsum=True,
+                 temporal_flash_attention=False):
         """
         Complete transformer parallel cell
         """
@@ -316,6 +336,9 @@ class STCNNT_Parallel_Cell(nn.Module):
 
         self.shuffle_in_window = shuffle_in_window
 
+        self.use_einsum = use_einsum
+        self.temporal_flash_attention = temporal_flash_attention
+
         if(norm_mode=="layer"):
             self.n1 = nn.LayerNorm([C_in, H, W])
         elif(norm_mode=="batch2d"):
@@ -335,14 +358,25 @@ class STCNNT_Parallel_Cell(nn.Module):
             self.input_proj = nn.Identity()
 
         if(att_mode=="temporal"):
-            self.attn = TemporalCnnAttention(C_in=C_in, C_out=C_out, 
-                                             H=H, W=W,
-                                             is_causal=is_causal, n_head=n_head, 
-                                             kernel_size=kernel_size, stride=stride, padding=padding, 
-                                             stride_t=stride_t, 
-                                             cosine_att=cosine_att, normalize_Q_K=normalize_Q_K, 
-                                             att_dropout_p=att_dropout_p, 
-                                             att_with_output_proj=att_with_output_proj)
+            if self.temporal_flash_attention:
+                self.attn = TemporalCnnAttention(C_in=C_in, C_out=C_out, 
+                                                H=H, W=W,
+                                                is_causal=is_causal, n_head=n_head, 
+                                                kernel_size=kernel_size, stride=stride, padding=padding, 
+                                                stride_t=stride_t, 
+                                                cosine_att=cosine_att, normalize_Q_K=normalize_Q_K, 
+                                                att_dropout_p=att_dropout_p, 
+                                                att_with_output_proj=att_with_output_proj)
+            else:
+                self.attn = TemporalCnnStandardAttention(C_in=C_in, C_out=C_out, 
+                                                H=H, W=W,
+                                                is_causal=is_causal, n_head=n_head, 
+                                                kernel_size=kernel_size, stride=stride, padding=padding, 
+                                                stride_t=stride_t, 
+                                                cosine_att=cosine_att, normalize_Q_K=normalize_Q_K, 
+                                                att_dropout_p=att_dropout_p, 
+                                                att_with_output_proj=att_with_output_proj,
+                                                use_einsum=self.use_einsum)
         elif(att_mode=="local"):
             self.attn = SpatialLocalAttention(C_in=C_in, C_out=C_out, 
                                               H=H, W=W,
@@ -353,7 +387,8 @@ class STCNNT_Parallel_Cell(nn.Module):
                                               normalize_Q_K=normalize_Q_K, 
                                               att_dropout_p=att_dropout_p, 
                                               cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias,
-                                              att_with_output_proj=att_with_output_proj)
+                                              att_with_output_proj=att_with_output_proj,
+                                              use_einsum=self.use_einsum)
         elif(att_mode=="global"):
             self.attn = SpatialGlobalAttention(C_in=C_in, C_out=C_out, 
                                                H=H, W=W,
@@ -365,7 +400,8 @@ class STCNNT_Parallel_Cell(nn.Module):
                                                att_dropout_p=att_dropout_p, 
                                                cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias,
                                                att_with_output_proj=att_with_output_proj,
-                                               shuffle_in_window=shuffle_in_window)
+                                               shuffle_in_window=shuffle_in_window,
+                                               use_einsum=self.use_einsum)
         elif(att_mode=="vit"):
             self.attn = SpatialViTAttention(C_in=C_in, C_out=C_out, 
                                             H=H, W=W,
@@ -374,7 +410,8 @@ class STCNNT_Parallel_Cell(nn.Module):
                                             normalize_Q_K=normalize_Q_K, 
                                             att_dropout_p=att_dropout_p, 
                                             cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias,
-                                            att_with_output_proj=att_with_output_proj)
+                                            att_with_output_proj=att_with_output_proj,
+                                            use_einsum=self.use_einsum)
         else:
             raise NotImplementedError(f"Attention mode not implemented: {att_mode}")
 
@@ -387,7 +424,7 @@ class STCNNT_Parallel_Cell(nn.Module):
                 
                 self.mlp = nn.Sequential(
                     Conv2DExt(C_in, mixer_cha, kernel_size=mixer_kernel_size, stride=mixer_stride, padding=mixer_padding, bias=True),
-                    NewGELU(),
+                    torch.nn.GELU(approximate='tanh'),
                     Conv2DExt(mixer_cha, C_out, kernel_size=mixer_kernel_size, stride=mixer_stride, padding=mixer_padding, bias=True)
                 )
             elif self.mixer_type == "lin":
@@ -403,7 +440,7 @@ class STCNNT_Parallel_Cell(nn.Module):
                     
                 self.mlp = nn.Sequential(
                     nn.Linear(D, D_prime, bias=True),
-                    NewGELU(),
+                    torch.nn.GELU(approximate='tanh'),
                     nn.Linear(D_prime, D_out, bias=True)
                 )
             else:
@@ -454,40 +491,48 @@ def tests():
     cosine_atts = ["True", "False"]
     att_with_relative_postion_biases = ["True", "False"]
     mixer_types = [ "conv", "lin"]
+    use_einsums = [True, False]
+    with_flash_attentions = [True, False]
     
-    for att_type in att_types:
-        for norm_type in norm_types:
-            for cosine_att in cosine_atts:
-                for att_with_relative_postion_bias in att_with_relative_postion_biases:
-                    for mixer_type in mixer_types:
-                        print(norm_type, att_type, mixer_types, cosine_att, att_with_relative_postion_bias)
-                        
-                        CNNT_Cell = STCNNT_Cell(C_in=C, C_out=C_out, H=H, W=W, window_size=[H//8, W//8], patch_size=[H//16, W//16], 
-                                                att_mode=att_type, mixer_type=mixer_type, norm_mode=norm_type,
-                                                cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias)
-                        test_out = CNNT_Cell(test_in)
+    for use_einsum in use_einsums:
+        for with_flash_attention in with_flash_attentions:
+            for att_type in att_types:
+                for norm_type in norm_types:
+                    for cosine_att in cosine_atts:
+                        for att_with_relative_postion_bias in att_with_relative_postion_biases:
+                            for mixer_type in mixer_types:
+                                print(norm_type, att_type, mixer_types, cosine_att, att_with_relative_postion_bias)
+                                
+                                CNNT_Cell = STCNNT_Cell(C_in=C, C_out=C_out, H=H, W=W, window_size=[H//8, W//8], patch_size=[H//16, W//16], 
+                                                        att_mode=att_type, mixer_type=mixer_type, norm_mode=norm_type,
+                                                        cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias,
+                                                        use_einsum=use_einsum, temporal_flash_attention=with_flash_attention)
+                                test_out = CNNT_Cell(test_in)
 
-                        Bo, To, Co, Ho, Wo = test_out.shape
-                        assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
+                                Bo, To, Co, Ho, Wo = test_out.shape
+                                assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
 
     print("Passed CNNT Cell")
 
-    for att_type in att_types:
-        for norm_type in norm_types:
+    for use_einsum in use_einsums:
+        for with_flash_attention in with_flash_attentions:
+            for att_type in att_types:
+                for norm_type in norm_types:
 
-            for cosine_att in cosine_atts:
-                for att_with_relative_postion_bias in att_with_relative_postion_biases:
-                    for mixer_type in mixer_types:
+                    for cosine_att in cosine_atts:
+                        for att_with_relative_postion_bias in att_with_relative_postion_biases:
+                            for mixer_type in mixer_types:
+                                
+                                print(norm_type, att_type, mixer_type, cosine_att, att_with_relative_postion_bias)
                         
-                        print(norm_type, att_type, mixer_type, cosine_att, att_with_relative_postion_bias)
-                
-                        p_cell = STCNNT_Parallel_Cell(C_in=C, C_out=C_out, H=H, W=W, window_size=[H//8, W//8], patch_size=[H//16, W//16], 
-                                                    att_mode=att_type, mixer_type=mixer_type, norm_mode=norm_type,
-                                                    cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias)
-                        test_out = p_cell(test_in)
+                                p_cell = STCNNT_Parallel_Cell(C_in=C, C_out=C_out, H=H, W=W, window_size=[H//8, W//8], patch_size=[H//16, W//16], 
+                                                            att_mode=att_type, mixer_type=mixer_type, norm_mode=norm_type,
+                                                            cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias,
+                                                            use_einsum=use_einsum, temporal_flash_attention=with_flash_attention)
+                                test_out = p_cell(test_in)
 
-                        Bo, To, Co, Ho, Wo = test_out.shape
-                        assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
+                                Bo, To, Co, Ho, Wo = test_out.shape
+                                assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
 
     print("Passed Parallel CNNT Cell")
 

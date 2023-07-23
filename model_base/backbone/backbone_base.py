@@ -30,10 +30,61 @@ from imaging_attention import *
 from blocks import *
 from utils import get_device, create_generic_class_str
 
-__all__ = ['STCNNT_Base_Runtime']
+__all__ = ['STCNNT_Base_Runtime', 'set_window_patch_sizes_keep_num_window', 'set_window_patch_sizes_keep_window_size']
 
 # -------------------------------------------------------------------------------------------------
-# Base model for rest to inherit
+
+def set_window_patch_sizes_keep_num_window(kwargs, HW, num_wind, num_patch, module_name=None):
+
+        num_wind = [2 if v<2 else v for v in num_wind]
+        num_patch = [2 if v<2 else v for v in num_patch]
+
+        kwargs["window_size"] = [v//w if v//w>=1 else 1 for v, w in zip(HW, num_wind)]
+        kwargs["patch_size"] = [v//w if v//w>=1 else 1 for v, w in zip(kwargs["window_size"], num_patch)]
+
+        kwargs["num_wind"] = num_wind
+        kwargs["num_patch"] = num_patch
+
+        info_str = f" --> image size {HW} - windows size {kwargs['''window_size''']} - patch size {kwargs['''patch_size''']} - num windows {kwargs['''num_wind''']} - num patch {kwargs['''num_patch''']}"
+
+        if module_name is not None:
+            info_str = module_name + info_str
+
+        print(info_str)
+
+        return kwargs
+
+def set_window_patch_sizes_keep_window_size(kwargs, HW, window_size, patch_size, module_name=None):        
+
+    if HW[0]//window_size[0] < 2:
+        window_size[0] = max(HW[0]//2, 1)
+
+    if HW[1]//window_size[1] < 2:
+        window_size[1] = max(HW[1]//2, 1)
+
+    if window_size[0]//patch_size[0] < 2:
+        patch_size[0] = max(window_size[0]//2, 1)
+
+    if window_size[1]//patch_size[1] < 2:
+        patch_size[1] = max(window_size[1]//2, 1)
+
+    kwargs["window_size"] = window_size
+    kwargs["patch_size"] = patch_size
+
+    kwargs["num_wind"] = [v//w for v, w in zip(HW, window_size)]
+    kwargs["num_patch"] = [v//w for v, w in zip(window_size, patch_size)]
+
+    info_str = f" --> image size {HW} - windows size {kwargs['''window_size''']} - patch size {kwargs['''patch_size''']} - num windows {kwargs['''num_wind''']} - num patch {kwargs['''num_patch''']}"
+
+    if module_name is not None:
+        info_str = module_name + info_str
+
+    print(info_str)
+
+    return kwargs
+
+# -------------------------------------------------------------------------------------------------
+# # Base model for rest to inherit
 
 class STCNNT_Base_Runtime(nn.Module):
     """
@@ -53,54 +104,54 @@ class STCNNT_Base_Runtime(nn.Module):
     def device(self):
         return next(self.parameters()).device
 
-    def set_window_patch_sizes_keep_num_window(self, kwargs, HW, num_wind, num_patch, module_name=None):
-        
-        num_wind = [2 if v<2 else v for v in num_wind]
-        num_patch = [2 if v<2 else v for v in num_patch]
-        
-        kwargs["window_size"] = [v//w if v//w>=1 else 1 for v, w in zip(HW, num_wind)]
-        kwargs["patch_size"] = [v//w if v//w>=1 else 1 for v, w in zip(kwargs["window_size"], num_patch)]
-                
-        kwargs["num_wind"] = num_wind
-        kwargs["num_patch"] = num_patch
-        
-        info_str = f" --> image size {HW} - windows size {kwargs['''window_size''']} - patch size {kwargs['''patch_size''']} - num windows {kwargs['''num_wind''']} - num patch {kwargs['''num_patch''']}"
-            
-        if module_name is not None:
-            info_str = module_name + info_str
-            
-        print(info_str)
-        
-        return kwargs
-    
-    def set_window_patch_sizes_keep_window_size(self, kwargs, HW, window_size, patch_size, module_name=None):        
-        
-        if HW[0]//window_size[0] < 2:
-            window_size[0] = max(HW[0]//2, 1)
-            
-        if HW[1]//window_size[1] < 2:
-            window_size[1] = max(HW[1]//2, 1)
-            
-        if window_size[0]//patch_size[0] < 2:
-            patch_size[0] = max(window_size[0]//2, 1)
-            
-        if window_size[1]//patch_size[1] < 2:
-            patch_size[1] = max(window_size[1]//2, 1)
-        
-        kwargs["window_size"] = window_size
-        kwargs["patch_size"] = patch_size
-                
-        kwargs["num_wind"] = [v//w for v, w in zip(HW, window_size)]
-        kwargs["num_patch"] = [v//w for v, w in zip(window_size, patch_size)]
-        
-        info_str = f" --> image size {HW} - windows size {kwargs['''window_size''']} - patch size {kwargs['''patch_size''']} - num windows {kwargs['''num_wind''']} - num patch {kwargs['''num_patch''']}"
-            
-        if module_name is not None:
-            info_str = module_name + info_str
-            
-        print(info_str)
-        
-        return kwargs
+    # def set_window_patch_sizes_keep_num_window(self, kwargs, HW, num_wind, num_patch, module_name=None):
+
+    #     num_wind = [2 if v<2 else v for v in num_wind]
+    #     num_patch = [2 if v<2 else v for v in num_patch]
+
+    #     kwargs["window_size"] = [v//w if v//w>=1 else 1 for v, w in zip(HW, num_wind)]
+    #     kwargs["patch_size"] = [v//w if v//w>=1 else 1 for v, w in zip(kwargs["window_size"], num_patch)]
+
+    #     kwargs["num_wind"] = num_wind
+    #     kwargs["num_patch"] = num_patch
+
+    #     info_str = f" --> image size {HW} - windows size {kwargs['''window_size''']} - patch size {kwargs['''patch_size''']} - num windows {kwargs['''num_wind''']} - num patch {kwargs['''num_patch''']}"
+
+    #     if module_name is not None:
+    #         info_str = module_name + info_str
+
+    #     print(info_str)
+
+    #     return kwargs
+
+    # def set_window_patch_sizes_keep_window_size(self, kwargs, HW, window_size, patch_size, module_name=None):        
+
+    #     if HW[0]//window_size[0] < 2:
+    #         window_size[0] = max(HW[0]//2, 1)
+
+    #     if HW[1]//window_size[1] < 2:
+    #         window_size[1] = max(HW[1]//2, 1)
+
+    #     if window_size[0]//patch_size[0] < 2:
+    #         patch_size[0] = max(window_size[0]//2, 1)
+
+    #     if window_size[1]//patch_size[1] < 2:
+    #         patch_size[1] = max(window_size[1]//2, 1)
+
+    #     kwargs["window_size"] = window_size
+    #     kwargs["patch_size"] = patch_size
+
+    #     kwargs["num_wind"] = [v//w for v, w in zip(HW, window_size)]
+    #     kwargs["num_patch"] = [v//w for v, w in zip(window_size, patch_size)]
+
+    #     info_str = f" --> image size {HW} - windows size {kwargs['''window_size''']} - patch size {kwargs['''patch_size''']} - num windows {kwargs['''num_wind''']} - num patch {kwargs['''num_patch''']}"
+
+    #     if module_name is not None:
+    #         info_str = module_name + info_str
+
+    #     print(info_str)
+
+    #     return kwargs
 
     def save(self, epoch):
         """

@@ -81,7 +81,7 @@ class FSIM_Loss:
             else:
                 raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for FSIM_Loss")
             
-            v = torch.sum(weights_used*loss) / torch.sum(weights_used)
+            v = torch.sum(weights_used*loss) / (torch.sum(weights_used) + torch.finfo(torch.float16).eps)
         else:
             v = torch.mean(loss)
 
@@ -131,7 +131,7 @@ class SSIM_Loss:
             else:
                 raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for SSIM_Loss")
 
-            v_ssim = torch.sum(weights_used*self.ssim_loss(outputs_im, targets_im)) / torch.sum(weights_used)
+            v_ssim = torch.sum(weights_used*self.ssim_loss(outputs_im, targets_im)) / (torch.sum(weights_used) + torch.finfo(torch.float16).eps)
         else:
             v_ssim = torch.mean(self.ssim_loss(outputs_im, targets_im))
 
@@ -175,7 +175,7 @@ class SSIM3D_Loss:
 
             if not weights.ndim==1:
                 raise NotImplementedError(f"Only support 1D(Batch) weights for SSIM3D_Loss")
-            v_ssim = torch.sum(weights*self.ssim_loss(outputs_im, targets_im)) / torch.sum(weights)
+            v_ssim = torch.sum(weights*self.ssim_loss(outputs_im, targets_im)) / (torch.sum(weights) + torch.finfo(torch.float16).eps)
         else:
             v_ssim = torch.mean(self.ssim_loss(outputs_im, targets_im))
 
@@ -199,10 +199,10 @@ class MSSSIM_Loss:
             - device (torch.device): device to run the loss on
         """
         self.complex_i = complex_i
-        self.data_range = data_range               
+        self.data_range = data_range
         self.msssim_loss = MS_SSIM(data_range=data_range, size_average=False, win_size=window_size, channel=1, spatial_dims=2)
-        
-                
+
+
     def __call__(self, outputs, targets, weights=None):
 
         B, T, C, H, W = targets.shape
@@ -233,7 +233,7 @@ class MSSSIM_Loss:
             else:
                 raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for SSIM_Loss")
 
-            v_ssim = torch.sum(weights_used*v) / torch.sum(weights_used)
+            v_ssim = torch.sum(weights_used*v) / (torch.sum(weights_used) + torch.finfo(torch.float16).eps)
         else:
             v_ssim = torch.mean(v)
 
@@ -273,7 +273,7 @@ class L1_Loss:
             else:
                 raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for L1_Loss")
 
-            v_l1 = torch.sum(weights*diff_L1) / torch.sum(weights)
+            v_l1 = torch.sum(weights*diff_L1) / (torch.sum(weights) + torch.finfo(torch.float16).eps)
         else:
             v_l1 = torch.sum(diff_L1)
 
@@ -311,7 +311,7 @@ class MSE_Loss:
             else:
                 raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for MSE_Loss")
 
-            v_l2 = torch.sum(weights*diff_mag_square) / torch.sum(weights)
+            v_l2 = torch.sum(weights*diff_mag_square) / (torch.sum(weights) + torch.finfo(torch.float16).eps)
         else:
             v_l2 = torch.sum(diff_mag_square)
 
@@ -334,7 +334,7 @@ class PSNR:
     def __call__(self, outputs, targets):
 
         num = self.range * self.range
-        den = torch.mean(torch.square(targets - outputs))
+        den = torch.mean(torch.square(targets - outputs)) + torch.finfo(torch.float16).eps
 
         return 10 * torch.log10(num/den)
 
@@ -354,7 +354,7 @@ class PSNR_Loss:
         B, T, C, H, W = targets.shape
 
         num = self.range * self.range
-        den = torch.square(targets - outputs) + 1e-8
+        den = torch.square(targets - outputs) + torch.finfo(torch.float16).eps
 
         if(weights is not None):
 
@@ -365,7 +365,7 @@ class PSNR_Loss:
             else:
                 raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for PSNR_Loss")
 
-            v_l2 = torch.sum(weights*torch.log10(num/den)) / torch.sum(weights)
+            v_l2 = torch.sum(weights*torch.log10(num/den)) / (torch.sum(weights) + torch.finfo(torch.float16).eps)
         else:
             v_l2 = torch.sum(torch.log10(num/den))
 
@@ -427,7 +427,7 @@ class Perpendicular_Loss:
             else:
                 raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for Perpendicular_Loss")
 
-            v = torch.sum(weights*loss) / torch.sum(weights)
+            v = torch.sum(weights*loss) / (torch.sum(weights) + torch.finfo(torch.float16).eps)
         else:
             v = torch.sum(loss)
 
@@ -494,7 +494,7 @@ class GaussianDeriv_Loss:
             else:
                 raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for GaussianDeriv_Loss")
 
-            v = torch.sum(weights_used*loss) / torch.sum(weights_used)
+            v = torch.sum(weights_used*loss) / (torch.sum(weights_used) + torch.finfo(torch.float16).eps)
         else:
             v = torch.mean(loss)
 
@@ -560,7 +560,7 @@ class GaussianDeriv3D_Loss:
         if weights is not None:
             if not weights.ndim==1:
                 raise NotImplementedError(f"Only support 1D(Batch) weights for GaussianDeriv3D_Loss")
-            v = torch.sum(weights*loss) / torch.sum(weights)
+            v = torch.sum(weights*loss) / (torch.sum(weights) + torch.finfo(torch.float16).eps)
         else:
             v = torch.mean(loss)
 

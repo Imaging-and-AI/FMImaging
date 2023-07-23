@@ -22,13 +22,13 @@ class mri_ddp_base(run_ddp_base):
     
     def __init__(self, project, script_to_run) -> None:
         super().__init__(project, script_to_run)
-        
+
     def set_up_constants(self, config):
         
         super().set_up_constants(config)
-        
+
         self.cmd.extend([
-       
+
         "--num_epochs", "75",
         "--batch_size", "16",
 
@@ -40,37 +40,37 @@ class mri_ddp_base(run_ddp_base):
         "--clip_grad_norm", "1.0",
         "--weight_decay", "1",
 
-        "--use_amp", 
+        #"--use_amp", 
 
         "--iters_to_accumulate", "1",
 
         "--num_workers", "64",
         "--prefetch_factor", "4",
-        
+
         "--scheduler_type", "ReduceLROnPlateau",
         #"--scheduler_type", "OneCycleLR",
-        
+
         "--scheduler.ReduceLROnPlateau.patience", "0",
         "--scheduler.ReduceLROnPlateau.cooldown", "0",
-        "--scheduler.ReduceLROnPlateau.factor", "0.85",
-        
+        "--scheduler.ReduceLROnPlateau.factor", "0.9",
+
         "--scheduler.OneCycleLR.pct_start", "0.2",
-        
+
         # hrnet
         "--backbone_hrnet.num_resolution_levels", "2",
-        
-        # unet            
+
+        # unet
         "--backbone_unet.num_resolution_levels", "2",
-        
+
         # LLMs
         "--backbone_LLM.num_stages", "3",
-                        
+
         # small unet
         "--backbone_small_unet.channels", "16", "32", "64",   
         "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1",
-        
-        "--min_noise_level", "2.0",
-        "--max_noise_level", "24.0",
+
+        #"--min_noise_level", "2.0",
+        #"--max_noise_level", "24.0",
         #"--complex_i",
         #"--residual",
         #"--losses", "mse", "l1",
@@ -85,11 +85,13 @@ class mri_ddp_base(run_ddp_base):
         #"--max_load", "10000",
 
         #"--with_data_degrading",
-        
+
         #"--save_samples",
 
         # "--train_files", "train_3D_3T_retro_cine_2018.h5",  "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5", "train_3D_3T_perf_2018.h5","train_3D_3T_perf_2019.h5", "train_3D_3T_perf_2020.h5","train_3D_3T_perf_2021.h5", 
         # "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2d",
+
+        "--post_hrnet.block_str", "T1L1G1", "T1L1G1",
 
         "--train_files", "train_3D_3T_retro_cine_2018.h5",  
                         "train_3D_3T_retro_cine_2019.h5", 
@@ -100,28 +102,48 @@ class mri_ddp_base(run_ddp_base):
                         #"BWH_Perfusion_3T_2022.h5",
                         "MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", 
                         "MINNESOTA_UHVC_RetroCine_1p5T_2022.h5",
-        
+
         "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "3d",
 
         "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", 
                         "train_3D_3T_retro_cine_2020_small_2DT_test.h5", 
                         "train_3D_3T_retro_cine_2020_small_2D_test.h5", 
                         "train_3D_3T_retro_cine_2020_500_samples.h5",
-                        
+
         "--test_data_types", "3d", "2dt", "2d", "2dt" 
         ])
-        
+
         if config.tra_ratio > 0 and config.tra_ratio<=100:
             self.cmd.extend(["--ratio", f"{int(config.tra_ratio)}", f"{int(config.val_ratio)}", f"{int(config.test_ratio)}"])
-            
+
         self.cmd.extend(["--max_load", f"{int(config.max_load)}"])
 
+        self.cmd.extend(["--lr_pre", f"{config.lr_pre}"])
+        self.cmd.extend(["--lr_backbone", f"{config.lr_backbone}"])
+        self.cmd.extend(["--lr_post", f"{config.lr_post}"])
+
+        self.cmd.extend(["--model_type", f"{config.model_type}"])
+
+        if config.not_load_pre:
+            self.cmd.extend(["--not_load_pre"])
+        if config.not_load_backbone:
+            self.cmd.extend(["--not_load_backbone"])
+        if config.not_load_post:
+            self.cmd.extend(["--not_load_post"])
+
+        if config.disable_pre:
+            self.cmd.extend(["--disable_pre"])
+        if config.disable_backbone:
+            self.cmd.extend(["--disable_backbone"])
+        if config.disable_post:
+            self.cmd.extend(["--disable_post"])
+
     def set_up_variables(self, config):
-        
+
         vars = dict()
-                
+
         vars['optim'] = ['sophia']
-        
+
         vars['backbone'] = ['hrnet']
         vars['cell_types'] = ["parallel"]
         vars['Q_K_norm'] = [True]
@@ -134,15 +156,15 @@ class mri_ddp_base(run_ddp_base):
         vars['shuffle_in_windows'] = ["0"]
         vars['block_dense_connections'] = ["1"]
         vars['norm_modes'] = ["batch2d"]
-        vars['C'] = [64]
-        vars['scale_ratio_in_mixers'] = [4.0]
+        vars['C'] = [32]
+        vars['scale_ratio_in_mixers'] = [1.0]
 
         vars['snr_perturb_prob'] = [0.0]
 
         vars['block_strs'] = [
                         [
+                            #["T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                             ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            ["T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                             ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
                             ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
                             ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
@@ -159,8 +181,8 @@ class mri_ddp_base(run_ddp_base):
                     ]
 
         vars['losses'] = [
-            [["perpendicular", "psnr", "l1"], ['1.0', '1.0', '1.0', '1.0', '1.0']],
-            #[["perpendicular", "psnr", "l1", "gaussian", "gaussian3D"], ['1.0', '1.0', '1.0', '1.0', '1.0', '10.0', '10.0']],
+            [["mse", "perpendicular", "psnr", "l1"], ['1.0', '1.0', '1.0', '1.0', '1.0']],
+            [["mse", "perpendicular", "psnr", "l1", "gaussian", "gaussian3D", "ssim"], ['1.0', '1.0', '1.0', '1.0', '20.0', '20.0', "5.0"]],
             #[['perpendicular', 'ssim', 'psnr', 'l1'], ['1.0', '1.0', '1.0', '1.0', '1.0']],
             #[['psnr','l1', 'mse'], ['1.0', '1.0', '1.0', '1.0', '1.0']],
             #[['ssim', 'ssim3D', 'mse', 'l1', 'psnr'], ['0.1', '0.1', '1.0', '1.0', '1.0']], 
@@ -170,12 +192,13 @@ class mri_ddp_base(run_ddp_base):
         ]
 
         vars['complex_i'] = [True]
-        vars['residual'] = [True ]
-        vars['weighted_loss'] = [True]
+        vars['residual'] = [True]
+
+        vars['weighted_loss_snr'] = [True]
+        vars['weighted_loss_temporal'] = [True]
+        vars['weighted_loss_added_noise'] = [True]
 
         vars['n_heads'] = [32]
-
-        vars['with_data_degrading'] = [False]
 
         return vars
 
@@ -204,9 +227,10 @@ class mri_ddp_base(run_ddp_base):
                     scale_ratio_in_mixer, \
                     complex_i,\
                     bs, \
-                    weighted_loss, \
-                    loss_and_weights, \
-                    with_data_degrading \
+                    weighted_loss_snr, \
+                    weighted_loss_temporal, \
+                    weighted_loss_added_noise, \
+                    loss_and_weights \
                         in itertools.product( 
                                             vars['optim'],
                                             vars['mixer_types'], 
@@ -226,11 +250,12 @@ class mri_ddp_base(run_ddp_base):
                                             vars['scale_ratio_in_mixers'],
                                             vars['complex_i'],
                                             block_str,
-                                            vars['weighted_loss'],
-                                            vars['losses'],
-                                            vars['with_data_degrading']
+                                            vars['weighted_loss_snr'],
+                                            vars['weighted_loss_temporal'],
+                                            vars['weighted_loss_added_noise'],
+                                            vars['losses']
                                             ):
-                                                                                        
+
                         # -------------------------------------------------------------
                         cmd_run = self.create_cmd_run(cmd_run=self.cmd.copy(), 
                                         config=config,
@@ -252,21 +277,22 @@ class mri_ddp_base(run_ddp_base):
                                         load_path=config.load_path,
                                         complex_i=complex_i,
                                         residual=residual,
-                                        weighted_loss=weighted_loss,
+                                        weighted_loss_snr=weighted_loss_snr,
+                                        weighted_loss_temporal=weighted_loss_temporal,
+                                        weighted_loss_added_noise=weighted_loss_added_noise,
                                         snr_perturb_prob=snr_perturb_prob,
                                         n_heads=n_heads,
                                         losses=loss_and_weights[0],
-                                        loss_weights=loss_and_weights[1],
-                                        with_data_degrading=with_data_degrading
+                                        loss_weights=loss_and_weights[1]
                                         )
-                        
+
                         if cmd_run:
                             print("---" * 20)
                             print(cmd_run)
                             print("---" * 20)
                             cmd_runs.append(cmd_run)
         return cmd_runs
-    
+
     def create_cmd_run(self, cmd_run, config, 
                         optim='adamw',
                         bk='hrnet', 
@@ -286,12 +312,13 @@ class mri_ddp_base(run_ddp_base):
                         load_path=None,
                         complex_i=True,
                         residual=True,
-                        weighted_loss=True,
+                        weighted_loss_snr=True,
+                        weighted_loss_temporal=True,
+                        weighted_loss_added_noise=True,
                         snr_perturb_prob=0,
                         n_heads=32,
                         losses=['mse', 'l1'],
-                        loss_weights=['1.0', '1.0'],
-                        with_data_degrading=False
+                        loss_weights=['1.0', '1.0']
                         ):
 
         if c < n_heads:
@@ -307,7 +334,7 @@ class mri_ddp_base(run_ddp_base):
 
         curr_time = datetime.now()
         moment = curr_time.strftime('%Y%m%d_%H%M%S_%f')
-        run_str = f"{moment}_C-{c}-{int(scale_ratio_in_mixer)}"
+        run_str = f"{config.model_type}_{moment}_C-{c}-{int(scale_ratio_in_mixer)}_amp-{config.use_amp}"
         #run_str = moment
 
         if config.run_extra_note is not None:
@@ -322,33 +349,58 @@ class mri_ddp_base(run_ddp_base):
             cmd_run.extend(["--residual"])
             run_str += "_residual"
 
-        if weighted_loss:
-            cmd_run.extend(["--weighted_loss"])
+        if weighted_loss_snr or weighted_loss_temporal or weighted_loss_added_noise:
             run_str += "_weighted_loss"
 
-        if with_data_degrading:
+        if weighted_loss_snr:
+            cmd_run.extend(["--weighted_loss_snr"])
+            run_str += "_snr"
+        if weighted_loss_temporal:
+            cmd_run.extend(["--weighted_loss_temporal"])
+            run_str += "_temporal"
+        if weighted_loss_added_noise:
+            cmd_run.extend(["--weighted_loss_added_noise"])
+            run_str += "_added_noise"
+
+        if config.with_data_degrading:
             cmd_run.extend(["--with_data_degrading"])
             run_str += "_with_data_degrading"
-            
+
+        if config.not_add_noise:
+            cmd_run.extend(["--not_add_noise"])
+            run_str += "_no_noise"
+
+        if config.disable_LSUV:
+            cmd_run.extend(["--disable_LSUV"])
+
         run_str += f"-{'_'.join(bs)}"
 
         cmd_run.extend(["--losses"])
-        cmd_run.extend(losses)
+        if config.losses is not None:
+            cmd_run.extend(config.losses)
+        else:
+            cmd_run.extend(losses)
 
         cmd_run.extend(["--loss_weights"])
-        cmd_run.extend(loss_weights)
+        if config.loss_weights is not None:
+            cmd_run.extend([f"{lw}" for lw in config.loss_weights])
+        else:
+            cmd_run.extend(loss_weights)
 
         ind = cmd_run.index("--run_name")
         cmd_run.pop(ind)
         cmd_run.pop(ind)
-        
+
         ind = cmd_run.index("--run_notes")
         cmd_run.pop(ind)
         cmd_run.pop(ind)
 
+        cmd_run.extend(["--min_noise_level", f"{config.min_noise_level}"])
+        cmd_run.extend(["--max_noise_level", f"{config.max_noise_level}"])
+
         cmd_run.extend([
-            "--run_name", f"{config.project}-{bk.upper()}-{run_str}",
-            "--run_notes", f"{config.project}-{bk.upper()}-{run_str}",
+            "--run_name", f"{config.project}-{run_str}",
+            "--run_notes", f"{config.project}-{run_str}",
             "--snr_perturb_prob", f"{snr_perturb_prob}",
             "--n_head", f"{n_heads}"
         ])
@@ -356,10 +408,37 @@ class mri_ddp_base(run_ddp_base):
         return cmd_run
 
     def arg_parser(self):
+
         parser = super().arg_parser()
         parser.add_argument("--max_load", type=int, default=-1, help="number of max loaded samples into the RAM")
+
+        parser.add_argument("--model_type", type=str, default="STCNNT_MRI", help="STCNNT_MRI or MRI_hrnet or MRI_double_net")
+
+        parser.add_argument("--losses", nargs='+', type=str, default=None, help='Any combination of "mse", "l1", "sobel", "ssim", "ssim3D", "psnr", "msssim", "perpendicular", "gaussian", "gaussian3D" ')
+        parser.add_argument('--loss_weights', nargs='+', type=float, default=None, help='to balance multiple losses, weights can be supplied')
+
+        parser.add_argument("--min_noise_level", type=float, default=1.0, help='minimal noise level')
+        parser.add_argument("--max_noise_level", type=float, default=24.0, help='maximal noise level')
+        
+        parser.add_argument("--lr_pre", type=float, default=-1, help='learning rate for pre network')
+        parser.add_argument("--lr_backbone", type=float, default=-1, help='learning rate for backbone network')
+        parser.add_argument("--lr_post", type=float, default=-1, help='learning rate for post network')
+
+        parser.add_argument("--not_load_pre", action="store_true", help='if set, pre module will not be loaded.')
+        parser.add_argument("--not_load_backbone", action="store_true", help='if set, backbone module will not be loaded.')
+        parser.add_argument("--not_load_post", action="store_true", help='if set, pre module will not be loaded.')
+
+        parser.add_argument("--disable_pre", action="store_true", help='if set, pre module will have require_grad_(False).')
+        parser.add_argument("--disable_backbone", action="store_true", help='if set, backbone module will have require_grad_(False).')
+        parser.add_argument("--disable_post", action="store_true", help='if set, post module will have require_grad_(False).')
+
+        parser.add_argument("--disable_LSUV", action="store_true", help='if set, do not perform LSUV init.')
+
+        parser.add_argument("--not_add_noise", action="store_true", help='if set, will not add noise to images.')
+        parser.add_argument("--with_data_degrading", action="store_true", help='if set, degrade image before adding noise.')
+
         return parser
-    
+
 # -------------------------------------------------------------
 
 def main():

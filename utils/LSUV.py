@@ -48,7 +48,7 @@ def svd_orthonormal(w):
     if len(shape) < 2:
         raise RuntimeError("Only shapes of length 2 or more are supported.")
     flat_shape = (shape[0], np.prod(shape[1:]))
-    a = np.random.normal(0.0, 1.0, flat_shape)#w;
+    a = np.random.normal(0.0, 1.0, flat_shape).astype(dtype=np.float32)#w;
     u, _, v = np.linalg.svd(a, full_matrices=False)
     q = u if u.shape == flat_shape else v
     #print (shape, flat_shape)
@@ -56,7 +56,7 @@ def svd_orthonormal(w):
     return q.astype(np.float32)
 
 def store_activations(self, input, output):
-    gg['act_dict'] = output.data.cpu().numpy();
+    gg['act_dict'] = output.data.cpu().numpy()
     #print('act shape = ', gg['act_dict'].shape)
     return
 

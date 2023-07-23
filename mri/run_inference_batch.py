@@ -46,10 +46,13 @@ def arg_parser():
     parser.add_argument("--pad_time", action="store_true", help="with to pad along time")
     parser.add_argument("--patch_size_inference", type=int, default=-1, help='patch size for inference; if <=0, use the config setup')
     parser.add_argument("--batch_size", type=int, default=16, help='after loading a batch, start processing')
-    
+    parser.add_argument("--overlap", nargs='+', type=int, default=None, help='overlap for (T, H, W), e.g. (2, 8, 8), (0, 0, 0) means no overlap')
+
     parser.add_argument("--input_fname", type=str, default="im", help='input file name')
     parser.add_argument("--gmap_fname", type=str, default="gfactor", help='gmap input file name')
-    
+
+    parser.add_argument("--model_type", type=str, default=None, help="if set, overwrite the config setting, STCNNT_MRI or MRI_hrnet, MRI_double_net")
+
     return parser.parse_args()
 
 def check_args(args):
@@ -78,18 +81,24 @@ def fast_scandir(dirname):
     return subfolders
 
 def process_a_batch(args, model, config, images, selected_cases, gmaps, device):
+
+    if args.overlap:
+        overlap_used = tuple(args.overlap)
+    else:
+        overlap_used = None
+
     for ind in range(len(images)):
         case_dir = selected_cases[ind]
         print(f"-----------> Process {selected_cases[ind]} <-----------")
 
         image = images[ind]
         gmap = gmaps[ind]
-        
+
         if len(image.shape) == 3 and gmap.ndim==3 and gmap.shape[2]==image.shape[2]:
-            output = apply_model_3D(image.astype(np.complex64), model, gmap.astype(np.float32), config=config, scaling_factor=args.scaling_factor, device=get_device())
+            output = apply_model_3D(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device(), overlap=overlap_used)
             print(f"3D mode, {args.input_dir}, images - {image.shape}, gmap - {gmap.shape}, median gmap {np.median(gmap)}")
         else:
-            output = apply_model(image.astype(np.complex64), model, gmap.astype(np.float32), config=config, scaling_factor=args.scaling_factor, device=device)
+            output = apply_model(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=device, overlap=overlap_used)
 
         case = os.path.basename(case_dir)
         output_dir = os.path.join(args.output_dir, case)
@@ -103,41 +112,41 @@ def main():
 
     args = check_args(arg_parser())
     print(args)
-    
+
     print(f"{Fore.YELLOW}Load in model file - {args.saved_model_path}")
-    model, config = load_model(args.saved_model_path, args.saved_model_config)
-    
+    model, config = load_model(args.saved_model_path, args.saved_model_config, args.model_type)
+
     patch_size_inference = args.patch_size_inference
-              
+
     config.pad_time = args.pad_time
     config.ddp = False
-    
+
     if patch_size_inference > 0:
         config.height[-1] = patch_size_inference
         config.width[-1] = patch_size_inference
-    
+
     device=get_device()
-    
+
     os.makedirs(args.output_dir, exist_ok=True)
-    
+
     # load the cases
     case_dirs = fast_scandir(args.input_dir)
     print(case_dirs)
-    
+
     selected_cases = []
     images = []
     gmaps = []
-    
+
     with tqdm(total=len(case_dirs), bar_format=get_bar_format()) as pbar:
         for c in case_dirs:
             fname = os.path.join(c, f"{args.input_fname}_real.npy")
-            if os.path.isfile(fname):    
+            if os.path.isfile(fname):
                 image = np.load(os.path.join(c, f"{args.input_fname}_real.npy")) + np.load(os.path.join(c, f"{args.input_fname}_imag.npy")) * 1j
                 image /= args.im_scaling
 
                 gmap = np.load(f"{c}/{args.gmap_fname}.npy")
                 gmap /= args.gmap_scaling
-                
+
                 if len(image.shape) == 3 and gmap.ndim==3 and gmap.shape[2]==image.shape[2]:
                     images.append(image)
                     gmaps.append(gmap)
@@ -163,14 +172,14 @@ def main():
                         images.append(image)
                         gmaps.append(gmap)
                         selected_cases.append(c)
-            
-            if len(images)>0 and len(images)%args.batch_size==0:                
-                process_a_batch(args, model, config, images, selected_cases, gmaps, device)            
+
+            if len(images)>0 and len(images)%args.batch_size==0:
+                process_a_batch(args, model, config, images, selected_cases, gmaps, device)
                 selected_cases = []
                 images = []
                 gmaps = []
-    
-            pbar.update(1)                
+
+            pbar.update(1)
 
     # process left over cases
     if len(images) > 0:
