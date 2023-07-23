@@ -36,7 +36,14 @@ def create_resized_data(write_path, h5_file, keys):
 
     for ind in tqdm(range(len(keys))):
         key = keys[ind]
-        data = np.array(h5_file[key+"/image"])
+        try:
+            data = np.array(h5_file[key+"/image"])
+            is_test = False
+        except:
+            data = np.array(h5_file[key+"/clean"])
+            noisy = np.array(h5_file[key+"/noisy"])
+            noise_sigma = np.array(h5_file[key+"/noise_sigma"])
+            is_test = True
         gmap = np.array(h5_file[key+"/gmap"])
 
         if data.ndim == 2:
@@ -66,6 +73,10 @@ def create_resized_data(write_path, h5_file, keys):
         data_folder["gmap"] = gmap.astype(np.float16)
         data_folder["clean_resized"] = data_resized
         data_folder["gmap_resized"] = gmap_resized
+
+        if is_test:
+            data_folder["noisy"] = noisy
+            data_folder["noise_sigma"] = noise_sigma
 
         # saved_path = "/export/Lab-Xue/projects/mri/test"
         # nib.save(nib.Nifti1Image(np.real(np.transpose(data, (1, 2, 0))), affine=np.eye(4)), os.path.join(saved_path, f"{key}_x_real.nii"))

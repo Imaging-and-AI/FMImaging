@@ -38,6 +38,13 @@ model_type_str=MRI_double_net
 
 # new training
 model=/export/Lab-Xue/projects/mri/test/mri_hrnet/mri-HRNET-20230720_002927_C-32-1_amp-False_complex_residual_weighted_loss-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_19-01-29-20230716_best.pt
+
+# less denoising, more sharpness
+model=/export/Lab-Xue/projects/mri/test/second_stage/mri-MRI_double_net_20230722_190320_614230_C-32-1_amp-False_complex_residual_weighted_loss_snr_temporal_added_noise-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-26.pth
+
+# more denoising, less sharpness
+model=/export/Lab-Xue/projects/mri/test/second_stage/mri-MRI_double_net_20230722_235953_782390_C-32-1_amp-False_2nd_stage_perp_gaussian_ssim_complex_residual_weighted_loss_snr_temporal_added_noise-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-62.pth
+
 RES_DIR=res_double_net
 model_type_str=MRI_double_net
 
@@ -140,6 +147,28 @@ python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/fre
 
 python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230710_NV_AI/meas_MID00687_FID08077_REPEAT_G25_4CH_CINE_256_R4ipat/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230710_NV_AI/meas_MID00687_FID08077_REPEAT_G25_4CH_CINE_256_R4ipat/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
 
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00417_FID09075_G25_4CH_CINE_192_R4ipat_BW401/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00417_FID09075_G25_4CH_CINE_192_R4ipat_BW401/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00418_FID09076_G25_4CH_CINE_192_R3ipat_BW401/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00418_FID09076_G25_4CH_CINE_192_R3ipat_BW401/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00419_FID09077_G25_4CH_CINE_192_R2ipat_BW401/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00419_FID09077_G25_4CH_CINE_192_R2ipat_BW401/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00412_FID09070_G25_4CH_CINE_256_R4ipat_BW399/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00412_FID09070_G25_4CH_CINE_256_R4ipat_BW399/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00413_FID09071_G25_3CH_CINE_256_R4ipat_BW399/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00413_FID09071_G25_3CH_CINE_256_R4ipat_BW399/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00414_FID09072_G25_2CH_CINE_256_R4ipat_BW399/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00414_FID09072_G25_2CH_CINE_256_R4ipat_BW399/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00416_FID09074_G25_SAX_CINE_256_R4ipat_BW399/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00416_FID09074_G25_SAX_CINE_256_R4ipat_BW399/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00411_FID09069_G25_SAX_CINE_256_R3ipat_BW399/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00411_FID09069_G25_SAX_CINE_256_R3ipat_BW399/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00410_FID09068_REPEAT_FOV360_G25_3CH_CINE_256_R2ipat_BW399/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00410_FID09068_REPEAT_FOV360_G25_3CH_CINE_256_R2ipat_BW399/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00407_FID09065_G25_2CH_CINE_256_R3ipat_BW399/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00407_FID09065_G25_2CH_CINE_256_R3ipat_BW399/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00406_FID09064_G25_4CH_CINE_256_R3ipat_BW399/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00406_FID09064_G25_4CH_CINE_256_R3ipat_BW399/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
 # -------------------------------------------------------
 # free max perf
 
@@ -161,6 +190,11 @@ python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/fre
 # free max perf 256
 python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00176_FID07582_G25_Perfusion_trufi_sr_tpat_4_256res/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00176_FID07582_G25_Perfusion_trufi_sr_tpat_4_256res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
 
+# new NV
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00421_FID09079_G25_Perfusion_trufi_sr_tpat_3_192res_BW401/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00421_FID09079_G25_Perfusion_trufi_sr_tpat_3_192res_BW401/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00422_FID09080_G25_Perfusion_trufi_sr_tpat_4_256res_BW399/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00422_FID09080_G25_Perfusion_trufi_sr_tpat_4_256res_BW399/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
 # -------------------------------------------------------
 # free max LGE
 
@@ -171,5 +205,12 @@ python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/fre
 python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230511_Pat_MI_Cardiac_Gd/meas_MID00211_FID04109_G25_4CH_FB_de_snapshot_p3_BW500/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230511_Pat_MI_Cardiac_Gd/meas_MID00211_FID04109_G25_4CH_FB_de_snapshot_p3_BW500/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
 
 python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230511_Pat_MI_Cardiac_Gd/meas_MID00215_FID04113_G25_SAX_FB_de_snapshot_p3_BW500/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230511_Pat_MI_Cardiac_Gd/meas_MID00215_FID04113_G25_SAX_FB_de_snapshot_p3_BW500/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00429_FID09087_G25_SAX3_FB_de_tpat3_res256_Ave16_BW399/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00429_FID09087_G25_SAX3_FB_de_tpat3_res256_Ave16_BW399/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00430_FID09088_G25_4CH_FB_de_tpat4_BW450_res256_Ave24_BW399/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00430_FID09088_G25_4CH_FB_de_tpat4_BW450_res256_Ave24_BW399/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00431_FID09089_G25_SAX3_FB_de_tpat4_BW450_res256_Ave24_BW399/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00431_FID09089_G25_SAX3_FB_de_tpat4_BW450_res256_Ave24_BW399/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
 
 ```

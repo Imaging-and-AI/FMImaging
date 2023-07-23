@@ -266,6 +266,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
         if only_paras:
                 torch.save({
                 "epoch":epoch,
+                "config": self.config,
                 "pre_state": self.pre.state_dict(), 
                 "backbone_state": self.backbone.state_dict(), 
                 "post_state": self.post.state_dict(), 
@@ -285,6 +286,8 @@ class STCNNT_MRI(STCNNT_Task_Base):
                 "config": self.config,
                 "scheduler_type":self.stype
             }, save_path)
+
+        return save_path
 
     def load_from_status(self, status, device=None, load_others=True):
         """
