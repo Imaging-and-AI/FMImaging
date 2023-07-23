@@ -945,7 +945,7 @@ def trainer(rank, global_rank, config, wandb_run):
 # -------------------------------------------------------------------------------------------------
 # evaluate the val set
 
-def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
+def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", scaling_factor=-1):
     """
     The validation evaluation.
     @args:
@@ -1025,6 +1025,9 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                     batch = next(val_loader_iter[loader_ind], None)
                 x, y, y_degraded, gmaps_median, noise_sigmas = batch
 
+                if scaling_factor > 0:
+                    x *= scaling_factor
+
                 gmaps_median = gmaps_median.to(device=device, dtype=x.dtype)
                 noise_sigmas = noise_sigmas.to(device=device, dtype=x.dtype)
 
@@ -1066,6 +1069,9 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val"):
                     if two_D:
                         xy = repatch([x,output,y], og_shape, pt_shape)
                         x, output, y = xy[0], xy[1], xy[2]
+
+                if scaling_factor > 0:
+                    output /= scaling_factor
 
                 total = x.shape[0]
 

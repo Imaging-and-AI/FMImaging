@@ -43,6 +43,7 @@ def arg_parser():
     parser.add_argument("--results_path", type=str, default="/export/Lab-Xue/projects/mri/results", help='folder for results')
     parser.add_argument("--test_files", type=str, nargs='+', default=["train_3D_3T_retro_cine_2020_small_2DT_test.h5"], help='list of test h5files')
     parser.add_argument("--saved_model_path", type=str, default=None, help='model path. endswith ".pt" or ".pts"')
+    parser.add_argument("--scaling_factor", type=float, default=1.0, help="scaling factor to adjust model strength; higher scaling means lower strength")
     parser.add_argument("--pad_time", action="store_true", help="with to pad along time")
     parser.add_argument("--patch_size_inference", type=int, default=-1, help='patch size for inference; if <=0, use the config setup')
     parser.add_argument("--num_uploaded", type=int, default=16, help='number of sample uploaded')
@@ -152,7 +153,7 @@ def main():
 
     try: 
         test_set, _ = load_mri_test_data(config=config)
-        losses = eval_val(rank=-1, model=model, config=config, val_set=test_set, epoch=-1, device=get_device(), wandb_run=run, id="test")
+        losses = eval_val(rank=-1, model=model, config=config, val_set=test_set, epoch=-1, device=get_device(), wandb_run=run, id="test", scaling_factor=config.scaling_factor)
 
         save_results(config, losses, id="")
     except KeyboardInterrupt:

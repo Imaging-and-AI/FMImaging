@@ -27,7 +27,8 @@ model=/export/Lab-Xue/projects/mri/checkpoints/mri-HRNET-20230710_010701_408769_
 # double net
 
 # 1st stage
-model=/export/Lab-Xue/projects/mri/test/mri_hrnet/mri-HRNET-20230716_190117_960318_C-32-1_amp-False_complex_residual_weighted_loss-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-70.pth
+model=/export/Lab-Xue/projects/mri/test/first_stage/mri-STCNNT_MRI_20230721_225151_726014_C-32-1_amp-True_complex_residual_weighted_loss-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-67.pth
+
 RES_DIR=res
 model_type_str=STCNNT_MRI
 
@@ -40,7 +41,7 @@ model_type_str=MRI_double_net
 model=/export/Lab-Xue/projects/mri/test/mri_hrnet/mri-HRNET-20230720_002927_C-32-1_amp-False_complex_residual_weighted_loss-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_19-01-29-20230716_best.pt
 
 # less denoising, more sharpness
-model=/export/Lab-Xue/projects/mri/test/second_stage/mri-MRI_double_net_20230722_190320_614230_C-32-1_amp-False_complex_residual_weighted_loss_snr_temporal_added_noise-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-26.pth
+model=/export/Lab-Xue/projects/mri/test/second_stage/mri-MRI_double_net_20230722_190320_614230_C-32-1_amp-False_complex_residual_weighted_loss_snr_temporal_added_noise-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-29.pth
 
 # more denoising, less sharpness
 model=/export/Lab-Xue/projects/mri/test/second_stage/mri-MRI_double_net_20230722_235953_782390_C-32-1_amp-False_2nd_stage_perp_gaussian_ssim_complex_residual_weighted_loss_snr_temporal_added_noise-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-62.pth
@@ -54,9 +55,9 @@ export CUDA_VISIBLE_DEVICES=7
 
 # ======================================================================
 
-python3 ./mri/eval_mri.py --test_files /export/Lab-Xue/projects/mri/data/retro_cine_3T_sigma_1_20_repeated_test.h5 --saved_model_path ${model} --num_uploaded 256 --save_samples --num_saved_samples 1024 --results_path /export/Lab-Xue/projects/mri/results/${RES_DIR} --model_type ${model_type_str}
+python3 ./mri/eval_mri.py --test_files /export/Lab-Xue/projects/mri/data/retro_cine_3T_sigma_1_20_repeated_test.h5 --saved_model_path ${model} --num_uploaded 256 --save_samples --num_saved_samples 1024 --results_path /export/Lab-Xue/projects/mri/results/${RES_DIR} --model_type ${model_type_str} --scaling_factor 1.0
 
-python3 ./mri/eval_mri.py --test_files /export/Lab-Xue/projects/mri/data/retro_cine_3T_sigma_1_20_repeated_test_2nd_random_mask.h5 --saved_model_path ${model} --num_uploaded 256 --save_samples --num_saved_samples 1024 --results_path /export/Lab-Xue/projects/mri/results/${RES_DIR}_random_mask --model_type ${model_type_str}
+python3 ./mri/eval_mri.py --test_files /export/Lab-Xue/projects/mri/data/retro_cine_3T_sigma_1_20_repeated_test_2nd_random_mask.h5 --saved_model_path ${model} --num_uploaded 256 --save_samples --num_saved_samples 1024 --results_path /export/Lab-Xue/projects/mri/results/${RES_DIR}_random_mask --model_type ${model_type_str} --scaling_factor 1.0
 
 # ======================================================================
 ## Run the batch
