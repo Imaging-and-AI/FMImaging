@@ -266,6 +266,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
         if only_paras:
                 torch.save({
                 "epoch":epoch,
+                "config": self.config,
                 "pre_state": self.pre.state_dict(), 
                 "backbone_state": self.backbone.state_dict(), 
                 "post_state": self.post.state_dict(), 
@@ -286,6 +287,8 @@ class STCNNT_MRI(STCNNT_Task_Base):
                 "scheduler_type":self.stype
             }, save_path)
 
+        return save_path
+
     def load_from_status(self, status, device=None, load_others=True):
         """
         Load the model from status; the config will not be updated
@@ -301,7 +304,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
             self.b = status['b']
         else:
             self.load_state_dict(status['model'])
-        
+
         if load_others:
             if 'optimizer_state' in status:
                 self.optim.load_state_dict(status['optimizer_state'])
@@ -315,7 +318,6 @@ class STCNNT_MRI(STCNNT_Task_Base):
 
             if 'epoch' in status:
                 self.curr_epoch = status['epoch']
-            
 
     def load(self, load_path, device=None):
         """
@@ -618,7 +620,7 @@ class MRI_hrnet(STCNNT_MRI):
         #     C = 2 if self.complex_i else 1
         #     logits = x[:,:,:C] - logits
 
-        if snr > 0 and base_snr_t > 0:
+        if base_snr_t > 0:
             weights = self.compute_weights(snr=snr, base_snr_t=base_snr_t)
             return logits, weights
         else:
@@ -686,7 +688,7 @@ class MRI_double_net(STCNNT_MRI):
 
         logits = self.post["output_conv"](res)
 
-        if snr > 0 and base_snr_t > 0:
+        if base_snr_t > 0:
             weights = self.compute_weights(snr=snr, base_snr_t=base_snr_t)
             return logits, weights
         else:

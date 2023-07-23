@@ -37,7 +37,7 @@ class SpatialLocalAttention(CnnAttentionBase):
                  normalize_Q_K=False, 
                  att_with_relative_postion_bias=True,
                  att_with_output_proj=True,
-                 use_einsum=True):
+                 use_einsum=False):
         """
         Defines the layer for a cnn attention on spatial dimension with local windows and patches.
 
@@ -147,31 +147,43 @@ class SpatialLocalAttention(CnnAttentionBase):
         # format the window
         hc = torch.div(C*ph*pw, self.n_head, rounding_mode="floor")
 
-        # k, q, v will be [B, T, num_win_h*num_win_w, self.n_head, num_patch_h_per_win*num_patch_w_per_win, hc]
-        k = k.reshape((B, T, num_win_h*num_win_w, num_patch_h_per_win*num_patch_w_per_win, self.n_head, hc))
-        q = q.reshape((B, T, num_win_h*num_win_w, num_patch_h_per_win*num_patch_w_per_win, self.n_head, hc))
-        v = v.reshape((B, T, num_win_h*num_win_w, num_patch_h_per_win*num_patch_w_per_win, self.n_head, hc))
+        #print(f"hc {hc}, has_flash_attention {self.has_flash_attention}, att_with_relative_postion_bias {self.att_with_relative_postion_bias}")
 
-        # [B, T, num_windows, num_patches, num_heads, hc] x [B, T, num_windows, num_patches, num_heads, hc] -> (B, T, num_windows, num_heads, num_patches, num_patches)
-        if self.cosine_att:
-            att = torch.einsum("BTWPND, BTWQND -> BTWNPQ", F.normalize(q, dim=-1), F.normalize(k, dim=-1))
+        if self.has_flash_attention and hc <= 256 and (not self.att_with_relative_postion_bias):
+            #print(f"run flash attention ... ")
+            D = B*T*num_win_h*num_win_w
+            k = k.reshape((D, num_patch_h_per_win*num_patch_w_per_win, self.n_head, hc))
+            q = q.reshape((D, num_patch_h_per_win*num_patch_w_per_win, self.n_head, hc))
+            v = v.reshape((D, num_patch_h_per_win*num_patch_w_per_win, self.n_head, hc))
+            y = self.perform_flash_atten(k, q, v)
         else:
-            if self.normalize_Q_K:
-                eps = torch.finfo(k.dtype).eps
-                k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
-                q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
+            #print(f"run einsum implementation ... ")
+            # k, q, v will be [B, T, num_win_h*num_win_w, self.n_head, num_patch_h_per_win*num_patch_w_per_win, hc]
+            k = k.reshape((B, T, num_win_h*num_win_w, num_patch_h_per_win*num_patch_w_per_win, self.n_head, hc))
+            q = q.reshape((B, T, num_win_h*num_win_w, num_patch_h_per_win*num_patch_w_per_win, self.n_head, hc))
+            v = v.reshape((B, T, num_win_h*num_win_w, num_patch_h_per_win*num_patch_w_per_win, self.n_head, hc))
 
-            att = torch.einsum("BTWPND, BTWQND -> BTWNPQ", q, k) * torch.tensor(1.0 / math.sqrt(hc))
+            # [B, T, num_windows, num_patches, num_heads, hc] x [B, T, num_windows, num_patches, num_heads, hc] -> (B, T, num_windows, num_heads, num_patches, num_patches)
+            if self.cosine_att:
+                att = torch.einsum("BTWPND, BTWQND -> BTWNPQ", F.normalize(q, dim=-1), F.normalize(k, dim=-1))
+            else:
+                if self.normalize_Q_K:
+                    eps = torch.finfo(k.dtype).eps
+                    k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
+                    q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
 
-        att = F.softmax(att, dim=-1)
-        if self.att_with_relative_postion_bias:
-            relative_position_bias = self.get_relative_position_bias(num_patch_h_per_win, num_patch_w_per_win)
-            att = att + relative_position_bias
+                att = torch.einsum("BTWPND, BTWQND -> BTWNPQ", q, k) * torch.tensor(1.0 / math.sqrt(hc))
 
-        att = self.attn_drop(att)
+            att = F.softmax(att, dim=-1)
+            if self.att_with_relative_postion_bias:
+                relative_position_bias = self.get_relative_position_bias(num_patch_h_per_win, num_patch_w_per_win)
+                att = att + relative_position_bias
 
-        # (B, T, num_windows, num_heads, num_patches, num_patches) * (B, T, num_windows, num_patches, num_heads, hc)
-        y = torch.einsum("BTWNPQ, BTWQND -> BTWPND", att, v)
+            att = self.attn_drop(att)
+
+            # (B, T, num_windows, num_heads, num_patches, num_patches) * (B, T, num_windows, num_patches, num_heads, hc)
+            y = torch.einsum("BTWNPQ, BTWQND -> BTWPND", att, v)
+
         y = y.reshape(B, T, num_win_h, num_win_w, num_patch_h_per_win, num_patch_w_per_win, ph, pw, C)
 
         y = self.grid2im(y)
@@ -308,6 +320,7 @@ def tests():
 
     B, T, C, H1, W1 = 2, 4, 2, 256, 256
     C_out = 8
+    n_head = 64
     test_in = torch.rand(B, T, C, H1, W1).to(device=device)
     print(test_in.shape)
     
@@ -327,6 +340,7 @@ def tests():
                                                             num_wind=[8, 8], num_patch=[4, 4], 
                                                             a_type=a_type, 
                                                             C_in=C, C_out=C_out, 
+                                                            n_head=n_head,
                                                             cosine_att=cosine_att, 
                                                             normalize_Q_K=normalize_Q_K, 
                                                             att_with_relative_postion_bias=att_with_relative_postion_bias,
@@ -368,6 +382,8 @@ def benchmark():
 
     device = get_device()
 
+    repeats = 200
+
     B, T, C, H, W = 16, 12, 3, 128, 128
     C_out = 64
     test_in = torch.rand(B,T,C,H,W, dtype=torch.float32, device=device)
@@ -379,12 +395,12 @@ def benchmark():
     m = SpatialLocalAttention(C_in=C, C_out=C_out, H=H, W=W,
                             window_size=[16, 16], patch_size=[2, 2], 
                             num_wind=[8, 8], num_patch=[4, 4], 
-                            a_type="conv", n_head=8,
+                            a_type="conv", n_head=64,
                             kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), 
                             att_dropout_p=0.0, 
                             cosine_att=True, 
                             normalize_Q_K=True, 
-                            att_with_relative_postion_bias=True,
+                            att_with_relative_postion_bias=False,
                             att_with_output_proj=True,
                             use_einsum=True)
 
@@ -393,19 +409,19 @@ def benchmark():
     with torch.inference_mode():
         y = m(test_in)
 
-    benchmark_all(m, test_in, grad=None, repeats=80, desc='SpatialLocalAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_all(m, test_in, grad=None, repeats=repeats, desc='SpatialLocalAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
     benchmark_memory(m, test_in, desc='SpatialLocalAttention-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
     m = SpatialLocalAttention(C_in=C, C_out=C_out, H=H, W=W,
                             window_size=[16, 16], patch_size=[2, 2], 
                             num_wind=[8, 8], num_patch=[4, 4], 
-                            a_type="conv", n_head=8,
+                            a_type="conv", n_head=64,
                             kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), 
                             att_dropout_p=0.0, 
                             cosine_att=True, 
                             normalize_Q_K=True, 
-                            att_with_relative_postion_bias=True,
+                            att_with_relative_postion_bias=False,
                             att_with_output_proj=True,
                             use_einsum=False)
 
@@ -414,7 +430,7 @@ def benchmark():
     with torch.inference_mode():
         y = m(test_in)
 
-    benchmark_all(m, test_in, grad=None, repeats=80, desc='SpatialLocalAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_all(m, test_in, grad=None, repeats=repeats, desc='SpatialLocalAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
     benchmark_memory(m, test_in, desc='SpatialLocalAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 

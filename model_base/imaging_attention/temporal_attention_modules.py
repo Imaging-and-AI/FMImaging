@@ -25,7 +25,7 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), \
                     stride_t=(2,2), att_dropout_p=0.0, 
                     cosine_att=False, normalize_Q_K=False, att_with_output_proj=True,
-                    use_einsum=True):
+                    use_einsum=False):
         """
         Defines the layer for a cnn self-attention on temporal axis
 
@@ -55,8 +55,8 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
         self.stride_f = stride_t[0]
         self.use_einsum = use_einsum
 
-        assert self.C_out % self.n_head == 0, \
-            f"Number of output channles {self.C_out} should be divisible by number of heads {self.n_head}"
+        assert self.C_out*H*W % self.n_head == 0, \
+            f"Number of output {self.C_out*H*W} should be divisible by number of heads {self.n_head}"
 
         # key, query, value projections convolution
         # Wk, Wq, Wv
@@ -69,13 +69,12 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
     def attention(self, k, q, v):
         B, T, C_prime, H_prime, W_prime = k.shape
 
-        H = torch.div(self.C_out, self.n_head, rounding_mode="floor")
-        D = H*H_prime*W_prime
+        H = torch.div(C_prime*H_prime*W_prime, self.n_head, rounding_mode="floor")
         Hv, Wv = v.shape[-2:]
 
-        k = k.view(B, T, self.n_head, D).transpose(1, 2)
-        q = q.view(B, T, self.n_head, D).transpose(1, 2)
-        v = v.view(B, T, self.n_head, H*Hv*Wv).transpose(1, 2)
+        k = k.view(B, T, self.n_head, H).transpose(1, 2)
+        q = q.view(B, T, self.n_head, H).transpose(1, 2)
+        v = v.view(B, T, self.n_head, H*self.stride_f*self.stride_f).transpose(1, 2)
 
         # (B, nh, T, hc, H', W') x (B, nh, hc, H', W', T) -> (B, nh, T, T)
         if self.cosine_att:
@@ -86,7 +85,7 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
                 k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
                 q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
 
-            att = (q @ k.transpose(-2, -1)) * torch.tensor(1.0 / math.sqrt(D))
+            att = (q @ k.transpose(-2, -1)) * torch.tensor(1.0 / math.sqrt(H))
 
         if(self.is_causal):
             att = att.masked_fill(self.mask[:,:,:T,:T] == 0, float("-inf"))
@@ -94,7 +93,7 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
         att = F.softmax(att, dim=-1)
         att = self.attn_drop(att)
 
-        y = att @ v.contiguous().view(B, self.n_head, T, H*Hv*Wv)
+        y = att @ v
         y = y.transpose(1, 2).contiguous().view(B, T, self.C_out, Hv, Wv)
 
         return y
@@ -103,33 +102,35 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
 
         B, T, C_prime, H_prime, W_prime = k.shape
 
-        H = torch.div(self.C_out, self.n_head, rounding_mode="floor")
-        D = H*H_prime*W_prime
+        H = torch.div(C_prime*H_prime*W_prime, self.n_head, rounding_mode="floor")
         Hv, Wv = v.shape[-2:]
 
-        k = k.view(B, T, self.n_head, D)
-        q = q.view(B, T, self.n_head, D)
-        v = v.view(B, T, self.n_head, H*Hv*Wv)
+        k = k.view(B, T, self.n_head, H)
+        q = q.view(B, T, self.n_head, H)
+        v = v.view(B, T, self.n_head, H*self.stride_f*self.stride_f)
 
-        # (B, T, nh, D) x (B, K, nh, D) -> (B, nh, T, K)
-        if self.cosine_att:
-            att = torch.einsum("BTND, BKND -> BNTK", F.normalize(q, dim=-1), F.normalize(k, dim=-1))
+        if self.has_flash_attention and H <= 256 and (H == v.shape[-1]):
+            y = self.perform_flash_atten(k, q, v).contiguous().view(B, T, self.C_out, Hv, Wv)
         else:
-            if self.normalize_Q_K:
-                eps = torch.finfo(k.dtype).eps
-                k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
-                q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
+            # (B, T, nh, D) x (B, K, nh, D) -> (B, nh, T, K)
+            if self.cosine_att:
+                att = torch.einsum("BTND, BKND -> BNTK", F.normalize(q, dim=-1), F.normalize(k, dim=-1))
+            else:
+                if self.normalize_Q_K:
+                    eps = torch.finfo(k.dtype).eps
+                    k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
+                    q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
 
-            att = torch.einsum("BTND, BKND -> BNTK", q, k) * torch.tensor(1.0 / math.sqrt(D))
+                att = torch.einsum("BTND, BKND -> BNTK", q, k) * torch.tensor(1.0 / math.sqrt(H))
 
-        if(self.is_causal):
-            att = att.masked_fill(self.mask[:,:,:T,:T] == 0, float("-inf"))
+            if(self.is_causal):
+                att = att.masked_fill(self.mask[:,:,:T,:T] == 0, float("-inf"))
 
-        att = F.softmax(att, dim=-1)
-        att = self.attn_drop(att)
+            att = F.softmax(att, dim=-1)
+            att = self.attn_drop(att)
 
-        # (B, nh, T, K) * (B, K, nh, D)
-        y = torch.einsum("BNTK, BKND -> BTND", att, v).contiguous().view(B, T, self.C_out, Hv, Wv)
+            # (B, nh, T, K) * (B, K, nh, D)
+            y = torch.einsum("BNTK, BKND -> BTND", att, v).contiguous().view(B, T, self.C_out, Hv, Wv)
 
         return y
 
@@ -207,13 +208,6 @@ class TemporalCnnAttention(CnnAttentionBase):
         self.query = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_t, padding=padding, bias=False)
         self.value = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
 
-        gpu_name = torch.cuda.get_device_name()
-        if gpu_name.find("A100") >= 0 or gpu_name.find("H100") >= 0:
-            self.flash_atten_type = torch.bfloat16
-        else:
-            self.flash_atten_type = torch.float32
-
-
     def forward(self, x):
         """
         @args:
@@ -229,30 +223,19 @@ class TemporalCnnAttention(CnnAttentionBase):
         # apply the key, query and value matrix
         k = self.key(x)
         q = self.query(x)
+        v = self.value(x)
 
         _, _, C_prime, H_prime, W_prime = k.shape
 
-        # if self.normalize_Q_K:
-        #     eps = torch.finfo(k.dtype).eps
-        #     # add normalization for k and q, along [C_prime, H_prime, W_prime]
-        #     k = (k - torch.mean(k, dim=(-3, -2, -1), keepdim=True)) / ( torch.sqrt(torch.var(k, dim=(-3, -2, -1), keepdim=True) + eps) )
-        #     q = (q - torch.mean(q, dim=(-3, -2, -1), keepdim=True)) / ( torch.sqrt(torch.var(q, dim=(-3, -2, -1), keepdim=True) + eps) )
+        H = torch.div(C_prime*H_prime*W_prime, self.n_head, rounding_mode="floor")
 
-        H = torch.div(self.C_out, self.n_head, rounding_mode="floor")
-
-        k = k.view(B, T, self.n_head, H, H_prime, W_prime).transpose(1, 2)
-        q = q.view(B, T, self.n_head, H, H_prime, W_prime).transpose(1, 2)
-        v = self.value(x).view(B, T, self.n_head, H, H_prime*self.stride_f, W_prime*self.stride_f).transpose(1, 2)
-
-        B, nh, T, hc, H_prime, W_prime = k.shape
+        k = k.view(B, T, self.n_head, H).transpose(1, 2)
+        q = q.view(B, T, self.n_head, H).transpose(1, 2)
+        v = v.view(B, T, self.n_head, H*self.stride_f*self.stride_f).transpose(1, 2)
 
         ### START OF FLASH ATTENTION IMPLEMENTATION ###
-        q = q.view(B, nh, T, hc*H_prime*W_prime)
-        k = k.view(B, nh, T, hc*H_prime*W_prime)
-        v = v.view(B, nh, T, hc*H_prime*W_prime*self.stride_f*self.stride_f)
-
         if self.cosine_att:
-            q = F.normalize(q,dim=-1) / torch.tensor(1.0 / math.sqrt(hc*H_prime*W_prime))
+            q = F.normalize(q,dim=-1) / torch.tensor(1.0 / math.sqrt(H))
             k = F.normalize(k,dim=-1)
         elif self.normalize_Q_K:
             eps = torch.finfo(k.dtype).eps
@@ -272,7 +255,7 @@ class TemporalCnnAttention(CnnAttentionBase):
 
         ### END OF FLASH ATTENTION IMPLEMENTATION ###
 
-        y = y.transpose(1, 2).contiguous().view(B, T, self.C_out, H_prime*self.stride_f, W_prime*self.stride_f)
+        y = y.reshape((B, T, self.C_out, H_prime*self.stride_f, W_prime*self.stride_f))
 
         y = self.output_proj(y)
 
@@ -284,8 +267,8 @@ def tests():
     # tests
     import time
 
-    B, T, C, H, W = 2, 16, 3, 128, 128
-    C_out = 8    
+    B, T, C, H, W = 2, 16, 3, 16, 16
+    C_out = 32
 
     device = get_device()
     
@@ -300,7 +283,7 @@ def tests():
         for normalize_Q_K in normalize_Q_Ks:
             for att_with_output_proj in att_with_output_projs:
                 t0 = time.time()
-                temporal = TemporalCnnAttention(C, C_out=C_out, is_causal=causal, normalize_Q_K=normalize_Q_K, att_with_output_proj=att_with_output_proj).to(device=device)
+                temporal = TemporalCnnAttention(C, C_out=C_out, n_head=32, is_causal=causal, normalize_Q_K=normalize_Q_K, att_with_output_proj=att_with_output_proj, stride_t=[1,1]).to(device=device)
                 test_out = temporal(test_in)
                 t1 = time.time()
                 print(f"forward pass - {t1-t0} seconds")

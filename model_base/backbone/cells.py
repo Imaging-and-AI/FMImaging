@@ -65,7 +65,7 @@ class STCNNT_Cell(nn.Module):
                  with_mixer=True, 
                  norm_mode="layer",
                  shuffle_in_window=False,
-                 use_einsum=True,
+                 use_einsum=False,
                  temporal_flash_attention=False):
         """
         Complete transformer cell

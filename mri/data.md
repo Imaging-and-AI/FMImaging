@@ -105,3 +105,48 @@ do
     python3 ./mri/create_hdf5_3D_dataset.py /export/Lab-Kellman/ReconResults/denoising/${site}/${site}_LGE_${year}_AI_denoising --output /export/Lab-Xue/projects/mri/data/${site}_LGE_3T_raw_${site}.h5 --only_3T --im_scaling 10.0 --input_fname raw_im
 done
 ```
+
+### Resize data
+```
+
+export CUDA_VISIBLE_DEVICES=0
+
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname retro_cine_3T_sigma_1_10_repeated_test
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname retro_cine_3T_sigma_1_20_repeated_test
+
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname train_3D_3T_retro_cine_2020_small_3D_test
+
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname train_3D_3T_retro_cine_2020_small_2DT_test
+
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname train_3D_3T_retro_cine_2020_small_2D_test
+
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname train_3D_3T_retro_cine_2020_500_samples
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname train_3D_3T_retro_cine_2018
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname train_3D_3T_retro_cine_2019
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname train_3D_3T_retro_cine_2020
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname BARTS_RetroCine_3T_2023
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname BARTS_RetroCine_1p5T_2023
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname MINNESOTA_UHVC_RetroCine_1p5T_2023
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname MINNESOTA_UHVC_RetroCine_1p5T_2022
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname MINNESOTA_UHVC_RetroCine_1p5T_2021
+
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname BWH_Perfusion_3T_2023
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname BWH_Perfusion_3T_2022
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname BWH_Perfusion_3T_2021
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname BWH_RetroCine_3T_2021
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname BWH_RetroCine_3T_2022
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname BWH_RetroCine_3T_2023
+
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname BWH_RTCine_3T_2021
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname BWH_RTCine_3T_2022
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname BWH_RTCine_3T_2023
+
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname train_3T_Barts_DB_LGE_2020
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname train_3T_Barts_DB_LGE_2021
+
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname VIDA_test_0430
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname VIDA_train_clean_0430
+
+python3 ./mri/create_resized_2x_mri.py --data_root /data/mri/data --input_fname mri_test
+
+```

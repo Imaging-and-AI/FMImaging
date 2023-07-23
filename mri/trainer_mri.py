@@ -328,6 +328,7 @@ def trainer(rank, global_rank, config, wandb_run):
     not_load_post = config.not_load_post
     run_name = config.run_name
     run_notes = config.run_notes
+    disable_LSUV = config.disable_LSUV
 
     ddp = config.ddp
 
@@ -369,6 +370,7 @@ def trainer(rank, global_rank, config, wandb_run):
         config.model_type = model_type
         config.run_name = run_name
         config.run_notes = run_notes
+        config.disable_LSUV = disable_LSUV
         #config.load_path = load_path
 
         print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
@@ -814,12 +816,14 @@ def trainer(rank, global_rank, config, wandb_run):
         # -------------------------------------------------------
         if rank<=0: # main or master process
             model_e = model.module if c.ddp else model
-            model_e.save(epoch)
+            saved_model = model_e.save(epoch)
+            # model_loaded, config_loaded = load_model(saved_model)
             if val_losses[0] < best_val_loss:
                 best_val_loss = val_losses[0]
                 best_model_wts = copy.deepcopy(model_e.state_dict())
                 run_name = config.run_name.replace(" ", "_")
-                model_e.save(epoch, only_paras=True, save_file_name=f"{run_name}_epoch_{epoch}_best")
+                saved_model = model_e.save(epoch, only_paras=True, save_file_name=f"{run_name}_epoch-{epoch}_best.pth")
+                # model_loaded, config_loaded = load_model(saved_model)
                 if wandb_run is not None:
                     wandb_run.log({"epoch": epoch, "best_val_loss":best_val_loss})
 
@@ -1467,7 +1471,8 @@ def load_model(saved_model_path, saved_model_config=None, model_type=None):
 
     if saved_model_path.endswith(".pt") or saved_model_path.endswith(".pth"):
 
-        status = torch.load(saved_model_path, map_location=get_device())
+        #status = torch.load(saved_model_path, map_location=get_device())
+        status = torch.load(saved_model_path)
         config = status['config']
 
         if not torch.cuda.is_available():

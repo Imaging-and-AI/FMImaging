@@ -58,7 +58,7 @@ class STCNNT_Block(nn.Module):
                     interp_align_c=False,
                     block_dense_connection=True,
                     shuffle_in_window=False,
-                    use_einsum=True,
+                    use_einsum=False,
                     temporal_flash_attention=False):
         """
         Transformer block
