@@ -153,7 +153,11 @@ class STCNNT_MRI(STCNNT_Task_Base):
             if self.residual:
                 y_hat[:,:, :C, :, :] = res_pre + y_hat[:,:, :C, :, :]
 
-            logits = self.post(y_hat)
+            if self.config.super_resolution:
+                res = self.post["output_ps"](y_hat)
+                logits = self.post["post_conv"](res)
+            else:
+                logits = self.post(y_hat)
 
         else:
             res_backbone = self.backbone(res_pre)
