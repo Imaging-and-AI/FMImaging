@@ -44,7 +44,7 @@ class mri_ddp_base(run_ddp_base):
 
         "--iters_to_accumulate", "1",
 
-        "--num_workers", "24",
+        "--num_workers", "48",
         "--prefetch_factor", "4",
 
         "--scheduler_type", "ReduceLROnPlateau",
