@@ -36,7 +36,7 @@ sys.path.insert(1, str(Project_DIR))
 Project_DIR = Path(__file__).parents[2].resolve()
 sys.path.insert(1, str(Project_DIR))
 
-from utils import get_device, model_info, get_gpu_ram_usage, create_generic_class_str, start_timer, end_timer
+from utils import get_device, model_info, get_gpu_ram_usage, create_generic_class_str, start_timer, end_timer, set_seed
 
 try:
     from flash_attn import flash_attn_qkvpacked_func, flash_attn_func

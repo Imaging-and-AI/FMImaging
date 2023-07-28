@@ -1054,7 +1054,6 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
                 if config.super_resolution:
                     y = y_2x
 
-
                 x = x.to(device)
                 y = y.to(device)
 

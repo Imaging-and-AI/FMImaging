@@ -18,7 +18,7 @@ def benchmark_forward(fn, *inputs, repeats = 10, desc='', verbose=True, amp=Fals
             globals={'fn_amp': amp_wrapper, 'inputs': inputs, 'kwinputs': kwinputs},
             num_threads=torch.get_num_threads(),
             )
-    m = t.timeit(repeats)
+    m = t.blocked_autorange(min_run_time=repeats)
     if verbose:
         print(f"{Fore.RED}{m}{Style.RESET_ALL}")
     return t, m
@@ -43,7 +43,7 @@ def benchmark_backward(fn, *inputs, grad=None, repeats=10, desc='', verbose=True
             globals={'y': y, 'grad': grad},
             num_threads=torch.get_num_threads(),
             )
-    m = t.timeit(repeats)
+    m = t.blocked_autorange(min_run_time=repeats)
     if verbose:
         print(f"{Fore.GREEN}{m}{Style.RESET_ALL}")
     return t, m
@@ -77,7 +77,7 @@ def benchmark_combined(fn, *inputs, grad=None, repeats=10, desc='', verbose=True
             globals={'f': f, 'fn': fn, 'inputs': inputs, 'grad': grad, 'kwinputs': kwinputs},
             num_threads=torch.get_num_threads(),
             )
-    m = t.timeit(repeats)
+    m = t.blocked_autorange(min_run_time=repeats)
     if verbose:
         print(f"{Fore.YELLOW}{m}{Style.RESET_ALL}")
     return t, m

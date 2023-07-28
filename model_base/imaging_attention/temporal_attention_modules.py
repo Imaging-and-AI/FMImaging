@@ -322,6 +322,46 @@ def tests():
 
     print("Passed temporal")
 
+    # regression test
+    set_seed(23564)
+    torch.set_printoptions(precision=10)
+
+    test_in = torch.rand(B,T,C,H,W, device=device)
+
+    print(f"test_in - {test_in[0,2,0,4,:]}")
+
+    test_in_GT = torch.tensor([0.1865558922, 0.4845264554, 0.2366391718, 0.7913835049, 0.4388458729,
+        0.8051983118, 0.3325050771, 0.4242798388, 0.8450012207, 0.7058756351,
+        0.2761471868, 0.4937677681, 0.5228261352, 0.5961654782, 0.6768726110,
+        0.4204639494])
+
+    assert torch.allclose(test_in[0,2,0,4,:].cpu(), test_in_GT)
+
+    temporal = TemporalCnnAttention(C, C_out=C_out, 
+                                    n_head=32, 
+                                    is_causal=causal, 
+                                    normalize_Q_K=normalize_Q_K, 
+                                    att_with_output_proj=att_with_output_proj, 
+                                    stride_qk=stride_qk,
+                                    att_dropout_p=0.0, 
+                                    cosine_att=False 
+                                    ).to(device=device)
+    test_out = temporal(test_in)
+    print(f"test_out - {test_out[1,1,0,3,:]}")
+
+    test_out_GT = torch.tensor([-0.1166992188, -0.1445312500, -0.0563964844, -0.0598144531,
+        -0.0703125000, -0.1098632812, -0.0771484375, -0.0805664062,
+        -0.0515136719, -0.0722656250, -0.1171875000, -0.1054687500,
+        -0.0771484375, -0.1269531250, -0.0805664062,  0.2031250000])
+
+    assert torch.allclose(test_out[1,1,0,3,:].cpu(), test_out_GT)
+
+    loss = nn.MSELoss()
+    mse = loss(test_in, test_out[:,:,:C,:,:])
+    mse.backward()
+
+    # --------------------------------------
+
     print("Passed all tests")
 
 def benchmark():
@@ -383,9 +423,9 @@ def benchmark():
     with torch.inference_mode():
         y = temporal(test_in)
 
-    benchmark_all(temporal, test_in, grad=None, repeats=80, desc='TemporalCnnAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    f, b, all1 = benchmark_all(temporal, test_in, grad=None, repeats=80, desc='TemporalCnnAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
-    benchmark_memory(temporal, test_in, desc='TemporalCnnAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
+    mem = benchmark_memory(temporal, test_in, desc='TemporalCnnAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
     print(f"{Fore.YELLOW}-------------> Standard temporal attention <----------------------{Style.RESET_ALL}")
     temporal = TemporalCnnStandardAttention(C_in=C, 
@@ -402,7 +442,7 @@ def benchmark():
     with torch.inference_mode():
         y = temporal(test_in)
 
-    benchmark_all(temporal, test_in, grad=None, repeats=80, desc='TemporalCnnStandardAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    f, b, all2 = benchmark_all(temporal, test_in, grad=None, repeats=80, desc='TemporalCnnStandardAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
     benchmark_memory(temporal, test_in, desc='TemporalCnnStandardAttention-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
@@ -420,7 +460,7 @@ def benchmark():
     with torch.inference_mode():
         y = temporal(test_in)
 
-    benchmark_all(temporal, test_in, grad=None, repeats=80, desc='TemporalCnnStandardAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    f, b, all = benchmark_all(temporal, test_in, grad=None, repeats=80, desc='TemporalCnnStandardAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
     benchmark_memory(temporal, test_in, desc='TemporalCnnStandardAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
