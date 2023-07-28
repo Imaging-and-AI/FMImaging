@@ -510,7 +510,7 @@ def trainer(rank, global_rank, config, wandb_run):
     elif c.backbone == 'unet':
         model_str = f"C {c.backbone_unet.C}, {c.n_head} heads, {c.backbone_unet.block_str}"
 
-    logging.info(f"{rank_str}, {Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, {c.optim}, {c.global_lr}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, weighted loss - snr {c.weighted_loss_snr} - tempoeral {c.weighted_loss_temporal} - added_noise {c.weighted_loss_added_noise}, data degrading {c.with_data_degrading}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, amp {c.use_amp}, {model_str}{Style.RESET_ALL}")
+    logging.info(f"{rank_str}, {Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, {c.optim}, {c.global_lr}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, weighted loss - snr {c.weighted_loss_snr} - tempoeral {c.weighted_loss_temporal} - added_noise {c.weighted_loss_added_noise}, data degrading {c.with_data_degrading}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, amp {c.use_amp}, stride_s {c.stride_s}, separable_conv {c.separable_conv}, {model_str}{Style.RESET_ALL}")
 
     # -----------------------------------------------
 

@@ -65,17 +65,39 @@ def compute_conv_output_shape(h_w, kernel_size, stride, pad, dilation):
 
     return h, w
 
+# class Conv2DExt(nn.Module):
+#     # Extends torch 2D conv to support 5D inputs
+
+#     def __init__(self, in_channels, out_channels, kernel_size=[3,3], stride=[1,1], padding=[1,1], bias=False, separable_conv=False):
+#         super().__init__()
+#         self.conv2d = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
+
+#     def forward(self, input):
+#         # requires input to have 5 dimensions
+#         B, T, C, H, W = input.shape
+#         y = self.conv2d(input.reshape((B*T, C, H, W)))
+#         return y.reshape([B, T, *y.shape[1:]])
+
 class Conv2DExt(nn.Module):
     # Extends torch 2D conv to support 5D inputs
 
     def __init__(self, in_channels, out_channels, kernel_size=[3,3], stride=[1,1], padding=[1,1], bias=False, separable_conv=False):
         super().__init__()
-        self.conv2d = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
+        self.separable_conv = separable_conv
+        if separable_conv:
+            self.convA = nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=False, groups=in_channels)
+            self.convB = nn.Conv2d(in_channels, out_channels, kernel_size=[1,1], stride=[1,1], padding=[0,0], bias=False)
+        else:
+            self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
 
     def forward(self, input):
         # requires input to have 5 dimensions
         B, T, C, H, W = input.shape
-        y = self.conv2d(input.reshape((B*T, C, H, W)))
+        if self.separable_conv:
+            y = self.convB(self.convA(input.reshape((B*T, C, H, W))))
+        else:
+            y = self.conv(input.reshape((B*T, C, H, W)))
+
         return y.reshape([B, T, *y.shape[1:]])
 
 class Conv2DGridExt(nn.Module):
