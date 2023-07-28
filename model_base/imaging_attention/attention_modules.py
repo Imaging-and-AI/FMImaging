@@ -131,6 +131,18 @@ class LinearGridExt(nn.Module):
 
         return y
 
+class PixelShuffle2DExt(nn.Module):
+    # Extends torch 2D pixel shuffle
+
+    def __init__(self,*args,**kwargs):
+        super().__init__()
+        self.ps = nn.PixelShuffle(*args,**kwargs)
+
+    def forward(self, input):
+        B, T, C, H, W = input.shape
+        y = self.ps(input.reshape((B*T, C, H, W)))
+        return y.reshape([B, T, *y.shape[1:]])
+
 class Conv3DExt(nn.Module):
     # Extends troch 3D conv by permuting T and C
 

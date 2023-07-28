@@ -141,7 +141,9 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
                 res = res.cpu().detach().numpy()
 
                 if image_batch_pred is None:
-                    image_batch_pred = np.empty((image_batch.shape[0], Tc, res.shape[2], Hc, Wc), dtype=d_type)
+                    image_batch_pred = np.empty((image_batch.shape[0], Tc, res.shape[2], res.shape[-2], res.shape[-1]), dtype=d_type)
+                    ratio_H = int(res.shape[-2]//x_in.shape[-2])
+                    ratio_W = int(res.shape[-1]//x_in.shape[-1])
 
                 image_batch_pred[i:i+batch_size] = res
     else:
@@ -150,24 +152,36 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
             ort_inputs = {model.get_inputs()[0].name: x_in.astype('float32')}
             res = model.run(None, ort_inputs)[0]
             if image_batch_pred is None:
-                    image_batch_pred = np.empty((image_batch.shape[0], Tc, res.shape[2], Hc, Wc), dtype=d_type)
+                    image_batch_pred = np.empty((image_batch.shape[0], Tc, res.shape[2], res.shape[-2], res.shape[-1]), dtype=d_type)
+                    ratio_H = int(res.shape[-2]//x_in.shape[-2])
+                    ratio_W = int(res.shape[-1]//x_in.shape[-1])
 
             image_batch_pred[i:i+batch_size] = res
 
+    H_o, W_o = image_batch_pred.shape[-2], image_batch_pred.shape[-1]
     C_out = image_batch_pred.shape[2]
 
     if is_2d_mode:
-        image_batch_pred = np.reshape(image_batch_pred, (Ntme*K*Nrow*Ncol, 1, C_out, Hc, Wc))
+        image_batch_pred = np.reshape(image_batch_pred, (Ntme*K*Nrow*Ncol, 1, C_out, H_o, W_o))
         Tc = 1
-    
-    image_patches_ot_shape = (Ntme, K, Nrow, Ncol, Tc, C_out, Hc, Wc)
-    image_pad_ot_shape = (image_pad.shape[0], C_out, *image_pad.shape[2:])
+
+    # set the output image shape, consider the upsampling ratio
+    image_patches_ot_shape = (Ntme, K, Nrow, Ncol, Tc, C_out, H_o, W_o)
+    image_pad_ot_shape = (image_pad.shape[0], C_out, image_pad.shape[-2]*ratio_H, image_pad.shape[-1]*ratio_W)
     
     # ---------------------------------------------------------------------------------------------
     # setting up the weight matrix
     # matrix_weight defines how much a patch contributes to a pixel
     # image_wgt is the sum of all weights. easier calculation for result
-    matrix_weight = np.ones((cutout), dtype=d_type)
+
+    cutout_output = list(cutout)
+    cutout_output[1] *= ratio_H
+    cutout_output[2] *= ratio_W
+
+    matrix_weight = np.ones((cutout_output), dtype=d_type)
+
+    Ho *= ratio_H
+    Wo *= ratio_W
 
     for t in range(To):
         matrix_weight[t] *= ((t+1)/To)
@@ -189,6 +203,15 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
     # Putting the patches back together
     image_batch_pred = image_batch_pred.reshape(image_patches_ot_shape)
     image_prd = np.zeros(image_pad_ot_shape, dtype=d_type)
+
+    Hc *= ratio_H
+    Wc *= ratio_W
+
+    Hs *= ratio_H
+    Ws *= ratio_W
+
+    HO *= ratio_H
+    WO *= ratio_W
 
     for nt in range(Ntme):
         for nr in range(Nrow):

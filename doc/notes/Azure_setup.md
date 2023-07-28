@@ -170,4 +170,6 @@ azcopy copy ./BWH_RTCine_3T_2022.h5 "https://stcnnt.blob.core.windows.net/mri/da
 azcopy copy ./BWH_RTCine_3T_2023.h5 "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/BWH_RTCine_3T_2023.h5?${SAS}" --recursive
 
 azcopy copy ./VIDA_train_clean_0430.h5 "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/VIDA_train_clean_0430.h5?${SAS}" --recursive
+
+azcopy cp "./*.h5" "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/?${SAS}"
 ```

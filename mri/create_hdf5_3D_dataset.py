@@ -21,12 +21,12 @@ sys.path.insert(1, str(Project_DIR))
 total_samples = 0
 
 def add_image_to_h5group(args, folder, h5_group):
-    
+
     global total_samples
-    
+
     if args.max_sample_loaded > 0 and total_samples >= args.max_sample_loaded:
         return
-    
+
     if(is_valid_folder(folder) is False):
         return
 
@@ -66,18 +66,18 @@ def add_image_to_h5group(args, folder, h5_group):
     if(x<64 or y<64):
         print(f"{Fore.RED}{folder} -- pass over - x<64 or y<64 ...{Style.RESET_ALL}")
         return
-    
+
     if(frames<20):
         print(f"{Fore.RED}{folder} -- pass over - frames {frames} ...{Style.RESET_ALL}")
         return
-        
+
     if(slices>20):
         print(f"{Fore.RED}{folder} -- pass over - slices {slices} ...{Style.RESET_ALL}")
         return
-    
+
     # remote the default scaling
     image /= args.im_scaling
-    
+
     # check all gmaps
     for s in range(slices):
         gmap_file = f"{folder}/gmap_slc_{s+1}.npy"
@@ -110,14 +110,15 @@ def add_image_to_h5group(args, folder, h5_group):
         if gmap.ndim == 3:
             gmap = np.transpose(gmap, [2, 0, 1])
 
-        key = f"{base_name}_slc_{s+1}"
-        data_folder = h5_group.create_group(key)
-        data_folder["image"] = image_slice.astype(np.complex64)
-        data_folder["gmap"] = gmap.astype(np.float32)
-        
-        print(f"{Fore.GREEN}{key}, images - {image_slice.shape}, gmap - {gmap.shape}{Style.RESET_ALL}")
-        
-        total_samples += 1
+        if image_slice[1] > 64 and image_slice[2] > 64:
+            key = f"{base_name}_slc_{s+1}"
+            data_folder = h5_group.create_group(key)
+            data_folder["image"] = image_slice.astype(np.complex64)
+            data_folder["gmap"] = gmap.astype(np.float32)
+
+            print(f"{Fore.GREEN}{key}, images - {image_slice.shape}, gmap - {gmap.shape}{Style.RESET_ALL}")
+
+            total_samples += 1
 
 def is_valid_folder(folder):
     return os.path.exists(os.path.join(folder, "gmap_slc_1.npy"))
@@ -130,7 +131,7 @@ def main():
     parser.add_argument("--test_output", default="test.h5")
     parser.add_argument("--test_fraction",default=0.0, type=float)
     parser.add_argument("folders",nargs="+")
-    
+
     parser.add_argument("--im_scaling", type=float, default=10.0, help="extra scaling applied to image")
     parser.add_argument("--gmap_scaling", type=float, default=1.0, help="extra scaling applied to gmap")
 
@@ -141,7 +142,7 @@ def main():
         action="store_true",
         help="If true, only include 3T data for training",
     )
-    
+
     parser.add_argument(
         "--no_3T",
         action="store_true",
@@ -149,10 +150,10 @@ def main():
     )
 
     parser.add_argument("--input_fname", type=str, default="im", help='input file name')
-    
+
     args = parser.parse_args()
     print(args)
-    
+
     folders = []
 
     for f in args.folders:
@@ -172,7 +173,7 @@ def main():
         train_folders  = folders[split_index:]
     else:
         train_folders  = folders
-    
+
     print(f"Number of folders: {len(folders)}")
 
     def save_folders_to_h5(args, filename, datafolders, only_3T=True):
@@ -188,7 +189,7 @@ def main():
 
                 if args.max_sample_loaded > 0 and total_samples >= args.max_sample_loaded:
                     break
-                
+
                 # get the field strength
                 ismrmrd_file = os.path.join(folder, f"ismrmrd_hdr.mat")
                 try:
@@ -207,9 +208,9 @@ def main():
 
                 if args.no_3T and systemFieldStrength_T>2.0:
                     continue
-                
+
                 add_image_to_h5group(args, folder, h5file)
-                
+
         print("----" * 20)
         print(f"--> total number of samples {total_samples}")
 

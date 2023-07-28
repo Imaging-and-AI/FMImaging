@@ -63,6 +63,9 @@ def arg_parser():
     parser.add_argument('--threeD_cutout_jitter', nargs='+', type=float, default=[-1, 0.5, 0.75, 1.0], help='cutout jitter range, relative to the cutout_shape')
     parser.add_argument("--threeD_cutout_shuffle_time", action="store_true", help='shuffle along time to break temporal consistency; for 2D+T, should not set this option')
 
+    # super-resolution
+    parser.add_argument("--super_resolution", action="store_true", help='if set, upsample image by x2 along H and W')
+
     # inference
     parser.add_argument("--pad_time", action="store_true", help='whether to pad along time when doing inference; if False, the entire series is inputted')
 

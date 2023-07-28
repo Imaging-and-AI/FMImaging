@@ -53,7 +53,7 @@ python3 ./mri/run_mri.py --nproc_per_node 4 --nnodes 2 --node_rank 0 --rdzv_endp
 
 # super-resolution model
 
-python3 ./mri/run_mri.py --standalone --node_rank 0 --nproc_per_node 4 --use_amp --tra_ratio 90 --val_ratio 10 --not_add_noise --with_data_degrading --losses mse perpendicular psnr l1 gaussian gaussian3D ssim --loss_weights 1.0 1.0 1.0 1.0 10.0 10.0 5.0 --model_type MRI_hrnet
+python3 ./mri/run_mri.py --standalone --node_rank 0 --nproc_per_node 4 --use_amp --tra_ratio 90 --val_ratio 10 --not_add_noise --with_data_degrading --losses mse perpendicular psnr l1 gaussian gaussian3D ssim --loss_weights 1.0 1.0 1.0 1.0 10.0 10.0 --model_type MRI_hrnet --separable_conv --super_resolution --run_extra_note with_separable_conv_super_resolution --data_root /data/mri/data
 
 
 # ---------------------------------
