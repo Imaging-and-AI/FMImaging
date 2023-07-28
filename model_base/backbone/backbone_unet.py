@@ -271,40 +271,43 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             "C_out":self.C,
             "H":c.height[0],
             "W":c.width[0],
-            "a_type":c.a_type,            
+            "a_type":c.a_type,
             "window_size": c.window_size,
             "patch_size": c.patch_size,
             "is_causal":c.is_causal,
             "dropout_p":c.dropout_p,
             "n_head":c.n_head,
-            
+
             "kernel_size":(c.kernel_size, c.kernel_size),
             "stride":(c.stride, c.stride),
             "padding":(c.padding, c.padding),
-            
+
             "mixer_kernel_size":(c.mixer_kernel_size, c.mixer_kernel_size),
             "mixer_stride":(c.mixer_stride, c.mixer_stride),
             "mixer_padding":(c.mixer_padding, c.mixer_padding),
-            
+
+            "stride_s": (c.stride_s, c.stride_s),
             "stride_t":(c.stride_t, c.stride_t),
-            
+
+            "separable_conv": c.separable_conv,
+
             "norm_mode":c.norm_mode,
             "interpolate":"none",
             "interp_align_c":c.interp_align_c,
-            
+
             "cell_type": c.cell_type,
             "normalize_Q_K": c.normalize_Q_K, 
             "att_dropout_p": c.att_dropout_p,
             "att_with_output_proj": c.att_with_output_proj, 
             "scale_ratio_in_mixer": c.scale_ratio_in_mixer,
-            
+
             "cosine_att": c.cosine_att,
             "att_with_relative_postion_bias": c.att_with_relative_postion_bias,
             "block_dense_connection": c.block_dense_connection,
-            
+
             "num_wind": self.num_wind,
             "num_patch": self.num_patch,
-            
+
             "mixer_type": c.mixer_type,
             "shuffle_in_window": c.shuffle_in_window,
             

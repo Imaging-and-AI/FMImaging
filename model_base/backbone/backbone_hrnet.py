@@ -308,7 +308,10 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             "stride":(c.stride, c.stride),
             "padding":(c.padding, c.padding),
 
+            "stride_s": (c.stride_s, c.stride_s),
             "stride_t":(c.stride_t, c.stride_t),
+
+            "separable_conv": c.separable_conv,
 
             "mixer_kernel_size":(c.mixer_kernel_size, c.mixer_kernel_size),
             "mixer_stride":(c.mixer_stride, c.mixer_stride),
@@ -834,8 +837,14 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
 
 def tests():
 
-    B,T,C,H,W = 2, 48, 1, 256, 256
-    test_in = torch.rand(B,T,C,H,W, dtype=torch.float32)
+    from utils.benchmark import benchmark_all, benchmark_memory, pytorch_profiler
+    from utils.setup_training import set_seed
+    from colorama import Fore, Style
+
+    device = get_device()
+    
+    B,T,C,H,W = 1, 12, 1, 256, 256
+    test_in = torch.rand(B,T,C,H,W, dtype=torch.float32, device=device)
 
     parser = add_backbone_STCNNT_args()
     ns = Nestedspace()
@@ -854,16 +863,16 @@ def tests():
     config.batch_size = B
     config.time = T
     config.norm_mode = "instance2d"
-    config.a_type = "lin"
+    config.a_type = "conv"
     config.is_causal = False
-    config.n_head = 8
+    config.n_head = 32
     config.interp_align_c = True
    
     config.window_size = [H//8, W//8]
     config.patch_size = [H//32, W//32]
     
     config.num_wind =[8, 8]
-    config.num_patch =[4, 4]
+    config.num_patch =[2, 2]
     
     config.window_sizing_method = "mixed"
     
@@ -885,13 +894,13 @@ def tests():
     config.summary_depth = 4
 
     config.backbone_hrnet = Namespace()
-    config.backbone_hrnet.C = 16
+    config.backbone_hrnet.C = 32
     config.backbone_hrnet.num_resolution_levels = 4
-    config.backbone_hrnet.block_str = ["T1V1L1G1",
-                        "T1V1L1G1",
-                        "T1V1L1G1",
-                        "T1V1L1G1",
-                        "T1V1L1G1"]
+    config.backbone_hrnet.block_str = ["T1L1G1",
+                        "T1L1G1",
+                        "T1L1G1",
+                        "T1L1G1",
+                        "T1L1G1"]
 
     config.backbone_hrnet.use_interpolation = True
 
@@ -902,44 +911,44 @@ def tests():
     config.scale_ratio_in_mixer  = 1.0
 
     config.cosine_att = True
-    config.att_with_relative_postion_bias = True
+    config.att_with_relative_postion_bias = False
 
     config.block_dense_connection = True
     
     config.optim = "adamw"
     config.scheduler = "ReduceLROnPlateau"
     config.all_w_decay = True
-    device = get_device()
+    
+    config.device = device
+
+    config.with_timer = True
+
+    config.stride_s = 2
+    config.separable_conv = True
+    config.use_einsum = False
 
     model = STCNNT_HRnet(config=config)
     model.to(device=device)
 
-    print(model)
+    with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
+        for _ in range(10):
+            y = model(test_in)
 
-    start_event = torch.cuda.Event(enable_timing=True)
-    end_event = torch.cuda.Event(enable_timing=True)
-    start_event.record()
+    config.with_timer = False
+    print(f"{Fore.GREEN}-------------> STCNNT_HRnet-einsum-{config.use_einsum}-stride_s-{config.stride_s}-separable_conv-{config.separable_conv} <----------------------{Style.RESET_ALL}")
+    benchmark_all(model, test_in, grad=None, repeats=20, desc='STCNNT_HRnet-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_memory(model, test_in, desc='STCNNT_HRnet-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
-    y_hat, y_hat_levels = model(test_in.to(device=device))
-    loss = F.mse_loss(y_hat, 2*y_hat)
-
-    loss.backward()
-
-    end_event.record()
-    torch.cuda.synchronize()
-    elapsed_time_ms = start_event.elapsed_time(end_event)
-
-    print(f"forward time: {elapsed_time_ms:.3f}ms")
-    print(get_gpu_ram_usage(device=device))
-
-    B,T,C,H,W = 2, 12, 1, 128, 128
-    test_in2 = torch.rand(B,T,C,H,W, dtype=torch.float32)
-    y_hat2, y_hat_levels2 = model(test_in2.to(device=device))
+    config.stride_s = 1
+    config.separable_conv = False
+    config.use_einsum = False
     
-    del model, y_hat, y_hat_levels
-    torch.cuda.empty_cache()
+    model = STCNNT_HRnet(config=config)
+    model.to(device=device)
 
-    print(get_gpu_ram_usage(device=device))
+    print(f"{Fore.GREEN}-------------> STCNNT_HRnet-einsum-{config.use_einsum}-stride_s-{config.stride_s}-separable_conv-{config.separable_conv} <----------------------{Style.RESET_ALL}")
+    benchmark_all(model, test_in.to(device=device), grad=None, repeats=20, desc='STCNNT_HRnet-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_memory(model, test_in.to(device=device), desc='STCNNT_HRnet-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
     model = STCNNT_HRnet(config=config)
     model.to(device=device)

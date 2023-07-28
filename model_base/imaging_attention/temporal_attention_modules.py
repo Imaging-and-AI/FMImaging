@@ -21,9 +21,9 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
     """
     Multi-head cnn attention model for complete temporal attention
     """
-    def __init__(self, C_in, C_out=16, H=128, W=128, is_causal=False, n_head=8, \
-                    kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), \
-                    stride_t=(2,2), att_dropout_p=0.0, 
+    def __init__(self, C_in, C_out=16, H=128, W=128, is_causal=False, n_head=8, 
+                    kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), 
+                    stride_qk=(2,2), separable_conv=False, att_dropout_p=0.0, 
                     cosine_att=False, normalize_Q_K=False, att_with_output_proj=True,
                     use_einsum=False):
         """
@@ -37,7 +37,7 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
 
         @args:
             - is_causal (bool): whether to mask attention to imply causality
-            - stride_t (int, int): special stride for temporal attention k,q matrices
+            - stride_qk (int, int): special stride for temporal attention k,q matrices
         """
         super().__init__(C_in=C_in, 
                          C_out=C_out, 
@@ -45,14 +45,16 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
                          n_head=n_head, 
                          kernel_size=kernel_size, 
                          stride=stride, 
+                         separable_conv=separable_conv,
                          padding=padding, 
+                         stride_qk=stride_qk,
                          att_dropout_p=att_dropout_p, 
                          cosine_att=cosine_att,
                          normalize_Q_K=normalize_Q_K, 
                          att_with_output_proj=att_with_output_proj)
 
         self.is_causal = is_causal
-        self.stride_f = stride_t[0]
+        self.stride_f = stride_qk[0]
         self.use_einsum = use_einsum
 
         assert self.C_out*H*W % self.n_head == 0, \
@@ -60,9 +62,9 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
 
         # key, query, value projections convolution
         # Wk, Wq, Wv
-        self.key = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_t, padding=padding, bias=False)
-        self.query = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_t, padding=padding, bias=False)
-        self.value = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
+        self.key = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_qk, padding=padding, bias=False, separable_conv=self.separable_conv)
+        self.query = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_qk, padding=padding, bias=False, separable_conv=self.separable_conv)
+        self.value = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=False, separable_conv=self.separable_conv)
 
         self.register_buffer("mask", torch.tril(torch.ones(1000, 1000, dtype=torch.bool)).view(1, 1, 1000, 1000))
 
@@ -169,7 +171,7 @@ class TemporalCnnAttention(CnnAttentionBase):
     """
     def __init__(self, C_in, C_out=16, H=128, W=128, is_causal=False, n_head=8, \
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), \
-                    stride_t=(2,2), att_dropout_p=0.0, 
+                    stride_qk=(2,2), att_dropout_p=0.0, 
                     cosine_att=False, normalize_Q_K=False, att_with_output_proj=True):
         """
         Defines the layer for a cnn self-attention on temporal axis
@@ -182,7 +184,7 @@ class TemporalCnnAttention(CnnAttentionBase):
 
         @args:
             - is_causal (bool): whether to mask attention to imply causality
-            - stride_t (int, int): special stride for temporal attention k,q matrices
+            - stride_qk (int, int): special stride for temporal attention k,q matrices
         """
         super().__init__(C_in=C_in, 
                          C_out=C_out, 
@@ -191,22 +193,23 @@ class TemporalCnnAttention(CnnAttentionBase):
                          kernel_size=kernel_size, 
                          stride=stride, 
                          padding=padding, 
+                         stride_qk=stride_qk,
                          att_dropout_p=att_dropout_p, 
                          cosine_att=cosine_att,
                          normalize_Q_K=normalize_Q_K, 
                          att_with_output_proj=att_with_output_proj)
 
         self.is_causal = is_causal
-        self.stride_f = stride_t[0]
+        self.stride_f = stride_qk[0]
         
         assert self.C_out % self.n_head == 0, \
             f"Number of output channles {self.C_out} should be divisible by number of heads {self.n_head}"
 
         # key, query, value projections convolution
         # Wk, Wq, Wv
-        self.key = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_t, padding=padding, bias=False)
-        self.query = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_t, padding=padding, bias=False)
-        self.value = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
+        self.key = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_qk, padding=padding, bias=False, separable_conv=self.separable_conv)
+        self.query = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_qk, padding=padding, bias=False, separable_conv=self.separable_conv)
+        self.value = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=False, separable_conv=self.separable_conv)
 
     def forward(self, x):
         """
@@ -279,41 +282,43 @@ def tests():
     causals = [True, False]
     normalize_Q_Ks = [True, False]
     att_with_output_projs = [True, False]
+    stride_qks = [[1,1], [2,2]]
     for causal in causals:
         for normalize_Q_K in normalize_Q_Ks:
-            for att_with_output_proj in att_with_output_projs:
-                t0 = time.time()
-                temporal = TemporalCnnAttention(C, C_out=C_out, n_head=32, is_causal=causal, normalize_Q_K=normalize_Q_K, att_with_output_proj=att_with_output_proj, stride_t=[1,1]).to(device=device)
-                test_out = temporal(test_in)
-                t1 = time.time()
-                print(f"forward pass - {t1-t0} seconds")
+            for stride_qk in stride_qks:
+                for att_with_output_proj in att_with_output_projs:
+                    t0 = time.time()
+                    temporal = TemporalCnnAttention(C, C_out=C_out, n_head=32, is_causal=causal, normalize_Q_K=normalize_Q_K, att_with_output_proj=att_with_output_proj, stride_qk=stride_qk).to(device=device)
+                    test_out = temporal(test_in)
+                    t1 = time.time()
+                    print(f"forward pass - {t1-t0} seconds")
 
-                t0 = time.time()
-                loss = nn.MSELoss()
-                mse = loss(test_in, test_out[:,:,:C,:,:])
-                mse.backward()
-                t1 = time.time()
-                print(f"backward pass - {t1-t0} seconds")
+                    t0 = time.time()
+                    loss = nn.MSELoss()
+                    mse = loss(test_in, test_out[:,:,:C,:,:])
+                    mse.backward()
+                    t1 = time.time()
+                    print(f"backward pass - {t1-t0} seconds")
 
-                Bo, To, Co, Ho, Wo = test_out.shape
-                assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
+                    Bo, To, Co, Ho, Wo = test_out.shape
+                    assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
 
-                # --------------------------------------
-                t0 = time.time()
-                temporal = TemporalCnnStandardAttention(C, C_out=C_out, is_causal=causal, normalize_Q_K=normalize_Q_K, att_with_output_proj=att_with_output_proj).to(device=device)
-                test_out = temporal(test_in)
-                t1 = time.time()
-                print(f"forward pass - {t1-t0} seconds")
+                    # --------------------------------------
+                    t0 = time.time()
+                    temporal = TemporalCnnStandardAttention(C, C_out=C_out, is_causal=causal, normalize_Q_K=normalize_Q_K, att_with_output_proj=att_with_output_proj).to(device=device)
+                    test_out = temporal(test_in)
+                    t1 = time.time()
+                    print(f"forward pass - {t1-t0} seconds")
 
-                t0 = time.time()
-                loss = nn.MSELoss()
-                mse = loss(test_in, test_out[:,:,:C,:,:])
-                mse.backward()
-                t1 = time.time()
-                print(f"backward pass - {t1-t0} seconds")
+                    t0 = time.time()
+                    loss = nn.MSELoss()
+                    mse = loss(test_in, test_out[:,:,:C,:,:])
+                    mse.backward()
+                    t1 = time.time()
+                    print(f"backward pass - {t1-t0} seconds")
 
-                Bo, To, Co, Ho, Wo = test_out.shape
-                assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
+                    Bo, To, Co, Ho, Wo = test_out.shape
+                    assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
 
     print("Passed temporal")
 
@@ -330,7 +335,7 @@ def benchmark():
     device = get_device()
 
     B, T, C, H, W = 16, 64, 3, 64, 64
-    C_out = 64
+    C_out = 16
     test_in = torch.rand(B,T,C,H,W, dtype=torch.float32, device=device)
 
     import torch.utils.benchmark as benchmark
@@ -368,7 +373,7 @@ def benchmark():
     temporal = TemporalCnnAttention(C_in=C, 
                                     C_out=C_out, 
                                     H=H, W=W,
-                                    n_head=32,
+                                    n_head=16,
                                     cosine_att=True,
                                     normalize_Q_K=True, 
                                     att_with_output_proj=0.1)
@@ -386,10 +391,10 @@ def benchmark():
     temporal = TemporalCnnStandardAttention(C_in=C, 
                                     C_out=C_out, 
                                     H=H, W=W,
-                                    n_head=32,
+                                    n_head=16,
                                     cosine_att=True,
                                     normalize_Q_K=True, 
-                                    att_with_output_proj=0.1,
+                                    att_with_output_proj=False,
                                     use_einsum=True)
 
     temporal.to(device=device)
@@ -404,10 +409,10 @@ def benchmark():
     temporal = TemporalCnnStandardAttention(C_in=C, 
                                     C_out=C_out, 
                                     H=H, W=W,
-                                    n_head=32,
+                                    n_head=16,
                                     cosine_att=True,
                                     normalize_Q_K=True, 
-                                    att_with_output_proj=0.1,
+                                    att_with_output_proj=False,
                                     use_einsum=False)
 
     temporal.to(device=device)

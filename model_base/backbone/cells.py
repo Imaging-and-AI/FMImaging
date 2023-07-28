@@ -53,7 +53,10 @@ class STCNNT_Cell(nn.Module):
                  mixer_type="conv",
                  window_size=None, patch_size=None, num_wind=[8, 8], num_patch=[4, 4], 
                  is_causal=False, n_head=8,
-                 kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), stride_t=(2,2),
+                 kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), 
+                 stride_s=(1,1), 
+                 stride_t=(2,2),
+                 separable_conv=False,
                  mixer_kernel_size=(5, 5), mixer_stride=(1, 1), mixer_padding=(2, 2),
                  normalize_Q_K=False, 
                  att_dropout_p=0.0, 
@@ -84,6 +87,7 @@ class STCNNT_Cell(nn.Module):
             - is_causal (bool): whether to mask attention to imply causality
             - n_head (int): number of heads in self attention
             - kernel_size, stride, padding (int, int): convolution parameters
+            - stride_s (int, int): stride for spatial attention k,q matrices
             - stride_t (int, int): special stride for temporal attention k,q matrices
             - normalize_Q_K (bool): whether to use layernorm to normalize Q and K, as in 22B ViT paper
             - att_dropout_p (float): probability of dropout for attention coefficients
@@ -113,17 +117,20 @@ class STCNNT_Cell(nn.Module):
         self.num_patch = num_patch
         self.is_causal = is_causal
         self.n_head = n_head
-        
+
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
-        
+
+        self.stride_s = stride_s
         self.stride_t = stride_t
-        
+
+        self.separable_conv = separable_conv
+
         self.mixer_kernel_size = mixer_kernel_size
         self.mixer_stride = mixer_stride
         self.mixer_padding = mixer_padding
-        
+
         self.normalize_Q_K = normalize_Q_K
         self.cosine_att = cosine_att
         self.att_with_relative_postion_bias = att_with_relative_postion_bias
@@ -134,10 +141,10 @@ class STCNNT_Cell(nn.Module):
         self.scale_ratio_in_mixer = scale_ratio_in_mixer
         self.norm_mode = norm_mode
         self.shuffle_in_window = shuffle_in_window
-        
+
         self.use_einsum = use_einsum
         self.temporal_flash_attention = temporal_flash_attention
-        
+
         if(norm_mode=="layer"):
             self.n1 = nn.LayerNorm([C_in, H, W])
             self.n2 = nn.LayerNorm([C_out, H, W])
@@ -166,7 +173,7 @@ class STCNNT_Cell(nn.Module):
                 self.attn = TemporalCnnAttention(C_in=C_in, C_out=C_out, H=self.H, W=self.W,
                                                 is_causal=is_causal, n_head=n_head, 
                                                 kernel_size=kernel_size, stride=stride, padding=padding, 
-                                                stride_t=stride_t, 
+                                                stride_qk=stride_t, separable_conv=separable_conv,
                                                 cosine_att=cosine_att, normalize_Q_K=normalize_Q_K, 
                                                 att_dropout_p=att_dropout_p, 
                                                 att_with_output_proj=att_with_output_proj)
@@ -174,7 +181,7 @@ class STCNNT_Cell(nn.Module):
                 self.attn = TemporalCnnStandardAttention(C_in=C_in, C_out=C_out, H=self.H, W=self.W,
                                                 is_causal=is_causal, n_head=n_head, 
                                                 kernel_size=kernel_size, stride=stride, padding=padding, 
-                                                stride_t=stride_t, 
+                                                stride_qk=stride_t, separable_conv=separable_conv,
                                                 cosine_att=cosine_att, normalize_Q_K=normalize_Q_K, 
                                                 att_dropout_p=att_dropout_p, 
                                                 att_with_output_proj=att_with_output_proj,
@@ -185,6 +192,7 @@ class STCNNT_Cell(nn.Module):
                                               num_wind=num_wind, num_patch=num_patch,
                                               a_type=a_type, n_head=n_head, 
                                               kernel_size=kernel_size, stride=stride, padding=padding, 
+                                              stride_qk=self.stride_s, separable_conv=separable_conv,
                                               normalize_Q_K=normalize_Q_K, 
                                               cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias,
                                               att_dropout_p=att_dropout_p, 
@@ -196,6 +204,7 @@ class STCNNT_Cell(nn.Module):
                                                num_wind=num_wind, num_patch=num_patch, 
                                                a_type=a_type, n_head=n_head, 
                                                kernel_size=kernel_size, stride=stride, padding=padding, 
+                                               stride_qk=self.stride_s, separable_conv=separable_conv,
                                                normalize_Q_K=normalize_Q_K, 
                                                cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias,
                                                att_dropout_p=att_dropout_p, 
@@ -206,6 +215,7 @@ class STCNNT_Cell(nn.Module):
             self.attn = SpatialViTAttention(C_in=C_in, C_out=C_out, H=self.H, W=self.W, 
                                             window_size=window_size, num_wind=num_wind, 
                                             kernel_size=kernel_size, stride=stride, padding=padding, 
+                                            stride_qk=self.stride_s, separable_conv=separable_conv,
                                             normalize_Q_K=normalize_Q_K, 
                                             cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias,
                                             att_dropout_p=att_dropout_p, 
@@ -222,9 +232,9 @@ class STCNNT_Cell(nn.Module):
                 mixer_cha = int(scale_ratio_in_mixer*C_out)
                 
                 self.mlp = nn.Sequential(
-                    Conv2DExt(C_out, mixer_cha, kernel_size=mixer_kernel_size, stride=mixer_stride, padding=mixer_padding, bias=True),
+                    Conv2DExt(C_out, mixer_cha, kernel_size=mixer_kernel_size, stride=mixer_stride, padding=mixer_padding, bias=True, separable_conv=separable_conv),
                     torch.nn.GELU(approximate='tanh'),
-                    Conv2DExt(mixer_cha, C_out, kernel_size=mixer_kernel_size, stride=mixer_stride, padding=mixer_padding, bias=True)
+                    Conv2DExt(mixer_cha, C_out, kernel_size=mixer_kernel_size, stride=mixer_stride, padding=mixer_padding, bias=True, separable_conv=separable_conv)
                 )
             elif self.mixer_type == "lin":
                 # apply mixer on every patch
@@ -284,7 +294,8 @@ class STCNNT_Parallel_Cell(nn.Module):
                  mixer_type="conv",
                  window_size=None, patch_size=None, num_wind=[8, 8], num_patch=[4, 4], 
                  is_causal=False, n_head=8,
-                 kernel_size=(3, 3), stride=(1, 1), padding=(1, 1),stride_t=(2,2),
+                 kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), stride_s=(1,1), stride_t=(2,2),
+                 separable_conv=False,
                  mixer_kernel_size=(5, 5), mixer_stride=(1, 1), mixer_padding=(2, 2),
                  normalize_Q_K=False, att_dropout_p=0.0, dropout_p=0.1, 
                  cosine_att=True, 
@@ -316,13 +327,16 @@ class STCNNT_Parallel_Cell(nn.Module):
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
-        
+
+        self.stride_s = stride_s
         self.stride_t = stride_t
-        
+
+        self.separable_conv = separable_conv,
+
         self.mixer_kernel_size = mixer_kernel_size
         self.mixer_stride = mixer_stride
         self.mixer_padding = mixer_padding
-        
+
         self.stride_t = stride_t
         self.normalize_Q_K = normalize_Q_K
         self.att_dropout_p = att_dropout_p
@@ -363,7 +377,7 @@ class STCNNT_Parallel_Cell(nn.Module):
                                                 H=H, W=W,
                                                 is_causal=is_causal, n_head=n_head, 
                                                 kernel_size=kernel_size, stride=stride, padding=padding, 
-                                                stride_t=stride_t, 
+                                                stride_qk=stride_t, separable_conv=separable_conv,
                                                 cosine_att=cosine_att, normalize_Q_K=normalize_Q_K, 
                                                 att_dropout_p=att_dropout_p, 
                                                 att_with_output_proj=att_with_output_proj)
@@ -372,7 +386,7 @@ class STCNNT_Parallel_Cell(nn.Module):
                                                 H=H, W=W,
                                                 is_causal=is_causal, n_head=n_head, 
                                                 kernel_size=kernel_size, stride=stride, padding=padding, 
-                                                stride_t=stride_t, 
+                                                stride_qk=stride_t, separable_conv=separable_conv,
                                                 cosine_att=cosine_att, normalize_Q_K=normalize_Q_K, 
                                                 att_dropout_p=att_dropout_p, 
                                                 att_with_output_proj=att_with_output_proj,
@@ -384,6 +398,7 @@ class STCNNT_Parallel_Cell(nn.Module):
                                               num_wind=num_wind, num_patch=num_patch, 
                                               a_type=a_type, n_head=n_head, 
                                               kernel_size=kernel_size, stride=stride, padding=padding, 
+                                              stride_qk=self.stride_s, separable_conv=separable_conv,
                                               normalize_Q_K=normalize_Q_K, 
                                               att_dropout_p=att_dropout_p, 
                                               cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias,
@@ -396,6 +411,7 @@ class STCNNT_Parallel_Cell(nn.Module):
                                                num_wind=num_wind, num_patch=num_patch, 
                                                a_type=a_type, n_head=n_head, 
                                                kernel_size=kernel_size, stride=stride, padding=padding, 
+                                               stride_qk=self.stride_s, separable_conv=separable_conv,
                                                normalize_Q_K=normalize_Q_K, 
                                                att_dropout_p=att_dropout_p, 
                                                cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias,
@@ -407,6 +423,7 @@ class STCNNT_Parallel_Cell(nn.Module):
                                             H=H, W=W,
                                             window_size=window_size, a_type=a_type, n_head=n_head, 
                                             kernel_size=kernel_size, stride=stride, padding=padding, 
+                                            stride_qk=self.stride_s, separable_conv=separable_conv,
                                             normalize_Q_K=normalize_Q_K, 
                                             att_dropout_p=att_dropout_p, 
                                             cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias,
@@ -415,27 +432,27 @@ class STCNNT_Parallel_Cell(nn.Module):
         else:
             raise NotImplementedError(f"Attention mode not implemented: {att_mode}")
 
-        self.stochastic_depth = torchvision.ops.StochasticDepth(p=self.dropout_p, mode="row")        
-            
-        self.with_mixer = with_mixer            
+        self.stochastic_depth = torchvision.ops.StochasticDepth(p=self.dropout_p, mode="row")
+
+        self.with_mixer = with_mixer
         if(self.with_mixer):
-            if self.mixer_type == "conv" or att_mode=="temporal":        
+            if self.mixer_type == "conv" or att_mode=="temporal":
                 mixer_cha = int(scale_ratio_in_mixer*C_out)
                 
                 self.mlp = nn.Sequential(
-                    Conv2DExt(C_in, mixer_cha, kernel_size=mixer_kernel_size, stride=mixer_stride, padding=mixer_padding, bias=True),
+                    Conv2DExt(C_in, mixer_cha, kernel_size=mixer_kernel_size, stride=mixer_stride, padding=mixer_padding, bias=True, separable_conv=separable_conv),
                     torch.nn.GELU(approximate='tanh'),
-                    Conv2DExt(mixer_cha, C_out, kernel_size=mixer_kernel_size, stride=mixer_stride, padding=mixer_padding, bias=True)
+                    Conv2DExt(mixer_cha, C_out, kernel_size=mixer_kernel_size, stride=mixer_stride, padding=mixer_padding, bias=True, separable_conv=separable_conv)
                 )
             elif self.mixer_type == "lin":
                 # apply mixer on every patch
-                if att_mode == "local" or att_mode == "global":                    
-                    D = C_in * self.attn.patch_size[0] * self.attn.patch_size[1]                    
+                if att_mode == "local" or att_mode == "global":
+                    D = C_in * self.attn.patch_size[0] * self.attn.patch_size[1]
                 elif att_mode == "vit":
                     D = C_in * self.attn.window_size[0] * self.attn.window_size[1]
-                    
+
                 D_out = int(D//C_in * C_out)
-                
+
                 D_prime = int(scale_ratio_in_mixer*D_out)
                     
                 self.mlp = nn.Sequential(
@@ -445,7 +462,7 @@ class STCNNT_Parallel_Cell(nn.Module):
                 )
             else:
                 raise NotImplementedError(f"Mixer mode not implemented: {mixer_type}") 
-            
+
     @property
     def device(self):
         return next(self.parameters()).device
@@ -493,7 +510,8 @@ def tests():
     mixer_types = [ "conv", "lin"]
     use_einsums = [True, False]
     with_flash_attentions = [True, False]
-    
+    stride_ss = [[1, 1], [2, 2]]
+
     for use_einsum in use_einsums:
         for with_flash_attention in with_flash_attentions:
             for att_type in att_types:
@@ -501,16 +519,17 @@ def tests():
                     for cosine_att in cosine_atts:
                         for att_with_relative_postion_bias in att_with_relative_postion_biases:
                             for mixer_type in mixer_types:
-                                print(norm_type, att_type, mixer_types, cosine_att, att_with_relative_postion_bias)
-                                
-                                CNNT_Cell = STCNNT_Cell(C_in=C, C_out=C_out, H=H, W=W, window_size=[H//8, W//8], patch_size=[H//16, W//16], 
-                                                        att_mode=att_type, mixer_type=mixer_type, norm_mode=norm_type,
-                                                        cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias,
-                                                        use_einsum=use_einsum, temporal_flash_attention=with_flash_attention)
-                                test_out = CNNT_Cell(test_in)
+                                for stride_s in stride_ss:
+                                    print(norm_type, att_type, mixer_type, cosine_att, att_with_relative_postion_bias, stride_s)
+                                    
+                                    CNNT_Cell = STCNNT_Cell(C_in=C, C_out=C_out, H=H, W=W, window_size=[H//8, W//8], patch_size=[H//16, W//16], 
+                                                            att_mode=att_type, mixer_type=mixer_type, norm_mode=norm_type, stride_s=stride_s,
+                                                            cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias,
+                                                            use_einsum=use_einsum, temporal_flash_attention=with_flash_attention)
+                                    test_out = CNNT_Cell(test_in)
 
-                                Bo, To, Co, Ho, Wo = test_out.shape
-                                assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
+                                    Bo, To, Co, Ho, Wo = test_out.shape
+                                    assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
 
     print("Passed CNNT Cell")
 
@@ -522,17 +541,18 @@ def tests():
                     for cosine_att in cosine_atts:
                         for att_with_relative_postion_bias in att_with_relative_postion_biases:
                             for mixer_type in mixer_types:
-                                
-                                print(norm_type, att_type, mixer_type, cosine_att, att_with_relative_postion_bias)
-                        
-                                p_cell = STCNNT_Parallel_Cell(C_in=C, C_out=C_out, H=H, W=W, window_size=[H//8, W//8], patch_size=[H//16, W//16], 
-                                                            att_mode=att_type, mixer_type=mixer_type, norm_mode=norm_type,
-                                                            cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias,
-                                                            use_einsum=use_einsum, temporal_flash_attention=with_flash_attention)
-                                test_out = p_cell(test_in)
+                                for stride_s in stride_ss:
 
-                                Bo, To, Co, Ho, Wo = test_out.shape
-                                assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
+                                    print(norm_type, att_type, mixer_type, cosine_att, att_with_relative_postion_bias)
+
+                                    p_cell = STCNNT_Parallel_Cell(C_in=C, C_out=C_out, H=H, W=W, window_size=[H//8, W//8], patch_size=[H//16, W//16], 
+                                                                att_mode=att_type, mixer_type=mixer_type, norm_mode=norm_type, stride_s=stride_s,
+                                                                cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias,
+                                                                use_einsum=use_einsum, temporal_flash_attention=with_flash_attention)
+                                    test_out = p_cell(test_in)
+
+                                    Bo, To, Co, Ho, Wo = test_out.shape
+                                    assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
 
     print("Passed Parallel CNNT Cell")
 

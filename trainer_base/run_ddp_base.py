@@ -120,7 +120,9 @@ class run_ddp_base(object):
             "--norm_mode", f"{norm_mode}",
             "--mixer_type", f"{mixer_type}",
             "--shuffle_in_window", f"{shuffle_in_window}",
-            "--scale_ratio_in_mixer", f"{scale_ratio_in_mixer}"
+            "--scale_ratio_in_mixer", f"{scale_ratio_in_mixer}",
+            "--stride_s", f"{config.stride_s}",
+            "--stride_t", f"{config.stride_t}"
         ])
 
         if larger_mixer_kernel:
@@ -141,6 +143,9 @@ class run_ddp_base(object):
 
         if config.use_amp:
             cmd_run.extend(["--use_amp"])
+
+        if config.separable_conv:
+            cmd_run.extend(["--separable_conv"])
 
         if config.save_samples:
             cmd_run.extend(["--save_samples"])
@@ -270,6 +275,10 @@ class run_ddp_base(object):
         parser.add_argument("--tra_ratio", type=float, default=95, help="percentage of training data used")
         parser.add_argument("--val_ratio", type=float, default=5, help="percentage of validation data used")
         parser.add_argument("--test_ratio", type=float, default=100, help="percentage of test data used")
+
+        parser.add_argument("--stride_s", type=int, default=1, help='stride for spatial attention, q and k (equal x and y)') 
+        parser.add_argument("--stride_t", type=int, default=2, help='stride for temporal attention, q and k (equal x and y)') 
+        parser.add_argument("--separable_conv", action="store_true", help='if set, use separable conv')
 
         parser.add_argument("--run_extra_note", type=str, default=None, help="extra notes for the runs")
 

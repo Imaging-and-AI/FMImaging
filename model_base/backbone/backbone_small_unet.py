@@ -129,12 +129,15 @@ class CNNT_Unet(STCNNT_Base_Runtime):
             "kernel_size":(c.kernel_size, c.kernel_size),
             "stride":(c.stride, c.stride), 
             "padding":(c.padding, c.padding),
-            "stride_t":(c.stride_t, c.stride_t), 
-            
+            "stride_s": (c.stride_s, c.stride_s),
+            "stride_t":(c.stride_t, c.stride_t),
+
+            "separable_conv": c.separable_conv,
+
             "mixer_kernel_size":(c.mixer_kernel_size, c.mixer_kernel_size),
             "mixer_stride":(c.mixer_stride, c.mixer_stride),
             "mixer_padding":(c.mixer_padding, c.mixer_padding),
-            
+
             "norm_mode":c.norm_mode,
             "interpolate":"down", 
             "interp_align_c":c.interp_align_c,
