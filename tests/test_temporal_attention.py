@@ -145,7 +145,12 @@ class Test_Temporal_Attention(object):
     def test_TemporalCnnStandardAttention_benchmark(self):
 
         device = get_device()
-        repeats = 20
+        min_run_time = 4
+
+        forward_time_limit = 50
+        backward_time_limit = 100
+        all_time_limit = 150
+        mem_limit = 15
 
         B, T, C, H, W = 16, 12, 32, 256, 256
         C_out = 32
@@ -167,14 +172,14 @@ class Test_Temporal_Attention(object):
         with torch.inference_mode():
             y = temporal(test_in)
 
-        f, b, all1 = benchmark_all(temporal, test_in, grad=None, repeats=repeats, desc='TemporalCnnStandardAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+        f, b, all1 = benchmark_all(temporal, test_in, grad=None, min_run_time=min_run_time, desc='TemporalCnnStandardAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
         mem = benchmark_memory(temporal, test_in, desc='TemporalCnnStandardAttention-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
-        assert f[1].mean*1e3 < 100
-        assert b[1].mean*1e3 < 140
-        assert all1[1].mean*1e3 < 240
-        assert mem < 15
+        assert f[1].mean*1e3 < forward_time_limit
+        assert b[1].mean*1e3 < backward_time_limit
+        assert all1[1].mean*1e3 < all_time_limit
+        assert mem < mem_limit
 
         temporal = TemporalCnnStandardAttention(C_in=C, 
                                         C_out=C_out, 
@@ -190,13 +195,13 @@ class Test_Temporal_Attention(object):
         with torch.inference_mode():
             y = temporal(test_in)
 
-        f, b, all2 = benchmark_all(temporal, test_in, grad=None, repeats=repeats, desc='TemporalCnnStandardAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
-        assert f[1].mean*1e3 < 100
-        assert b[1].mean*1e3 < 140
-        assert all1[1].mean*1e3 < 240
-
+        f, b, all2 = benchmark_all(temporal, test_in, grad=None, min_run_time=min_run_time, desc='TemporalCnnStandardAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
         mem = benchmark_memory(temporal, test_in, desc='TemporalCnnStandardAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
-        assert mem < 15
+
+        assert f[1].mean*1e3 < forward_time_limit
+        assert b[1].mean*1e3 < backward_time_limit
+        assert all1[1].mean*1e3 < all_time_limit
+        assert mem < mem_limit
 
         # print(f"{Fore.GREEN}-------------> Flash temporal attention <----------------------{Style.RESET_ALL}")
 
@@ -215,6 +220,6 @@ class Test_Temporal_Attention(object):
         # with torch.inference_mode():
         #     y = temporal(test_in)
 
-        # f, b, all3 = benchmark_all(temporal, test_in, grad=None, repeats=repeats, desc='TemporalCnnAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+        # f, b, all3 = benchmark_all(temporal, test_in, grad=None, min_run_time=min_run_time, desc='TemporalCnnAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
         # mem = benchmark_memory(temporal, test_in, desc='TemporalCnnAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)

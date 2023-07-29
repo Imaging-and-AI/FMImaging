@@ -526,7 +526,7 @@ def benchmark():
     B, T, C, H, W = 16, 12, 3, 256, 256    
     test_in = torch.rand(B,T,C,H,W, dtype=torch.float32, device=device)
 
-    repeats = 100
+    min_run_time = 5
 
     C_out = 32
     n_head = 32
@@ -535,19 +535,19 @@ def benchmark():
     patch_size=[2, 2] 
     num_wind=[8, 8]
     num_patch=[4, 4]
-                            
+
     att_dropout_p=0.1 
     cosine_att=True 
     normalize_Q_K=True 
     att_with_relative_postion_bias=True
     att_with_output_proj=True
     shuffle_in_window=False
-                                              
+
     print(f"{Fore.YELLOW}==================================================================={Style.RESET_ALL}")
 
     stride_qk = (2, 2)
     separable_conv = True
-    
+
     m = SpatialGlobalAttention(C_in=C, C_out=C_out, H=H, W=H,
                             window_size=window_size, patch_size=patch_size, 
                             num_wind=num_wind, num_patch=num_patch,  
@@ -638,7 +638,7 @@ def benchmark():
     with torch.inference_mode():
         y = m(test_in)
 
-    benchmark_all(m, test_in, grad=None, repeats=repeats, desc='SpatialGlobalAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_all(m, test_in, grad=None, min_run_time=min_run_time, desc='SpatialGlobalAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
     benchmark_memory(m, test_in, desc='SpatialGlobalAttention-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
@@ -663,7 +663,7 @@ def benchmark():
     with torch.inference_mode():
         y = m(test_in)
 
-    benchmark_all(m, test_in, grad=None, repeats=repeats, desc='SpatialGlobalAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_all(m, test_in, grad=None, min_run_time=min_run_time, desc='SpatialGlobalAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
     benchmark_memory(m, test_in, desc='SpatialGlobalAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 

@@ -186,7 +186,7 @@ class SpatialViTAttention(CnnAttentionBase):
 
             tm = start_timer(enable=self.with_timer)
             if self.cosine_att:
-                att = torch.einsum("cosine_att, BTWND, BTSND -> BTNWS", F.normalize(q, dim=-1), F.normalize(k, dim=-1))
+                att = torch.einsum("BTWND, BTSND -> BTNWS", F.normalize(q, dim=-1), F.normalize(k, dim=-1))
                 end_timer(enable=self.with_timer, t=tm, msg="BTWND, BTSND -> BTNWS")
             else:
                 if self.normalize_Q_K:
@@ -419,7 +419,7 @@ def benchmark():
 
     device = get_device()
 
-    repeats = 200
+    min_run_time = 5
 
     B, T, C, H, W = 16, 12, 32, 256, 256
     C_out = 32
@@ -503,7 +503,7 @@ def benchmark():
                                     use_einsum=True)
 
     m.to(device=device)
-    benchmark_all(m, test_in, grad=None, repeats=repeats, desc='SpatialViTAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_all(m, test_in, grad=None, min_run_time=min_run_time, desc='SpatialViTAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
     benchmark_memory(m, test_in, desc='SpatialViTAttention-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
@@ -533,7 +533,7 @@ def benchmark():
     time.sleep(3.0)
 
     m.with_timer = False
-    benchmark_all(m, test_in, grad=None, repeats=repeats, desc='SpatialViTAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_all(m, test_in, grad=None, min_run_time=min_run_time, desc='SpatialViTAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
     benchmark_memory(m, test_in, desc='SpatialViTAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 

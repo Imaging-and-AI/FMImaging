@@ -445,7 +445,7 @@ def benchmark():
 
     device = get_device()
 
-    repeats = 100
+    min_run_time = 5
 
     B, T, C, H, W = 16, 12, 32, 256, 256
     C_out = 32
@@ -544,7 +544,7 @@ def benchmark():
 
     m.to(device=device)
 
-    benchmark_all(m, test_in, grad=None, repeats=repeats, desc='SpatialLocalAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_all(m, test_in, grad=None, min_run_time=min_run_time, desc='SpatialLocalAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
     benchmark_memory(m, test_in, desc='SpatialLocalAttention-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
@@ -568,7 +568,7 @@ def benchmark():
     with torch.inference_mode():
         y = m(test_in)
 
-    benchmark_all(m, test_in, grad=None, repeats=repeats, desc='SpatialLocalAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_all(m, test_in, grad=None, min_run_time=min_run_time, desc='SpatialLocalAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
     benchmark_memory(m, test_in, desc='SpatialLocalAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 

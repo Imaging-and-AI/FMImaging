@@ -374,6 +374,8 @@ def benchmark():
 
     device = get_device()
 
+    min_run_time = 5
+
     B, T, C, H, W = 16, 64, 3, 64, 64
     C_out = 16
     test_in = torch.rand(B,T,C,H,W, dtype=torch.float32, device=device)
@@ -423,7 +425,7 @@ def benchmark():
     with torch.inference_mode():
         y = temporal(test_in)
 
-    f, b, all1 = benchmark_all(temporal, test_in, grad=None, repeats=80, desc='TemporalCnnAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    f, b, all1 = benchmark_all(temporal, test_in, grad=None, min_run_time=min_run_time, desc='TemporalCnnAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
     mem = benchmark_memory(temporal, test_in, desc='TemporalCnnAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
@@ -442,7 +444,7 @@ def benchmark():
     with torch.inference_mode():
         y = temporal(test_in)
 
-    f, b, all2 = benchmark_all(temporal, test_in, grad=None, repeats=80, desc='TemporalCnnStandardAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    f, b, all2 = benchmark_all(temporal, test_in, grad=None, min_run_time=min_run_time, desc='TemporalCnnStandardAttention-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
     benchmark_memory(temporal, test_in, desc='TemporalCnnStandardAttention-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
@@ -460,7 +462,7 @@ def benchmark():
     with torch.inference_mode():
         y = temporal(test_in)
 
-    f, b, all = benchmark_all(temporal, test_in, grad=None, repeats=80, desc='TemporalCnnStandardAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    f, b, all = benchmark_all(temporal, test_in, grad=None, min_run_time=min_run_time, desc='TemporalCnnStandardAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
 
     benchmark_memory(temporal, test_in, desc='TemporalCnnStandardAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
