@@ -109,7 +109,7 @@ done
 ### MINNESOTA
 ```
 site=MINNESOTA
-for year in 2023 2022 2021 2020 2019 2018
+for year in 2023 2022
 do
     #year=2023
     # retro cine
