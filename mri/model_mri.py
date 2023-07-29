@@ -567,10 +567,13 @@ class MRI_hrnet(STCNNT_MRI):
             hrnet_C_out = 5*C
 
         if self.config.super_resolution:
-            self.post["output_ps"] = PixelShuffle2DExt(2)
-            hrnet_C_out = hrnet_C_out // 4
-            self.post["o_conv"] = Conv2DExt(hrnet_C_out, 4*hrnet_C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
-            hrnet_C_out = 4*hrnet_C_out
+            self.post["o_upsample"] =UpSample(N=1, C_in=hrnet_C_out, C_out=hrnet_C_out//2, with_conv=True)
+            self.post["o_nl"] = nn.GELU(approximate="tanh")
+            self.post["o_conv"] = Conv2DExt(hrnet_C_out//2, hrnet_C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
+            # self.post["output_ps"] = PixelShuffle2DExt(2)
+            # hrnet_C_out = hrnet_C_out // 4
+            # self.post["o_conv"] = Conv2DExt(hrnet_C_out, 4*hrnet_C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
+            # hrnet_C_out = 4*hrnet_C_out
 
         self.post["output_conv"] = Conv2DExt(hrnet_C_out, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
@@ -637,7 +640,9 @@ class MRI_hrnet(STCNNT_MRI):
 
         # res = self.post["output"](res)
         if self.config.super_resolution:
-            res = self.post["output_ps"](res)
+            #res = self.post["output_ps"](res)
+            res = self.post["output_upsample"](res)
+            res = self.post["o_nl"](res)
             res = self.post["o_conv"](res)
 
         logits = self.post["output_conv"](res)

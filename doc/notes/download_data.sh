@@ -105,3 +105,9 @@ azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2DT_test.h5?${SAS}" /
 azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2D_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
 azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_3D_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
 azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_500_samples.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+
+ln -s /export/Lab-Xue/projects/data/train_3D_3T_retro_cine_2020_small_3D_test_with_2x_resized.h5 /export/Lab-Xue/projects/mri/data/train_3D_3T_retro_cine_2020_small_3D_test_with_2x_resized.h5
+ln -s /export/Lab-Xue/projects/data/train_3D_3T_retro_cine_2020_small_2DT_test_with_2x_resized.h5 /export/Lab-Xue/projects/mri/data/train_3D_3T_retro_cine_2020_small_2DT_test_with_2x_resized.h5
+ln -s /export/Lab-Xue/projects/data/train_3D_3T_retro_cine_2020_small_2D_test_with_2x_resized.h5 /export/Lab-Xue/projects/mri/data/train_3D_3T_retro_cine_2020_small_2D_test_with_2x_resized.h5
+ln -s /export/Lab-Xue/projects/data/train_3D_3T_retro_cine_2020_500_samples_with_2x_resized.h5 /export/Lab-Xue/projects/mri/data/train_3D_3T_retro_cine_2020_500_samples_with_2x_resized.h5
+
