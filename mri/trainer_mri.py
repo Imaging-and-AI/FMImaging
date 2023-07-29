@@ -787,7 +787,7 @@ def trainer(rank, global_rank, config, wandb_run):
                 loss_meters.update(output, y_for_loss)
 
                 if rank<=0 and idx%image_save_step_size==0 and images_saved < config.num_saved_samples and config.save_samples:  
-                    save_batch_samples(saved_path, f"tra_epoch_{epoch}_{images_saved}", x.cpu(), y.cpu(), output.cpu(), y_for_loss.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
+                    save_batch_samples(saved_path, f"tra_epoch_{epoch}_{images_saved}", x.cpu(), y.cpu(), output.detach().cpu(), y_for_loss.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
                     images_saved += 1
 
                 pbar.update(1)
@@ -1103,7 +1103,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
                                                       fps=1, format="gif")})
 
                 if rank<=0 and images_saved < config.num_saved_samples and config.save_samples:
-                    save_batch_samples(saved_path, f"{id}_epoch_{epoch}_{images_saved}", x, y, output, y_2x, y_degraded, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
+                    save_batch_samples(saved_path, f"{id}_epoch_{epoch}_{images_saved}", x.cpu(), y.cpu(), output.cpu(), y_2x.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
                     images_saved += 1
 
                 pbar.update(1)
