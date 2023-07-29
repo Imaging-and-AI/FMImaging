@@ -641,7 +641,7 @@ class MRI_hrnet(STCNNT_MRI):
         # res = self.post["output"](res)
         if self.config.super_resolution:
             #res = self.post["output_ps"](res)
-            res = self.post["output_upsample"](res)
+            res = self.post["o_upsample"](res)
             res = self.post["o_nl"](res)
             res = self.post["o_conv"](res)
 
