@@ -139,7 +139,7 @@ class run_ddp_base(object):
             cmd_run.extend(["--load_path", load_path])
 
         if config.seed is not None:
-            cmd_run.extend(["--seed", config.seed])
+            cmd_run.extend(["--seed", f"{config.seed}"])
 
         if config.continued_training:
             cmd_run.extend(["--continued_training"])
