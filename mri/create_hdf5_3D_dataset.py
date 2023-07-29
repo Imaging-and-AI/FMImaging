@@ -110,7 +110,7 @@ def add_image_to_h5group(args, folder, h5_group):
         if gmap.ndim == 3:
             gmap = np.transpose(gmap, [2, 0, 1])
 
-        if image_slice[1] > 64 and image_slice[2] > 64:
+        if image_slice.shape[1] > 64 and image_slice.shape[2] > 64:
             key = f"{base_name}_slc_{s+1}"
             data_folder = h5_group.create_group(key)
             data_folder["image"] = image_slice.astype(np.complex64)
