@@ -39,7 +39,7 @@ torchrun --standalone --nproc_per_node 8 ./mri/main_mri.py --ddp --use_amp --pro
 # ---------------------------------
 # first stage training
 
-python3 ./mri/run_mri.py --standalone --node_rank 0 --nproc_per_node 4 --use_amp --tra_ratio 25 --val_ratio 10 --min_noise_level 1.0 --max_noise_level 24.0 --losses mse perpendicular psnr l1 --loss_weights 1.0 1.0 1.0 1.0 --model_type STCNNT_MRI
+python3 ./mri/run_mri.py --standalone --node_rank 0 --nproc_per_node 4 --use_amp --tra_ratio 25 --val_ratio 10 --min_noise_level 1.0 --max_noise_level 24.0 --losses mse perpendicular psnr l1 --loss_weights 1.0 1.0 1.0 1.0 --model_type STCNNT_MRI --seed 593197
 
 python3 ./mri/run_mri.py --rdzv_id 100 --rdzv_backend c10d --rdzv_endpoint 172.16.0.4 --nnodes 2 --node_rank 0 --nproc_per_node 4 --use_amp --tra_ratio 90 --val_ratio 10 --min_noise_level 1.0 --max_noise_level 24.0 --losses mse perpendicular psnr l1 --loss_weights 1.0 1.0 1.0 1.0 --model_type STCNNT_MRI
 
@@ -53,7 +53,7 @@ python3 ./mri/run_mri.py --nproc_per_node 4 --nnodes 2 --node_rank 0 --rdzv_endp
 
 # super-resolution model
 
-python3 ./mri/run_mri.py --standalone --node_rank 0 --nproc_per_node 4 --use_amp --tra_ratio 90 --val_ratio 10 --not_add_noise --with_data_degrading --losses mse perpendicular psnr l1 gaussian gaussian3D ssim --loss_weights 1.0 1.0 1.0 1.0 10.0 10.0 --model_type MRI_hrnet --separable_conv --super_resolution --run_extra_note with_separable_conv_super_resolution --data_root /data/mri/data
+python3 ./mri/run_mri.py --standalone --node_rank 0 --nproc_per_node 4 --use_amp --tra_ratio 90 --val_ratio 10 --not_add_noise --with_data_degrading --losses mse perpendicular psnr l1 gaussian gaussian3D --loss_weights 1.0 1.0 1.0 1.0 10.0 10.0 --model_type MRI_hrnet --separable_conv --super_resolution --run_extra_note with_separable_conv_super_resolution --data_root /data/mri/data
 
 
 # ---------------------------------

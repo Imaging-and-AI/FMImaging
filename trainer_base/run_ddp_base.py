@@ -23,7 +23,7 @@ class run_ddp_base(object):
     def set_up_torchrun(self, config):
         self.cmd = ["torchrun"]
 
-        self.cmd.extend(["--nproc_per_node", f"{config.nproc_per_node}", "--max_restarts", "6", "--master_port", f"{config.master_port}"])
+        self.cmd.extend(["--nproc_per_node", f"{config.nproc_per_node}", "--max_restarts", "1", "--master_port", f"{config.master_port}"])
 
         if config.standalone:
             self.cmd.extend(["--standalone"])
@@ -137,6 +137,9 @@ class run_ddp_base(object):
 
         if load_path is not None:
             cmd_run.extend(["--load_path", load_path])
+
+        if config.seed is not None:
+            cmd_run.extend(["--seed", config.seed])
 
         if config.continued_training:
             cmd_run.extend(["--continued_training"])
@@ -279,6 +282,8 @@ class run_ddp_base(object):
         parser.add_argument("--stride_s", type=int, default=1, help='stride for spatial attention, q and k (equal x and y)') 
         parser.add_argument("--stride_t", type=int, default=2, help='stride for temporal attention, q and k (equal x and y)') 
         parser.add_argument("--separable_conv", action="store_true", help='if set, use separable conv')
+
+        parser.add_argument("--seed", type=int, default=None, help='seed for randomization')
 
         parser.add_argument("--run_extra_note", type=str, default=None, help="extra notes for the runs")
 
