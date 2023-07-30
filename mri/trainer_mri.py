@@ -536,7 +536,7 @@ def trainer(rank, global_rank, config, wandb_run):
 
     train_loader = [DataLoader(dataset=train_set_x, batch_size=c.batch_size, shuffle=shuffle, sampler=samplers[i],
                                 num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor, drop_last=True,
-                                persistent_workers=c.num_workers>0) for i, train_set_x in enumerate(train_set)]
+                                persistent_workers=c.num_workers>0, pin_memory=True, pin_memory_device=device) for i, train_set_x in enumerate(train_set)]
 
     train_set_type = [train_set_x.data_type for train_set_x in train_set]
 
