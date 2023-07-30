@@ -530,7 +530,7 @@ def trainer(rank, global_rank, config, wandb_run):
 
     if c.ddp:
         local_world_size = int(os.environ["LOCAL_WORLD_SIZE"])
-        num_workers_per_loader = c.num_workers // (2*local_world_size)
+        num_workers_per_loader = c.num_workers // local_world_size - 1
         num_workers_per_loader = 4 if num_workers_per_loader<4 else num_workers_per_loader
  
     logging.info(f"{rank_str}, {Fore.YELLOW}local_world_size {local_world_size}, cpu {os.cpu_count()}, number of workers per loader is {num_workers_per_loader}{Style.RESET_ALL}")
