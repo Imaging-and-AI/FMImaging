@@ -1008,7 +1008,8 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
     num_workers_per_loader = c.num_workers
     if c.ddp:
         local_world_size = int(os.environ["LOCAL_WORLD_SIZE"])
-        num_workers_per_loader = c.num_workers //local_world_size
+        num_workers_per_loader = c.num_workers // (4 * local_world_size)
+        num_workers_per_loader = 2 if num_workers_per_loader < 2 else num_workers_per_loader
 
     print(f"eval, num_workers is {num_workers_per_loader}")
     val_loader = [DataLoader(dataset=val_set_x, batch_size=batch_size, shuffle=False, sampler=sampler[i],
