@@ -12,6 +12,14 @@ import numpy  as np
 from scipy.fft import fft, ifft, fft2, ifft2, fftn, ifftn, ifftshift, fftshift
 from colorama import Fore, Style
 
+import sys
+from pathlib import Path
+
+Project_DIR = Path(__file__).parents[1].resolve()
+sys.path.insert(1, str(Project_DIR))
+
+from utils import *
+
 # --------------------------------------------------------------
 
 def centered_pad(data, new_shape):
@@ -613,9 +621,27 @@ if __name__ == "__main__":
     
     DATA_HOME = os.path.dirname(os.path.abspath(__file__)) + "/../"
     print("DATA_HOME is", DATA_HOME)
-        
+
+
     # --------------------------------------------------------------------
-    
+
+    sigmas = np.linspace(1.0, 31.0, 30)
+    for sigma in sigmas:
+        t0 = start_timer(enable=True)
+        nns, noise_sigma = generate_3D_MR_correlated_noise(T=8, RO=32, E1=32, REP=256, 
+                                        min_noise_level=sigma, 
+                                        max_noise_level=sigma, 
+                                        kspace_filter_sigma=[0, 0.8, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0],
+                                        pf_filter_ratio=[1.0, 0.875, 0.75, 0.625, 0.55],
+                                        kspace_filter_T_sigma=[0, 0.5, 0.65, 0.85, 1.0, 1.5, 2.0, 2.25],
+                                        phase_resolution_ratio=[1.0, 0.85, 0.7, 0.65, 0.55],
+                                        readout_resolution_ratio=[1.0, 0.85, 0.7, 0.65, 0.55],
+                                        rng=np.random.default_rng(),
+                                        verbose=True)
+        end_timer(enable=True, t=t0, msg=f"generate_3D_MR_correlated_noise - sigma {sigma}, ")
+
+    # --------------------------------------------------------------------
+
     # R1
     data_dir = os.path.join(DATA_HOME, 'data', 'snr_unit_data', 'meas_MID03480_FID51667_FLASH_PAT1_n=256')
 
@@ -662,11 +688,14 @@ if __name__ == "__main__":
             
     # --------------------------------------------------------------------
     # test reduce matrix size and reduce resolution
-    
+    t0 = start_timer(enable=True)
     im_low_matrix = apply_matrix_size_reduction_2D(unwrappedIm, int(0.8*RO), int(0.8*E1), norm='backward')
+    end_timer(enable=True, t=t0, msg="apply_matrix_size_reduction_2D")
     print("im_low_matrix is ", im_low_matrix.shape)
-    
+
+    t0 = start_timer(enable=True)
     mask_low_matrix = cv2.resize(mask, dsize=im_low_matrix.shape[1::-1], interpolation=cv2.INTER_NEAREST)
+    end_timer(enable=True, t=t0, msg="cv2.resize")
 
     signal_level = np.abs(np.mean(unwrappedIm[mask>0.1]))
     print("test reduce matrix size and resolution, signal level is ", signal_level)
@@ -909,7 +938,7 @@ if __name__ == "__main__":
     
     # --------------------------------------------------------------------
     # test reduce matrix size and reduce resolution
-    
+
     im_low_matrix = apply_matrix_size_reduction_2D(unwrappedIm, int(0.8*RO), int(0.8*E1), norm='backward')
     print("im_low_matrix is ", im_low_matrix.shape)
     
@@ -918,7 +947,7 @@ if __name__ == "__main__":
     ratio_RO = 0.57
     ratio_E1 = 0.65
     im_low_matrix_low_res, fRO, fE1 = apply_resolution_reduction_2D(im_low_matrix, ratio_RO, ratio_E1, snr_scaling=False)
-    
+
     plt.figure()
     plt.subplot(1, 4, 1)
     plt.imshow(np.abs(unwrappedIm[:,:,12]),cmap='gray')
@@ -929,17 +958,17 @@ if __name__ == "__main__":
     plt.subplot(1, 4, 4)
     plt.imshow(np.abs(im_low_matrix_low_res[:,:,12]),cmap='gray')
     plt.show()
-    
+
     std_map = np.std(np.abs(im_low_matrix_low_res), axis=2)    
     noise_level = np.mean(std_map[mask_low_matrix>0.1])
     print("test reduce matrix size and resolution, noise level is ", noise_level)
-    
+
     # --------------------------------------------------------------------
     # test zero-padding resizing
-    
+
     mask_resized = zero_padding_resize_2D(mask, 2*RO, 2*E1)
     im_resized = zero_padding_resize_2D(unwrappedIm, 2*RO, 2*E1)
-    
+
     plt.figure()
     plt.subplot(1, 3, 1)
     plt.imshow(abs(unwrappedIm[:,:,12]),cmap='gray')
@@ -948,57 +977,43 @@ if __name__ == "__main__":
     plt.subplot(1, 3, 3)
     plt.imshow(abs(mask_resized),cmap='gray')
     plt.show()
-    
+
     std_map = np.std(np.abs(im_resized), axis=2)    
     noise_level = np.mean(std_map[abs(mask_resized)>0.1])
     print("test zero-padding resizing, noise level is ", noise_level)
     assert abs(noise_level - 1.0) < 0.1
-    
+
     # --------------------------------------------------------------------
     # test noise adding
-    
+
     noise_sigma = 2.3
     nn = create_complex_noise(noise_sigma, size=unwrappedIm.shape)
-    
+
     std_r = np.mean(np.std(np.real(nn), axis=2))
     print("test noise adding, real std is ", std_r)
-    
+
     std_i = np.mean(np.std(np.imag(nn), axis=2))
     print("test noise adding, imag std is ", std_i)
-    
+
     fRO = generate_symmetric_filter(RO, filterType="Gaussian", sigma=1.23, width=10)
     fE1 = generate_symmetric_filter(E1, filterType="Gaussian", sigma=1.45, width=10)
-    
+
     kspace_filtered = apply_kspace_filter_2D(fft2c(nn), fRO, fE1)    
     nn_filtered = ifft2c(kspace_filtered)
-    
+
     plt.figure()
     plt.subplot(1, 2, 1)
     plt.imshow(abs(nn[:,:,12]),cmap='gray')
     plt.subplot(1, 2, 2)
     plt.imshow(abs(nn_filtered[:,:,12]),cmap='gray')
     plt.show()
-    
+
     std_r = np.mean(np.std(np.real(nn_filtered), axis=2))
     print("test kspace filter for noise, real, std is ", std_r)
     assert abs(std_r - noise_sigma) < 0.1
-    
+
     std_i = np.mean(np.std(np.imag(nn_filtered), axis=2))
     print("test kspace filter for noise, imag, std is ", std_i)    
     assert abs(std_i - noise_sigma) < 0.1
-    
+
     # --------------------------------------------------------------------
-    
-    sigmas = np.linspace(1.0, 31.0, 30)
-    for sigma in sigmas:
-        nns, noise_sigma = generate_3D_MR_correlated_noise(T=8, RO=32, E1=32, REP=256, 
-                                        min_noise_level=sigma, 
-                                        max_noise_level=sigma, 
-                                        kspace_filter_sigma=[0, 0.8, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0],
-                                        pf_filter_ratio=[1.0, 0.875, 0.75, 0.625, 0.55],
-                                        kspace_filter_T_sigma=[0, 0.5, 0.65, 0.85, 1.0, 1.5, 2.0, 2.25],
-                                        phase_resolution_ratio=[1.0, 0.85, 0.7, 0.65, 0.55],
-                                        readout_resolution_ratio=[1.0, 0.85, 0.7, 0.65, 0.55],
-                                        rng=np.random.default_rng(),
-                                        verbose=True)
-    

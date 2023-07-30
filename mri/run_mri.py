@@ -35,7 +35,7 @@ class mri_ddp_base(run_ddp_base):
         "--window_size", "8", "8",
         "--patch_size", "2", "2",
 
-        "--global_lr", "0.0002",
+        "--global_lr", "0.0001",
 
         "--clip_grad_norm", "1.0",
         "--weight_decay", "1",
@@ -45,7 +45,7 @@ class mri_ddp_base(run_ddp_base):
         "--iters_to_accumulate", "1",
 
         #"--num_workers", "48",
-        "--prefetch_factor", "4",
+        "--prefetch_factor", "8",
 
         "--scheduler_type", "ReduceLROnPlateau",
         #"--scheduler_type", "OneCycleLR",
@@ -170,7 +170,7 @@ class mri_ddp_base(run_ddp_base):
         vars['mixer_types'] = ["conv"]
         vars['shuffle_in_windows'] = ["0"]
         vars['block_dense_connections'] = ["1"]
-        vars['norm_modes'] = ["batch2d"]
+        vars['norm_modes'] = ["batch2d", "instance2d"]
         vars['C'] = [32]
         vars['scale_ratio_in_mixers'] = [1.0]
 
@@ -178,7 +178,7 @@ class mri_ddp_base(run_ddp_base):
 
         vars['block_strs'] = [
                         [
-                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                            #["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
                             ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
                             ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
                             ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],

@@ -529,11 +529,15 @@ def trainer(rank, global_rank, config, wandb_run):
     num_workers_per_loader = c.num_workers//len(train_set)
 
     if c.ddp:
+        # local_world_size = int(os.environ["LOCAL_WORLD_SIZE"])
+        # num_workers_per_loader = c.num_workers // local_world_size - 1
+        # num_workers_per_loader = 4 if num_workers_per_loader<4 else num_workers_per_loader
+
         local_world_size = int(os.environ["LOCAL_WORLD_SIZE"])
-        num_workers_per_loader = c.num_workers // local_world_size - 1
-        num_workers_per_loader = 4 if num_workers_per_loader<4 else num_workers_per_loader
+        num_workers_per_loader = num_workers_per_loader // local_world_size
+        num_workers_per_loader = 1 if num_workers_per_loader<1 else num_workers_per_loader
  
-    logging.info(f"{rank_str}, {Fore.YELLOW}local_world_size {local_world_size}, cpu {os.cpu_count()}, number of workers per loader is {num_workers_per_loader}{Style.RESET_ALL}")
+    logging.info(f"{rank_str}, {Fore.YELLOW}Local_world_size {local_world_size}, number of datasets {len(train_set)}, cpu {os.cpu_count()}, number of workers per loader is {num_workers_per_loader}{Style.RESET_ALL}")
 
     train_loader = [DataLoader(dataset=train_set_x, batch_size=c.batch_size, shuffle=shuffle, sampler=samplers[i],
                                 num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor, drop_last=True,
@@ -1005,7 +1009,8 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
 
     batch_size = c.batch_size if isinstance(val_set[0], MRIDenoisingDatasetTrain) else 1
 
-    num_workers_per_loader = c.num_workers
+    num_workers_per_loader = c.num_workers // len(val_set)
+
     if c.ddp:
         local_world_size = int(os.environ["LOCAL_WORLD_SIZE"])
         num_workers_per_loader = c.num_workers // (2 * local_world_size)
