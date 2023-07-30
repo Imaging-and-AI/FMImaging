@@ -536,7 +536,7 @@ def trainer(rank, global_rank, config, wandb_run):
 
     train_loader = [DataLoader(dataset=train_set_x, batch_size=c.batch_size, shuffle=shuffle, sampler=samplers[i],
                                 num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor, drop_last=True,
-                                persistent_workers=c.num_workers>0, pin_memory=True, pin_memory_device=device) for i, train_set_x in enumerate(train_set)]
+                                persistent_workers=c.num_workers>0, pin_memory=True) for i, train_set_x in enumerate(train_set)]
 
     train_set_type = [train_set_x.data_type for train_set_x in train_set]
 
@@ -689,10 +689,10 @@ def trainer(rank, global_rank, config, wandb_run):
                     y_for_loss = y_2x
 
                 tm = start_timer(enable=c.with_timer)
-                x = x.to(device)
-                y_for_loss = y_for_loss.to(device)
-                noise_sigmas = noise_sigmas.to(device)
-                gmaps_median = gmaps_median.to(device)
+                x = x.to(device=device, non_blocking=True)
+                y_for_loss = y_for_loss.to(device, non_blocking=True)
+                noise_sigmas = noise_sigmas.to(device, non_blocking=True)
+                gmaps_median = gmaps_median.to(device, non_blocking=True)
 
                 B, T, C, H, W = x.shape
 
