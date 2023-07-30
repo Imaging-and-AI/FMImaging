@@ -537,7 +537,7 @@ def trainer(rank, global_rank, config, wandb_run):
 
     train_loader = [DataLoader(dataset=train_set_x, batch_size=c.batch_size, shuffle=shuffle, sampler=samplers[i],
                                 num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor, drop_last=True,
-                                persistent_workers=c.num_workers>0, pin_memory=True) for i, train_set_x in enumerate(train_set)]
+                                persistent_workers=c.num_workers>0, pin_memory=False) for i, train_set_x in enumerate(train_set)]
 
     train_set_type = [train_set_x.data_type for train_set_x in train_set]
 
@@ -690,10 +690,10 @@ def trainer(rank, global_rank, config, wandb_run):
                     y_for_loss = y_2x
 
                 tm = start_timer(enable=c.with_timer)
-                x = x.to(device=device, non_blocking=True)
-                y_for_loss = y_for_loss.to(device, non_blocking=True)
-                noise_sigmas = noise_sigmas.to(device, non_blocking=True)
-                gmaps_median = gmaps_median.to(device, non_blocking=True)
+                x = x.to(device=device)
+                y_for_loss = y_for_loss.to(device)
+                noise_sigmas = noise_sigmas.to(device)
+                gmaps_median = gmaps_median.to(device)
 
                 B, T, C, H, W = x.shape
 
@@ -1008,13 +1008,13 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
     num_workers_per_loader = c.num_workers
     if c.ddp:
         local_world_size = int(os.environ["LOCAL_WORLD_SIZE"])
-        num_workers_per_loader = c.num_workers // (4 * local_world_size)
-        num_workers_per_loader = 2 if num_workers_per_loader < 2 else num_workers_per_loader
+        num_workers_per_loader = c.num_workers // (2 * local_world_size)
+        num_workers_per_loader = 4 if num_workers_per_loader < 4 else num_workers_per_loader
 
     print(f"eval, num_workers is {num_workers_per_loader}")
     val_loader = [DataLoader(dataset=val_set_x, batch_size=batch_size, shuffle=False, sampler=sampler[i],
                                 num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor,
-                                persistent_workers=False) for i, val_set_x in enumerate(val_set)]
+                                persistent_workers=True) for i, val_set_x in enumerate(val_set)]
 
     val_loss_meter = AverageMeter()
     loss_meters = mri_trainer_meters(config=c, device=device) 
