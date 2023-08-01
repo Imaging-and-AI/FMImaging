@@ -400,7 +400,7 @@ class MRI_hrnet(STCNNT_MRI):
             "stride_s": (c.stride_s, c.stride_s),
             "stride_t":(c.stride_t, c.stride_t),
 
-            "separable_conv": c.separable_conv,
+            "separable_conv": c.post_hrnet.separable_conv,
 
 
             "mixer_kernel_size":(c.mixer_kernel_size, c.mixer_kernel_size),
@@ -567,7 +567,7 @@ class MRI_hrnet(STCNNT_MRI):
             hrnet_C_out = 5*C
 
         if self.config.super_resolution:
-            self.post["o_upsample"] =UpSample(N=1, C_in=hrnet_C_out, C_out=hrnet_C_out//2, with_conv=True)
+            self.post["o_upsample"] = UpSample(N=1, C_in=hrnet_C_out, C_out=hrnet_C_out//2, with_conv=True)
             self.post["o_nl"] = nn.GELU(approximate="tanh")
             self.post["o_conv"] = Conv2DExt(hrnet_C_out//2, hrnet_C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
             # self.post["output_ps"] = PixelShuffle2DExt(2)
@@ -685,7 +685,8 @@ class MRI_double_net(STCNNT_MRI):
 
         config_post = copy.deepcopy(config)
         config_post.backbone_hrnet.block_str = config.post_hrnet.block_str
-
+        config_post.separable_conv = config.post_hrnet.separable_conv
+        
         self.post = torch.nn.ModuleDict()
 
         config_post.C_in = hrnet_C_out
@@ -695,8 +696,12 @@ class MRI_double_net(STCNNT_MRI):
         hrnet_C_out = int(config_post.backbone_hrnet.C * sum([np.power(2, k) for k in range(config_post.backbone_hrnet.num_resolution_levels)]))
 
         if self.config.super_resolution:
-            self.post["output_ps"] = PixelShuffle2DExt(2)
-            hrnet_C_out = hrnet_C_out // 4
+            # self.post["output_ps"] = PixelShuffle2DExt(2)
+            # hrnet_C_out = hrnet_C_out // 4
+
+            self.post["o_upsample"] = UpSample(N=1, C_in=hrnet_C_out, C_out=hrnet_C_out//2, with_conv=True)
+            self.post["o_nl"] = nn.GELU(approximate="tanh")
+            self.post["o_conv"] = Conv2DExt(hrnet_C_out//2, hrnet_C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
         self.post["output_conv"] = Conv2DExt(hrnet_C_out, config_post.C_out, kernel_size=config_post.kernel_size, stride=config_post.stride, padding=config_post.padding, bias=True)
 
@@ -722,7 +727,10 @@ class MRI_double_net(STCNNT_MRI):
             res[:,:, :C, :, :] = res[:,:, :C, :, :] + y_hat
 
         if self.config.super_resolution:
-            res = self.post["output_ps"](res)
+            #res = self.post["output_ps"](res)
+            res = self.post["o_upsample"](res)
+            res = self.post["o_nl"](res)
+            res = self.post["o_conv"](res)
 
         logits = self.post["output_conv"](res)
 

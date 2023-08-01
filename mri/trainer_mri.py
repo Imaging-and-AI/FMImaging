@@ -332,6 +332,7 @@ def trainer(rank, global_rank, config, wandb_run):
     disable_post = config.disable_post
     model_type = config.model_type
     post_hrnet_block_str = config.post_hrnet.block_str
+    post_hrnet_separable_conv = config.post_hrnet.separable_conv
     not_load_pre = config.not_load_pre
     not_load_backbone = config.not_load_backbone
     not_load_post = config.not_load_post
@@ -374,6 +375,7 @@ def trainer(rank, global_rank, config, wandb_run):
         config.disable_post = disable_post
         config.post_hrnet = Nestedspace()
         config.post_hrnet.block_str = post_hrnet_block_str
+        config.post_hrnet.separable_conv = post_hrnet_separable_conv
         config.not_load_pre = not_load_pre
         config.not_load_backbone = not_load_backbone
         config.not_load_post = not_load_post
@@ -527,6 +529,7 @@ def trainer(rank, global_rank, config, wandb_run):
     # -----------------------------------------------
 
     num_workers_per_loader = c.num_workers//len(train_set)
+    local_world_size = 1
 
     if c.ddp:
         # local_world_size = int(os.environ["LOCAL_WORLD_SIZE"])
