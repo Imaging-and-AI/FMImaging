@@ -59,6 +59,18 @@ class mri_ddp_base(run_ddp_base):
         # hrnet
         "--backbone_hrnet.num_resolution_levels", "2",
 
+        # mixed_unetr
+        "--backbone_mixed_unetr.num_resolution_levels", "2", 
+        "--backbone_mixed_unetr.use_unet_attention", "1", 
+        "--backbone_mixed_unetr.use_interpolation", "1", 
+        "--backbone_mixed_unetr.with_conv", "0", 
+        "--backbone_mixed_unetr.min_T", "16", 
+        "--backbone_mixed_unetr.encoder_on_skip_connection", "1", 
+        "--backbone_mixed_unetr.encoder_on_input", "1", 
+        "--backbone_mixed_unetr.transformer_for_upsampling", "0", 
+        "--backbone_mixed_unetr.n_heads", "32", "32", "32", 
+        "--backbone_mixed_unetr.use_conv_3d", "1",
+    
         # unet
         "--backbone_unet.num_resolution_levels", "2",
 
@@ -161,7 +173,7 @@ class mri_ddp_base(run_ddp_base):
 
         vars['optim'] = ['sophia']
 
-        vars['backbone'] = ['hrnet']
+        vars['backbone'] = ['hrnet', 'mixed_unetr']
         vars['cell_types'] = ["parallel"]
         vars['Q_K_norm'] = [True]
         vars['cosine_atts'] = ["1"]

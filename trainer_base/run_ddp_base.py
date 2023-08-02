@@ -116,6 +116,7 @@ class run_ddp_base(object):
             "--backbone_hrnet.C", f"{c}",
             "--backbone_unet.C", f"{c}",
             "--backbone_LLM.C", f"{c}",
+            "--backbone_mixed_unetr.C", f"{c}",
             "--block_dense_connection", f"{block_dense_connection}",
             "--norm_mode", f"{norm_mode}",
             "--mixer_type", f"{mixer_type}",
@@ -167,7 +168,7 @@ class run_ddp_base(object):
 
         # hrnet
         "--backbone_hrnet.use_interpolation", "1",
-
+        
         # unet
         "--backbone_unet.use_unet_attention", "1",
         "--backbone_unet.use_interpolation", "1",
