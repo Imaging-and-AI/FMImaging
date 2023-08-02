@@ -54,6 +54,7 @@ class STCNNT_Cell(nn.Module):
                  window_size=None, patch_size=None, num_wind=[8, 8], num_patch=[4, 4], 
                  is_causal=False, n_head=8,
                  kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), 
+                 activation_func="prelu",
                  stride_s=(1,1), 
                  stride_t=(2,2),
                  separable_conv=False,
@@ -121,6 +122,8 @@ class STCNNT_Cell(nn.Module):
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
+
+        self.activation_func = activation_func
 
         self.stride_s = stride_s
         self.stride_t = stride_t
@@ -223,31 +226,35 @@ class STCNNT_Cell(nn.Module):
                                             use_einsum=self.use_einsum)
         else:
             raise NotImplementedError(f"Attention mode not implemented: {att_mode}")
-                    
-        self.stochastic_depth = torchvision.ops.StochasticDepth(p=self.dropout_p, mode="row")        
 
-        self.with_mixer = with_mixer            
+        self.stochastic_depth = torchvision.ops.StochasticDepth(p=self.dropout_p, mode="row")
+
+        act_func = create_activation_func(name=self.activation_func)
+
+        self.with_mixer = with_mixer
         if(self.with_mixer):
             if self.mixer_type == "conv" or att_mode=="temporal":
                 mixer_cha = int(scale_ratio_in_mixer*C_out)
-                
+
                 self.mlp = nn.Sequential(
                     Conv2DExt(C_out, mixer_cha, kernel_size=mixer_kernel_size, stride=mixer_stride, padding=mixer_padding, bias=True, separable_conv=separable_conv),
-                    torch.nn.GELU(approximate='tanh'),
+                    #torch.nn.GELU(approximate='tanh'),
+                    act_func,
                     Conv2DExt(mixer_cha, C_out, kernel_size=mixer_kernel_size, stride=mixer_stride, padding=mixer_padding, bias=True, separable_conv=separable_conv)
                 )
             elif self.mixer_type == "lin":
                 # apply mixer on every patch
-                if att_mode == "local" or att_mode == "global":                    
+                if att_mode == "local" or att_mode == "global":
                     D = C_out * self.attn.patch_size[0] * self.attn.patch_size[1]
                 elif att_mode == "vit":
                     D = C_out * self.attn.window_size[0] * self.attn.window_size[1]
-                    
+
                 D_prime = int(scale_ratio_in_mixer*D)
-                    
+
                 self.mlp = nn.Sequential(
                     nn.Linear(D, D_prime, bias=True),
-                    torch.nn.GELU(approximate='tanh'),
+                    #torch.nn.GELU(approximate='tanh'),
+                    act_func,
                     nn.Linear(D_prime, D, bias=True)
                 )
             else:
@@ -295,6 +302,7 @@ class STCNNT_Parallel_Cell(nn.Module):
                  window_size=None, patch_size=None, num_wind=[8, 8], num_patch=[4, 4], 
                  is_causal=False, n_head=8,
                  kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), stride_s=(1,1), stride_t=(2,2),
+                 activation_func="prelu",
                  separable_conv=False,
                  mixer_kernel_size=(5, 5), mixer_stride=(1, 1), mixer_padding=(2, 2),
                  normalize_Q_K=False, att_dropout_p=0.0, dropout_p=0.1, 
@@ -327,6 +335,8 @@ class STCNNT_Parallel_Cell(nn.Module):
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
+
+        self.activation_func = activation_func
 
         self.stride_s = stride_s
         self.stride_t = stride_t
@@ -434,6 +444,8 @@ class STCNNT_Parallel_Cell(nn.Module):
 
         self.stochastic_depth = torchvision.ops.StochasticDepth(p=self.dropout_p, mode="row")
 
+        act_func = create_activation_func(name=self.activation_func)
+
         self.with_mixer = with_mixer
         if(self.with_mixer):
             if self.mixer_type == "conv" or att_mode=="temporal":
@@ -441,7 +453,8 @@ class STCNNT_Parallel_Cell(nn.Module):
                 
                 self.mlp = nn.Sequential(
                     Conv2DExt(C_in, mixer_cha, kernel_size=mixer_kernel_size, stride=mixer_stride, padding=mixer_padding, bias=True, separable_conv=separable_conv),
-                    torch.nn.GELU(approximate='tanh'),
+                    #torch.nn.GELU(approximate='tanh'),
+                    act_func,
                     Conv2DExt(mixer_cha, C_out, kernel_size=mixer_kernel_size, stride=mixer_stride, padding=mixer_padding, bias=True, separable_conv=separable_conv)
                 )
             elif self.mixer_type == "lin":
@@ -457,7 +470,8 @@ class STCNNT_Parallel_Cell(nn.Module):
                     
                 self.mlp = nn.Sequential(
                     nn.Linear(D, D_prime, bias=True),
-                    torch.nn.GELU(approximate='tanh'),
+                    #torch.nn.GELU(approximate='tanh'),
+                    act_func,
                     nn.Linear(D_prime, D_out, bias=True)
                 )
             else:

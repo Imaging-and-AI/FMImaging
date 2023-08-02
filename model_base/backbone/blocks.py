@@ -49,6 +49,7 @@ class STCNNT_Block(nn.Module):
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), 
                     stride_s=(1,1), 
                     stride_t=(2,2),
+                    activation_func="prelu",
                     separable_conv = False,
                     mixer_kernel_size=(5, 5), mixer_stride=(1, 1), mixer_padding=(2, 2),
                     cosine_att=True,  
@@ -127,6 +128,8 @@ class STCNNT_Block(nn.Module):
         self.stride = stride
         self.padding = padding
 
+        self.activation_func = activation_func
+
         self.stride_s = stride_s
         self.stride_t = stride_t
 
@@ -185,6 +188,7 @@ class STCNNT_Block(nn.Module):
                                                                   num_wind=num_wind, num_patch=num_patch, 
                                                                   is_causal=is_causal, n_head=n_head,
                                                                   kernel_size=kernel_size, stride=stride, padding=padding, stride_s=stride_s, stride_t=stride_t,
+                                                                  activation_func=activation_func,
                                                                   separable_conv=self.separable_conv,
                                                                   mixer_kernel_size=mixer_kernel_size, mixer_stride=mixer_stride, mixer_padding=mixer_padding,
                                                                   normalize_Q_K=normalize_Q_K, att_dropout_p=att_dropout_p, dropout_p=dropout_p,
@@ -199,6 +203,7 @@ class STCNNT_Block(nn.Module):
                                                                            num_wind=num_wind, num_patch=num_patch,
                                                                            is_causal=is_causal, n_head=n_head,
                                                                            kernel_size=kernel_size, stride=stride, padding=padding, stride_s=stride_s, stride_t=stride_t,
+                                                                           activation_func=activation_func,
                                                                            separable_conv=self.separable_conv,
                                                                            mixer_kernel_size=mixer_kernel_size, mixer_stride=mixer_stride, mixer_padding=mixer_padding,
                                                                            normalize_Q_K=normalize_Q_K, att_dropout_p=att_dropout_p, dropout_p=dropout_p, 
