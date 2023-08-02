@@ -76,7 +76,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
 
         if config.backbone == "mixed_unetr":
             config.C_in = config.backbone_mixed_unetr.C
-            self.backbone = STCNNT_mixed_Unetr(config=config)
+            self.backbone = STCNNT_Mixed_Unetr(config=config)
             config.C_in = self.C_in
             
         if config.backbone == "LLM":
@@ -136,13 +136,17 @@ class STCNNT_MRI(STCNNT_Task_Base):
                 self.post = Conv2DExt(hrnet_C_out, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
         if self.config.backbone == "mixed_unetr":
-            mixed_unetr_C_out = config.backbone_mixed_unetr.C * 3
+            if config.backbone_mixed_unetr.encoder_on_input:
+                mixed_unetr_C_out = config.backbone_mixed_unetr.C * 5
+            else:
+                mixed_unetr_C_out = config.backbone_mixed_unetr.C * 4
+                
             if self.config.super_resolution:
                 self.post = nn.Sequential()
                 self.post.add_module("post_ps", PixelShuffle2DExt(2))
                 self.post.add_module("post_conv", Conv2DExt(mixed_unetr_C_out//4, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True))
             else:
-                self.post = Conv2DExt(hrnet_C_out, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
+                self.post = Conv2DExt(mixed_unetr_C_out, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
                 
         if config.backbone == "unet":
             self.post = Conv2DExt(config.backbone_unet.C, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
@@ -165,7 +169,10 @@ class STCNNT_MRI(STCNNT_Task_Base):
 
         if self.config.backbone=="hrnet" or self.config.backbone=="mixed_unetr":
 
-            y_hat, _ = self.backbone(res_pre)
+            if self.config.backbone=="hrnet":
+                y_hat, _ = self.backbone(res_pre)
+            else:
+                y_hat = self.backbone(res_pre)
 
             if self.residual:
                 y_hat[:,:, :C, :, :] = res_pre + y_hat[:,:, :C, :, :]

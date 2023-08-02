@@ -14,6 +14,7 @@ Please ref to the project page for the network design.
 import os
 import sys
 import argparse
+import copy
 from collections import OrderedDict
 
 import torch
@@ -138,7 +139,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
 
         self.use_interpolation = use_interpolation
 
-        c = config
+        c = copy.deepcopy(config)
 
         # compute number of windows and patches
         self.num_wind = [c.height[0]//c.window_size[0], c.width[0]//c.window_size[1]]
