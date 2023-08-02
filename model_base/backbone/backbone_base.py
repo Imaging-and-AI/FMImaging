@@ -335,7 +335,7 @@ class _U2_3D(nn.Module):
     def forward(self, x:Tensor) -> Tensor:
 
         B, T, C, H, W = x.shape
-        y = F.interpolate(torch.permute(x, (0, 2, 1, 3, 4)), size=(2*T, 2*H, 2*W), mode="bilinear", align_corners=False, recompute_scale_factor=False)
+        y = F.interpolate(torch.permute(x, (0, 2, 1, 3, 4)), size=(2*T, 2*H, 2*W), mode="trilinear", align_corners=False, recompute_scale_factor=False)
         y = torch.permute(y, (0, 2, 1, 3, 4))
         if self.with_conv:
             y = self.conv(y)

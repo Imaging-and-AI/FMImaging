@@ -166,7 +166,7 @@ def add_backbone_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for
     Add backbone model specific parameters
     """
 
-    parser.add_argument('--backbone', type=str, default="hrnet", help="which backbone model to use, 'hrnet', 'unet', 'LLM', 'small_unet' ")
+    parser.add_argument('--backbone', type=str, default="hrnet", help="which backbone model to use, 'hrnet', 'unet', 'mixed_unetr', 'LLM', 'small_unet' ")
 
     parser.add_argument('--activation_func', type=str, default="prelu", help="nonlinear activation function, elu, relu, leakyrelu, prelu, relu6, selu, celu, prelu ")
     parser.add_argument("--use_einsum", action="store_true", help='if set, use einsum implementation.')
@@ -196,6 +196,7 @@ def add_backbone_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for
     parser.add_argument('--backbone_mixed_unetr.with_conv', dest='backbone_mixed_unetr.with_conv', type=int, default=1, help="whether to add conv in down/upsample layers; if False, only interpolation is performed")
     parser.add_argument('--backbone_mixed_unetr.min_T', dest='backbone_mixed_unetr.min_T', type=int, default=16, help="minimal T/D for downsampling along T or D dimension")
     parser.add_argument('--backbone_mixed_unetr.encoder_on_skip_connection', dest='backbone_mixed_unetr.encoder_on_skip_connection', type=int, default=1, help="whether to add encoder on skip connection")
+    parser.add_argument('--backbone_mixed_unetr.encoder_on_input', dest='backbone_mixed_unetr.encoder_on_input', type=int, default=1, help="whether to add encoder for input tensor")
     parser.add_argument('--backbone_mixed_unetr.transformer_for_upsampling', dest='backbone_mixed_unetr.transformer_for_upsampling', type=int, default=1, help="whether to use transformer for upsampling branch")
     parser.add_argument("--backbone_mixed_unetr.n_heads", dest='backbone_mixed_unetr.n_heads', nargs='+', type=int, default=[4, 8, 12, 24, 32], help='number of heads in each resolution layer')
     parser.add_argument('--backbone_mixed_unetr.use_conv_3d', dest='backbone_mixed_unetr.use_conv_3d', type=int, default=1, help="whether to use 3D convolution")

@@ -91,7 +91,7 @@ def create_conv(in_channels, out_channels, kernel_size=[3,3,3], stride=[1,1,1], 
     if use_conv_3d:
         conv = Conv3DExt(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias, separable_conv=separable_conv)
     else:
-        conv = Conv2DExt(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias, separable_conv=separable_conv)
+        conv = Conv2DExt(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size[:2], stride=stride[:2], padding=padding[:2], bias=bias, separable_conv=separable_conv)
 
     return conv
 
@@ -99,11 +99,12 @@ def create_conv(in_channels, out_channels, kernel_size=[3,3,3], stride=[1,1,1], 
 
 class _encoder_on_skip_connection(nn.Module):
     
-    def __init__(self, H=32, W=32, C_in=32, C_out=32, norm_mode="instance2d", activation="prelu", bias=False, separable_conv=False, use_conv_3d=True) -> None:
+    def __init__(self, H=32, W=32, C_in=32, C_out=32, norm_mode="instance2d", activation="prelu", bias=False, separable_conv=False, use_conv_3d=True, residual=True) -> None:
             super().__init__()
 
             self.C_in = C_in
             self.C_out = C_out
+            self.residual = residual
 
             self.conv1 = create_conv(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[3,3,3], stride=[1,1,1], padding=[1,1,1], bias=bias, separable_conv=separable_conv, use_conv_3d=use_conv_3d)
             self.norm1 = create_norm(norm_mode=norm_mode, C=self.C_out, H=H, W=W)
@@ -121,15 +122,16 @@ class _encoder_on_skip_connection(nn.Module):
         res = self.nl1(res)
         res = self.conv2(res)
         res = self.norm2(res)
-        res += residual
+        if self.residual:
+            res += residual
         res = self.nl2(res)
         
-        return res
+        return res, None
 
 class _decoder_conv(_encoder_on_skip_connection):
 
     def __init__(self, H=32, W=32, C_in=32, C_out=32, norm_mode="instance2d", activation="prelu", bias=False, separable_conv=False, use_conv_3d=True) -> None:
-            super().__init__(H=H, W=W, C_in=C_in, C_out=C_out, norm_mode=norm_mode, activation=activation, bias=bias, separable_conv=separable_conv, use_conv_3d=use_conv_3d)
+            super().__init__(H=H, W=W, C_in=C_in, C_out=C_out, norm_mode=norm_mode, activation=activation, bias=bias, separable_conv=separable_conv, use_conv_3d=use_conv_3d, residual=False)
 
 
 # -------------------------------------------------------------------------------------------------
@@ -197,6 +199,7 @@ class STCNNT_mixed_Unetr(STCNNT_Base_Runtime):
         with_conv = config.backbone_mixed_unetr.with_conv
         min_T = config.backbone_mixed_unetr.min_T
         encoder_on_skip_connection = config.backbone_mixed_unetr.encoder_on_skip_connection
+        encoder_on_input = config.backbone_mixed_unetr.encoder_on_input
         transformer_for_upsampling = config.backbone_mixed_unetr.transformer_for_upsampling
         n_heads = config.backbone_mixed_unetr.n_heads
         use_conv_3d = config.backbone_mixed_unetr.use_conv_3d
@@ -222,9 +225,12 @@ class STCNNT_mixed_Unetr(STCNNT_Base_Runtime):
         self.with_conv = with_conv
         self.min_T = min_T
         self.encoder_on_skip_connection = encoder_on_skip_connection
+        self.encoder_on_input = encoder_on_input
         self.transformer_for_upsampling = transformer_for_upsampling
         self.n_heads = n_heads
         self.use_conv_3d = use_conv_3d
+
+        self.with_timer = config.with_timer
 
         c = config
 
@@ -245,8 +251,12 @@ class STCNNT_mixed_Unetr(STCNNT_Base_Runtime):
 
         self.conv_window_partition = create_conv(in_channels=C_in_wp, out_channels=self.C, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
 
-        if encoder_on_skip_connection:
+        if self.encoder_on_input:
             self.E = _encoder_on_skip_connection(H=H, W=W, C_in=c.C_in, C_out=self.C, norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
+        else:
+            self.E = None
+            
+        if encoder_on_skip_connection:            
             self.EW = _encoder_on_skip_connection(H=H//2, W=W//2, C_in=self.C, C_out=self.C, norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
         else:
             self.E = nn.Identity()
@@ -466,6 +476,8 @@ class STCNNT_mixed_Unetr(STCNNT_Base_Runtime):
             self.up_4 = UpSample(N=1, C_in=16*self.C, C_out=16*self.C, with_conv=self.with_conv, is_3D=self.down_4.is_3D)
             if self.use_unet_attention:
                 self.attention_4 = _unet_attention(C_q=16*self.C, C=16*self.C, use_conv_3d=use_conv_3d)
+            else:
+                self.attention_4 = nn.Identity()
 
             kwargs["C_in"] = 32*self.C
             kwargs["C_out"] = 8*self.C
@@ -480,10 +492,12 @@ class STCNNT_mixed_Unetr(STCNNT_Base_Runtime):
                 self.U4 = _decoder_conv(H=kwargs["H"], W=kwargs["W"], C_in=kwargs["C_in"], C_out=kwargs["C_out"], norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
 
         if num_resolution_levels >= 4:
-            self.up_3 = UpSample(C_in=8*self.C, C_out=8*self.C, with_conv=self.with_conv, is_3D=self.down_3.is_3D)
+            self.up_3 = UpSample(N=1, C_in=8*self.C, C_out=8*self.C, with_conv=self.with_conv, is_3D=self.down_3.is_3D)
             if self.use_unet_attention:
                 self.attention_3 = _unet_attention(C_q=8*self.C, C=8*self.C, use_conv_3d=use_conv_3d)
-
+            else:
+                self.attention_3 = nn.Identity()
+                
             kwargs["C_in"] = 16*self.C
             kwargs["C_out"] = 4*self.C
             kwargs["H"] = c.height[0] // 8
@@ -497,10 +511,12 @@ class STCNNT_mixed_Unetr(STCNNT_Base_Runtime):
                 self.U3 = _decoder_conv(H=kwargs["H"], W=kwargs["W"], C_in=kwargs["C_in"], C_out=kwargs["C_out"], norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
 
         if num_resolution_levels >= 3:
-            self.up_2 = UpSample(C_in=4*self.C, C_out=4*self.C, with_conv=self.with_conv, is_3D=self.down_2.is_3D)
+            self.up_2 = UpSample(N=1, C_in=4*self.C, C_out=4*self.C, with_conv=self.with_conv, is_3D=self.down_2.is_3D)
             if self.use_unet_attention:
                 self.attention_2 = _unet_attention(C_q=4*self.C, C=4*self.C, use_conv_3d=use_conv_3d)
-
+            else:
+                self.attention_2 = nn.Identity()
+                
             kwargs["C_in"] = 8*self.C
             kwargs["C_out"] = 2*self.C
             kwargs["H"] = c.height[0] // 4
@@ -514,9 +530,11 @@ class STCNNT_mixed_Unetr(STCNNT_Base_Runtime):
                 self.U2 = _decoder_conv(H=kwargs["H"], W=kwargs["W"], C_in=kwargs["C_in"], C_out=kwargs["C_out"], norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
 
         if num_resolution_levels >= 2:
-            self.up_1 = UpSample(C_in=2*self.C, C_out=2*self.C, with_conv=self.with_conv, is_3D=self.down_1.is_3D)
+            self.up_1 = UpSample(N=1, C_in=2*self.C, C_out=2*self.C, with_conv=self.with_conv, is_3D=self.down_1.is_3D)
             if self.use_unet_attention:
                 self.attention_1 = _unet_attention(C_q=2*self.C, C=2*self.C, use_conv_3d=use_conv_3d)
+            else:
+                self.attention_1 = nn.Identity()
 
             kwargs["C_in"] = 4*self.C
             kwargs["C_out"] = self.C
@@ -531,9 +549,11 @@ class STCNNT_mixed_Unetr(STCNNT_Base_Runtime):
                 self.U1 = _decoder_conv(H=kwargs["H"], W=kwargs["W"], C_in=kwargs["C_in"], C_out=kwargs["C_out"], norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
 
         if num_resolution_levels >= 1:
-            self.up_0 = UpSample(C_in=self.C, C_out=self.C, with_conv=self.with_conv, is_3D=self.down_0.is_3D)
+            self.up_0 = UpSample(N=1, C_in=self.C, C_out=self.C, with_conv=self.with_conv, is_3D=self.down_0.is_3D)
             if self.use_unet_attention:
                 self.attention_0 = _unet_attention(C_q=self.C, C=self.C, use_conv_3d=use_conv_3d)
+            else:
+                self.attention_0 = nn.Identity()
 
             kwargs["C_in"] = 2*self.C
             kwargs["C_out"] = self.C
@@ -550,6 +570,8 @@ class STCNNT_mixed_Unetr(STCNNT_Base_Runtime):
         # -----------------------------------------------------
         if self.use_unet_attention:
             self.attention_w = _unet_attention(C_q=self.C, C=self.C, use_conv_3d=use_conv_3d)
+        else:
+            self.attention_w = nn.Identity()
 
         # -----------------------------------------------------
         kwargs["C_in"] = 2*self.C
@@ -566,7 +588,7 @@ class STCNNT_mixed_Unetr(STCNNT_Base_Runtime):
 
         # -----------------------------------------------------
 
-        self.up_w = UpSample(C_in=2*self.C, C_out=2*self.C, with_conv=self.with_conv, is_3D=is_3D_window_partition)
+        self.up_w = UpSample(N=1, C_in=2*self.C, C_out=2*self.C, with_conv=self.with_conv, is_3D=is_3D_window_partition)
 
     # -------------------------------------------------------------------------------------------
 
@@ -581,11 +603,11 @@ class STCNNT_mixed_Unetr(STCNNT_Base_Runtime):
             if not arg_name in config.backbone_mixed_unetr:
                 raise ValueError(err_str(arg_name))
 
-    def _get_gated_output(self, x, x_E, y):
+    def _get_gated_output(self, x, x_E, y, unet_attention_layer):
         if self.encoder_on_skip_connection and self.use_unet_attention:
-            return self.attention_0(q=y, x=x_E)
+            return unet_attention_layer(q=y, x=x_E)
         elif not self.encoder_on_skip_connection and self.use_unet_attention:
-            return self.attention_0(q=y, x=x)
+            return unet_attention_layer(q=y, x=x)
         elif self.encoder_on_skip_connection and not self.use_unet_attention:
             return x_E
         else: # not self.encoder_on_skip_connection and not self.use_unet_attention:
@@ -604,117 +626,284 @@ class STCNNT_mixed_Unetr(STCNNT_Base_Runtime):
         B, T, Cin, H, W = x.shape
 
         # apply the window partition
+        
+        tm = start_timer(enable=self.with_timer)
         x_w = self.window_partition(x)
+        end_timer(enable=self.with_timer, t=tm, msg="self.window_partition(x)")
+        
+        tm = start_timer(enable=self.with_timer)
         x_w = self.conv_window_partition(x_w)
+        end_timer(enable=self.with_timer, t=tm, msg="self.conv_window_partition(x_w)")
 
+        x_E = None
+        if self.encoder_on_input:
+            tm = start_timer(enable=self.with_timer)
+            x_E, _ = self.E(x)
+            end_timer(enable=self.with_timer, t=tm, msg="self.E(x)")
+            
+        x_EW = None
         if self.encoder_on_skip_connection:
-            x_E = self.E(x)
-            x_EW = self.EW(x_w)
-
+            tm = start_timer(enable=self.with_timer)
+            x_EW, _ = self.EW(x_w)
+            end_timer(enable=self.with_timer, t=tm, msg="self.EW(x_w)")
+            
         # first we go down the resolution 
+        x_E0 = None
+        x_E1 = None
+        x_E2 = None
+        x_E3 = None
+        x_E4 = None
+        
         if self.num_resolution_levels >= 1:
+            tm = start_timer(enable=self.with_timer)
             x_0, _ = self.D0(x_w)
-            if self.encoder_on_skip_connection: x_E0 = self.E0(x_0)
+            end_timer(enable=self.with_timer, t=tm, msg="self.D0(x_w)")
+            
+            if self.encoder_on_skip_connection: 
+                tm = start_timer(enable=self.with_timer)
+                x_E0, _ = self.E0(x_0)
+                end_timer(enable=self.with_timer, t=tm, msg="self.E0(x_0)")
+                
+            tm = start_timer(enable=self.with_timer)
             x_d_0 = self.down_0(x_0)
-
+            end_timer(enable=self.with_timer, t=tm, msg="self.down_0(x_0)")
+            
         if self.num_resolution_levels >= 2:
+            tm = start_timer(enable=self.with_timer)
             x_1, _ = self.D1(x_d_0)
-            if self.encoder_on_skip_connection: x_E1 = self.E1(x_1)
+            end_timer(enable=self.with_timer, t=tm, msg="self.D1(x_d_0)")
+            
+            tm = start_timer(enable=self.with_timer)
+            if self.encoder_on_skip_connection: x_E1, _ = self.E1(x_1)
+            end_timer(enable=self.with_timer, t=tm, msg="self.E1(x_1)")
+            
+            tm = start_timer(enable=self.with_timer)
             x_d_1 = self.down_1(x_1)
+            end_timer(enable=self.with_timer, t=tm, msg="self.down_1(x_1)")
 
         if self.num_resolution_levels >= 3:
+            
+            tm = start_timer(enable=self.with_timer)
             x_2, _ = self.D2(x_d_1)
-            if self.encoder_on_skip_connection: x_E2 = self.E2(x_2)
+            end_timer(enable=self.with_timer, t=tm, msg="self.D2(x_d_1)")
+            
+            tm = start_timer(enable=self.with_timer)
+            if self.encoder_on_skip_connection: x_E2, _ = self.E2(x_2)
+            end_timer(enable=self.with_timer, t=tm, msg="self.E2(x_2)")
+                        
+            tm = start_timer(enable=self.with_timer)
             x_d_2 = self.down_2(x_2)
+            end_timer(enable=self.with_timer, t=tm, msg="self.down_2(x_2)")
 
         if self.num_resolution_levels >= 4:
+            
+            tm = start_timer(enable=self.with_timer)
             x_3, _ = self.D3(x_d_2)
-            if self.encoder_on_skip_connection: x_E3 = self.E3(x_3)
+            end_timer(enable=self.with_timer, t=tm, msg="self.D3(x_d_2)")
+            
+            tm = start_timer(enable=self.with_timer)
+            if self.encoder_on_skip_connection: x_E3, _ = self.E3(x_3)
+            end_timer(enable=self.with_timer, t=tm, msg="self.E3(x_3)")
+            
+            tm = start_timer(enable=self.with_timer)
             x_d_3 = self.down_3(x_3)
+            end_timer(enable=self.with_timer, t=tm, msg="self.down_3(x_3)")
 
         if self.num_resolution_levels >= 5:
+            
+            tm = start_timer(enable=self.with_timer)
             x_4, _ = self.D4(x_d_3)
-            if self.encoder_on_skip_connection: x_E4 = self.E3(x_4)
+            end_timer(enable=self.with_timer, t=tm, msg="self.D4(x_d_3)")
+            
+            tm = start_timer(enable=self.with_timer)
+            if self.encoder_on_skip_connection: x_E4, _ = self.E3(x_4)
+            end_timer(enable=self.with_timer, t=tm, msg="self.E3(x_4)")
+            
+            tm = start_timer(enable=self.with_timer)
             x_d_4 = self.down_4(x_4)
+            end_timer(enable=self.with_timer, t=tm, msg="self.down_4(x_4)")
 
         # now we go up the resolution ...
         if self.num_resolution_levels == 1:
+            
+            tm = start_timer(enable=self.with_timer)
             y_d_0, _ = self.bridge(x_d_0)
+            end_timer(enable=self.with_timer, t=tm, msg="self.bridge(x_d_0)")
+            
+            tm = start_timer(enable=self.with_timer)
             y_0 = self.up_0(y_d_0)
-            x_gated_0 = self._get_gated_output(x_0, x_E0, y_0)
+            end_timer(enable=self.with_timer, t=tm, msg="self.up_0(y_d_0)")
+            
+            tm = start_timer(enable=self.with_timer)
+            x_gated_0 = self._get_gated_output(x_0, x_E0, y_0, self.attention_0)
+            end_timer(enable=self.with_timer, t=tm, msg="self._get_gated_output(x_0, x_E0, y_0, self.attention_0)")
+            
+            tm = start_timer(enable=self.with_timer)
             y_w, _ = self.U0(torch.cat((x_gated_0, y_0), dim=2))
+            end_timer(enable=self.with_timer, t=tm, msg="self.U0(torch.cat((x_gated_0, y_0), dim=2))")
 
         if self.num_resolution_levels == 2:
+            tm = start_timer(enable=self.with_timer)
             y_d_1, _ = self.bridge(x_d_1)
+            end_timer(enable=self.with_timer, t=tm, msg="self.bridge(x_d_1)")
+            
+            tm = start_timer(enable=self.with_timer)
             y_1 = self.up_1(y_d_1)
-            x_gated_1 = self._get_gated_output(x_1, x_E1, y_1)
+            end_timer(enable=self.with_timer, t=tm, msg="self.up_1(y_d_1)")
+            
+            tm = start_timer(enable=self.with_timer)
+            x_gated_1 = self._get_gated_output(x_1, x_E1, y_1, self.attention_1)
+            end_timer(enable=self.with_timer, t=tm, msg="self._get_gated_output(x_1, x_E1, y_1, self.attention_1)")
+            
+            tm = start_timer(enable=self.with_timer)
             y_d_0, _ = self.U1(torch.cat((x_gated_1, y_1), dim=2))
+            end_timer(enable=self.with_timer, t=tm, msg="self.U1(torch.cat((x_gated_1, y_1), dim=2))")
 
+            tm = start_timer(enable=self.with_timer)
             y_0 = self.up_0(y_d_0)
-            x_gated_0 = self._get_gated_output(x_0, x_E0, y_0)
+            end_timer(enable=self.with_timer, t=tm, msg="self.up_0(y_d_0)")
+            
+            tm = start_timer(enable=self.with_timer)
+            x_gated_0 = self._get_gated_output(x_0, x_E0, y_0, self.attention_0)
+            end_timer(enable=self.with_timer, t=tm, msg="self._get_gated_output(x_0, x_E0, y_0, self.attention_0)")
+            
+            tm = start_timer(enable=self.with_timer)
             y_w, _ = self.U0(torch.cat((x_gated_0, y_0), dim=2))
+            end_timer(enable=self.with_timer, t=tm, msg="self.U0(torch.cat((x_gated_0, y_0), dim=2))")
 
         if self.num_resolution_levels == 3:
+            tm = start_timer(enable=self.with_timer)
             y_d_2, _ = self.bridge(x_d_2)
+            end_timer(enable=self.with_timer, t=tm, msg="self.bridge(x_d_2)")
+            
+            tm = start_timer(enable=self.with_timer)
             y_2 = self.up_2(y_d_2)
-            x_gated_2 = self._get_gated_output(x_2, x_E2, y_2)
+            end_timer(enable=self.with_timer, t=tm, msg="self.up_2(y_d_2)")
+                        
+            tm = start_timer(enable=self.with_timer)
+            x_gated_2 = self._get_gated_output(x_2, x_E2, y_2, self.attention_2)
+            end_timer(enable=self.with_timer, t=tm, msg="self._get_gated_output(x_2, x_E2, y_2, self.attention_2)")
+            
+            tm = start_timer(enable=self.with_timer)
             y_d_1, _ = self.U2(torch.cat((x_gated_2, y_2), dim=2))
+            end_timer(enable=self.with_timer, t=tm, msg="self.U2(torch.cat((x_gated_2, y_2), dim=2))")
 
+            tm = start_timer(enable=self.with_timer)
             y_1 = self.up_1(y_d_1)
-            x_gated_1 = self._get_gated_output(x_1, x_E1, y_1)
+            end_timer(enable=self.with_timer, t=tm, msg="self.up_1(y_d_1)")
+            
+            tm = start_timer(enable=self.with_timer)
+            x_gated_1 = self._get_gated_output(x_1, x_E1, y_1, self.attention_1)
+            end_timer(enable=self.with_timer, t=tm, msg="self._get_gated_output(x_1, x_E1, y_1, self.attention_1)")
+            
+            tm = start_timer(enable=self.with_timer)
             y_d_0, _ = self.U1(torch.cat((x_gated_1, y_1), dim=2))
+            end_timer(enable=self.with_timer, t=tm, msg="self.U1(torch.cat((x_gated_1, y_1), dim=2))")
 
+            tm = start_timer(enable=self.with_timer)
             y_0 = self.up_0(y_d_0)
-            x_gated_0 = self._get_gated_output(x_0, x_E0, y_0)
+            end_timer(enable=self.with_timer, t=tm, msg="self.up_0(y_d_0)")
+            
+            tm = start_timer(enable=self.with_timer)
+            x_gated_0 = self._get_gated_output(x_0, x_E0, y_0, self.attention_0)
+            end_timer(enable=self.with_timer, t=tm, msg="self._get_gated_output(x_0, x_E0, y_0, self.attention_0)")
+            
+            tm = start_timer(enable=self.with_timer)
             y_w, _ = self.U0(torch.cat((x_gated_0, y_0), dim=2))
+            end_timer(enable=self.with_timer, t=tm, msg="self.U0(torch.cat((x_gated_0, y_0), dim=2))")
 
         if self.num_resolution_levels == 4:
+            tm = start_timer(enable=self.with_timer)
             y_d_3, _ = self.bridge(x_d_3)
+            end_timer(enable=self.with_timer, t=tm, msg="self.bridge(x_d_3)")
+            
+            tm = start_timer(enable=self.with_timer)
             y_3 = self.up_3(y_d_3)
-            x_gated_3 = self._get_gated_output(x_3, x_E3, y_3)
+            end_timer(enable=self.with_timer, t=tm, msg="self.up_3(y_d_3)")
+            
+            tm = start_timer(enable=self.with_timer)
+            x_gated_3 = self._get_gated_output(x_3, x_E3, y_3, self.attention_3)
+            end_timer(enable=self.with_timer, t=tm, msg="self._get_gated_output(x_3, x_E3, y_3, self.attention_3)")
+            
+            tm = start_timer(enable=self.with_timer)
             y_d_2, _ = self.U3(torch.cat((x_gated_3, y_3), dim=2))
+            end_timer(enable=self.with_timer, t=tm, msg="self.U3(torch.cat((x_gated_3, y_3), dim=2))")
 
+            tm = start_timer(enable=self.with_timer)
             y_2 = self.up_2(y_d_2)
-            x_gated_2 = self._get_gated_output(x_2, x_E2, y_2)
+            end_timer(enable=self.with_timer, t=tm, msg="self.up_2(y_d_2)")
+            
+            tm = start_timer(enable=self.with_timer)
+            x_gated_2 = self._get_gated_output(x_2, x_E2, y_2, self.attention_2)
+            end_timer(enable=self.with_timer, t=tm, msg="self._get_gated_output(x_2, x_E2, y_2, self.attention_2)")
+            
+            tm = start_timer(enable=self.with_timer)
             y_d_1, _ = self.U2(torch.cat((x_gated_2, y_2), dim=2))
+            end_timer(enable=self.with_timer, t=tm, msg="self.U2(torch.cat((x_gated_2, y_2), dim=2))")
 
+            tm = start_timer(enable=self.with_timer)
             y_1 = self.up_1(y_d_1)
-            x_gated_1 = self._get_gated_output(x_1, x_E1, y_1)
+            end_timer(enable=self.with_timer, t=tm, msg="self.up_1(y_d_1)")
+            
+            tm = start_timer(enable=self.with_timer)
+            x_gated_1 = self._get_gated_output(x_1, x_E1, y_1, self.attention_1)
+            end_timer(enable=self.with_timer, t=tm, msg="self._get_gated_output(x_1, x_E1, y_1, self.attention_1)")
+            
+            tm = start_timer(enable=self.with_timer)
             y_d_0, _ = self.U1(torch.cat((x_gated_1, y_1), dim=2))
+            end_timer(enable=self.with_timer, t=tm, msg="self.U1(torch.cat((x_gated_1, y_1), dim=2))")
 
+            tm = start_timer(enable=self.with_timer)
             y_0 = self.up_0(y_d_0)
-            x_gated_0 = self._get_gated_output(x_0, x_E0, y_0)
+            end_timer(enable=self.with_timer, t=tm, msg="self.up_0(y_d_0)")
+            
+            tm = start_timer(enable=self.with_timer)
+            x_gated_0 = self._get_gated_output(x_0, x_E0, y_0, self.attention_0)
+            end_timer(enable=self.with_timer, t=tm, msg="self._get_gated_output(x_0, x_E0, y_0, self.attention_0)")
+            
+            tm = start_timer(enable=self.with_timer)
             y_w, _ = self.U0(torch.cat((x_gated_0, y_0), dim=2))
-
+            end_timer(enable=self.with_timer, t=tm, msg="self.U0(torch.cat((x_gated_0, y_0), dim=2))")
+            
         if self.num_resolution_levels == 5:
             y_d_4, _ = self.bridge(x_d_4)
             y_4 = self.up_4(y_d_4)
-            x_gated_4 = self._get_gated_output(x_4, x_E4, y_4)
+            x_gated_4 = self._get_gated_output(x_4, x_E4, y_4, self.attention_4)
             y_d_3, _ = self.U4(torch.cat((x_gated_4, y_4), dim=2))
 
             y_3 = self.up_3(y_d_3)
-            x_gated_3 = self._get_gated_output(x_3, x_E3, y_3)
+            x_gated_3 = self._get_gated_output(x_3, x_E3, y_3, self.attention_3)
             y_d_2, _ = self.U3(torch.cat((x_gated_3, y_3), dim=2))
 
             y_2 = self.up_2(y_d_2)
-            x_gated_2 = self._get_gated_output(x_2, x_E2, y_2)
+            x_gated_2 = self._get_gated_output(x_2, x_E2, y_2, self.attention_2)
             y_d_1, _ = self.U2(torch.cat((x_gated_2, y_2), dim=2))
 
             y_1 = self.up_1(y_d_1)
-            x_gated_1 = self._get_gated_output(x_1, x_E1, y_1)
+            x_gated_1 = self._get_gated_output(x_1, x_E1, y_1, self.attention_1)
             y_d_0, _ = self.U1(torch.cat((x_gated_1, y_1), dim=2))
 
             y_0 = self.up_0(y_d_0)
-            x_gated_0 = self._get_gated_output(x_0, x_E0, y_0)
+            x_gated_0 = self._get_gated_output(x_0, x_E0, y_0, self.attention_0)
             y_w, _ = self.U0(torch.cat((x_gated_0, y_0), dim=2))
 
-        y_gated_w = self._get_gated_output(x_w, x_EW, y_w)
-        y_hat = self.UW(y_gated_w)
+        tm = start_timer(enable=self.with_timer)
+        x_gated_w = self._get_gated_output(x_w, x_EW, y_w, self.attention_w)
+        end_timer(enable=self.with_timer, t=tm, msg="self._get_gated_output(x_w, x_EW, y_w, self.attention_w)")
+        
+        tm = start_timer(enable=self.with_timer)
+        y_hat, _ = self.UW(torch.cat((y_w, x_gated_w), dim=2))
+        end_timer(enable=self.with_timer, t=tm, msg="self.UW(torch.cat((y_w, x_gated_w), dim=2))")
+        
+        tm = start_timer(enable=self.with_timer)
         y_hat = self.up_w(y_hat)
+        end_timer(enable=self.with_timer, t=tm, msg="self.up_w(y_hat)")
 
-        if self.encoder_on_skip_connection:
+        if self.encoder_on_input:
+            tm = start_timer(enable=self.with_timer)
             y_hat = torch.cat((y_hat, x_E), dim=2)
-
+            end_timer(enable=self.with_timer, t=tm, msg="torch.cat((y_hat, x_E), dim=2)")
+            
         return y_hat
 
     def __str__(self):
@@ -722,20 +911,16 @@ class STCNNT_mixed_Unetr(STCNNT_Base_Runtime):
 
 # -------------------------------------------------------------------------------------------------
 
-def tests():
-
+def run_test(config, separable_conv=True, use_einsum=True, use_conv_3d=True):
+    
     from utils.benchmark import benchmark_all, benchmark_memory, pytorch_profiler
     from utils.setup_training import set_seed
     from colorama import Fore, Style
-
+    
     device = get_device()
 
-    B,T,C,H,W = 1, 256, 1, 256, 256
+    B,T,C,H,W = 1, 128, 1, 256, 256
     test_in = torch.rand(B,T,C,H,W, dtype=torch.float32, device=device)
-
-    parser = add_backbone_STCNNT_args()
-    ns = Nestedspace()
-    config = parser.parse_args(namespace=ns)
 
     config.C_in = C
     config.C_out = C
@@ -746,12 +931,17 @@ def tests():
     config.norm_mode = "instance2d"
     config.a_type = "conv"
 
-    config.window_size = [H//8, W//8]
-    config.patch_size = [H//32, W//32]
-
     config.num_wind =[8, 8]
-    config.num_patch =[4, 4]
+    config.window_size = [H//(2*config.num_wind[0]), W//(2*config.num_wind[1])]
 
+    config.num_patch =[4, 4]
+    config.patch_size = [config.window_size[0]//config.num_patch[0], config.window_size[1]//config.num_patch[1]]
+    
+    print(f"num_wind - {config.num_wind}")
+    print(f"window_size - {config.window_size}")
+    print(f"num_patch - {config.num_patch}")
+    print(f"patch_size - {config.patch_size}")
+    
     config.window_sizing_method = "mixed"
 
     # losses
@@ -766,7 +956,7 @@ def tests():
     config.all_w_decay = True
     config.optim = "adamw"
     config.scheduler = "StepLR"
-
+    
     config.complex_i = False
 
     config.backbone_mixed_unetr.block_str = ["T1L1G1",
@@ -779,47 +969,58 @@ def tests():
     config.backbone_mixed_unetr.num_resolution_levels = 4
     config.backbone_mixed_unetr.use_unet_attention = 1
     config.backbone_mixed_unetr.use_interpolation = 1
-    config.backbone_mixed_unetr.with_conv = 1
+    config.backbone_mixed_unetr.with_conv = 0
     config.backbone_mixed_unetr.min_T = 16
+    config.backbone_mixed_unetr.encoder_on_input = 0
     config.backbone_mixed_unetr.encoder_on_skip_connection = 1
-    config.backbone_mixed_unetr.transformer_for_upsampling = 1
-    config.backbone_mixed_unetr.n_heads = [4, 8, 16, 32, 32]
-    config.backbone_mixed_unetr.use_conv_3d = 1
-
-    model = STCNNT_mixed_Unetr(config=config)
-    model.to(device=device)
-
-    with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
-        for _ in range(10):
-            y = model(test_in)
-
-    config.with_timer = False
-    print(f"{Fore.GREEN}-------------> STCNNT_Unet---einsum-{config.use_einsum}-stride_s-{config.stride_s}-separable_conv-{config.separable_conv} <----------------------{Style.RESET_ALL}")
-    benchmark_all(model, test_in, grad=None, min_run_time=5, desc='STCNNT_Unet', verbose=True, amp=True, amp_dtype=torch.bfloat16)
-    benchmark_memory(model, test_in, desc='STCNNT_Unet', amp=True, amp_dtype=torch.bfloat16, verbose=True)
-
+    config.backbone_mixed_unetr.transformer_for_upsampling = 0
+    config.backbone_mixed_unetr.n_heads = [32, 32, 32, 32, 32]
+    config.backbone_mixed_unetr.use_conv_3d = use_conv_3d
+    
+    config.use_einsum = use_einsum
+    config.separable_conv = separable_conv
     config.stride_s = 1
-    config.separable_conv = False
-    config.use_einsum = False
-    
+
+    config.with_timer = True
+    print(f"{Fore.GREEN}-------------> STCNNT_mixed_Unetr, einsum-{config.use_einsum}-stride_s-{config.stride_s}-separable_conv-{config.separable_conv}-use_conv_3d-{config.backbone_mixed_unetr.use_conv_3d} <----------------------{Style.RESET_ALL}")
     model = STCNNT_mixed_Unetr(config=config)
     model.to(device=device)
-
-    with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
-        for _ in range(10):
-            y = model(test_in)
-            
-    print(f"{Fore.GREEN}-------------> STCNNT_Unet---einsum-{config.use_einsum}-stride_s-{config.stride_s}-separable_conv-{config.separable_conv} <----------------------{Style.RESET_ALL}")
-    benchmark_all(model, test_in.to(device=device), grad=None, min_run_time=5, desc='STCNNT_Unet-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
-    benchmark_memory(model, test_in.to(device=device), desc='STCNNT_Unet-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
     
+    with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
+        for k in range(10):
+            model.with_timer = k==9
+            y = model(test_in)
+
+    model.with_timer = False
+    benchmark_all(model, test_in, grad=None, min_run_time=5, desc='STCNNT_mixed_Unetr', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_memory(model, test_in, desc='STCNNT_mixed_Unetr', amp=True, amp_dtype=torch.bfloat16, verbose=True)
+    print(f"{Fore.GREEN}=============================================================================={Style.RESET_ALL}")
+    
+    return config
+
+def tests():
+
+    import copy
+
+    parser = add_backbone_STCNNT_args()
+    ns = Nestedspace()
+    config_base = parser.parse_args(namespace=ns)
+    
+    for separable_conv in [False, True]:
+        for use_einsum in [False, True]:
+            for use_conv_3d in [True, False]:
+                config = run_test(config=copy.deepcopy(config_base), separable_conv=separable_conv, use_einsum=use_einsum, use_conv_3d=use_conv_3d)
+    
+    # -----------------------------------------------------
+    device = get_device()
     model = STCNNT_mixed_Unetr(config=config)
     model.to(device=device)
     with torch.no_grad():
         model_summary = model_info(model, config)
     print(f"Configuration for this run:\n{config}")
     print(f"Model Summary:\n{str(model_summary)}")
-
+    # -----------------------------------------------------
+       
     print("Passed all tests")
 
 if __name__=="__main__":
