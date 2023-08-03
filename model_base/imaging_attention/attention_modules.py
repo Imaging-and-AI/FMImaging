@@ -36,7 +36,7 @@ sys.path.insert(1, str(Project_DIR))
 Project_DIR = Path(__file__).parents[2].resolve()
 sys.path.insert(1, str(Project_DIR))
 
-from utils import get_device, model_info, get_gpu_ram_usage, create_generic_class_str
+from utils import get_device, model_info, get_gpu_ram_usage, create_generic_class_str, start_timer, end_timer, set_seed
 
 try:
     from flash_attn import flash_attn_qkvpacked_func, flash_attn_func
@@ -65,21 +65,40 @@ def compute_conv_output_shape(h_w, kernel_size, stride, pad, dilation):
 
     return h, w
 
+# class Conv2DExt(nn.Module):
+#     # Extends torch 2D conv to support 5D inputs
+
+#     def __init__(self, in_channels, out_channels, kernel_size=[3,3], stride=[1,1], padding=[1,1], bias=False, separable_conv=False):
+#         super().__init__()
+#         self.conv2d = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
+
+#     def forward(self, input):
+#         # requires input to have 5 dimensions
+#         B, T, C, H, W = input.shape
+#         y = self.conv2d(input.reshape((B*T, C, H, W)))
+#         return y.reshape([B, T, *y.shape[1:]])
+
 class Conv2DExt(nn.Module):
     # Extends torch 2D conv to support 5D inputs
 
-    def __init__(self,*args,**kwargs):
+    def __init__(self, in_channels, out_channels, kernel_size=[3,3], stride=[1,1], padding=[1,1], bias=False, separable_conv=False):
         super().__init__()
-        self.conv2d = nn.Conv2d(*args,**kwargs)
+        self.separable_conv = separable_conv
+        if separable_conv:
+            self.convA = nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=False, groups=in_channels)
+            self.convB = nn.Conv2d(in_channels, out_channels, kernel_size=[1,1], stride=[1,1], padding=[0,0], bias=False)
+        else:
+            self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
 
     def forward(self, input):
         # requires input to have 5 dimensions
         B, T, C, H, W = input.shape
-        y = self.conv2d(input.reshape((B*T, C, H, W)))
-        return y.reshape([B, T, *y.shape[1:]]) #torch.reshape(y, [B, T, *y.shape[1:]])
+        if self.separable_conv:
+            y = self.convB(self.convA(input.reshape((B*T, C, H, W))))
+        else:
+            y = self.conv(input.reshape((B*T, C, H, W)))
 
-        #y = self.conv2d(input.view((B*T, C, H, W)))
-        #return y.view([B, T, *y.shape[1:]])
+        return y.reshape([B, T, *y.shape[1:]])
 
 class Conv2DGridExt(nn.Module):
     # Extends torch 2D conv for grid attention with 7D inputs
@@ -111,6 +130,18 @@ class LinearGridExt(nn.Module):
         y = y.reshape((*S, Gh, Gw, -1))
 
         return y
+
+class PixelShuffle2DExt(nn.Module):
+    # Extends torch 2D pixel shuffle
+
+    def __init__(self,*args,**kwargs):
+        super().__init__()
+        self.ps = nn.PixelShuffle(*args,**kwargs)
+
+    def forward(self, input):
+        B, T, C, H, W = input.shape
+        y = self.ps(input.reshape((B*T, C, H, W)))
+        return y.reshape([B, T, *y.shape[1:]])
 
 class Conv3DExt(nn.Module):
     # Extends troch 3D conv by permuting T and C
@@ -207,11 +238,14 @@ class CnnAttentionBase(nn.Module):
                     H=128, W=128,
                     n_head=8, 
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), 
+                    stride_qk = (1, 1),
+                    separable_conv=False,
                     att_dropout_p=0.0, 
                     cosine_att=False, 
                     normalize_Q_K=False, 
                     att_with_relative_postion_bias=True,
-                    att_with_output_proj=True):
+                    att_with_output_proj=True,
+                    with_timer=False):
         """
         Base class for the cnn attentions.
 
@@ -225,6 +259,7 @@ class CnnAttentionBase(nn.Module):
             - H, W (int): image height and width
             - n_head (int): number of heads in self attention
             - kernel_size, stride, padding (int, int): convolution parameters
+            - stride_qk (int, int): stride to compute q and k
             - att_dropout_p (float): probability of dropout for the attention matrix
             - cosine_att (bool): whether to perform cosine attention; if True, normalize_Q_K will be ignored, as Q and K are already normalized
             - normalize_Q_K (bool): whether to add normalization for Q and K matrix
@@ -240,12 +275,15 @@ class CnnAttentionBase(nn.Module):
         self.n_head = n_head
         self.kernel_size = kernel_size, 
         self.stride = stride 
+        self.stride_qk = stride_qk
         self.padding = padding
+        self.separable_conv = separable_conv
         self.att_dropout_p = att_dropout_p
         self.cosine_att = cosine_att
         self.normalize_Q_K = normalize_Q_K
         self.att_with_relative_postion_bias = att_with_relative_postion_bias
         self.att_with_output_proj = att_with_output_proj
+        self.with_timer = with_timer
 
         if att_with_output_proj:
             self.output_proj = Conv2DExt(C_out, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)

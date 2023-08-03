@@ -86,8 +86,9 @@ def setup_run(config, dirs=["log_path", "results_path", "model_path", "check_pat
         config.seed = np.random.randint(2000, 1000000)
         logging.info(f"config.seed:{config.seed}")
 
-    np.random.seed(config.seed)
-    torch.manual_seed(config.seed)
+    set_seed(config.seed)
+    #np.random.seed(config.seed)
+    #torch.manual_seed(config.seed)
 
     # setup dp/ddp
     if not dist.is_initialized():
@@ -106,9 +107,13 @@ def setup_run(config, dirs=["log_path", "results_path", "model_path", "check_pat
     logging.info(f"Training on {config.device} with ddp set to {config.ddp}")
     # os.environ['MASTER_ADDR'] = 'localhost'
     # os.environ['MASTER_PORT'] = '12355'
-       
+
     # pytorch loader fix
-    if config.num_workers==0: config.prefetch_factor = 2
+    if config.num_workers<=0: 
+        config.num_workers = os.cpu_count()
+
+    if config.prefetch_factor <= 0:
+       config.prefetch_factor = 2
 
 # -------------------------------------------------------------------------------------------------
 def compute_total_steps(config, num_samples):

@@ -173,7 +173,7 @@ def save_image_wandb(title, complex_i, noisy, predi, clean):
 
 # -------------------------------------------------------------------------------------------------
 
-def save_image_batch(complex_i, noisy, predi, clean):
+def save_image_batch(complex_i, noisy, predi, clean, clean_2x):
     """
     Logs the image to wandb as a 5D gif [B,T,C,H,W]
     If complex image then save the magnitude using first 2 channels
@@ -183,51 +183,67 @@ def save_image_batch(complex_i, noisy, predi, clean):
         - noisy (5D numpy array): the noisy image [B, T, C+1, H, W]
         - predi (5D numpy array): the predicted image [B, T, C, H, W]
         - clean (5D numpy array): the clean image [B, T, C, H, W]
+        - clean_2x (5D numpy array): the clean image [B, T, C, 2*H, 2*W]
     """
 
     if noisy.ndim == 4:
         noisy = np.expand_dims(noisy, axis=0)
         predi = np.expand_dims(predi, axis=0)
         clean = np.expand_dims(clean, axis=0)
+        clean_2x = np.expand_dims(clean_2x, axis=0)
 
     if complex_i:
         save_x = np.sqrt(np.square(noisy[:,:,0,:,:]) + np.square(noisy[:,:,1,:,:]))
         save_p = np.sqrt(np.square(predi[:,:,0,:,:]) + np.square(predi[:,:,1,:,:]))
         save_y = np.sqrt(np.square(clean[:,:,0,:,:]) + np.square(clean[:,:,1,:,:]))
+        save_y_2x = np.sqrt(np.square(clean_2x[:,:,0,:,:]) + np.square(clean_2x[:,:,1,:,:]))
     else:
         save_x = noisy[:,:,0,:,:]
         save_p = predi[:,:,0,:,:]
         save_y = clean[:,:,0,:,:]
-       
-    B, T, H, W = save_x.shape
+        save_y_2x = clean_2x[:,:,0,:,:]
+
+    B, T, H, W = save_y_2x.shape
+
+    def resize_img(im, H_2x, W_2x):
+        H, W = im.shape
+        if H < H_2x or W < W_2x:
+            res = cv2.resize(src=im, dsize=(W_2x, H_2x), interpolation=cv2.INTER_NEAREST)
+            return res
+        else:
+            return im
 
     max_col = 16
     if B>max_col:
         num_row = B//max_col
         if max_col*num_row < B: 
             num_row += 1
-        composed_res = np.zeros((T, 3*H*num_row, max_col*W))
+        composed_res = np.zeros((T, 4*H*num_row, max_col*W))
         for b in range(B):
             r = b//max_col
             c = b - r*max_col
             for t in range(T):
-                composed_res[t, 3*r*H:(3*r+1)*H, c*W:(c+1)*W] = save_x[b,t,:,:].squeeze()
-                composed_res[t, (3*r+1)*H:(3*r+2)*H, c*W:(c+1)*W] = save_p[b,t,:,:].squeeze()
-                composed_res[t, (3*r+2)*H:(3*r+3)*H, c*W:(c+1)*W] = save_y[b,t,:,:].squeeze()
+                S = 4*r
+                composed_res[t, S*H:(S+1)*H, c*W:(c+1)*W] = resize_img(save_x[b,t,:,:].squeeze(), H, W)
+                composed_res[t, (S+1)*H:(S+2)*H, c*W:(c+1)*W] = resize_img(save_p[b,t,:,:].squeeze(), H, W)
+                composed_res[t, (S+2)*H:(S+3)*H, c*W:(c+1)*W] = resize_img(save_y[b,t,:,:].squeeze(), H, W)
+                composed_res[t, (S+3)*H:(S+4)*H, c*W:(c+1)*W] = resize_img(save_y_2x[b,t,:,:].squeeze(), H, W)
     elif B>2:
-        composed_res = np.zeros((T, 3*H, B*W))
+        composed_res = np.zeros((T, 4*H, B*W))
         for b in range(B):
             for t in range(T):
-                composed_res[t, :H, b*W:(b+1)*W] = save_x[b,t,:,:].squeeze()
-                composed_res[t, H:2*H, b*W:(b+1)*W] = save_p[b,t,:,:].squeeze()
-                composed_res[t, 2*H:3*H, b*W:(b+1)*W] = save_y[b,t,:,:].squeeze()
+                composed_res[t, :H, b*W:(b+1)*W] = resize_img(save_x[b,t,:,:].squeeze(), H, W)
+                composed_res[t, H:2*H, b*W:(b+1)*W] = resize_img(save_p[b,t,:,:].squeeze(), H, W)
+                composed_res[t, 2*H:3*H, b*W:(b+1)*W] = resize_img(save_y[b,t,:,:].squeeze(), H, W)
+                composed_res[t, 3*H:4*H, b*W:(b+1)*W] = resize_img(save_y_2x[b,t,:,:].squeeze(), H, W)
     else:
-        composed_res = np.zeros((T, B*H, 3*W))
+        composed_res = np.zeros((T, B*H, 4*W))
         for b in range(B):
             for t in range(T):
-                composed_res[t, b*H:(b+1)*H, :W] = save_x[b,t,:,:].squeeze()
-                composed_res[t, b*H:(b+1)*H, W:2*W] = save_p[b,t,:,:].squeeze()
-                composed_res[t, b*H:(b+1)*H, 2*W:3*W] = save_y[b,t,:,:].squeeze()
+                composed_res[t, b*H:(b+1)*H, :W] = resize_img(save_x[b,t,:,:].squeeze(), H, W)
+                composed_res[t, b*H:(b+1)*H, W:2*W] = resize_img(save_p[b,t,:,:].squeeze(), H, W)
+                composed_res[t, b*H:(b+1)*H, 2*W:3*W] = resize_img(save_y[b,t,:,:].squeeze(), H, W)
+                composed_res[t, b*H:(b+1)*H, 3*W:4*W] = resize_img(save_y_2x[b,t,:,:].squeeze(), H, W)
 
     composed_res = np.clip(composed_res, a_min=0.5*np.median(composed_res), a_max=np.percentile(composed_res, 90))
 
@@ -235,6 +251,8 @@ def save_image_batch(complex_i, noisy, predi, clean):
     composed_res = cv2.normalize(composed_res, temp, 0, 255, norm_type=cv2.NORM_MINMAX)
 
     return np.repeat(composed_res[:,np.newaxis,:,:].astype('uint8'), 3, axis=1)
+
+# -------------------------------------------------------------------------------------------------
 
 def save_inference_results(input, output, gmap, output_dir, noisy_image=None):
 

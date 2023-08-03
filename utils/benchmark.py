@@ -5,7 +5,7 @@ import torch
 import torch.utils.benchmark as benchmark
 from colorama import Fore, Back, Style
 
-def benchmark_forward(fn, *inputs, repeats = 10, desc='', verbose=True, amp=False,
+def benchmark_forward(fn, *inputs, min_run_time = 10, desc='', verbose=True, amp=False,
                       amp_dtype=torch.float16, **kwinputs):
     """ Use Pytorch Benchmark on the forward pass of an arbitrary function. """
     if verbose:
@@ -18,13 +18,13 @@ def benchmark_forward(fn, *inputs, repeats = 10, desc='', verbose=True, amp=Fals
             globals={'fn_amp': amp_wrapper, 'inputs': inputs, 'kwinputs': kwinputs},
             num_threads=torch.get_num_threads(),
             )
-    m = t.timeit(repeats)
+    m = t.blocked_autorange(min_run_time=min_run_time)
     if verbose:
         print(f"{Fore.RED}{m}{Style.RESET_ALL}")
     return t, m
 
 
-def benchmark_backward(fn, *inputs, grad=None, repeats=10, desc='', verbose=True, amp=False,
+def benchmark_backward(fn, *inputs, grad=None, min_run_time=10, desc='', verbose=True, amp=False,
                        amp_dtype=torch.float16, **kwinputs):
     """ Use Pytorch Benchmark on the backward pass of an arbitrary function. """
     if verbose:
@@ -43,13 +43,13 @@ def benchmark_backward(fn, *inputs, grad=None, repeats=10, desc='', verbose=True
             globals={'y': y, 'grad': grad},
             num_threads=torch.get_num_threads(),
             )
-    m = t.timeit(repeats)
+    m = t.blocked_autorange(min_run_time=min_run_time)
     if verbose:
         print(f"{Fore.GREEN}{m}{Style.RESET_ALL}")
     return t, m
 
 
-def benchmark_combined(fn, *inputs, grad=None, repeats=10, desc='', verbose=True, amp=False,
+def benchmark_combined(fn, *inputs, grad=None, min_run_time=10, desc='', verbose=True, amp=False,
                        amp_dtype=torch.float16, **kwinputs):
     """ Use Pytorch Benchmark on the forward+backward pass of an arbitrary function. """
     if verbose:
@@ -77,21 +77,21 @@ def benchmark_combined(fn, *inputs, grad=None, repeats=10, desc='', verbose=True
             globals={'f': f, 'fn': fn, 'inputs': inputs, 'grad': grad, 'kwinputs': kwinputs},
             num_threads=torch.get_num_threads(),
             )
-    m = t.timeit(repeats)
+    m = t.blocked_autorange(min_run_time=min_run_time)
     if verbose:
         print(f"{Fore.YELLOW}{m}{Style.RESET_ALL}")
     return t, m
 
 
-def benchmark_all(fn, *inputs, grad=None, repeats=10, desc='', verbose=True, amp=False,
+def benchmark_all(fn, *inputs, grad=None, min_run_time=10, desc='', verbose=True, amp=False,
                   amp_dtype=torch.bfloat16, **kwinputs):
     """ Use Pytorch Benchmark on the forward+backward pass of an arbitrary function. """
     return (
-        benchmark_forward(fn, *inputs, repeats=repeats, desc=desc, verbose=verbose,
+        benchmark_forward(fn, *inputs, min_run_time=min_run_time, desc=desc, verbose=verbose,
                           amp=amp, amp_dtype=amp_dtype, **kwinputs),
-        benchmark_backward(fn, *inputs, grad=grad, repeats=repeats, desc=desc, verbose=verbose,
+        benchmark_backward(fn, *inputs, grad=grad, min_run_time=min_run_time, desc=desc, verbose=verbose,
                            amp=amp, amp_dtype=amp_dtype, **kwinputs),
-        benchmark_combined(fn, *inputs, grad=grad, repeats=repeats, desc=desc, verbose=verbose,
+        benchmark_combined(fn, *inputs, grad=grad, min_run_time=min_run_time, desc=desc, verbose=verbose,
                            amp=amp, amp_dtype=amp_dtype, **kwinputs),
     )
 

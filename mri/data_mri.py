@@ -70,10 +70,10 @@ def load_images_from_h5file(h5file, keys, max_load=100000):
             with tqdm(total=len(keys[i]), bar_format=get_bar_format()) as pbar:
                 for n, key in enumerate(keys[i]):
                     if num_loaded < max_load:
-                        images.append([np.array(h5file[i][key+"/image"]), np.array(h5file[i][key+"/gmap"]), i])
+                        images.append([np.array(h5file[i][key+"/image"]), np.array(h5file[i][key+"/gmap"]), np.array(h5file[i][key+"/image_resized"]), i])
                         num_loaded += 1
                     else:
-                        images.append([key+"/image", key+"/gmap", i])
+                        images.append([key+"/image", key+"/gmap", key+"/image_resized", i])
                         
                     if n>0 and n%100 == 0:
                         pbar.update(100)
@@ -122,7 +122,7 @@ class MRIDenoisingDatasetTrain():
     The extracted patch maintains the strict temporal consistency
     This dataset is for 2D+T training, where the temporal redundancy is strong
     """
-    def __init__(self, h5file, keys, data_type, max_load=10000,
+    def __init__(self, h5file, keys, data_type, max_load=-1,
                     time_cutout=30, cutout_shape=[64, 64], use_gmap=True,
                     use_complex=True, min_noise_level=1.0, max_noise_level=6.0,
                     matrix_size_adjust_ratio=[0.5, 0.75, 1.0, 1.25, 1.5],
@@ -138,7 +138,8 @@ class MRIDenoisingDatasetTrain():
                     num_patches_cutout=8,
                     patches_shuffle=False,
                     with_data_degrading=False,
-                    add_noise=True):
+                    add_noise=True,
+                    load_2x_resolution=False):
         """
         Initilize the denoising dataset
         Loads and store all images and gmaps
@@ -166,8 +167,9 @@ class MRIDenoisingDatasetTrain():
             - patches_shuffle (bool) for 2D, shuffle patches 
             - with_data_degrading (bool): if True, train with resolution reduction, time filtering etc. to degrade data a bit
             - add_noise (bool): if False, not add noise - for testing the resolution improvement
+            - load_2x_resolution (bool): whether to load 2x resolution data
         """
-        assert data_type=="2d" or data_type=="2dt" or data_type=="3d",\
+        assert data_type.lower()=="2d" or data_type.lower()=="2dt" or data_type.lower()=="3d",\
             f"Data type not implemented: {data_type}"
         self.data_type = data_type
 
@@ -207,6 +209,8 @@ class MRIDenoisingDatasetTrain():
 
         self.add_noise = add_noise
 
+        self.load_2x_resolution = load_2x_resolution
+
     def load_one_sample(self, i):
         """
         Loads one sample from the saved images
@@ -222,13 +226,19 @@ class MRIDenoisingDatasetTrain():
         # get the image
         data = self.images[i][0]
         gmaps = self.images[i][1]
+        if self.load_2x_resolution: data_2x = self.images[i][2]
 
         if not isinstance(data, np.ndarray):
-            ind = self.images[i][2]
+            ind = self.images[i][3]
             key_image = self.images[i][0]
             key_gmap = self.images[i][1]
+            key_image_2x = self.images[i][2]
             data = np.array(self.h5file[ind][key_image])
             gmaps = np.array(self.h5file[ind][key_gmap])
+            if self.load_2x_resolution: data_2x = np.array(self.h5file[ind][key_image_2x])
+
+        if not self.load_2x_resolution:
+            data_2x = None
 
         gmap = self.load_gmap(gmaps, i, random_factor=-1)
 
@@ -239,13 +249,16 @@ class MRIDenoisingDatasetTrain():
 
         data = data.astype(np.complex64)
         gmap = gmap.astype(np.float32)
+        if self.load_2x_resolution: 
+            data_2x = data_2x.astype(np.complex64)
 
         # pad symmetrically if not enough images in the time dimension
         if data.shape[0] < self.time_cutout:
             data = np.pad(data, ((0,self.time_cutout - data.shape[0]),(0,0),(0,0)), 'symmetric')
+            if self.load_2x_resolution: data_2x = np.pad(data_2x, ((0,self.time_cutout - data_2x.shape[0]),(0,0),(0,0)), 'symmetric')
 
         # random flip
-        data, gmap = self.random_flip(data, gmap)
+        data, gmap, data_2x = self.random_flip(data, gmap, data_2x)
 
         assert data.shape[1] == gmap.shape[0] and data.shape[2] == gmap.shape[1]
 
@@ -255,16 +268,23 @@ class MRIDenoisingDatasetTrain():
             data_adjusted = np.array([adjust_matrix_size(img, matrix_size_adjust_ratio) for img in data])
             gmap_adjusted = cv2.resize(gmap, dsize=(data_adjusted.shape[2], data_adjusted.shape[1]), interpolation=cv2.INTER_LINEAR)
             assert data_adjusted.shape[1] == gmap_adjusted.shape[0] and data_adjusted.shape[2] == gmap_adjusted.shape[1]
+
             data = data_adjusted
             gmap = gmap_adjusted
+
+            if self.load_2x_resolution: 
+                data_2x_adjusted = np.array([adjust_matrix_size(img, matrix_size_adjust_ratio) for img in data_2x])
+                data_2x = data_2x_adjusted
 
         if data.shape[1] < self.cutout_shape[0]:
             data = np.pad(data, ((0, 0), (0,self.cutout_shape[0] - data.shape[1]),(0,0)), 'symmetric')
             gmap = np.pad(gmap, ((0,self.cutout_shape[0] - gmap.shape[0]),(0,0)), 'symmetric')
+            if self.load_2x_resolution: data_2x = np.pad(data_2x, ((0, 0), (0, 2*(2*self.cutout_shape[0] - data_2x.shape[1])),(0,0)), 'symmetric')
 
         if data.shape[2] < self.cutout_shape[1]:
             data = np.pad(data, ((0,0), (0,0), (0,self.cutout_shape[1] - data.shape[2])), 'symmetric')
             gmap = np.pad(gmap, ((0,0), (0,self.cutout_shape[1] - gmap.shape[1])), 'symmetric')
+            if self.load_2x_resolution: data_2x = np.pad(data_2x, ((0,0), (0,0), (0, 2*(2*self.cutout_shape[1] - data_2x.shape[2]))), 'symmetric')
 
         T, RO, E1 = data.shape
 
@@ -321,6 +341,7 @@ class MRIDenoisingDatasetTrain():
                     data_degraded *= signal_level_delta
 
                 data *= signal_level_delta
+                if self.load_2x_resolution: data_2x *= signal_level_delta
 
             # add noise to complex image and scale
             if(self.with_data_degrading):
@@ -332,6 +353,7 @@ class MRIDenoisingDatasetTrain():
             # scale the data
             if noise_sigma > 0:
                 data /= noise_sigma
+                if self.load_2x_resolution: data_2x /= noise_sigma
                 noisy_data /= noise_sigma
                 if(self.with_data_degrading): data_degraded /= noise_sigma
 
@@ -340,18 +362,40 @@ class MRIDenoisingDatasetTrain():
             # cut out the patch on the original grid
             s_x, s_y, s_t = self.get_cutout_range(data)
 
+            if self.load_2x_resolution:
+                s_x_2x = [2*p for p in s_x]
+                s_y_2x = [2*p for p in s_y]
+
+                for ind, sx in enumerate(s_x_2x):
+                    while sx+2*self.cutout_shape[0] >= data_2x.shape[1] and sx>=0:
+                        s_x_2x[ind] -= 2 
+                        s_x[ind] -= 1
+                        sx = s_x_2x[ind]
+                        
+                for ind, sy in enumerate(s_y_2x):
+                    while sy+2*self.cutout_shape[1] >= data_2x.shape[2] and sy>=0:
+                        s_y_2x[ind] -= 2 
+                        s_y[ind] -= 1
+                        sy = s_y_2x[ind]
+            else:
+                s_x_2x = s_x
+                s_y_2x = s_y
+
             if(self.use_complex):
                 patch_data = self.do_cutout(data, s_x, s_y, s_t)[:,np.newaxis,:,:]
                 patch_data_with_noise = self.do_cutout(noisy_data, s_x, s_y, s_t)[:,np.newaxis,:,:]
                 if(self.with_data_degrading): patch_data_degraded = self.do_cutout(data_degraded, s_x, s_y, s_t)[:,np.newaxis,:,:]
+                if self.load_2x_resolution: patch_data_2x = self.do_cutout(data_2x, s_x_2x, s_y_2x, s_t, is_resized=True)[:,np.newaxis,:,:]
 
                 cutout = np.concatenate((patch_data.real, patch_data.imag),axis=1)
                 cutout_train = np.concatenate((patch_data_with_noise.real, patch_data_with_noise.imag),axis=1)
                 if(self.with_data_degrading): cutout_degraded = np.concatenate((patch_data_degraded.real, patch_data_degraded.imag),axis=1)
+                if self.load_2x_resolution: cutout_2x = np.concatenate((patch_data_2x.real, patch_data_2x.imag),axis=1)
             else:
                 cutout = np.abs(self.do_cutout(data, s_x, s_y, s_t))[:,np.newaxis,:,:]
                 cutout_train = np.abs(self.do_cutout(noisy_data, s_x, s_y, s_t))[:,np.newaxis,:,:]
                 if(self.with_data_degrading): cutout_degraded = np.abs(self.do_cutout(data_degraded, s_x, s_y, s_t))[:,np.newaxis,:,:]
+                if self.load_2x_resolution: cutout_2x = np.abs(self.do_cutout(data_2x, s_x_2x, s_y_2x, s_t, is_resized=True))[:,np.newaxis,:,:]
 
             gmap_cutout = self.do_cutout(gmap, s_x, s_y, s_t)[:,np.newaxis,:,:]
 
@@ -364,6 +408,7 @@ class MRIDenoisingDatasetTrain():
                 cutout_train = np.pad(cutout_train, ((0,0),(0, 0), (0,pad_H),(0,pad_W)), 'symmetric')
                 if(self.with_data_degrading): cutout_degraded = np.pad(cutout_degraded, ((0,0),(0, 0), (0,pad_H),(0,pad_W)), 'symmetric')
                 gmap_cutout = np.pad(gmap_cutout, ((0,0),(0, 0), (0,pad_H),(0,pad_W)), 'symmetric')
+                if self.load_2x_resolution: cutout_2x = np.pad(cutout_2x, ((0,0),(0, 0), (0,2*pad_H),(0,2*pad_W)), 'symmetric')
 
                 cutout = view_as_blocks(cutout, (1,C,*self.cutout_shape))
                 cutout = cutout.reshape(-1,*cutout.shape[-3:])
@@ -373,7 +418,9 @@ class MRIDenoisingDatasetTrain():
                 if(self.with_data_degrading): cutout_degraded = cutout_degraded.reshape(-1,*cutout_degraded.shape[-3:])
                 gmap_cutout = view_as_blocks(gmap_cutout, (1,1,*self.cutout_shape))
                 gmap_cutout = gmap_cutout.reshape(-1,*gmap_cutout.shape[-3:])
-
+                if self.load_2x_resolution: 
+                    cutout_2x = view_as_blocks(cutout_2x, (1,C, 2*self.cutout_shape[0], 2*self.cutout_shape[1]))
+                    cutout_2x = cutout_2x.reshape(-1,*cutout_2x.shape[-3:])
 
                 if self.patches_shuffle:
                     t_indexes = np.arange(cutout.shape[0])
@@ -383,6 +430,7 @@ class MRIDenoisingDatasetTrain():
                     cutout_train = np.take(cutout_train, t_indexes, axis=0)[:self.num_patches_cutout]
                     if(self.with_data_degrading): cutout_degraded = np.take(cutout_degraded, t_indexes, axis=0)[:self.num_patches_cutout]
                     gmap_cutout = np.take(gmap_cutout, t_indexes, axis=0)[:self.num_patches_cutout]
+                    if self.load_2x_resolution: cutout_2x = np.take(cutout_2x, t_indexes, axis=0)[:self.num_patches_cutout]
                 else:
                     start_t = np.random.randint(0,max(cutout.shape[0] - self.num_patches_cutout, 1))
 
@@ -390,12 +438,14 @@ class MRIDenoisingDatasetTrain():
                     cutout_train = cutout_train[start_t:start_t+self.num_patches_cutout]
                     if(self.with_data_degrading): cutout_degraded = cutout_degraded[start_t:start_t+self.num_patches_cutout]
                     gmap_cutout = gmap_cutout[start_t:start_t+self.num_patches_cutout]
+                    if self.load_2x_resolution: cutout_2x = cutout_2x[start_t:start_t+self.num_patches_cutout]
 
                 pad_T = (-1*cutout_train.shape[0])%self.num_patches_cutout
                 cutout = np.pad(cutout, ((0,pad_T),(0,0),(0,0),(0,0)), 'symmetric')
                 cutout_train = np.pad(cutout_train, ((0,pad_T),(0,0),(0,0),(0,0)), 'symmetric')
                 if(self.with_data_degrading): cutout_degraded = np.pad(cutout_degraded, ((0,pad_T),(0,0),(0,0),(0,0)), 'symmetric')
                 gmap_cutout = np.pad(gmap_cutout, ((0,pad_T),(0,0),(0,0),(0,0)), 'symmetric')
+                if self.load_2x_resolution: cutout_2x = np.pad(cutout_2x, ((0,pad_T),(0,0),(0,0),(0,0)), 'symmetric')
 
             if(self.data_type=="3d" and self.cutout_shuffle_time):
                 # perform shuffle along time
@@ -406,6 +456,7 @@ class MRIDenoisingDatasetTrain():
                 np.take(cutout_train, t_indexes, axis=0, out=cutout_train)
                 if(self.with_data_degrading): np.take(cutout_degraded, t_indexes, axis=0, out=cutout_degraded)
                 np.take(gmap_cutout, t_indexes, axis=0, out=gmap_cutout)
+                if self.load_2x_resolution: np.take(cutout_2x, t_indexes, axis=0, out=cutout_2x)
 
             train_noise = np.concatenate([cutout_train, gmap_cutout], axis=1)
 
@@ -418,7 +469,12 @@ class MRIDenoisingDatasetTrain():
             gmaps_median = torch.tensor(np.median(gmap_cutout))
             noise_sigmas = torch.tensor(noise_sigma)
 
-        return noisy_im, clean_im, clean_im_degraded, gmaps_median, noise_sigmas
+            if self.load_2x_resolution:
+                clean_im_2x = torch.from_numpy(cutout_2x.astype(np.float32))
+            else:
+                clean_im_2x = torch.clone(clean_im)
+
+        return noisy_im.contiguous(), clean_im.contiguous(), clean_im_degraded.contiguous(), clean_im_2x.contiguous(), gmaps_median, noise_sigmas
 
     def get_cutout_range(self, data):
 
@@ -456,19 +512,50 @@ class MRIDenoisingDatasetTrain():
 
         return s_x, s_y, s_t
 
-    def do_cutout(self, data, s_x, s_y, s_t):
+    def do_cutout(self, data, s_x, s_y, s_t, is_resized=False):
         """
         Cuts out the jittered patches across a random time interval
         """
         t, x, y = data.shape
         ct = self.time_cutout
         cx, cy = self.cutout_shape
+        if is_resized:
+            cx *= 2
+            cy *= 2
 
         if t < ct or y < cy or x < cx:
-            raise RuntimeError(f"File is borken because {t} is less than {ct} or {x} is less than {cx} or {y} is less than {cy}")
+            #raise RuntimeError(f"File is borken because {t} is less than {ct} or {x} is less than {cx} or {y} is less than {cy}")
+            print(f"Warning - {t} is less than {ct} or {x} is less than {cx} or {y} is less than {cy}")
 
         result = np.zeros((ct, cx, cy), dtype=data.dtype)
-        result = data[s_t[0]:s_t[0]+ct, s_x[0]:s_x[0]+cx, s_y[0]:s_y[0]+cy]
+
+        end_x = s_x[0]+cx
+        if end_x>x: 
+            diff = end_x - x
+            end_x = x
+            s_x[0] -= diff
+
+        end_y = s_y[0]+cy
+        if end_y>y: 
+            diff = end_y - y
+            end_y = y
+            s_y[0] -= diff
+
+        if s_x[0] < 0:
+            print(f"Warning - input data size {data.shape}, cutout shape {cx}, {cy}")
+            s_x[0] = 0
+
+        if s_y[0] < 0:
+            print(f"Warning - input data size {data.shape}, cutout shape {cx}, {cy}")
+            s_y[0] = 0
+
+        if end_x - s_x[0] > x:
+            end_x = x
+
+        if end_y - s_y[0] > y:
+            end_y = y
+
+        result[:, 0:end_x-s_x[0], 0:end_y-s_y[0]] = data[s_t[0]:s_t[0]+ct, s_x[0]:end_x, s_y[0]:end_y]
 
         if self.data_type=="2d":
             result = np.zeros((1, x, y), dtype=data.dtype)
@@ -476,7 +563,7 @@ class MRIDenoisingDatasetTrain():
 
         if self.data_type=="3d":
             for t in range(ct):
-                result[t, :, :] = data[s_t[t]+t, s_x[t]:s_x[t]+cx, s_y[t]:s_y[t]+cy]
+                result[t, :, :] = data[s_t[t]+t, s_x[t]:end_x, s_y[t]:end_y]
 
         return result
 
@@ -499,7 +586,7 @@ class MRIDenoisingDatasetTrain():
             return gmaps[:, :, random_factor]
 
 
-    def random_flip(self, data, gmap):
+    def random_flip(self, data, gmap, data_2x):
         """
         Randomly flips the input image and gmap
         """
@@ -519,7 +606,11 @@ class MRIDenoisingDatasetTrain():
                     image = image[:,:,::-1].copy()
             return image
 
-        return flip(data), flip(gmap)
+        res_data_2x = None
+        if self.load_2x_resolution:
+            res_data_2x = flip(data_2x)
+
+        return flip(data), flip(gmap), res_data_2x
 
     def get_stat(self):
         stat = load_images_for_statistics(self.h5file, self.keys)
@@ -556,7 +647,7 @@ def load_test_images_from_h5file(h5file, keys):
         for i in range(len(h5file)):
             with tqdm(total=len(keys[i]), bar_format=get_bar_format()) as pbar:
                 for n, key in enumerate(keys[i]):
-                    images.append([key+"/noisy", key+"/clean", key+"/gmap", key+"/noise_sigma", i])
+                    images.append([key+"/noisy", key+"/image", key+"/image_resized", key+"/gmap", key+"/noise_sigma", i])
                     num_loaded += 1
 
                     if n>0 and n%100 == 0:
@@ -608,41 +699,43 @@ class MRIDenoisingDatasetTest():
             - noise_sigma (0D torch.Tensor): noise sigma added to the image patch
         """
         # get the image
-        # noisy = (self.images[i][0])
-        # clean = (self.images[i][1])
-        # gmap = self.images[i][2]
-        # noise_sigma = self.images[i][3]
-        ind = self.images[i][4]
-        noisy = np.array(self.h5file[ind][self.images[i][0]])
-        clean = np.array(self.h5file[ind][self.images[i][1]])
-        gmap = np.array(self.h5file[ind][self.images[i][2]])
-        noise_sigma = np.array(self.h5file[ind][self.images[i][3]])
+        ind = self.images[i][5]
+        noisy = np.array(self.h5file[ind][self.images[i][0]]).squeeze()
+        clean = np.array(self.h5file[ind][self.images[i][1]]).squeeze()
+        clean_resized = np.array(self.h5file[ind][self.images[i][2]]).squeeze()
+        gmap = np.array(self.h5file[ind][self.images[i][3]]).squeeze()
+        noise_sigma = np.array(self.h5file[ind][self.images[i][4]])
 
         if noisy.ndim==2:
             noisy = noisy[np.newaxis,np.newaxis,:,:]
             clean = clean[np.newaxis,np.newaxis,:,:]
+            clean_resized = clean_resized[np.newaxis,np.newaxis,:,:]
         else: # ndim==3
             noisy = noisy[:,np.newaxis,:,:]
             clean = clean[:,np.newaxis,:,:]
+            clean_resized = clean_resized[:,np.newaxis,:,:]
 
-        assert gmap.ndim==2, f"gmap for testing should only be 2 dimensional"
+        assert gmap.ndim==2 or gmap.shape[0] == 1, f"gmap for testing should only be 2 dimensional"
 
         if(self.use_complex):
             noisy = np.concatenate((noisy.real, noisy.imag),axis=1)
             clean = np.concatenate((clean.real, clean.imag),axis=1)
+            clean_resized = np.concatenate((clean_resized.real, clean_resized.imag),axis=1)
         else:
             noisy = np.abs(noisy)
             clean = np.abs(clean)
+            clean_resized = np.abs(clean_resized)
 
         gmap = np.repeat(gmap[None,:,:], noisy.shape[0], axis=0)[:,np.newaxis,:,:]
         noisy = np.concatenate([noisy, gmap], axis=1)
 
         noisy_im = torch.from_numpy(noisy.astype(np.float32))
         clean_im = torch.from_numpy(clean.astype(np.float32))
+        clean_resized_im = torch.from_numpy(clean_resized.astype(np.float32))
         gmaps_median = torch.tensor(np.median(gmap))
         noise_sigmas = torch.tensor(noise_sigma)
 
-        return noisy_im, clean_im, clean_im, gmaps_median, noise_sigmas
+        return noisy_im, clean_im, clean_im, clean_resized_im, gmaps_median, noise_sigmas
 
     def __len__(self):
         """
@@ -755,7 +848,8 @@ def load_mri_data(config):
         "snr_perturb_prob" : c.snr_perturb_prob,
         "snr_perturb" : c.snr_perturb,
         "with_data_degrading" : c.with_data_degrading,
-        "add_noise": c.not_add_noise==False
+        "add_noise": c.not_add_noise==False,
+        "load_2x_resolution": c.super_resolution
     }
 
     train_set = []
@@ -778,17 +872,6 @@ def load_mri_data(config):
                                                 for (i,h_file) in enumerate(h5files)]
     else: # test case is given. take part of it as val set
         test_set, test_h5files = load_mri_test_data(config, ratio_test=ratio[2])
-
-        # val_set = []
-        # val_len = 0
-        # val_len_lim = 12
-        # per_file = 1 if len(test_h5files)>val_len_lim else val_len_lim//len(test_h5files)
-        # # take 8 samples through all files for val set
-        # for h_file,t_keys in test_h5files:
-        #     val_set.append(MRIDenoisingDatasetTest([h_file], keys=[t_keys[:per_file]], use_complex=c.complex_i))
-        #     val_len += per_file
-        #     if val_len > val_len_lim:
-        #         break
 
     total_tra = sum([len(d) for d in train_set])
     total_val = sum([len(d) for d in val_set])
@@ -825,3 +908,60 @@ def load_mri_test_data(config, ratio_test=1.0):
     logging.info(f"loading in test data --- completed")
 
     return test_set, test_h5files
+
+if __name__ == '__main__':
+
+    import nibabel as nib
+
+    file = "/data/mri/data/train_3D_3T_retro_cine_2018_with_2x_resized.h5"
+    h5file = h5py.File(file, libver='earliest', mode='r')
+    keys = list(h5file.keys())
+
+    images = load_images_from_h5file([h5file], [keys], max_load=-1)
+
+    tra_data = MRIDenoisingDatasetTrain([h5file], [keys], data_type='2DT', load_2x_resolution=True)
+
+    saved_path = "/export/Lab-Xue/projects/mri/results/loader_test"
+    os.makedirs(saved_path, exist_ok=True)
+
+    for k in range(10):
+        noisy_im, clean_im, clean_im_degraded, clean_im_2x, gmaps_median, noise_sigmas = tra_data[np.random.randint(len(tra_data))]
+
+        noisy_im = np.transpose(noisy_im.numpy(), (2, 3, 1, 0))
+        clean_im = np.transpose(clean_im.numpy(), (2, 3, 1, 0))
+        clean_im_degraded = np.transpose(clean_im_degraded.numpy(), (2, 3, 1, 0))
+        clean_im_2x = np.transpose(clean_im_2x.numpy(), (2, 3, 1, 0))
+
+        noisy_im = noisy_im[:,:,0,:] + 1j * noisy_im[:,:,1,:]
+        clean_im = clean_im[:,:,0,:] + 1j * clean_im[:,:,1,:]
+        clean_im_degraded = clean_im_degraded[:,:,0,:] + 1j * clean_im_degraded[:,:,1,:]
+        clean_im_2x = clean_im_2x[:,:,0,:] + 1j * clean_im_2x[:,:,1,:]
+
+        nib.save(nib.Nifti1Image(np.abs(noisy_im), affine=np.eye(4)), os.path.join(saved_path, f"noisy_im_{k}.nii"))
+        nib.save(nib.Nifti1Image(np.abs(clean_im), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_{k}.nii"))
+        nib.save(nib.Nifti1Image(np.abs(clean_im_degraded), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_degraded_{k}.nii"))
+        nib.save(nib.Nifti1Image(np.abs(clean_im_2x), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_2x_{k}.nii"))
+        nib.save(nib.Nifti1Image(noisy_im[:,:,2,:], affine=np.eye(4)), os.path.join(saved_path, f"gmap_{k}.nii"))
+        print(gmaps_median, noise_sigmas)
+
+    file = "/data/mri/data/train_3D_3T_retro_cine_2020_500_samples_with_2x_resized.h5"
+    h5file = h5py.File(file, libver='earliest', mode='r')
+    keys = list(h5file.keys())
+
+    test_data = MRIDenoisingDatasetTest([h5file], [keys])
+
+    noisy_im, clean_im, clean_im_degraded, clean_im_2x, gmaps_median, noise_sigmas = test_data[22]
+
+    noisy_im = np.transpose(noisy_im.numpy(), (2, 3, 1, 0))
+    clean_im = np.transpose(clean_im.numpy(), (2, 3, 1, 0))
+    clean_im_2x = np.transpose(clean_im_2x.numpy(), (2, 3, 1, 0))
+
+    noisy_im = noisy_im[:,:,0,:] + 1j * noisy_im[:,:,1,:]
+    clean_im = clean_im[:,:,0,:] + 1j * clean_im[:,:,1,:]
+    clean_im_2x = clean_im_2x[:,:,0,:] + 1j * clean_im_2x[:,:,1,:]
+
+    nib.save(nib.Nifti1Image(np.abs(noisy_im), affine=np.eye(4)), os.path.join(saved_path, f"noisy_im_test.nii"))
+    nib.save(nib.Nifti1Image(np.abs(clean_im), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_test.nii"))
+    nib.save(nib.Nifti1Image(np.abs(clean_im_2x), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_2x_test.nii"))
+    nib.save(nib.Nifti1Image(noisy_im[:,:,2,:], affine=np.eye(4)), os.path.join(saved_path, f"gmap_test.nii"))
+    print(gmaps_median, noise_sigmas)

@@ -159,9 +159,12 @@ class STCNNT_LLMnet(STCNNT_Base_Runtime):
             "kernel_size":(c.kernel_size, c.kernel_size),
             "stride":(c.stride, c.stride),
             "padding":(c.padding, c.padding),
-            
+
+            "stride_s": (c.stride_s, c.stride_s),
             "stride_t":(c.stride_t, c.stride_t),
-            
+
+            "separable_conv": c.separable_conv,
+
             "mixer_kernel_size":(c.mixer_kernel_size, c.mixer_kernel_size),
             "mixer_stride":(c.mixer_stride, c.mixer_stride),
             "mixer_padding":(c.mixer_padding, c.mixer_padding),

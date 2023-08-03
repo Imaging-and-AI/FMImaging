@@ -39,16 +39,16 @@ import nibabel as nib
 class mri_trainer_meters(object):
     """
     A helper class to organize meters for training
-    """    
-    
+    """
+
     def __init__(self, config, device):
-        
+
         super().__init__()
-        
+
         self.config = config
-        
+
         c = config
-        
+
         self.mse_meter = AverageMeter()
         self.l1_meter = AverageMeter()
         self.ssim_meter = AverageMeter()
@@ -70,7 +70,7 @@ class mri_trainer_meters(object):
         self.gaussian3D_func = GaussianDeriv3D_Loss(sigmas=[0.5, 1.0, 1.5], sigmas_T=[0.5, 0.5, 0.5], complex_i=c.complex_i, device=device)
 
     def reset(self):
-        
+
         self.mse_meter.reset()
         self.l1_meter.reset()
         self.ssim_meter.reset()
@@ -84,7 +84,7 @@ class mri_trainer_meters(object):
     def update(self, output, y):
 
         total = y.shape[0]
-        
+
         mse_loss = self.mse_loss_func(output, y).item()
         l1_loss = self.l1_loss_func(output, y).item()
         ssim_loss = self.ssim_loss_func(output, y).item()
@@ -141,64 +141,73 @@ def create_log_str(config, epoch, rank, data_shape, gmap_median, noise_sigma, lo
 
 # -------------------------------------------------------------------------------------------------
 
-def save_batch_samples(saved_path, fname, x, y, output, y_degraded, gmap_median, noise_sigma):
-    
-    noisy_im = x.numpy(force=True)
-    clean_im = y.numpy(force=True)
-    pred_im = output.numpy(force=True)
-    y_degraded = y_degraded.numpy(force=True)
-    
+def save_batch_samples(saved_path, fname, x, y, output, y_2x, y_degraded, gmap_median, noise_sigma):
+
+    noisy_im = x.numpy()
+    clean_im = y.numpy()
+    pred_im = output.numpy()
+    y_degraded = y_degraded.numpy()
+    y_2x = y_2x.numpy()
+
     post_str = ""
     if gmap_median > 0 and noise_sigma > 0:
         post_str = f"_gmap_{gmap_median:.2f}_sigma_{noise_sigma:.2f}"
-    
+
     fname += post_str
-    
+
     np.save(os.path.join(saved_path, f"{fname}_x.npy"), noisy_im)
     np.save(os.path.join(saved_path, f"{fname}_y.npy"), clean_im)
     np.save(os.path.join(saved_path, f"{fname}_output.npy"), pred_im)
     np.save(os.path.join(saved_path, f"{fname}_y_degraded.npy"), y_degraded)
+    np.save(os.path.join(saved_path, f"{fname}_y_2x.npy"), y_2x)
 
     B, T, C, H, W = x.shape
-    
+
     noisy_im = np.transpose(noisy_im, [3, 4, 2, 1, 0])
     clean_im = np.transpose(clean_im, [3, 4, 2, 1, 0])
     pred_im = np.transpose(pred_im, [3, 4, 2, 1, 0])
     y_degraded = np.transpose(y_degraded, [3, 4, 2, 1, 0])
-        
+    y_2x = np.transpose(y_2x, [3, 4, 2, 1, 0])
+
     if C==3:
         x = noisy_im[:,:,0,:,:] + 1j * noisy_im[:,:,1,:,:]
         gmap = noisy_im[:,:,2,:,:]
-        
+
         nib.save(nib.Nifti1Image(np.real(x), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_x_real.nii"))
         nib.save(nib.Nifti1Image(np.imag(x), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_x_imag.nii"))
         nib.save(nib.Nifti1Image(np.abs(x), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_x.nii"))
-        
-        y = clean_im[:,:,0,:,:] + 1j * clean_im[:,:,1,:,:]        
+
+        y = clean_im[:,:,0,:,:] + 1j * clean_im[:,:,1,:,:]
         nib.save(nib.Nifti1Image(np.real(y), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_real.nii"))
         nib.save(nib.Nifti1Image(np.imag(y), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_imag.nii"))
         nib.save(nib.Nifti1Image(np.abs(y), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y.nii"))
-        
+
         output = pred_im[:,:,0,:,:] + 1j * pred_im[:,:,1,:,:]
         nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output_real.nii"))
         nib.save(nib.Nifti1Image(np.imag(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output_imag.nii"))
         nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output.nii"))  
-        
+
         output = y_degraded[:,:,0,:,:] + 1j * y_degraded[:,:,1,:,:]
         nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_degraded_real.nii"))
         nib.save(nib.Nifti1Image(np.imag(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_degraded_imag.nii"))
-        nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_degraded.nii"))        
+        nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_degraded.nii"))
+
+        output = y_2x[:,:,0,:,:] + 1j * y_2x[:,:,1,:,:]
+        nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_2x_real.nii"))
+        nib.save(nib.Nifti1Image(np.imag(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_2x_imag.nii"))
+        nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_2x.nii"))
     else:
         x = noisy_im[:,:,0,:,:]
         gmap = noisy_im[:,:,1,:,:]
-                
+
         nib.save(nib.Nifti1Image(x, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_x.nii"))
         nib.save(nib.Nifti1Image(clean_im, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y.nii"))
         nib.save(nib.Nifti1Image(pred_im, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output.nii"))
         nib.save(nib.Nifti1Image(y_degraded, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_degraded.nii"))
-        
+        nib.save(nib.Nifti1Image(y_2x, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_2x.nii"))
+
     nib.save(nib.Nifti1Image(gmap, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_gmap.nii"))
-           
+
 # -------------------------------------------------------------------------------------------------
 
 def distribute_learning_rates(rank, optim, src=0):
@@ -323,12 +332,14 @@ def trainer(rank, global_rank, config, wandb_run):
     disable_post = config.disable_post
     model_type = config.model_type
     post_hrnet_block_str = config.post_hrnet.block_str
+    post_hrnet_separable_conv = config.post_hrnet.separable_conv
     not_load_pre = config.not_load_pre
     not_load_backbone = config.not_load_backbone
     not_load_post = config.not_load_post
     run_name = config.run_name
     run_notes = config.run_notes
     disable_LSUV = config.disable_LSUV
+    super_resolution = config.super_resolution
 
     ddp = config.ddp
 
@@ -364,6 +375,7 @@ def trainer(rank, global_rank, config, wandb_run):
         config.disable_post = disable_post
         config.post_hrnet = Nestedspace()
         config.post_hrnet.block_str = post_hrnet_block_str
+        config.post_hrnet.separable_conv = post_hrnet_separable_conv
         config.not_load_pre = not_load_pre
         config.not_load_backbone = not_load_backbone
         config.not_load_post = not_load_post
@@ -371,6 +383,7 @@ def trainer(rank, global_rank, config, wandb_run):
         config.run_name = run_name
         config.run_notes = run_notes
         config.disable_LSUV = disable_LSUV
+        config.super_resolution = super_resolution
         #config.load_path = load_path
 
         print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
@@ -449,6 +462,7 @@ def trainer(rank, global_rank, config, wandb_run):
         print(f"{rank_str}, after load saved model, config.weighted_loss_temporal for running - {config.weighted_loss_temporal}")
         print(f"{rank_str}, after load saved model, config.weighted_loss_added_noise for running - {config.weighted_loss_added_noise}")
         print(f"{rank_str}, after load saved model, config.num_workers for running - {config.num_workers}")
+        print(f"{rank_str}, after load saved model, config.super_resolution for running - {config.super_resolution}")
         print(f"{rank_str}, after load saved model, model.curr_epoch for running - {model.curr_epoch}")
         print(f"{rank_str}, {Fore.GREEN}after load saved model, model type - {config.model_type}{Style.RESET_ALL}")
         print(f"{rank_str}, {Fore.RED}after load saved model, model.device - {model.device}{Style.RESET_ALL}")
@@ -510,13 +524,27 @@ def trainer(rank, global_rank, config, wandb_run):
     elif c.backbone == 'unet':
         model_str = f"C {c.backbone_unet.C}, {c.n_head} heads, {c.backbone_unet.block_str}"
 
-    logging.info(f"{rank_str}, {Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, {c.optim}, {c.global_lr}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, weighted loss - snr {c.weighted_loss_snr} - tempoeral {c.weighted_loss_temporal} - added_noise {c.weighted_loss_added_noise}, data degrading {c.with_data_degrading}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, amp {c.use_amp}, {model_str}{Style.RESET_ALL}")
+    logging.info(f"{rank_str}, {Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, {c.optim}, {c.global_lr}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, weighted loss - snr {c.weighted_loss_snr} - tempoeral {c.weighted_loss_temporal} - added_noise {c.weighted_loss_added_noise}, data degrading {c.with_data_degrading}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, amp {c.use_amp}, super resolution {c.super_resolution}, stride_s {c.stride_s}, separable_conv {c.separable_conv}, {model_str}{Style.RESET_ALL}")
 
     # -----------------------------------------------
 
+    num_workers_per_loader = c.num_workers//len(train_set)
+    local_world_size = 1
+
+    if c.ddp:
+        # local_world_size = int(os.environ["LOCAL_WORLD_SIZE"])
+        # num_workers_per_loader = c.num_workers // local_world_size - 1
+        # num_workers_per_loader = 4 if num_workers_per_loader<4 else num_workers_per_loader
+
+        local_world_size = int(os.environ["LOCAL_WORLD_SIZE"])
+        num_workers_per_loader = num_workers_per_loader // local_world_size
+        num_workers_per_loader = 1 if num_workers_per_loader<1 else num_workers_per_loader
+ 
+    logging.info(f"{rank_str}, {Fore.YELLOW}Local_world_size {local_world_size}, number of datasets {len(train_set)}, cpu {os.cpu_count()}, number of workers per loader is {num_workers_per_loader}{Style.RESET_ALL}")
+
     train_loader = [DataLoader(dataset=train_set_x, batch_size=c.batch_size, shuffle=shuffle, sampler=samplers[i],
-                                num_workers=c.num_workers//len(train_set), prefetch_factor=c.prefetch_factor, drop_last=True,
-                                persistent_workers=c.num_workers>0) for i, train_set_x in enumerate(train_set)]
+                                num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor, drop_last=True,
+                                persistent_workers=c.num_workers>0, pin_memory=False) for i, train_set_x in enumerate(train_set)]
 
     train_set_type = [train_set_x.data_type for train_set_x in train_set]
 
@@ -557,18 +585,20 @@ def trainer(rank, global_rank, config, wandb_run):
             # log a few training examples
             for i, train_set_x in enumerate(train_set):
                 ind = np.random.randint(0, len(train_set_x), 4)
-                x, y, y_degraded, gmaps_median, noise_sigmas = train_set_x[ind[0]]
+                x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = train_set_x[ind[0]]
                 x = np.expand_dims(x, axis=0)
                 y = np.expand_dims(y, axis=0)
                 y_degraded = np.expand_dims(y_degraded, axis=0)
+                y_2x = np.expand_dims(y_2x, axis=0)
                 for ii in range(1, len(ind)):
-                    a_x, a_y, a_y_degraded, gmaps_median, noise_sigmas = train_set_x[ind[ii]]
+                    a_x, a_y, a_y_degraded, a_y_2x, gmaps_median, noise_sigmas = train_set_x[ind[ii]]
                     x = np.concatenate((x, np.expand_dims(a_x, axis=0)), axis=0)
                     y = np.concatenate((y, np.expand_dims(a_y, axis=0)), axis=0)
                     y_degraded = np.concatenate((y_degraded, np.expand_dims(a_y_degraded, axis=0)), axis=0)
+                    y_2x = np.concatenate((y_2x, np.expand_dims(a_y_2x, axis=0)), axis=0)
 
                 title = f"Tra_samples_{i}_Noisy_Noisy_GT_{x.shape}"
-                vid = save_image_batch(c.complex_i, x, y_degraded, y)
+                vid = save_image_batch(c.complex_i, x, y_degraded, y, y_2x)
                 wandb_run.log({title:wandb.Video(vid, caption=f"Tra sample {i}", fps=1, format='gif')})
                 logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}, noise range {train_set_x.min_noise_level} to {train_set_x.max_noise_level}")
 
@@ -659,13 +689,16 @@ def trainer(rank, global_rank, config, wandb_run):
                     stuff = next(train_loader_iter[loader_ind], None)
 
                 data_type = train_set_type[loader_ind]
-                x, y, y_degraded, gmaps_median, noise_sigmas = stuff
+                x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = stuff
                 end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
 
+                y_for_loss = y
+                if config.super_resolution:
+                    y_for_loss = y_2x
 
                 tm = start_timer(enable=c.with_timer)
-                x = x.to(device)
-                y = y.to(device)
+                x = x.to(device=device)
+                y_for_loss = y_for_loss.to(device)
                 noise_sigmas = noise_sigmas.to(device)
                 gmaps_median = gmaps_median.to(device)
 
@@ -678,13 +711,13 @@ def trainer(rank, global_rank, config, wandb_run):
                     else:
                         std_t = torch.std(y(y[:,:,0,:,:], dim=1))
 
-                    weights_t = torch.mean(std_t, dim=(-2, -1))
+                    weights_t = torch.mean(std_t, dim=(-2, -1)).to(device)
 
                 # compute snr
-                signal = torch.mean(torch.linalg.norm(y, dim=2, keepdim=True), dim=(1, 2, 3, 4))
+                signal = torch.mean(torch.linalg.norm(y, dim=2, keepdim=True), dim=(1, 2, 3, 4)).to(device)
                 #snr = signal / (noise_sigmas*gmaps_median)
                 snr = signal / gmaps_median
-                snr = snr.to(device)
+                #snr = snr.to(device)
 
                 # base_snr : original snr in the clean patch
                 # noise_sigmas: added noise
@@ -712,19 +745,19 @@ def trainer(rank, global_rank, config, wandb_run):
                     if torch.sum(noise_sigmas).item() > 0:
                         if c.weighted_loss_snr or c.weighted_loss_temporal:
                             if c.weighted_loss_added_noise:
-                                loss = loss_f(output*noise_sigmas, y*noise_sigmas, weights=weights.to(device))
+                                loss = loss_f(output*noise_sigmas, y_for_loss*noise_sigmas, weights=weights.to(device))
                             else:
-                                loss = loss_f(output, y, weights=weights.to(device))
+                                loss = loss_f(output, y_for_loss, weights=weights.to(device))
                         else:
                             if c.weighted_loss_added_noise:
-                                loss = loss_f(output*noise_sigmas, y*noise_sigmas)
+                                loss = loss_f(output*noise_sigmas, y_for_loss*noise_sigmas)
                             else:
-                                loss = loss_f(output, y)
+                                loss = loss_f(output, y_for_loss)
                     else:
                         if c.weighted_loss_snr or c.weighted_loss_temporal:
-                            loss = loss_f(output, y, weights=weights.to(device))
+                            loss = loss_f(output, y_for_loss, weights=weights.to(device))
                         else:
-                            loss = loss_f(output, y)
+                            loss = loss_f(output, y_for_loss)
 
                     loss = loss / c.iters_to_accumulate
 
@@ -764,14 +797,11 @@ def trainer(rank, global_rank, config, wandb_run):
 
                 output = output.to(x.dtype)
 
+                loss_meters.update(output, y_for_loss)
+
                 if rank<=0 and idx%image_save_step_size==0 and images_saved < config.num_saved_samples and config.save_samples:  
-                    save_batch_samples(saved_path, f"tra_epoch_{epoch}_{images_saved}", x, y, output, y_degraded, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
+                    save_batch_samples(saved_path, f"tra_epoch_{epoch}_{images_saved}", x.cpu(), y.cpu(), output.detach().cpu(), y_for_loss.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
                     images_saved += 1
-
-                output_scaled = output
-                y_scaled = y
-
-                loss_meters.update(output_scaled, y_scaled)
 
                 pbar.update(1)
                 log_str = create_log_str(config, epoch, rank, 
@@ -861,7 +891,7 @@ def trainer(rank, global_rank, config, wandb_run):
 
             if c.ddp:
                 distribute_learning_rates(rank=rank, optim=optim, src=0)
-                                    
+
         else: # child processes
             distribute_learning_rates(rank=rank, optim=optim, src=0)
 
@@ -982,9 +1012,17 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
 
     batch_size = c.batch_size if isinstance(val_set[0], MRIDenoisingDatasetTrain) else 1
 
+    num_workers_per_loader = c.num_workers // len(val_set)
+
+    if c.ddp:
+        local_world_size = int(os.environ["LOCAL_WORLD_SIZE"])
+        num_workers_per_loader = c.num_workers // (2 * local_world_size)
+        num_workers_per_loader = 4 if num_workers_per_loader < 4 else num_workers_per_loader
+
+    print(f"eval, num_workers is {num_workers_per_loader}")
     val_loader = [DataLoader(dataset=val_set_x, batch_size=batch_size, shuffle=False, sampler=sampler[i],
-                                num_workers=c.num_workers, prefetch_factor=c.prefetch_factor,
-                                persistent_workers=c.num_workers>0) for i, val_set_x in enumerate(val_set)]
+                                num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor,
+                                persistent_workers=True) for i, val_set_x in enumerate(val_set)]
 
     val_loss_meter = AverageMeter()
     loss_meters = mri_trainer_meters(config=c, device=device) 
@@ -1023,7 +1061,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
                     del val_loader_iter[loader_ind]
                     loader_ind = idx % len(val_loader_iter)
                     batch = next(val_loader_iter[loader_ind], None)
-                x, y, y_degraded, gmaps_median, noise_sigmas = batch
+                x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = batch
 
                 if scaling_factor > 0:
                     x *= scaling_factor
@@ -1034,27 +1072,19 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
                 B = x.shape[0]
                 noise_sigmas = torch.reshape(noise_sigmas, (B, 1, 1, 1, 1))
 
+                if config.super_resolution:
+                    y = y_2x
+
+                x = x.to(device)
+                y = y.to(device)
+
                 if batch_size >1 and x.shape[-1]==c.width[-1]:
-                    # run normal inference
-                    x = x.to(device)
-                    y = y.to(device)
                     output = model(x)
                 else:
-                    two_D = False
-                    cutout_in = cutout
-                    overlap_in = overlap
-                    if x.shape[1]==1:
-                        xy, og_shape, pt_shape = cut_into_patches([x,y], cutout=cutout[1:])
-                        x, y = xy[0], xy[1]
-                        cutout_in = (c.twoD_num_patches_cutout, *cutout[1:])
-                        overlap_in = (c.twoD_num_patches_cutout//4, *overlap[1:])
-                        two_D = True
-
-                    x = x.to(device)
-                    y = y.to(device)
-
                     B, T, C, H, W = x.shape
 
+                    cutout_in = cutout
+                    overlap_in = overlap
                     if not config.pad_time:
                         cutout_in = (T, c.height[-1], c.width[-1])
                         overlap_in = (0, c.height[-1]//2, c.width[-1]//2)
@@ -1065,10 +1095,6 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
                         logging.info(f"{Fore.YELLOW}---> call inference on cpu ...")
                         _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device="cpu")
                         y = y.to("cpu")
-
-                    if two_D:
-                        xy = repatch([x,output,y], og_shape, pt_shape)
-                        x, output, y = xy[0], xy[1], xy[2]
 
                 if scaling_factor > 0:
                     output /= scaling_factor
@@ -1092,13 +1118,13 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
                 if rank<=0 and images_logged < config.num_uploaded and wandb_run is not None:
                     images_logged += 1
                     title = f"{id.upper()}_{images_logged}_{x.shape}"
-                    vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
+                    vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True), y_2x.numpy(force=True))
                     wandb_run.log({title: wandb.Video(vid, 
                                                       caption=f"epoch {epoch}, gmap {torch.mean(gmaps_median).item():.2f}, noise {torch.mean(noise_sigmas).item():.2f}, mse {loss_meters.mse_meter.avg:.2f}, ssim {loss_meters.ssim_meter.avg:.2f}, psnr {loss_meters.psnr_meter.avg:.2f}", 
                                                       fps=1, format="gif")})
 
                 if rank<=0 and images_saved < config.num_saved_samples and config.save_samples:
-                    save_batch_samples(saved_path, f"{id}_epoch_{epoch}_{images_saved}", x, y, output, y_degraded, torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
+                    save_batch_samples(saved_path, f"{id}_epoch_{epoch}_{images_saved}", x.cpu(), y.cpu(), output.cpu(), y_2x.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
                     images_saved += 1
 
                 pbar.update(1)
@@ -1430,18 +1456,18 @@ def compare_model(config, model, model_jit, model_onnx, device='cpu', x=None):
         x = np.random.randn(1, 12, C, 128, 128).astype(np.float32)
 
     B, T, C, H, W = x.shape
-    
+
     model.to(device=device)
     model.eval()
-    
+
     cutout_in = (c.time, c.height[-1], c.width[-1])
     overlap_in = (c.time//2, c.height[-1]//2, c.width[-1]//2)
-    
+
     tm = start_timer(enable=True)    
     y, y_model = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device=device)
     end_timer(enable=True, t=tm, msg="torch model took")
-                            
-    tm = start_timer(enable=True)        
+
+    tm = start_timer(enable=True)
     y_onnx, y_model_onnx = running_inference(model_onnx, x, cutout=cutout_in, overlap=overlap_in, device=device)
     end_timer(enable=True, t=tm, msg="onnx model took")
 
@@ -1466,9 +1492,9 @@ def load_model(saved_model_path, saved_model_config=None, model_type=None):
     @rets:
         - model (torch model): the model ready for inference
     """
-    
+
     config = []
-    
+
     config_file = saved_model_config
     if config_file is not None and os.path.isfile(config_file):
         print(f"{Fore.YELLOW}Load in config file - {config_file}{Style.RESET_ALL}")

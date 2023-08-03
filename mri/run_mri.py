@@ -30,7 +30,7 @@ class mri_ddp_base(run_ddp_base):
         self.cmd.extend([
 
         "--num_epochs", "75",
-        "--batch_size", "16",
+        "--batch_size", "32",
 
         "--window_size", "8", "8",
         "--patch_size", "2", "2",
@@ -44,8 +44,8 @@ class mri_ddp_base(run_ddp_base):
 
         "--iters_to_accumulate", "1",
 
-        "--num_workers", "64",
-        "--prefetch_factor", "4",
+        #"--num_workers", "48",
+        "--prefetch_factor", "8",
 
         "--scheduler_type", "ReduceLROnPlateau",
         #"--scheduler_type", "OneCycleLR",
@@ -88,29 +88,43 @@ class mri_ddp_base(run_ddp_base):
 
         #"--save_samples",
 
-        # "--train_files", "train_3D_3T_retro_cine_2018.h5",  "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5", "train_3D_3T_perf_2018.h5","train_3D_3T_perf_2019.h5", "train_3D_3T_perf_2020.h5","train_3D_3T_perf_2021.h5", 
-        # "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2d",
+        #"--seed", "593197",
 
         "--post_hrnet.block_str", "T1L1G1", "T1L1G1",
 
-        "--train_files", "train_3D_3T_retro_cine_2018.h5",  
-                        "train_3D_3T_retro_cine_2019.h5", 
-                        "train_3D_3T_retro_cine_2020.h5", 
-                        "BARTS_RetroCine_3T_2023.h5", 
-                        "BARTS_RetroCine_1p5T_2023.h5",
-                        #"BWH_Perfusion_3T_2023.h5",
-                        #"BWH_Perfusion_3T_2022.h5",
-                        "MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", 
-                        "MINNESOTA_UHVC_RetroCine_1p5T_2022.h5",
+        "--post_hrnet.separable_conv",
+
+        # "--train_files", "train_3D_3T_retro_cine_2018.h5",  
+        #                 "train_3D_3T_retro_cine_2019.h5", 
+        #                 "train_3D_3T_retro_cine_2020.h5", 
+        #                 "BARTS_RetroCine_3T_2023.h5", 
+        #                 "BARTS_RetroCine_1p5T_2023.h5",
+        #                 #"BWH_Perfusion_3T_2023.h5",
+        #                 #"BWH_Perfusion_3T_2022.h5",
+        #                 "MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", 
+        #                 "MINNESOTA_UHVC_RetroCine_1p5T_2022.h5",
+
+        # "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", 
+        #                 "train_3D_3T_retro_cine_2020_small_2DT_test.h5", 
+        #                 "train_3D_3T_retro_cine_2020_small_2D_test.h5", 
+        #                 "train_3D_3T_retro_cine_2020_500_samples.h5",
 
         "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "3d",
+        "--test_data_types", "3d", "2dt", "2d", "2dt",
 
-        "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", 
-                        "train_3D_3T_retro_cine_2020_small_2DT_test.h5", 
-                        "train_3D_3T_retro_cine_2020_small_2D_test.h5", 
-                        "train_3D_3T_retro_cine_2020_500_samples.h5",
+        "--train_files", "train_3D_3T_retro_cine_2018_with_2x_resized.h5",  
+                         "train_3D_3T_retro_cine_2019_with_2x_resized.h5", 
+                         "train_3D_3T_retro_cine_2020_with_2x_resized.h5", 
+                         "BARTS_RetroCine_3T_2023_with_2x_resized.h5", 
+                         "BARTS_RetroCine_1p5T_2023_with_2x_resized.h5",
+                         "MINNESOTA_UHVC_RetroCine_1p5T_2023_with_2x_resized.h5", 
+                         "MINNESOTA_UHVC_RetroCine_1p5T_2022_with_2x_resized.h5",
+                         #"VIDA_train_clean_0430_with_2x_resized.h5",
 
-        "--test_data_types", "3d", "2dt", "2d", "2dt" 
+        "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test_with_2x_resized.h5", 
+                        "train_3D_3T_retro_cine_2020_small_2DT_test_with_2x_resized.h5", 
+                        "train_3D_3T_retro_cine_2020_small_2D_test_with_2x_resized.h5", 
+                        "train_3D_3T_retro_cine_2020_500_samples_with_2x_resized.h5",
         ])
 
         if config.tra_ratio > 0 and config.tra_ratio<=100:
@@ -123,6 +137,9 @@ class mri_ddp_base(run_ddp_base):
         self.cmd.extend(["--lr_post", f"{config.lr_post}"])
 
         self.cmd.extend(["--model_type", f"{config.model_type}"])
+
+        if config.super_resolution:
+            self.cmd.extend(["--super_resolution"])
 
         if config.not_load_pre:
             self.cmd.extend(["--not_load_pre"])
@@ -155,7 +172,7 @@ class mri_ddp_base(run_ddp_base):
         vars['mixer_types'] = ["conv"]
         vars['shuffle_in_windows'] = ["0"]
         vars['block_dense_connections'] = ["1"]
-        vars['norm_modes'] = ["batch2d"]
+        vars['norm_modes'] = ["batch2d", "instance2d"]
         vars['C'] = [32]
         vars['scale_ratio_in_mixers'] = [1.0]
 
@@ -163,10 +180,9 @@ class mri_ddp_base(run_ddp_base):
 
         vars['block_strs'] = [
                         [
-                            #["T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
+                            #["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
                             ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
                             ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
                             ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
                             ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                          ],
@@ -433,6 +449,8 @@ class mri_ddp_base(run_ddp_base):
         parser.add_argument("--disable_post", action="store_true", help='if set, post module will have require_grad_(False).')
 
         parser.add_argument("--disable_LSUV", action="store_true", help='if set, do not perform LSUV init.')
+
+        parser.add_argument("--super_resolution", action="store_true", help='if set, training with 2x upsampling in spatial resolution.')
 
         parser.add_argument("--not_add_noise", action="store_true", help='if set, will not add noise to images.')
         parser.add_argument("--with_data_degrading", action="store_true", help='if set, degrade image before adding noise.')

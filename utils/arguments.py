@@ -51,7 +51,7 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
     parser.add_argument("--ratio", nargs='+', type=float, default=[100,100,0], help='Ratio (as a percentage) for train/val/test divide of given data. Does allow for using partial dataset')    
 
     # dataloader arguments
-    parser.add_argument("--num_workers", type=int, default=64, help='number of total workers for data loading')
+    parser.add_argument("--num_workers", type=int, default=-1, help='number of total workers for data loading; if <=0, use os.cpu_count()')
     parser.add_argument("--prefetch_factor", type=int, default=8, help='number of batches loaded in advance by each worker')
 
     # trainer arguments
@@ -132,29 +132,31 @@ def add_shared_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for S
     parser.add_argument("--kernel_size", type=int, default=3, help='size of the square kernel for CNN')
     parser.add_argument("--stride", type=int, default=1, help='stride for CNN (equal x and y)')
     parser.add_argument("--padding", type=int, default=1, help='padding for CNN (equal x and y)')
-    parser.add_argument("--stride_t", type=int, default=2, help='stride for temporal attention cnn (equal x and y)') 
-    
+    parser.add_argument("--stride_s", type=int, default=1, help='stride for spatial attention, q and k (equal x and y)') 
+    parser.add_argument("--stride_t", type=int, default=2, help='stride for temporal attention, q and k (equal x and y)') 
+    parser.add_argument("--separable_conv", action="store_true", help='if set, use separable conv')
+
     parser.add_argument("--mixer_kernel_size", type=int, default=5, help='conv kernel size for the mixer')
     parser.add_argument("--mixer_stride", type=int, default=1, help='stride for the mixer')
     parser.add_argument("--mixer_padding", type=int, default=2, help='padding for the mixer')
-      
+
     parser.add_argument("--normalize_Q_K", action="store_true", help='whether to normalize Q and K before computing attention matrix')
     parser.add_argument("--cosine_att", type=int, default=0, help='whether to use cosine attention; if True, normalize_Q_K is ignored')   
     parser.add_argument("--att_with_relative_postion_bias", type=int, default=1, help='whether to use relative position bias')   
-            
+
     parser.add_argument("--att_dropout_p", type=float, default=0.0, help='pdrop for the attention coefficient matrix')
     parser.add_argument("--dropout_p", type=float, default=0.1, help='pdrop regulization for stochastic residual connections')
-    
+
     parser.add_argument("--att_with_output_proj", type=int, default=1, help='whether to add output projection in attention layer')
     parser.add_argument("--scale_ratio_in_mixer", type=float, default=4.0, help='the scaling ratio to increase/decrease dimensions in the mixer of an attention layer')
-    
+
     parser.add_argument("--norm_mode", type=str, default="instance2d", help='normalization mode: "layer", "batch2d", "instance2d", "batch3d", "instance3d"')
-    
+
     parser.add_argument("--shuffle_in_window", type=int, default=0, help='whether to shuffle patches in a window for the global attention')    
-    
+
     parser.add_argument("--is_causal", action="store_true", help='treat timed data as causal and mask future entries')
     parser.add_argument("--interp_align_c", action="store_true", help='align corners while interpolating')
-    
+
     parser = add_shared_args(parser)
 
     return parser
@@ -163,20 +165,20 @@ def add_backbone_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for
     """
     Add backbone model specific parameters
     """
-    
+
     parser.add_argument('--backbone', type=str, default="hrnet", help="which backbone model to use, 'hrnet', 'unet', 'LLM', 'small_unet' ")
-    
+
     parser.add_argument("--use_einsum", action="store_true", help='if set, use einsum implementation.')
     parser.add_argument("--temporal_flash_attention", action="store_true", help='if set, temporal attention uses flash attention implementation.')
-    
+
     # hrnet
     parser.add_argument('--backbone_hrnet.C', dest='backbone_hrnet.C', type=int, default=32, help="number of channels in main body of hrnet")
     parser.add_argument('--backbone_hrnet.num_resolution_levels', dest='backbone_hrnet.num_resolution_levels', type=int, default=2, help="number of resolution levels; image size reduce by x2 for every level")
     parser.add_argument('--backbone_hrnet.block_str', dest='backbone_hrnet.block_str', nargs='+', type=str, default=['T1L1G1'], help="block string \
         to define the attention layers in blocks; if multiple strings are given, each is for a resolution level.")
     parser.add_argument('--backbone_hrnet.use_interpolation', dest='backbone_hrnet.use_interpolation', type=int, default=1, help="whether to use interpolation in downsample layer; if False, use stride convolution")
-    
-    # unet            
+
+    # unet
     parser.add_argument('--backbone_unet.C', dest='backbone_unet.C', type=int, default=32, help="number of channels in main body of unet")
     parser.add_argument('--backbone_unet.num_resolution_levels', dest='backbone_unet.num_resolution_levels', type=int, default=2, help="number of resolution levels for unet; image size reduce by x2 for every level")
     parser.add_argument('--backbone_unet.block_str', dest='backbone_unet.block_str', nargs='+', type=str, default=['T1L1G1'], help="block string \
@@ -184,20 +186,19 @@ def add_backbone_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for
     parser.add_argument('--backbone_unet.use_unet_attention', dest='backbone_unet.use_unet_attention', type=int, default=1, help="whether to add unet attention between resolution levels")
     parser.add_argument('--backbone_unet.use_interpolation', dest='backbone_unet.use_interpolation', type=int, default=1, help="whether to use interpolation in downsample layer; if False, use stride convolution")
     parser.add_argument('--backbone_unet.with_conv', dest='backbone_unet.with_conv', type=int, default=1, help="whether to add conv in down/upsample layers; if False, only interpolation is performed")
-    
+
     # LLMs
     parser.add_argument('--backbone_LLM.C', dest='backbone_LLM.C', type=int, default=32, help="number of channels in main body of LLM net")
     parser.add_argument('--backbone_LLM.num_stages', dest='backbone_LLM.num_stages', type=int, default=2, help="number of stages")
     parser.add_argument('--backbone_LLM.block_str', dest='backbone_LLM.block_str', nargs='+', type=str, default=['T1L1G1'], help="block string \
         to define the attention layers in stages; if multiple strings are given, each is for a stage.")    
     parser.add_argument('--backbone_LLM.add_skip_connections', dest='backbone_LLM.add_skip_connections', type=int, default=1, help="whether to add skip connections between stages; if True, densenet type connections are added; if False, LLM type network is created.")
-                     
+
     # small unet
     parser.add_argument("--backbone_small_unet.channels", dest='backbone_small_unet.channels', nargs='+', type=int, default=[16,32,64], help='number of channels in each layer')
     parser.add_argument('--backbone_small_unet.block_str', dest='backbone_small_unet.block_str', nargs='+', type=str, default=['T1L1G1'], help="block string \
         to define the attention layers in stages; if multiple strings are given, each is for a stage.")   
-       
-    parser = add_shared_STCNNT_args(parser=parser)
-            
-    return parser
 
+    parser = add_shared_STCNNT_args(parser=parser)
+
+    return parser

@@ -61,3 +61,53 @@ azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_500_samples.h5?${SAS}" /exp
 #azcopy copy "https://stcnnt.blob.core.windows.net/imagenet/downloaded/ILSVRC2012_img_train.tar?sp=racwdli&st=2023-05-23T12:12:36Z&se=2026-05-23T20:12:36Z&sv=2022-11-02&sr=c&sig=BD8VIaux4YSYsmkg6JdeIf1ckVAVmcGCnqlHGp93h8Y%3D" /export/Lab-Xue/projects/imagenet/data
 #azcopy copy "https://stcnnt.blob.core.windows.net/imagenet/downloaded/ILSVRC2012_devkit_t12.tar.gz?sp=racwdli&st=2023-05-23T12:12:36Z&se=2026-05-23T20:12:36Z&sv=2022-11-02&sr=c&sig=BD8VIaux4YSYsmkg6JdeIf1ckVAVmcGCnqlHGp93h8Y%3D" /export/Lab-Xue/projects/imagenet/data
 #azcopy copy "https://stcnnt.blob.core.windows.net/imagenet/downloaded/ILSVRC2012_img_val.tar?sp=racwdli&st=2023-05-23T12:12:36Z&se=2026-05-23T20:12:36Z&sv=2022-11-02&sr=c&sig=BD8VIaux4YSYsmkg6JdeIf1ckVAVmcGCnqlHGp93h8Y%3D" /export/Lab-Xue/projects/imagenet/data
+
+azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_3D_test_with_2x_resized.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2DT_test_with_2x_resized.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2D_test_with_2x_resized.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_500_samples_with_2x_resized.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+
+azcopy copy "${data_src}/train_3D_3T_retro_cine_2018_with_2x_resized.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/train_3D_3T_retro_cine_2019_with_2x_resized.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_with_2x_resized.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/BARTS_RetroCine_3T_2023_with_2x_resized.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/BARTS_RetroCine_1p5T_2023_with_2x_resized.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/MINNESOTA_UHVC_RetroCine_1p5T_2023_with_2x_resized.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/MINNESOTA_UHVC_RetroCine_1p5T_2022_with_2x_resized.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/VIDA_train_clean_0430_with_2x_resized.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+
+
+# cine
+azcopy copy "${data_src}/train_3D_3T_retro_cine_2018.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/train_3D_3T_retro_cine_2019.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/train_3D_3T_retro_cine_2020.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/train_3D_3T_retro_cine_2021.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+
+azcopy copy "${data_src}/MINNESOTA_UHVC_RetroCine_1p5T_2023.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/MINNESOTA_UHVC_RetroCine_1p5T_2022.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/BWH_RetroCine_3T_2023.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/BWH_RetroCine_3T_2022.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/BWH_RetroCine_3T_2021.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+
+azcopy copy "${data_src}/BARTS_RetroCine_3T_2023.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/BARTS_RetroCine_1p5T_2023.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+
+azcopy copy "${data_src}/train_3D_3T_perf_2018.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/train_3D_3T_perf_2019.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/train_3D_3T_perf_2020.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/train_3D_3T_perf_2021.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+
+azcopy copy "${data_src}/BWH_Perfusion_3T_2023.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/BWH_Perfusion_3T_2022.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/BWH_Perfusion_3T_2021.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+
+azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2DT_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2D_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_3D_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_500_samples.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+
+ln -s /export/Lab-Xue/projects/data/train_3D_3T_retro_cine_2020_small_3D_test_with_2x_resized.h5 /export/Lab-Xue/projects/mri/data/train_3D_3T_retro_cine_2020_small_3D_test_with_2x_resized.h5
+ln -s /export/Lab-Xue/projects/data/train_3D_3T_retro_cine_2020_small_2DT_test_with_2x_resized.h5 /export/Lab-Xue/projects/mri/data/train_3D_3T_retro_cine_2020_small_2DT_test_with_2x_resized.h5
+ln -s /export/Lab-Xue/projects/data/train_3D_3T_retro_cine_2020_small_2D_test_with_2x_resized.h5 /export/Lab-Xue/projects/mri/data/train_3D_3T_retro_cine_2020_small_2D_test_with_2x_resized.h5
+ln -s /export/Lab-Xue/projects/data/train_3D_3T_retro_cine_2020_500_samples_with_2x_resized.h5 /export/Lab-Xue/projects/mri/data/train_3D_3T_retro_cine_2020_500_samples_with_2x_resized.h5
+

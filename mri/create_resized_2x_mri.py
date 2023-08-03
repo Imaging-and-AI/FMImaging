@@ -54,29 +54,32 @@ def create_resized_data(write_path, h5_file, keys):
             gmap = np.expand_dims(gmap, axis=0)
         N = gmap.shape[0]
 
-        opt = dict(shape=[T, 2*RO-1, 2*E1-1], anchor='edge', bound='replicate')
+        opt = dict(shape=[T, 2*RO, 2*E1], anchor='first', bound='replicate')
         x = torch.from_numpy(np.real(data)).to(device=device, dtype=torch.float32)
         x_2x = interpol.resize(x, **opt, interpolation=5)
         y = torch.from_numpy(np.imag(data)).to(device, dtype=torch.float32)
         y_2x = interpol.resize(y, **opt, interpolation=5)
         data_resized = torch.complex(x_2x.to(dtype=torch.float32), y_2x.to(dtype=torch.float32)).cpu().numpy()
 
-        opt = dict(shape=[N, 2*RO-1, 2*E1-1], anchor='edge', bound='replicate')
+        opt = dict(shape=[N, 2*RO, 2*E1], anchor='first', bound='replicate')
         x = torch.from_numpy(gmap).to(device)
         x_2x = interpol.resize(x, **opt, interpolation=5)
         gmap_resized = x_2x.cpu().numpy().astype(np.float32)
 
         # -------------------------------------------------------
-        data_folder = h5_file_2d.create_group(key)
+        if RO>64 and E1>64 and data_resized.shape[1]>128 and data_resized.shape[2]>128:
+            data_folder = h5_file_2d.create_group(key)
 
-        data_folder["clean"] = data.astype(np.csingle)
-        data_folder["gmap"] = gmap.astype(np.float16)
-        data_folder["clean_resized"] = data_resized
-        data_folder["gmap_resized"] = gmap_resized
+            data_folder["image"] = data.squeeze().astype(np.csingle)
+            data_folder["gmap"] = gmap.squeeze().astype(np.float16)
+            data_folder["image_resized"] = data_resized.squeeze()
+            data_folder["gmap_resized"] = gmap_resized.squeeze()
 
-        if is_test:
-            data_folder["noisy"] = noisy
-            data_folder["noise_sigma"] = noise_sigma
+            if is_test:
+                data_folder["noisy"] = noisy
+                data_folder["noise_sigma"] = noise_sigma
+        else:
+            print(f"Warning - {key} - data resized is too small - {data_resized.shape}")
 
         # saved_path = "/export/Lab-Xue/projects/mri/test"
         # nib.save(nib.Nifti1Image(np.real(np.transpose(data, (1, 2, 0))), affine=np.eye(4)), os.path.join(saved_path, f"{key}_x_real.nii"))

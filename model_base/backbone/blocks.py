@@ -46,13 +46,18 @@ class STCNNT_Block(nn.Module):
                     a_type="conv", mixer_type="conv", cell_type="sequential",
                     window_size=None, patch_size=None, num_wind=[8, 8], num_patch=[4, 4], 
                     is_causal=False, n_head=8,
-                    kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), stride_t=(2,2),
+                    kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), 
+                    stride_s=(1,1), 
+                    stride_t=(2,2),
+                    separable_conv = False,
                     mixer_kernel_size=(5, 5), mixer_stride=(1, 1), mixer_padding=(2, 2),
                     cosine_att=True,  
                     normalize_Q_K=False, 
-                    att_dropout_p=0.0, dropout_p=0.1, 
+                    att_dropout_p=0.0, 
+                    dropout_p=0.1, 
                     att_with_relative_postion_bias=True,
-                    att_with_output_proj=True, scale_ratio_in_mixer=4.0, 
+                    att_with_output_proj=True, 
+                    scale_ratio_in_mixer=4.0, 
                     norm_mode="layer",
                     interpolate="none", 
                     interp_align_c=False,
@@ -80,7 +85,8 @@ class STCNNT_Block(nn.Module):
             - is_causal (bool): whether to mask attention to imply causality
             - n_head (int): number of heads in self attention
             - kernel_size, stride, padding (int, int): convolution parameters
-            - stride_t (int, int): special stride for temporal attention k,q matrices
+            - stride_s (int, int): stride for spatial attention k,q matrices
+            - stride_t (int, int): stride for temporal attention k,q matrices
             - normalize_Q_K (bool): whether to use layernorm to normalize Q and K, as in 22B ViT paper
             - att_dropout_p (float): probability of dropout for attention coefficients
             - dropout (float): probability of dropout
@@ -121,7 +127,10 @@ class STCNNT_Block(nn.Module):
         self.stride = stride
         self.padding = padding
 
+        self.stride_s = stride_s
         self.stride_t = stride_t
+
+        self.separable_conv = separable_conv,
 
         self.mixer_kernel_size = mixer_kernel_size
         self.mixer_stride = mixer_stride
@@ -175,7 +184,8 @@ class STCNNT_Block(nn.Module):
                                                                   window_size=window_size, patch_size=patch_size, 
                                                                   num_wind=num_wind, num_patch=num_patch, 
                                                                   is_causal=is_causal, n_head=n_head,
-                                                                  kernel_size=kernel_size, stride=stride, padding=padding, stride_t=stride_t,
+                                                                  kernel_size=kernel_size, stride=stride, padding=padding, stride_s=stride_s, stride_t=stride_t,
+                                                                  separable_conv=self.separable_conv,
                                                                   mixer_kernel_size=mixer_kernel_size, mixer_stride=mixer_stride, mixer_padding=mixer_padding,
                                                                   normalize_Q_K=normalize_Q_K, att_dropout_p=att_dropout_p, dropout_p=dropout_p,
                                                                   cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias, 
@@ -188,7 +198,8 @@ class STCNNT_Block(nn.Module):
                                                                            window_size=window_size, patch_size=patch_size, 
                                                                            num_wind=num_wind, num_patch=num_patch,
                                                                            is_causal=is_causal, n_head=n_head,
-                                                                           kernel_size=kernel_size, stride=stride, padding=padding, stride_t=stride_t,
+                                                                           kernel_size=kernel_size, stride=stride, padding=padding, stride_s=stride_s, stride_t=stride_t,
+                                                                           separable_conv=self.separable_conv,
                                                                            mixer_kernel_size=mixer_kernel_size, mixer_stride=mixer_stride, mixer_padding=mixer_padding,
                                                                            normalize_Q_K=normalize_Q_K, att_dropout_p=att_dropout_p, dropout_p=dropout_p, 
                                                                            cosine_att=cosine_att, att_with_relative_postion_bias=att_with_relative_postion_bias, 
@@ -264,7 +275,7 @@ def tests():
     att_typess = ["L1", "G1", "T1", "L0", "L1", "G0", "G1", "T1", "T0", "V1", "V0", "L0G1T0V1", "T1L0G1V0"]
 
     for att_types in att_typess:
-        CNNT_Block = STCNNT_Block(H=H, W=W, att_types=att_types, C_in=C, C_out=C_out, window_size=[H//8, W//8], patch_size=[H//16, W//16])
+        CNNT_Block = STCNNT_Block(H=H, W=W, att_types=att_types, C_in=C, C_out=C_out, window_size=[H//8, W//8], patch_size=[H//16, W//16], separable_conv=True)
         test_out, _ = CNNT_Block(test_in)
 
         Bo, To, Co, Ho, Wo = test_out.shape
@@ -277,7 +288,7 @@ def tests():
 
     for interpolate in interpolates:
         for interp_align_c in interp_align_cs:
-            CNNT_Block = STCNNT_Block(H=H, W=W, att_types=att_types, C_in=C, C_out=C_out, window_size=[H//8, W//8], patch_size=[H//16, W//16], 
+            CNNT_Block = STCNNT_Block(H=H, W=W, att_types=att_types, C_in=C, C_out=C_out, window_size=[H//8, W//8], patch_size=[H//16, W//16], stride_s=(2,2), separable_conv=False,
                                    interpolate=interpolate, interp_align_c=interp_align_c)
             test_out_1, test_out_2 = CNNT_Block(test_in)
 

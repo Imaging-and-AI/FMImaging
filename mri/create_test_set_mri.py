@@ -181,7 +181,7 @@ def create_3d_repeated(write_path, N=20, sigmas=[1,11,1], random_mask=False):
             data_folder = h5_file_3d.create_group(grp_name)
 
             data_folder["noisy"] = noisy_data
-            data_folder["clean"] = data
+            data_folder["image"] = data
             data_folder["gmap"] = gmap
             data_folder["noise_sigma"] = noise_sigma
 
