@@ -98,7 +98,7 @@ def main():
     gmap /= args.gmap_scaling
     
     if len(image.shape) == 3 and gmap.ndim==3 and gmap.shape[2]==image.shape[2]:
-        output = apply_model_3D(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device())
+        output = apply_model_3D(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device(), verbose=True)
         print(f"3D mode, {args.input_dir}, images - {image.shape}, gmap - {gmap.shape}, median gmap {np.median(gmap)}")
     else:
         if len(image.shape) == 2:
@@ -125,7 +125,7 @@ def main():
         else:
             overlap_used = None
 
-        output = apply_model(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device(), overlap=overlap_used)
+        output = apply_model(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device(), overlap=overlap_used, verbose=True)
 
         # input = np.flip(image, axis=0)
         # output2 = apply_model(input, model, np.flip(gmap, axis=0), config=config, scaling_factor=args.scaling_factor, device=get_device())

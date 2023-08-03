@@ -97,10 +97,10 @@ def process_a_batch(args, model, config, images, selected_cases, gmaps, device):
         gmap = gmaps[ind]
 
         if len(image.shape) == 3 and gmap.ndim==3 and gmap.shape[2]==image.shape[2]:
-            output = apply_model_3D(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device(), overlap=overlap_used)
+            output = apply_model_3D(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device(), overlap=overlap_used, verbose=True)
             print(f"3D mode, {args.input_dir}, images - {image.shape}, gmap - {gmap.shape}, median gmap {np.median(gmap)}")
         else:
-            output = apply_model(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=device, overlap=overlap_used)
+            output = apply_model(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=device, overlap=overlap_used, verbose=True)
 
         case = os.path.basename(case_dir)
         output_dir = os.path.join(args.output_dir, case)
