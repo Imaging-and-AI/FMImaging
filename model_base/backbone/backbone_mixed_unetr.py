@@ -980,6 +980,10 @@ def run_test(config, data_shape=(1, 128, 1, 256, 256), num_resolution_levels=4, 
     config.backbone_mixed_unetr.encoder_on_skip_connection = 1
     config.backbone_mixed_unetr.transformer_for_upsampling = 0
     config.backbone_mixed_unetr.n_heads = [32, 32, 32, 32, 32]
+    
+    if T == 1:
+        use_conv_3d = False
+    
     config.backbone_mixed_unetr.use_conv_3d = use_conv_3d
     
     config.use_einsum = use_einsum
@@ -988,13 +992,15 @@ def run_test(config, data_shape=(1, 128, 1, 256, 256), num_resolution_levels=4, 
 
     config.with_timer = True
     print(f"{Fore.GREEN}-------------> STCNNT_mixed_Unetr, einsum-{config.use_einsum}-stride_s-{config.stride_s}-separable_conv-{config.separable_conv}-use_conv_3d-{config.backbone_mixed_unetr.use_conv_3d} <----------------------{Style.RESET_ALL}")
-    model = STCNNT_mixed_Unetr(config=config)
+    model = STCNNT_Mixed_Unetr(config=config)
     model.to(device=device)
     
     with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
         for k in range(10):
             model.with_timer = k==9
             y = model(test_in)
+            if k==9:
+                print(f"input shape - {test_in.shape}, output shape - {y.shape}")
 
     model.with_timer = False
     benchmark_all(model, test_in, grad=None, min_run_time=min_run_time, desc='STCNNT_mixed_Unetr', verbose=True, amp=True, amp_dtype=torch.bfloat16)
@@ -1011,6 +1017,16 @@ def tests():
     ns = Nestedspace()
     config_base = parser.parse_args(namespace=ns)
     
+    # -----------------------------------------------------
+    
+    data_shape = (8, 1, 3, 256, 256)
+    num_resolution_levels = 2
+    
+    for separable_conv in [False, True]:
+        for use_einsum in [False, True]:
+            for use_conv_3d in [True, False]:
+                config = run_test(config=copy.deepcopy(config_base), data_shape=data_shape, num_resolution_levels=num_resolution_levels, separable_conv=separable_conv, use_einsum=use_einsum, use_conv_3d=use_conv_3d, min_run_time=2)
+                
     # -----------------------------------------------------
     data_shape = (1, 12, 1, 64, 64)
     num_resolution_levels = 2
@@ -1032,7 +1048,7 @@ def tests():
                 
     # -----------------------------------------------------
     device = get_device()
-    model = STCNNT_mixed_Unetr(config=config)
+    model = STCNNT_Mixed_Unetr(config=config)
     model.to(device=device)
     with torch.no_grad():
         model_summary = model_info(model, config)
