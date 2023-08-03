@@ -46,6 +46,9 @@ model=/export/Lab-Xue/projects/mri/test/second_stage/mri-MRI_double_net_20230722
 # more denoising, less sharpness
 model=/export/Lab-Xue/projects/mri/test/second_stage/mri-MRI_double_net_20230722_235953_782390_C-32-1_amp-False_2nd_stage_perp_gaussian_ssim_complex_residual_weighted_loss_snr_temporal_added_noise-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-62.pth
 
+# model after speed up and retraining
+model=/export/Lab-Xue/projects/mri/test/second_stage/mri-MRI_double_net_20230731_225634_401217_C-32-1_amp-True_2nd_stage_noise_1to8_amp_complex_residual_weighted_loss_snr_temporal_added_noise-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-51.pth*
+
 RES_DIR=res_double_net
 model_type_str=MRI_double_net
 
