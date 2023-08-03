@@ -123,7 +123,7 @@ class _encoder_on_skip_connection(nn.Module):
         res = self.nl1(res)
         res = self.conv2(res)
         res = self.norm2(res)
-        if self.residual:
+        if self.residual and self.C_in==self.C_out:
             res += residual
         res = self.nl2(res)
         
@@ -251,12 +251,12 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
         self.conv_window_partition = create_conv(in_channels=C_in_wp, out_channels=self.C, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
 
         if self.encoder_on_input:
-            self.E = _encoder_on_skip_connection(H=H, W=W, C_in=c.C_in, C_out=self.C, norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
+            self.E = _encoder_on_skip_connection(H=H, W=W, C_in=c.C_in, C_out=self.C, norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d, residual=(c.C_in == self.C))
         else:
             self.E = None
             
         if encoder_on_skip_connection:            
-            self.EW = _encoder_on_skip_connection(H=H//2, W=W//2, C_in=self.C, C_out=self.C, norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
+            self.EW = _encoder_on_skip_connection(H=H//2, W=W//2, C_in=self.C, C_out=self.C, norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d, residual=True)
         else:
             self.E = nn.Identity()
 
@@ -1057,6 +1057,88 @@ def tests():
     # -----------------------------------------------------
        
     print("Passed all tests")
+    
+    
+def test2():
+    
+    def create_mixed_unetr_config(num_channels,
+                                    num_classes,
+                                    img_height,
+                                    img_width,
+                                    img_depth):
+
+        parser = add_backbone_STCNNT_args()
+
+        config = parser.parse_args(args=[],namespace=Nestedspace())
+        config.C_in = num_channels
+        config.C_out = num_classes
+        config.time = img_depth
+
+        config.num_wind =[8, 8]
+        config.window_size = [img_height//(2*config.num_wind[0]), img_width//(2*config.num_wind[1])]
+        config.num_patch =[4, 4]
+        config.patch_size = [config.window_size[0]//config.num_patch[0], config.window_size[1]//config.num_patch[1]]
+  
+
+        config.backbone_mixed_unetr.block_str = ["T1L1G1",
+                                                "T1L1G1",
+                                                "T1L1G1",
+                                                "T1L1G1",
+                                                "T1L1G1"]
+
+        config.backbone_mixed_unetr.C = 32
+        config.backbone_mixed_unetr.num_resolution_levels = 4
+        config.backbone_mixed_unetr.use_unet_attention = 1
+        config.backbone_mixed_unetr.use_interpolation = 1
+        config.backbone_mixed_unetr.with_conv = 0
+        config.backbone_mixed_unetr.min_T = 16
+        config.backbone_mixed_unetr.encoder_on_input = 1
+        config.backbone_mixed_unetr.encoder_on_skip_connection = 1
+        config.backbone_mixed_unetr.transformer_for_upsampling = 0
+        config.backbone_mixed_unetr.n_heads = [32, 32, 32, 32, 32]
+        config.backbone_mixed_unetr.use_conv_3d = 1
+    
+
+        config.use_einsum = False
+        config.separable_conv = False
+        config.stride_s = 1
+
+        # THIS IS FROM THE PREVIOUS CONFIG
+
+        config.height = [img_height]
+        config.width = [img_width]
+        config.block_dense_connection = True
+        config.a_type = 'conv'
+        config.mixer_type = 'conv'
+
+        # config.window_size = [window_size,window_size]
+
+        # config.patch_size = [patch_size,patch_size]
+
+        config.scale_ratio_in_mixer=1
+        config.mixer_kernel_size=3
+        config.mixer_padding=1
+        config.normalize_Q_K=True
+        config.cosine_att=1
+        config.norm_mode='instance2d'
+        config.cell_type='sequential'
+
+        return config
+
+
+    xy = 256
+    t = 16
+    n_ch = 3
+
+    model_config = create_mixed_unetr_config(num_channels=n_ch,
+                                            num_classes=1,
+                                            img_height = xy,
+                                            img_width = xy,
+                                            img_depth = t)
+
+    model = STCNNT_Mixed_Unetr(config=model_config)
+    inimg = torch.ones((2,t,n_ch,xy,xy))
+    model_out = model(inimg)
 
 if __name__=="__main__":
-    tests()
+    test2()
