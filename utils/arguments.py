@@ -200,7 +200,8 @@ def add_backbone_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for
     parser.add_argument('--backbone_mixed_unetr.transformer_for_upsampling', dest='backbone_mixed_unetr.transformer_for_upsampling', type=int, default=1, help="whether to use transformer for upsampling branch")
     parser.add_argument("--backbone_mixed_unetr.n_heads", dest='backbone_mixed_unetr.n_heads', nargs='+', type=int, default=[4, 8, 12, 24, 32], help='number of heads in each resolution layer')
     parser.add_argument('--backbone_mixed_unetr.use_conv_3d', dest='backbone_mixed_unetr.use_conv_3d', type=int, default=1, help="whether to use 3D convolution")
-
+    parser.add_argument('--backbone_mixed_unetr.use_window_partition', dest='backbone_mixed_unetr.use_window_partition', type=int, default=1, help="whether to add window partition on input tensors")
+    
     # LLMs
     parser.add_argument('--backbone_LLM.C', dest='backbone_LLM.C', type=int, default=32, help="number of channels in main body of LLM net")
     parser.add_argument('--backbone_LLM.num_stages', dest='backbone_LLM.num_stages', type=int, default=2, help="number of stages")

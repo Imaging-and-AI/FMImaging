@@ -202,6 +202,7 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
         transformer_for_upsampling = config.backbone_mixed_unetr.transformer_for_upsampling
         n_heads = config.backbone_mixed_unetr.n_heads
         use_conv_3d = config.backbone_mixed_unetr.use_conv_3d
+        use_window_partition = config.backbone_mixed_unetr.use_window_partition
 
         assert C >= config.C_in, "Number of channels should be larger than C_in"
         assert num_resolution_levels <= 5 and num_resolution_levels>=1, "Maximal number of resolution levels is 5"
@@ -228,7 +229,8 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
         self.transformer_for_upsampling = transformer_for_upsampling
         self.n_heads = n_heads
         self.use_conv_3d = use_conv_3d
-
+        self.use_window_partition = use_window_partition
+        
         self.with_timer = config.with_timer
 
         c = copy.deepcopy(config)
@@ -238,37 +240,47 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
         W = c.width[0]
         T = c.time
 
-        if T//2 > min_T:
-            self.window_partition = WindowPartition3D()
-            C_in_wp = 8 * c.C_in
-            T = T//2
-            is_3D_window_partition = True
+        if use_window_partition:
+            if T//2 > min_T:
+                self.window_partition = WindowPartition3D()
+                C_in_wp = 8 * c.C_in
+                T = T//2
+                is_3D_window_partition = True
+            else:
+                self.window_partition = WindowPartition2D()
+                C_in_wp = 4 * c.C_in
+                is_3D_window_partition = False
+        
+            self.conv_window_partition = create_conv(in_channels=C_in_wp, out_channels=self.C, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
+                    
+            if encoder_on_skip_connection:            
+                self.EW = _encoder_on_skip_connection(H=c.height[0], W=c.width[0], C_in=self.C, C_out=self.C, norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d, residual=True)
+            else:
+                self.EW = nn.Identity()
+                                
+            c.height[0] = H//2
+            c.width[0] = W//2
+            
+            C_start = self.C
         else:
-            self.window_partition = WindowPartition2D()
-            C_in_wp = 4 * c.C_in
-            is_3D_window_partition = False
-
-        self.conv_window_partition = create_conv(in_channels=C_in_wp, out_channels=self.C, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
+            self.window_partition = nn.Identity()
+            self.conv_window_partition = nn.Identity()
+            C_start = c.C_in
+            
+            self.encoder_on_input = False
 
         if self.encoder_on_input:
             self.E = _encoder_on_skip_connection(H=H, W=W, C_in=c.C_in, C_out=self.C, norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d, residual=(c.C_in == self.C))
         else:
-            self.E = None
-            
-        if encoder_on_skip_connection:            
-            self.EW = _encoder_on_skip_connection(H=H//2, W=W//2, C_in=self.C, C_out=self.C, norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d, residual=True)
-        else:
             self.E = nn.Identity()
-
+            
         # compute number of windows and patches
-        c.height[0] = H//2
-        c.width[0] = W//2
 
         self.num_wind = [c.height[0]//c.window_size[0], c.width[0]//c.window_size[1]]
         self.num_patch = [c.window_size[0]//c.patch_size[0], c.window_size[1]//c.patch_size[1]]
 
         kwargs = {
-            "C_in":self.C,
+            "C_in":C_start,
             "C_out":self.C,
             "H":c.height[0],
             "W":c.width[0],
@@ -319,9 +331,12 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
         window_sizes = []
         patch_sizes = []
 
+        def print_block_info(kwargs, module_name):
+            print(f"{module_name} --> H {kwargs['H']}, W {kwargs['W']}, C_in {kwargs['C_in']}, C_out {kwargs['C_out']}")
+
         if num_resolution_levels >= 1:
             # define D0
-            kwargs["C_in"] = self.C
+            kwargs["C_in"] = C_start
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
@@ -332,6 +347,8 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
                 kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], c.window_size, c.patch_size, module_name="D0")
             else: # mixed
                 kwargs = set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]] , self.num_wind, self.num_patch, module_name="D0")
+
+            print_block_info(kwargs, "D0")
 
             window_sizes.append(kwargs["window_size"])
             patch_sizes.append(kwargs["patch_size"])
@@ -368,6 +385,8 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
             kwargs["n_head"] = n_heads[1]
             self.D1 = STCNNT_Block(**kwargs)
 
+            print_block_info(kwargs, "D1")
+
             if encoder_on_skip_connection:
                 self.E1 = _encoder_on_skip_connection(H=kwargs["H"], W=kwargs["W"], C_in=kwargs["C_out"], C_out=kwargs["C_out"], norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
             else:
@@ -395,6 +414,8 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
             kwargs["att_types"] = self.block_str[2]
             kwargs["n_head"] = n_heads[2]
             self.D2 = STCNNT_Block(**kwargs)
+
+            print_block_info(kwargs, "D2")
 
             if encoder_on_skip_connection:
                 self.E2 = _encoder_on_skip_connection(H=kwargs["H"], W=kwargs["W"], C_in=kwargs["C_out"], C_out=kwargs["C_out"], norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
@@ -424,6 +445,8 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
             kwargs["n_head"] = n_heads[3]
             self.D3 = STCNNT_Block(**kwargs)
 
+            print_block_info(kwargs, "D3")
+
             if encoder_on_skip_connection:
                 self.E3 = _encoder_on_skip_connection(H=kwargs["H"], W=kwargs["W"], C_in=kwargs["C_out"], C_out=kwargs["C_out"], norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
             else:
@@ -452,6 +475,8 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
             kwargs["n_head"] = n_heads[4]
             self.D4 = STCNNT_Block(**kwargs)
 
+            print_block_info(kwargs, "D4")
+
             if encoder_on_skip_connection:
                 self.E4 = _encoder_on_skip_connection(H=kwargs["H"], W=kwargs["W"], C_in=kwargs["C_out"], C_out=kwargs["C_out"], norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
             else:
@@ -469,6 +494,8 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
         kwargs["n_head"] = n_heads[-1]
         kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[-1], patch_sizes[-1], module_name="bridge")
         self.bridge = STCNNT_Block(**kwargs)
+
+        print_block_info(kwargs, "bridge")
 
         # -----------------------------------------------------
         if num_resolution_levels >= 5:
@@ -490,6 +517,8 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
             else:
                 self.U4 = _decoder_conv(H=kwargs["H"], W=kwargs["W"], C_in=kwargs["C_in"], C_out=kwargs["C_out"], norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
 
+            print_block_info(kwargs, "U4")
+
         if num_resolution_levels >= 4:
             self.up_3 = UpSample(N=1, C_in=8*self.C, C_out=8*self.C, with_conv=self.with_conv, is_3D=self.down_3.is_3D)
             if self.use_unet_attention:
@@ -508,6 +537,8 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
                 self.U3 = STCNNT_Block(**kwargs)
             else:
                 self.U3 = _decoder_conv(H=kwargs["H"], W=kwargs["W"], C_in=kwargs["C_in"], C_out=kwargs["C_out"], norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
+
+            print_block_info(kwargs, "U3")
 
         if num_resolution_levels >= 3:
             self.up_2 = UpSample(N=1, C_in=4*self.C, C_out=4*self.C, with_conv=self.with_conv, is_3D=self.down_2.is_3D)
@@ -528,6 +559,8 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
             else:
                 self.U2 = _decoder_conv(H=kwargs["H"], W=kwargs["W"], C_in=kwargs["C_in"], C_out=kwargs["C_out"], norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
 
+            print_block_info(kwargs, "U2")
+
         if num_resolution_levels >= 2:
             self.up_1 = UpSample(N=1, C_in=2*self.C, C_out=2*self.C, with_conv=self.with_conv, is_3D=self.down_1.is_3D)
             if self.use_unet_attention:
@@ -547,8 +580,10 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
             else:
                 self.U1 = _decoder_conv(H=kwargs["H"], W=kwargs["W"], C_in=kwargs["C_in"], C_out=kwargs["C_out"], norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
 
+            print_block_info(kwargs, "U1")
+
         if num_resolution_levels >= 1:
-            self.up_0 = UpSample(N=1, C_in=self.C, C_out=self.C, with_conv=self.with_conv, is_3D=self.down_0.is_3D)
+            self.up_0 = UpSample(N=1, C_in=2*self.C, C_out=2*self.C, with_conv=self.with_conv, is_3D=self.down_0.is_3D)
             if self.use_unet_attention:
                 self.attention_0 = _unet_attention(C_q=self.C, C=self.C, use_conv_3d=use_conv_3d)
             else:
@@ -566,6 +601,8 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
             else:
                 self.U0 = _decoder_conv(H=kwargs["H"], W=kwargs["W"], C_in=kwargs["C_in"], C_out=kwargs["C_out"], norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
 
+            print_block_info(kwargs, "U0")
+
         # -----------------------------------------------------
         if self.use_unet_attention:
             self.attention_w = _unet_attention(C_q=self.C, C=self.C, use_conv_3d=use_conv_3d)
@@ -573,22 +610,30 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
             self.attention_w = nn.Identity()
 
         # -----------------------------------------------------
-        kwargs["C_in"] = 4*self.C
-        kwargs["C_out"] = 4*self.C
-        kwargs["H"] = c.height[0]
-        kwargs["W"] = c.width[0]
-        kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[0], patch_sizes[0], module_name="UW")
-        kwargs["att_types"] = self.block_str[0]
-        kwargs["n_head"] = n_heads[0]
-        if transformer_for_upsampling:
-            self.UW = STCNNT_Block(**kwargs)
+        if use_window_partition:
+            kwargs["C_in"] = 3*self.C + C_start
+            kwargs["C_out"] = 4*self.C
+            kwargs["H"] = c.height[0]
+            kwargs["W"] = c.width[0]
+            kwargs = set_window_patch_sizes_keep_window_size(kwargs, [kwargs["H"],kwargs["W"]], window_sizes[0], patch_sizes[0], module_name="UW")
+            kwargs["att_types"] = self.block_str[0]
+            kwargs["n_head"] = n_heads[0]
+            if transformer_for_upsampling:
+                self.UW = STCNNT_Block(**kwargs)
+            else:
+                self.UW = _decoder_conv(H=kwargs["H"], W=kwargs["W"], C_in=kwargs["C_in"], C_out=kwargs["C_out"], norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
+
+            print_block_info(kwargs, "UW")
         else:
-            self.UW = _decoder_conv(H=kwargs["H"], W=kwargs["W"], C_in=kwargs["C_in"], C_out=kwargs["C_out"], norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
+            self.UW = nn.Identity()
 
         # -----------------------------------------------------
 
-        self.up_w = UpSample(N=1, C_in=4*self.C, C_out=4*self.C, with_conv=self.with_conv, is_3D=is_3D_window_partition)
-
+        if use_window_partition:
+            self.up_w = UpSample(N=1, C_in=4*self.C, C_out=4*self.C, with_conv=self.with_conv, is_3D=is_3D_window_partition)
+        else:
+            self.up_w = nn.Identity()
+            
     # -------------------------------------------------------------------------------------------
 
     def check_class_specific_parameters(self, config):
@@ -609,7 +654,7 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
             else:
                 return x_E
         elif not self.encoder_on_skip_connection and self.use_unet_attention:
-            if y.shape[2] == x_E.shape[2]:
+            if y.shape[2] == x.shape[2]:
                 return unet_attention_layer(q=y, x=x)
             else:
                 return x
@@ -641,13 +686,13 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
         end_timer(enable=self.with_timer, t=tm, msg="self.conv_window_partition(x_w)")
 
         x_E = None
-        if self.encoder_on_input:
+        if self.use_window_partition and self.encoder_on_input:
             tm = start_timer(enable=self.with_timer)
             x_E, _ = self.E(x)
             end_timer(enable=self.with_timer, t=tm, msg="self.E(x)")
             
         x_EW = None
-        if self.encoder_on_skip_connection:
+        if self.use_window_partition and self.encoder_on_skip_connection:
             tm = start_timer(enable=self.with_timer)
             x_EW, _ = self.EW(x_w)
             end_timer(enable=self.with_timer, t=tm, msg="self.EW(x_w)")
@@ -892,22 +937,25 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
             x_gated_0 = self._get_gated_output(x_0, x_E0, y_0, self.attention_0)
             y_w, _ = self.U0(torch.cat((x_gated_0, y_0), dim=2))
 
-        tm = start_timer(enable=self.with_timer)
-        x_gated_w = self._get_gated_output(x_w, x_EW, y_w, self.attention_w)
-        end_timer(enable=self.with_timer, t=tm, msg="self._get_gated_output(x_w, x_EW, y_w, self.attention_w)")
-        
-        tm = start_timer(enable=self.with_timer)
-        y_hat, _ = self.UW(torch.cat((y_w, x_gated_w), dim=2))
-        end_timer(enable=self.with_timer, t=tm, msg="self.UW(torch.cat((y_w, x_gated_w), dim=2))")
-        
-        tm = start_timer(enable=self.with_timer)
-        y_hat = self.up_w(y_hat)
-        end_timer(enable=self.with_timer, t=tm, msg="self.up_w(y_hat)")
-
-        if self.encoder_on_input:
+        if self.use_window_partition:
             tm = start_timer(enable=self.with_timer)
-            y_hat = torch.cat((x_E, y_hat), dim=2)
-            end_timer(enable=self.with_timer, t=tm, msg="torch.cat((y_hat, x_E), dim=2)")
+            x_gated_w = self._get_gated_output(x_w, x_EW, y_w, self.attention_w)
+            end_timer(enable=self.with_timer, t=tm, msg="self._get_gated_output(x_w, x_EW, y_w, self.attention_w)")
+            
+            tm = start_timer(enable=self.with_timer)
+            y_hat, _ = self.UW(torch.cat((y_w, x_gated_w), dim=2))
+            end_timer(enable=self.with_timer, t=tm, msg="self.UW(torch.cat((y_w, x_gated_w), dim=2))")
+            
+            tm = start_timer(enable=self.with_timer)
+            y_hat = self.up_w(y_hat)
+            end_timer(enable=self.with_timer, t=tm, msg="self.up_w(y_hat)")
+
+            if self.encoder_on_input:
+                tm = start_timer(enable=self.with_timer)
+                y_hat = torch.cat((x_E, y_hat), dim=2)
+                end_timer(enable=self.with_timer, t=tm, msg="torch.cat((y_hat, x_E), dim=2)")
+        else:
+            y_hat = y_w
             
         return y_hat
 
@@ -916,7 +964,7 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
 
 # -------------------------------------------------------------------------------------------------
 
-def run_test(config, data_shape=(1, 128, 1, 256, 256), num_resolution_levels=4, separable_conv=True, use_einsum=True, use_conv_3d=True, min_run_time=5):
+def run_test(config, data_shape=(1, 128, 1, 256, 256), num_resolution_levels=4, separable_conv=True, use_einsum=True, use_conv_3d=True, transformer_for_upsampling=0, use_window_partition=True, min_run_time=5):
     
     from utils.benchmark import benchmark_all, benchmark_memory, pytorch_profiler
     from utils.setup_training import set_seed
@@ -974,12 +1022,13 @@ def run_test(config, data_shape=(1, 128, 1, 256, 256), num_resolution_levels=4, 
     config.backbone_mixed_unetr.num_resolution_levels = num_resolution_levels
     config.backbone_mixed_unetr.use_unet_attention = 1
     config.backbone_mixed_unetr.use_interpolation = 1
-    config.backbone_mixed_unetr.with_conv = 0
+    config.backbone_mixed_unetr.with_conv = 1
     config.backbone_mixed_unetr.min_T = 16
     config.backbone_mixed_unetr.encoder_on_input = 0
-    config.backbone_mixed_unetr.encoder_on_skip_connection = 1
-    config.backbone_mixed_unetr.transformer_for_upsampling = 0
+    config.backbone_mixed_unetr.encoder_on_skip_connection = 0
+    config.backbone_mixed_unetr.transformer_for_upsampling = transformer_for_upsampling
     config.backbone_mixed_unetr.n_heads = [32, 32, 32, 32, 32]
+    config.backbone_mixed_unetr.use_window_partition = use_window_partition
     
     if T == 1:
         use_conv_3d = False
@@ -991,7 +1040,7 @@ def run_test(config, data_shape=(1, 128, 1, 256, 256), num_resolution_levels=4, 
     config.stride_s = 1
 
     config.with_timer = True
-    print(f"{Fore.GREEN}-------------> STCNNT_mixed_Unetr, einsum-{config.use_einsum}-stride_s-{config.stride_s}-separable_conv-{config.separable_conv}-use_conv_3d-{config.backbone_mixed_unetr.use_conv_3d} <----------------------{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}-------------> STCNNT_mixed_Unetr, einsum-{config.use_einsum}-stride_s-{config.stride_s}-separable_conv-{config.separable_conv}-use_conv_3d-{config.backbone_mixed_unetr.use_conv_3d}-transformer_for_upsampling-{transformer_for_upsampling} <----------------------{Style.RESET_ALL}")
     model = STCNNT_Mixed_Unetr(config=config)
     model.to(device=device)
     
@@ -1016,36 +1065,48 @@ def tests():
     parser = add_backbone_STCNNT_args()
     ns = Nestedspace()
     config_base = parser.parse_args(namespace=ns)
-    
+
     # -----------------------------------------------------
-    
-    data_shape = (8, 1, 3, 256, 256)
-    num_resolution_levels = 2
-    
+
+    data_shape = (1, 16, 1, 256, 256)
+    num_resolution_levels = 4
+
     for separable_conv in [False, True]:
         for use_einsum in [False, True]:
             for use_conv_3d in [True, False]:
-                config = run_test(config=copy.deepcopy(config_base), data_shape=data_shape, num_resolution_levels=num_resolution_levels, separable_conv=separable_conv, use_einsum=use_einsum, use_conv_3d=use_conv_3d, min_run_time=2)
-                
+                for transformer_for_upsampling in [0, 1]:
+                    for use_window_partition in [False, True]:
+                        config = run_test(config=copy.deepcopy(config_base), data_shape=data_shape, num_resolution_levels=num_resolution_levels, 
+                                        separable_conv=separable_conv, use_einsum=use_einsum, use_conv_3d=use_conv_3d, transformer_for_upsampling=transformer_for_upsampling, 
+                                        use_window_partition=use_window_partition, min_run_time=2)
+
+    # -----------------------------------------------------
+
+    data_shape = (8, 1, 3, 256, 256)
+    num_resolution_levels = 2
+
+    for separable_conv in [False, True]:
+        for use_einsum in [False, True]:
+            for use_conv_3d in [True, False]:
+                for transformer_for_upsampling in [0, 1]:
+                    for use_window_partition in [True, False]:
+                        config = run_test(config=copy.deepcopy(config_base), data_shape=data_shape, num_resolution_levels=num_resolution_levels, 
+                                        separable_conv=separable_conv, use_einsum=use_einsum, use_conv_3d=use_conv_3d, transformer_for_upsampling=transformer_for_upsampling, 
+                                        use_window_partition=use_window_partition, min_run_time=2)
+
     # -----------------------------------------------------
     data_shape = (1, 12, 1, 64, 64)
     num_resolution_levels = 2
-    
+
     for separable_conv in [False, True]:
         for use_einsum in [False, True]:
             for use_conv_3d in [True, False]:
-                config = run_test(config=copy.deepcopy(config_base), data_shape=data_shape, num_resolution_levels=num_resolution_levels, separable_conv=separable_conv, use_einsum=use_einsum, use_conv_3d=use_conv_3d, min_run_time=2)
-    
-    # -----------------------------------------------------
-    
-    data_shape = (1, 128, 1, 256, 256)
-    num_resolution_levels = 4
-    
-    for separable_conv in [False, True]:
-        for use_einsum in [False, True]:
-            for use_conv_3d in [True, False]:
-                config = run_test(config=copy.deepcopy(config_base), data_shape=data_shape, num_resolution_levels=num_resolution_levels, separable_conv=separable_conv, use_einsum=use_einsum, use_conv_3d=use_conv_3d, min_run_time=5)
-                
+                for transformer_for_upsampling in [0, 1]:
+                    for use_window_partition in [True, False]:
+                        config = run_test(config=copy.deepcopy(config_base), data_shape=data_shape, num_resolution_levels=num_resolution_levels, 
+                                        separable_conv=separable_conv, use_einsum=use_einsum, use_conv_3d=use_conv_3d, transformer_for_upsampling=transformer_for_upsampling, 
+                                        use_window_partition=use_window_partition, min_run_time=2)
+
     # -----------------------------------------------------
     device = get_device()
     model = STCNNT_Mixed_Unetr(config=config)
@@ -1055,10 +1116,9 @@ def tests():
     print(f"Configuration for this run:\n{config}")
     print(f"Model Summary:\n{str(model_summary)}")
     # -----------------------------------------------------
-       
+
     print("Passed all tests")
-    
-    
+
 def test2():
     
     def create_mixed_unetr_config(num_channels,
@@ -1092,9 +1152,9 @@ def test2():
         config.backbone_mixed_unetr.use_interpolation = 1
         config.backbone_mixed_unetr.with_conv = 0
         config.backbone_mixed_unetr.min_T = 16
-        config.backbone_mixed_unetr.encoder_on_input = 1
-        config.backbone_mixed_unetr.encoder_on_skip_connection = 1
-        config.backbone_mixed_unetr.transformer_for_upsampling = 0
+        config.backbone_mixed_unetr.encoder_on_input = 0
+        config.backbone_mixed_unetr.encoder_on_skip_connection = 0
+        config.backbone_mixed_unetr.transformer_for_upsampling = 1
         config.backbone_mixed_unetr.n_heads = [32, 32, 32, 32, 32]
         config.backbone_mixed_unetr.use_conv_3d = 1
     
@@ -1136,9 +1196,15 @@ def test2():
                                             img_width = xy,
                                             img_depth = t)
 
+    device = get_device()
+    
     model = STCNNT_Mixed_Unetr(config=model_config)
-    inimg = torch.ones((2,t,n_ch,xy,xy))
+    model.to(device=device)
+    
+    inimg = torch.ones((2,t,n_ch,xy,xy), device=device)
+    
     model_out = model(inimg)
 
 if __name__=="__main__":
+    tests()
     test2()

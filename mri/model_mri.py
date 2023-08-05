@@ -136,10 +136,13 @@ class STCNNT_MRI(STCNNT_Task_Base):
                 self.post = Conv2DExt(hrnet_C_out, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
         if self.config.backbone == "mixed_unetr":
-            if config.backbone_mixed_unetr.encoder_on_input:
-                mixed_unetr_C_out = config.backbone_mixed_unetr.C * 5
+            if config.backbone_mixed_unetr.use_window_partition:
+                if config.backbone_mixed_unetr.encoder_on_input:
+                    mixed_unetr_C_out = config.backbone_mixed_unetr.C * 5
+                else:
+                    mixed_unetr_C_out = config.backbone_mixed_unetr.C * 4
             else:
-                mixed_unetr_C_out = config.backbone_mixed_unetr.C * 4
+                mixed_unetr_C_out = config.backbone_mixed_unetr.C * 3
                 
             if self.config.super_resolution:
                 self.post = nn.Sequential()

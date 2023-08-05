@@ -70,6 +70,7 @@ class mri_ddp_base(run_ddp_base):
         "--backbone_mixed_unetr.transformer_for_upsampling", "0", 
         "--backbone_mixed_unetr.n_heads", "32", "32", "32", 
         "--backbone_mixed_unetr.use_conv_3d", "1",
+        "--backbone_mixed_unetr.use_window_partition", "0",
     
         # unet
         "--backbone_unet.num_resolution_levels", "2",
@@ -173,7 +174,7 @@ class mri_ddp_base(run_ddp_base):
 
         vars['optim'] = ['sophia']
 
-        vars['backbone'] = ['hrnet', 'mixed_unetr']
+        vars['backbone'] = ['mixed_unetr']
         vars['cell_types'] = ["parallel"]
         vars['Q_K_norm'] = [True]
         vars['cosine_atts'] = ["1"]
