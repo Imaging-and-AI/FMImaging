@@ -187,7 +187,7 @@ class mri_ddp_base(run_ddp_base):
         vars['mixer_types'] = ["conv"]
         vars['shuffle_in_windows'] = ["0"]
         vars['block_dense_connections'] = ["1"]
-        vars['norm_modes'] = ["batch2d", "instance2d"]
+        vars['norm_modes'] = ["instance2d", "batch2d"]
         vars['C'] = [32]
         vars['scale_ratio_in_mixers'] = [1.0]
 
