@@ -41,6 +41,8 @@ class mri_ddp_base(run_ddp_base):
         "--weight_decay", "1",
 
         #"--use_amp", 
+        
+        "--activation_func", "prelu",
 
         "--iters_to_accumulate", "1",
 
@@ -174,7 +176,7 @@ class mri_ddp_base(run_ddp_base):
 
         vars['optim'] = ['sophia']
 
-        vars['backbone'] = ['mixed_unetr']
+        vars['backbone'] = ['hrnet', 'mixed_unetr']
         vars['cell_types'] = ["parallel"]
         vars['Q_K_norm'] = [True]
         vars['cosine_atts'] = ["1"]

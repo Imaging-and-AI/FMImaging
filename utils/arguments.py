@@ -168,7 +168,7 @@ def add_backbone_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for
 
     parser.add_argument('--backbone', type=str, default="hrnet", help="which backbone model to use, 'hrnet', 'unet', 'mixed_unetr', 'LLM', 'small_unet' ")
 
-    parser.add_argument('--activation_func', type=str, default="prelu", help="nonlinear activation function, elu, relu, leakyrelu, prelu, relu6, selu, celu, prelu ")
+    parser.add_argument('--activation_func', type=str, default="prelu", help="nonlinear activation function, elu, relu, leakyrelu, prelu, relu6, selu, celu, gelu ")
     parser.add_argument("--use_einsum", action="store_true", help='if set, use einsum implementation.')
     parser.add_argument("--temporal_flash_attention", action="store_true", help='if set, temporal attention uses flash attention implementation.')
 

@@ -159,7 +159,9 @@ class CNNT_Unet(STCNNT_Base_Runtime):
             "shuffle_in_window": c.shuffle_in_window,
             
             "use_einsum": c.use_einsum,
-            "temporal_flash_attention": c.temporal_flash_attention
+            "temporal_flash_attention": c.temporal_flash_attention,
+
+            "activation_func": c.activation_func
         }
 
         window_sizes = []
