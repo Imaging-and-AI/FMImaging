@@ -1143,10 +1143,10 @@ def test2():
   
 
         config.backbone_mixed_unetr.block_str = ["T1L1G1",
-                                                "T1L1G1",
-                                                "T1L1G1",
-                                                "T1L1G1",
-                                                "T1L1G1"]
+                                                "T1L1G1T1L1G1",
+                                                "T1L1G1T1L1G1",
+                                                "T1L1G1T1L1G1",
+                                                "T1L1G1T1L1G1"]
 
         config.backbone_mixed_unetr.C = 32
         config.backbone_mixed_unetr.num_resolution_levels = 4
@@ -1154,11 +1154,12 @@ def test2():
         config.backbone_mixed_unetr.use_interpolation = 1
         config.backbone_mixed_unetr.with_conv = 0
         config.backbone_mixed_unetr.min_T = 16
-        config.backbone_mixed_unetr.encoder_on_input = 0
-        config.backbone_mixed_unetr.encoder_on_skip_connection = 0
-        config.backbone_mixed_unetr.transformer_for_upsampling = 1
+        config.backbone_mixed_unetr.encoder_on_input = 1
+        config.backbone_mixed_unetr.encoder_on_skip_connection = 1
+        config.backbone_mixed_unetr.transformer_for_upsampling = 0
         config.backbone_mixed_unetr.n_heads = [32, 32, 32, 32, 32]
         config.backbone_mixed_unetr.use_conv_3d = 1
+        config.backbone_mixed_unetr.use_window_partition = 0
     
 
         config.use_einsum = False
@@ -1189,7 +1190,7 @@ def test2():
 
 
     xy = 256
-    t = 16
+    t = 1
     n_ch = 3
 
     model_config = create_mixed_unetr_config(num_channels=n_ch,
@@ -1203,10 +1204,12 @@ def test2():
     model = STCNNT_Mixed_Unetr(config=model_config)
     model.to(device=device)
     
-    inimg = torch.ones((2,t,n_ch,xy,xy), device=device)
-    
+    inimg = torch.ones((2,1,n_ch,xy,xy), device=device)
+
+    print(f"model_input is {inimg.shape}")
     model_out = model(inimg)
+    print(f"model_out is {model_out.shape}")
 
 if __name__=="__main__":
-    tests()
+    #tests()
     test2()
