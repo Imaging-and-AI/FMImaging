@@ -331,8 +331,6 @@ def trainer(rank, global_rank, config, wandb_run):
     disable_backbone = config.disable_backbone
     disable_post = config.disable_post
     model_type = config.model_type
-    post_hrnet_block_str = config.post_hrnet.block_str
-    post_hrnet_separable_conv = config.post_hrnet.separable_conv
     not_load_pre = config.not_load_pre
     not_load_backbone = config.not_load_backbone
     not_load_post = config.not_load_post
@@ -340,6 +338,20 @@ def trainer(rank, global_rank, config, wandb_run):
     run_notes = config.run_notes
     disable_LSUV = config.disable_LSUV
     super_resolution = config.super_resolution
+
+    post_backbone = config.post_backbone
+
+    post_hrnet_block_str = config.post_hrnet.block_str
+    post_hrnet_separable_conv = config.post_hrnet.separable_conv
+
+    post_mixed_unetr_num_resolution_levels = config.post_mixed_unetr.num_resolution_levels
+    post_mixed_unetr_block_str = config.post_mixed_unetr.block_str
+    post_mixed_unetr_use_unet_attention = config.post_mixed_unetr.use_unet_attention
+    post_mixed_unetr_transformer_for_upsampling = config.post_mixed_unetr.transformer_for_upsampling
+    post_mixed_unetr_n_heads = config.post_mixed_unetr.n_heads
+    post_mixed_unetr_use_conv_3d = config.post_mixed_unetr.use_conv_3d
+    post_mixed_unetr_use_window_partition = config.post_mixed_unetr.use_window_partition
+    post_mixed_unetr_separable_conv = config.post_mixed_unetr.separable_conv
 
     ddp = config.ddp
 
@@ -373,9 +385,6 @@ def trainer(rank, global_rank, config, wandb_run):
         config.disable_pre = disable_pre
         config.disable_backbone = disable_backbone
         config.disable_post = disable_post
-        config.post_hrnet = Nestedspace()
-        config.post_hrnet.block_str = post_hrnet_block_str
-        config.post_hrnet.separable_conv = post_hrnet_separable_conv
         config.not_load_pre = not_load_pre
         config.not_load_backbone = not_load_backbone
         config.not_load_post = not_load_post
@@ -384,6 +393,22 @@ def trainer(rank, global_rank, config, wandb_run):
         config.run_notes = run_notes
         config.disable_LSUV = disable_LSUV
         config.super_resolution = super_resolution
+
+        config.post_backbone = post_backbone
+
+        config.post_hrnet = Nestedspace()
+        config.post_hrnet.block_str = post_hrnet_block_str
+        config.post_hrnet.separable_conv = post_hrnet_separable_conv
+
+        config.post_mixed_unetr = Nestedspace()
+        config.post_mixed_unetr.num_resolution_levels = post_mixed_unetr_num_resolution_levels
+        config.post_mixed_unetr.block_str = post_mixed_unetr_block_str
+        config.post_mixed_unetr.use_unet_attention = post_mixed_unetr_use_unet_attention
+        config.post_mixed_unetr.transformer_for_upsampling = post_mixed_unetr_transformer_for_upsampling
+        config.post_mixed_unetr.n_heads = post_mixed_unetr_n_heads
+        config.post_mixed_unetr.use_conv_3d = post_mixed_unetr_use_conv_3d
+        config.post_mixed_unetr.use_window_partition = post_mixed_unetr_use_window_partition
+        config.post_mixed_unetr.separable_conv = post_mixed_unetr_separable_conv
         #config.load_path = load_path
 
         print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
@@ -463,6 +488,10 @@ def trainer(rank, global_rank, config, wandb_run):
         print(f"{rank_str}, after load saved model, config.weighted_loss_added_noise for running - {config.weighted_loss_added_noise}")
         print(f"{rank_str}, after load saved model, config.num_workers for running - {config.num_workers}")
         print(f"{rank_str}, after load saved model, config.super_resolution for running - {config.super_resolution}")
+        print(f"{rank_str}, after load saved model, config.post_backbone for running - {config.post_backbone}")
+        print(f"{rank_str}, after load saved model, config.post_hrnet for running - {config.post_hrnet}")
+        print(f"{rank_str}, after load saved model, config.post_mixed_unetr for running - {config.post_mixed_unetr}")
+
         print(f"{rank_str}, after load saved model, model.curr_epoch for running - {model.curr_epoch}")
         print(f"{rank_str}, {Fore.GREEN}after load saved model, model type - {config.model_type}{Style.RESET_ALL}")
         print(f"{rank_str}, {Fore.RED}after load saved model, model.device - {model.device}{Style.RESET_ALL}")

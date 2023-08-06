@@ -131,9 +131,9 @@ class STCNNT_MRI(STCNNT_Task_Base):
             if self.config.super_resolution:
                 self.post = nn.ModuleDict()
                 self.post.add_module("post_ps", PixelShuffle2DExt(2))
-                self.post.add_module("post_conv", Conv2DExt(hrnet_C_out//4, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True))
+                self.post.add_module("post_conv", Conv2DExt(hrnet_C_out//4, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=False))
             else:
-                self.post = Conv2DExt(hrnet_C_out, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
+                self.post = Conv2DExt(hrnet_C_out, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=False)
 
         if self.config.backbone == "mixed_unetr":
             if config.backbone_mixed_unetr.use_window_partition:
@@ -143,14 +143,14 @@ class STCNNT_MRI(STCNNT_Task_Base):
                     mixed_unetr_C_out = config.backbone_mixed_unetr.C * 4
             else:
                 mixed_unetr_C_out = config.backbone_mixed_unetr.C * 3
-                
+
             if self.config.super_resolution:
                 self.post = nn.ModuleDict()
                 self.post.add_module("post_ps", PixelShuffle2DExt(2))
                 self.post.add_module("post_conv", Conv2DExt(mixed_unetr_C_out//4, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True))
             else:
                 self.post = Conv2DExt(mixed_unetr_C_out, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
-                
+
         if config.backbone == "unet":
             self.post = Conv2DExt(config.backbone_unet.C, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
@@ -698,39 +698,83 @@ class MRI_double_net(STCNNT_MRI):
             - config (Namespace): runtime namespace for setup
             - total_steps (int): total training steps. used for OneCycleLR
         """
-        assert config.backbone == 'hrnet'
+        assert config.backbone == 'hrnet' or config.backbone == 'mixed_unetr'
+        assert config.post_backbone == 'hrnet' or config.post_backbone == 'mixed_unetr'
         super().__init__(config=config, total_steps=1)
+
+    def get_backbone_C_out(self):
+        config = self.config
+        if config.backbone == 'hrnet':
+            C = config.backbone_hrnet.C
+            backbone_C_out = int(C * sum([np.power(2, k) for k in range(config.backbone_hrnet.num_resolution_levels)]))
+        else:
+            C = config.backbone_mixed_unetr.C
+
+            if config.backbone_mixed_unetr.use_window_partition:
+                if config.backbone_mixed_unetr.encoder_on_input:
+                    backbone_C_out = config.backbone_mixed_unetr.C * 5
+                else:
+                    backbone_C_out = config.backbone_mixed_unetr.C * 4
+            else:
+                backbone_C_out = config.backbone_mixed_unetr.C * 3
+
+        return backbone_C_out
 
     def create_post(self):
 
         config = self.config
-        assert config.backbone_hrnet.num_resolution_levels >= 1 and config.backbone_hrnet.num_resolution_levels<= 4
 
-        C = config.backbone_hrnet.C
+        backbone_C_out = self.get_backbone_C_out()
 
-        hrnet_C_out = int(C * sum([np.power(2, k) for k in range(config.backbone_hrnet.num_resolution_levels)]))
+        if config.post_backbone == 'hrnet':
+            config_post = copy.deepcopy(config)
+            config_post.backbone_hrnet.block_str = config.post_hrnet.block_str
+            config_post.separable_conv = config.post_hrnet.separable_conv
 
-        config_post = copy.deepcopy(config)
-        config_post.backbone_hrnet.block_str = config.post_hrnet.block_str
-        config_post.separable_conv = config.post_hrnet.separable_conv
-        
-        self.post = torch.nn.ModuleDict()
+            self.post = torch.nn.ModuleDict()
 
-        config_post.C_in = hrnet_C_out
-        config_post.backbone_hrnet.C = hrnet_C_out
-        self.post['post_main'] = STCNNT_HRnet(config=config_post)
+            config_post.C_in = backbone_C_out
+            config_post.backbone_hrnet.C = backbone_C_out
+            self.post['post_main'] = STCNNT_HRnet(config=config_post)
 
-        hrnet_C_out = int(config_post.backbone_hrnet.C * sum([np.power(2, k) for k in range(config_post.backbone_hrnet.num_resolution_levels)]))
+            C_out = int(config_post.backbone_hrnet.C * sum([np.power(2, k) for k in range(config_post.backbone_hrnet.num_resolution_levels)]))
+        else:
+            config_post = copy.deepcopy(config)
+            config_post.separable_conv = config.post_mixed_unetr.separable_conv
+
+            config_post.backbone_mixed_unetr.block_str = config.post_mixed_unetr.block_str
+            config_post.backbone_mixed_unetr.num_resolution_levels = config.post_mixed_unetr.num_resolution_levels
+            config_post.backbone_mixed_unetr.use_unet_attention = config.post_mixed_unetr.use_unet_attention
+            config_post.backbone_mixed_unetr.transformer_for_upsampling = config.post_mixed_unetr.transformer_for_upsampling
+            config_post.backbone_mixed_unetr.n_heads = config.post_mixed_unetr.n_heads
+            config_post.backbone_mixed_unetr.use_conv_3d = config.post_mixed_unetr.use_conv_3d
+            config_post.backbone_mixed_unetr.use_window_partition = config.post_mixed_unetr.use_window_partition
+            config_post.backbone_mixed_unetr.num_resolution_levels = config.post_mixed_unetr.num_resolution_levels
+
+            self.post = torch.nn.ModuleDict()
+
+            config_post.C_in = backbone_C_out
+            config_post.backbone_mixed_unetr.C = backbone_C_out
+            self.post['post_main'] = STCNNT_Mixed_Unetr(config=config_post)
+
+            if config_post.backbone_mixed_unetr.use_window_partition:
+                if config_post.backbone_mixed_unetr.encoder_on_input:
+                    C_out = config_post.backbone_mixed_unetr.C * 5
+                else:
+                    C_out = config_post.backbone_mixed_unetr.C * 4
+            else:
+                C_out = config_post.backbone_mixed_unetr.C * 3
+
 
         if self.config.super_resolution:
             # self.post["output_ps"] = PixelShuffle2DExt(2)
-            # hrnet_C_out = hrnet_C_out // 4
+            # C_out = C_out // 4
 
-            self.post["o_upsample"] = UpSample(N=1, C_in=hrnet_C_out, C_out=hrnet_C_out//2, with_conv=True)
+            self.post["o_upsample"] = UpSample(N=1, C_in=C_out, C_out=C_out//2, with_conv=True)
             self.post["o_nl"] = nn.GELU(approximate="tanh")
-            self.post["o_conv"] = Conv2DExt(hrnet_C_out//2, hrnet_C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
+            self.post["o_conv"] = Conv2DExt(C_out//2, C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
-        self.post["output_conv"] = Conv2DExt(hrnet_C_out, config_post.C_out, kernel_size=config_post.kernel_size, stride=config_post.stride, padding=config_post.padding, bias=True)
+        self.post["output_conv"] = Conv2DExt(C_out, config_post.C_out, kernel_size=config_post.kernel_size, stride=config_post.stride, padding=config_post.padding, bias=True)
 
 
     def forward(self, x, snr=-1, base_snr_t=None):
@@ -742,12 +786,19 @@ class MRI_double_net(STCNNT_MRI):
         """
         res_pre = self.pre(x)
         B, T, C, H, W = res_pre.shape
-        y_hat, _ = self.backbone(res_pre)
+
+        if self.config.backbone == 'hrnet':
+            y_hat, _ = self.backbone(res_pre)
+        else:
+            y_hat = self.backbone(res_pre)
 
         if self.residual:
             y_hat[:,:, :C, :, :] = res_pre + y_hat[:,:, :C, :, :]
 
-        res, _ = self.post['post_main'](y_hat)
+        if self.config.post_backbone == 'hrnet':
+            res, _ = self.post['post_main'](y_hat)
+        else:
+            res = self.post['post_main'](y_hat)
 
         B, T, C, H, W = y_hat.shape
         if self.residual:

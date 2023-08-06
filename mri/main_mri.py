@@ -94,8 +94,18 @@ def arg_parser():
     parser.add_argument("--disable_backbone", action="store_true", help='if set, backbone module will have require_grad_(False).')
     parser.add_argument("--disable_post", action="store_true", help='if set, post module will have require_grad_(False).')
 
+    parser.add_argument('--post_backbone', type=str, default="hrnet", help="model for post module, 'hrnet', 'mixed_unetr' ")
     parser.add_argument('--post_hrnet.block_str', dest='post_hrnet.block_str', nargs='+', type=str, default=['T1L1G1', 'T1L1G1'], help="hrnet MR post network block string, from the low resolution level to high resolution level.")
     parser.add_argument('--post_hrnet.separable_conv', dest='post_hrnet.separable_conv', action="store_true", help="post network, whether to use separable convolution.")
+
+    parser.add_argument('--post_mixed_unetr.num_resolution_levels', dest='post_mixed_unetr.num_resolution_levels', type=int, default=2, help="number of resolution levels for post mixed unetr")
+    parser.add_argument('--post_mixed_unetr.block_str', dest='post_mixed_unetr.block_str', nargs='+', type=str, default=['T1L1G1', 'T1L1G1', 'T1L1G1'], help="block string for the post mixed unetr")
+    parser.add_argument('--post_mixed_unetr.use_unet_attention', dest='post_mixed_unetr.use_unet_attention', type=int, default=1, help="whether to add unet attention between resolution levels")
+    parser.add_argument('--post_mixed_unetr.transformer_for_upsampling', dest='post_mixed_unetr.transformer_for_upsampling', type=int, default=0, help="whether to use transformer for upsampling branch")
+    parser.add_argument("--post_mixed_unetr.n_heads", dest='post_mixed_unetr.n_heads', nargs='+', type=int, default=[32, 32, 32], help='number of heads in each resolution layer')
+    parser.add_argument('--post_mixed_unetr.use_conv_3d', dest='post_mixed_unetr.use_conv_3d', type=int, default=1, help="whether to use 3D convolution")
+    parser.add_argument('--post_mixed_unetr.use_window_partition', dest='post_mixed_unetr.use_window_partition', type=int, default=0, help="whether to add window partition on input tensors")
+    parser.add_argument('--post_mixed_unetr.separable_conv', dest='post_mixed_unetr.separable_conv', action="store_true", help="post network, whether to use separable convolution.")
 
     parser.add_argument("--continued_training", action="store_true", help='if set, it means a continued training loaded from checkpoints (optim and scheduler will be loaded); if not set, it mean a new stage of training.')
 
