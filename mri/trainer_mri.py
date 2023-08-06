@@ -1242,7 +1242,7 @@ def _apply_model(model, x, g, scaling_factor, config, device, overlap=None):
         if overlap is None: overlap = (c.time//2, c.height[-1]//2, c.width[-1]//2)
 
     try:
-        _, output = running_inference(model, input, cutout=cutout, overlap=overlap, batch_size=4, device=device)
+        _, output = running_inference(model, input, cutout=cutout, overlap=overlap, batch_size=2, device=device)
     except Exception as e:
         print(e)
         print(f"{Fore.YELLOW}---> call inference on cpu ...")
