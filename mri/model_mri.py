@@ -129,7 +129,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
         if self.config.backbone == "hrnet":
             hrnet_C_out = int(config.backbone_hrnet.C * sum([np.power(2, k) for k in range(config.backbone_hrnet.num_resolution_levels)]))
             if self.config.super_resolution:
-                self.post = nn.Sequential()
+                self.post = nn.ModuleDict()
                 self.post.add_module("post_ps", PixelShuffle2DExt(2))
                 self.post.add_module("post_conv", Conv2DExt(hrnet_C_out//4, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True))
             else:
@@ -145,7 +145,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
                 mixed_unetr_C_out = config.backbone_mixed_unetr.C * 3
                 
             if self.config.super_resolution:
-                self.post = nn.Sequential()
+                self.post = nn.ModuleDict()
                 self.post.add_module("post_ps", PixelShuffle2DExt(2))
                 self.post.add_module("post_conv", Conv2DExt(mixed_unetr_C_out//4, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True))
             else:
@@ -181,7 +181,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
                 y_hat[:,:, :C, :, :] = res_pre + y_hat[:,:, :C, :, :]
 
             if self.config.super_resolution:
-                res = self.post["output_ps"](y_hat)
+                res = self.post["post_ps"](y_hat)
                 logits = self.post["post_conv"](res)
             else:
                 logits = self.post(y_hat)
