@@ -25,7 +25,7 @@ def arg_parser():
         - config (Namespace): runtime namespace for setup
     """
     parser = argparse.ArgumentParser("Argument parser for STCNNT Mirco")
-    parser.add_argument("--data_set", type=str, default="microscopy", help='root folder containing h5 data files')
+    parser.add_argument("--data_set", type=str, default="microscopy", help='general purpose argument')
     parser.add_argument("--data_root", type=str, default=None, help='root folder containing h5 data files')
     parser.add_argument("--train_files", type=str, nargs='+', default=[], help='list of train h5files. If empty then all files present in the folder are used')
     parser.add_argument("--test_files", type=str, nargs='+', default=[], help='list of test h5files. Either complete paths, or file in data root')
@@ -57,10 +57,16 @@ def arg_parser():
     # training
     parser.add_argument("--model_type", type=str, default="STCNNT_Micro", help="STCNNT_Micro only for now")
     parser.add_argument("--train_only", action="store_true", help='focus on training only. no val or test')
+    parser.add_argument('--train_samples', type=int, default=0, help='number of images to train/finetune with. First n are taken from the train set if n>0')
+    parser.add_argument('--samples_per_image', type=int, default=8, help='samples to take from a single image per epoch')
     parser.add_argument('--num_uploaded', type=int, default=12, help='number of images uploaded to wandb')
-    parser.add_argument('--fine_samples', type=int, default=0, help='number of images to finetune with')
     parser.add_argument('--scaling_type', type=str, default="val", help='scaling type: "val" for scaling with a static value or "per" for scaling with a percentile')
-    parser.add_argument("--scaling_vals", type=float, nargs='+', default=[0,100], help='Min Max values to scale with respect to he scaling type')
+    parser.add_argument("--scaling_vals", type=float, nargs='+', default=[0,65536], help='min max values to scale with respect to the scaling type')
+    parser.add_argument("--valu_thres", type=float, default=0.002, help='threshold of pixel value between background and foreground')
+    parser.add_argument("--area_thres", type=float, default=0.25, help='percentage threshold of area that needs to be foreground')
+
+    # inference
+    parser.add_argument("--pad_time", action="store_true", help='whether to pad along time when doing inference; if False, the entire series is inputted')
 
     ns = Nestedspace()
     args = parser.parse_args(namespace=ns)
