@@ -84,6 +84,8 @@ class mri_ddp_base(run_ddp_base):
         "--backbone_small_unet.channels", "16", "32", "64",   
         "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1",
 
+        "--post_backbone", "mixed_unetr", 
+
         #"--min_noise_level", "2.0",
         #"--max_noise_level", "24.0",
         #"--complex_i",
@@ -109,37 +111,37 @@ class mri_ddp_base(run_ddp_base):
 
         "--post_hrnet.separable_conv",
 
-        # "--train_files", "train_3D_3T_retro_cine_2018.h5",  
-        #                 "train_3D_3T_retro_cine_2019.h5", 
-        #                 "train_3D_3T_retro_cine_2020.h5", 
-        #                 "BARTS_RetroCine_3T_2023.h5", 
-        #                 "BARTS_RetroCine_1p5T_2023.h5",
-        #                 #"BWH_Perfusion_3T_2023.h5",
-        #                 #"BWH_Perfusion_3T_2022.h5",
-        #                 "MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", 
-        #                 "MINNESOTA_UHVC_RetroCine_1p5T_2022.h5",
+        "--train_files", "train_3D_3T_retro_cine_2018.h5",  
+                        "train_3D_3T_retro_cine_2019.h5", 
+                        "train_3D_3T_retro_cine_2020.h5", 
+                        "BARTS_RetroCine_3T_2023.h5", 
+                        "BARTS_RetroCine_1p5T_2023.h5",
+                        #"BWH_Perfusion_3T_2023.h5",
+                        #"BWH_Perfusion_3T_2022.h5",
+                        "MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", 
+                        "MINNESOTA_UHVC_RetroCine_1p5T_2022.h5",
 
-        # "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", 
-        #                 "train_3D_3T_retro_cine_2020_small_2DT_test.h5", 
-        #                 "train_3D_3T_retro_cine_2020_small_2D_test.h5", 
-        #                 "train_3D_3T_retro_cine_2020_500_samples.h5",
+        "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", 
+                        "train_3D_3T_retro_cine_2020_small_2DT_test.h5", 
+                        "train_3D_3T_retro_cine_2020_small_2D_test.h5", 
+                        "train_3D_3T_retro_cine_2020_500_samples.h5",
 
         "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "3d",
         "--test_data_types", "3d", "2dt", "2d", "2dt",
 
-        "--train_files", "train_3D_3T_retro_cine_2018_with_2x_resized.h5",  
-                         "train_3D_3T_retro_cine_2019_with_2x_resized.h5", 
-                         "train_3D_3T_retro_cine_2020_with_2x_resized.h5", 
-                         "BARTS_RetroCine_3T_2023_with_2x_resized.h5", 
-                         "BARTS_RetroCine_1p5T_2023_with_2x_resized.h5",
-                         "MINNESOTA_UHVC_RetroCine_1p5T_2023_with_2x_resized.h5", 
-                         "MINNESOTA_UHVC_RetroCine_1p5T_2022_with_2x_resized.h5",
-                         #"VIDA_train_clean_0430_with_2x_resized.h5",
+        # "--train_files", "train_3D_3T_retro_cine_2018_with_2x_resized.h5",  
+        #                  "train_3D_3T_retro_cine_2019_with_2x_resized.h5", 
+        #                  "train_3D_3T_retro_cine_2020_with_2x_resized.h5", 
+        #                  "BARTS_RetroCine_3T_2023_with_2x_resized.h5", 
+        #                  "BARTS_RetroCine_1p5T_2023_with_2x_resized.h5",
+        #                  "MINNESOTA_UHVC_RetroCine_1p5T_2023_with_2x_resized.h5", 
+        #                  "MINNESOTA_UHVC_RetroCine_1p5T_2022_with_2x_resized.h5",
+        #                  #"VIDA_train_clean_0430_with_2x_resized.h5",
 
-        "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test_with_2x_resized.h5", 
-                        "train_3D_3T_retro_cine_2020_small_2DT_test_with_2x_resized.h5", 
-                        "train_3D_3T_retro_cine_2020_small_2D_test_with_2x_resized.h5", 
-                        "train_3D_3T_retro_cine_2020_500_samples_with_2x_resized.h5",
+        # "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test_with_2x_resized.h5", 
+        #                 "train_3D_3T_retro_cine_2020_small_2DT_test_with_2x_resized.h5", 
+        #                 "train_3D_3T_retro_cine_2020_small_2D_test_with_2x_resized.h5", 
+        #                 "train_3D_3T_retro_cine_2020_500_samples_with_2x_resized.h5",
         ])
 
         if config.tra_ratio > 0 and config.tra_ratio<=100:
@@ -187,7 +189,7 @@ class mri_ddp_base(run_ddp_base):
         vars['mixer_types'] = ["conv"]
         vars['shuffle_in_windows'] = ["0"]
         vars['block_dense_connections'] = ["1"]
-        vars['norm_modes'] = ["instance2d", "batch2d"]
+        vars['norm_modes'] = ["batch2d", "instance2d"]
         vars['C'] = [32]
         vars['scale_ratio_in_mixers'] = [1.0]
 
@@ -197,23 +199,23 @@ class mri_ddp_base(run_ddp_base):
                         [
                             #["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
                             ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
+                            #["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                            #["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
+                            #["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                          ],
 
                         [
                             ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
-                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
-                            ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"]
+                            #["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                            #["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
+                            #["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                            #["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"]
                          ]
                     ]
 
         vars['losses'] = [
             [["mse", "perpendicular", "psnr", "l1"], ['1.0', '1.0', '1.0', '1.0', '1.0']],
-            [["mse", "perpendicular", "psnr", "l1", "gaussian", "gaussian3D", "ssim"], ['1.0', '1.0', '1.0', '1.0', '20.0', '20.0', "5.0"]],
+            #[["mse", "perpendicular", "psnr", "l1", "gaussian", "gaussian3D", "ssim"], ['1.0', '1.0', '1.0', '1.0', '20.0', '20.0', "5.0"]],
             #[['perpendicular', 'ssim', 'psnr', 'l1'], ['1.0', '1.0', '1.0', '1.0', '1.0']],
             #[['psnr','l1', 'mse'], ['1.0', '1.0', '1.0', '1.0', '1.0']],
             #[['ssim', 'ssim3D', 'mse', 'l1', 'psnr'], ['0.1', '0.1', '1.0', '1.0', '1.0']], 

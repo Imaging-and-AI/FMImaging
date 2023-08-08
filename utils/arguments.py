@@ -190,17 +190,17 @@ def add_backbone_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for
 
     parser.add_argument('--backbone_mixed_unetr.C', dest='backbone_mixed_unetr.C', type=int, default=32, help="number of channels in main body of mixed unetr")
     parser.add_argument('--backbone_mixed_unetr.num_resolution_levels', dest='backbone_mixed_unetr.num_resolution_levels', type=int, default=2, help="number of resolution levels for unet; image size reduce by x2 for every level")
-    parser.add_argument('--backbone_mixed_unetr.block_str', dest='backbone_mixed_unetr.block_str', nargs='+', type=str, default=['T1L1G1'], help="block string to define the attention layers in blocks; if multiple strings are given, each is for a resolution level.")
+    parser.add_argument('--backbone_mixed_unetr.block_str', dest='backbone_mixed_unetr.block_str', nargs='+', type=str, default=['T1L1G1', 'T1L1G1'], help="block string to define the attention layers in blocks; if multiple strings are given, each is for a resolution level.")
     parser.add_argument('--backbone_mixed_unetr.use_unet_attention', dest='backbone_mixed_unetr.use_unet_attention', type=int, default=1, help="whether to add unet attention between resolution levels")
     parser.add_argument('--backbone_mixed_unetr.use_interpolation', dest='backbone_mixed_unetr.use_interpolation', type=int, default=1, help="whether to use interpolation in downsample layer; if False, use stride convolution")
-    parser.add_argument('--backbone_mixed_unetr.with_conv', dest='backbone_mixed_unetr.with_conv', type=int, default=1, help="whether to add conv in down/upsample layers; if False, only interpolation is performed")
+    parser.add_argument('--backbone_mixed_unetr.with_conv', dest='backbone_mixed_unetr.with_conv', type=int, default=0, help="whether to add conv in down/upsample layers; if False, only interpolation is performed")
     parser.add_argument('--backbone_mixed_unetr.min_T', dest='backbone_mixed_unetr.min_T', type=int, default=16, help="minimal T/D for downsampling along T or D dimension")
     parser.add_argument('--backbone_mixed_unetr.encoder_on_skip_connection', dest='backbone_mixed_unetr.encoder_on_skip_connection', type=int, default=1, help="whether to add encoder on skip connection")
     parser.add_argument('--backbone_mixed_unetr.encoder_on_input', dest='backbone_mixed_unetr.encoder_on_input', type=int, default=1, help="whether to add encoder for input tensor")
-    parser.add_argument('--backbone_mixed_unetr.transformer_for_upsampling', dest='backbone_mixed_unetr.transformer_for_upsampling', type=int, default=1, help="whether to use transformer for upsampling branch")
-    parser.add_argument("--backbone_mixed_unetr.n_heads", dest='backbone_mixed_unetr.n_heads', nargs='+', type=int, default=[4, 8, 12, 24, 32], help='number of heads in each resolution layer')
+    parser.add_argument('--backbone_mixed_unetr.transformer_for_upsampling', dest='backbone_mixed_unetr.transformer_for_upsampling', type=int, default=0, help="whether to use transformer for upsampling branch")
+    parser.add_argument("--backbone_mixed_unetr.n_heads", dest='backbone_mixed_unetr.n_heads', nargs='+', type=int, default=[32, 32, 32, 32], help='number of heads in each resolution layer')
     parser.add_argument('--backbone_mixed_unetr.use_conv_3d', dest='backbone_mixed_unetr.use_conv_3d', type=int, default=1, help="whether to use 3D convolution")
-    parser.add_argument('--backbone_mixed_unetr.use_window_partition', dest='backbone_mixed_unetr.use_window_partition', type=int, default=1, help="whether to add window partition on input tensors")
+    parser.add_argument('--backbone_mixed_unetr.use_window_partition', dest='backbone_mixed_unetr.use_window_partition', type=int, default=0, help="whether to add window partition on input tensors")
     
     # LLMs
     parser.add_argument('--backbone_LLM.C', dest='backbone_LLM.C', type=int, default=32, help="number of channels in main body of LLM net")

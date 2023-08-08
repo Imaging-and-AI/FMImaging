@@ -14,6 +14,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch import Tensor
+import interpol
 
 from pathlib import Path
 from argparse import Namespace
@@ -298,12 +299,16 @@ class _U2(nn.Module):
 
         self.conv = None
         if self.with_conv or (self.C_in != self.C_out):
-            self.conv = Conv2DExt(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[1,1], stride=[1,1], padding=[0,0])
+            self.conv = Conv2DExt(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[3,3], stride=[1,1], padding=[1,1])
 
     def forward(self, x:Tensor) -> Tensor:
 
         B, T, C, H, W = x.shape
-        y = F.interpolate(x.view((B*T, C, H, W)), size=(2*H, 2*W), mode="bilinear", align_corners=False, recompute_scale_factor=False)
+
+        opt = dict(shape=[2*H, 2*W], anchor='first', bound='replicate')
+        y = interpol.resize(x.view((B*T, C, H, W)), **opt, interpolation=5)
+
+        #y = F.interpolate(x.view((B*T, C, H, W)), size=(2*H, 2*W), mode="bicubic", align_corners=False, recompute_scale_factor=False)
         y = torch.reshape(y, (B, T, *y.shape[1:]))
         if self.with_conv:
             y = self.conv(y)
@@ -330,12 +335,16 @@ class _U2_3D(nn.Module):
 
         self.conv = None
         if self.with_conv or (self.C_in != self.C_out):
-            self.conv = Conv3DExt(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[1,1,1], stride=[1,1,1], padding=[0,0,0])
+            self.conv = Conv3DExt(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[3,3,3], stride=[1,1,1], padding=[1,1,1])
 
     def forward(self, x:Tensor) -> Tensor:
 
         B, T, C, H, W = x.shape
-        y = F.interpolate(torch.permute(x, (0, 2, 1, 3, 4)), size=(2*T, 2*H, 2*W), mode="trilinear", align_corners=False, recompute_scale_factor=False)
+        #y = F.interpolate(torch.permute(x, (0, 2, 1, 3, 4)), size=(2*T, 2*H, 2*W), mode="trilinear", align_corners=False, recompute_scale_factor=False)
+
+        opt = dict(shape=[2*T, 2*H, 2*W], anchor='first', bound='replicate')
+        y = interpol.resize(torch.permute(x, (0, 2, 1, 3, 4)), **opt, interpolation=5)
+
         y = torch.permute(y, (0, 2, 1, 3, 4))
         if self.with_conv:
             y = self.conv(y)
