@@ -92,6 +92,7 @@ sudo chmod a+x /usr/bin/azcopy
 
 pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu118
 pip3 install wandb tqdm h5py torchinfo tifffile opencv-python scikit-image einops onnx numpy scipy moviepy imageio matplotlib torchmetrics gputil onnxruntime gif
+pip3 install torch-interpol
 
 # login prompt
 # add ~/.local/bin into the path

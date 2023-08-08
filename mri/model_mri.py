@@ -132,7 +132,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
                 self.post = nn.ModuleDict()
                 #self.post.add_module("post_ps", PixelShuffle2DExt(2))
                 #self.post.add_module("post_conv", Conv2DExt(hrnet_C_out//4, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=False))
-                self.post["o_upsample"] = UpSample(N=1, C_in=hrnet_C_out, C_out=hrnet_C_out//2, with_conv=True)
+                self.post["o_upsample"] = UpSample(N=1, C_in=hrnet_C_out, C_out=hrnet_C_out//2, method='bspline', with_conv=True)
                 self.post["o_nl"] = nn.GELU(approximate="tanh")
                 self.post["o_conv"] = Conv2DExt(hrnet_C_out//2, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
             else:
@@ -152,7 +152,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
                 #self.post.add_module("post_ps", PixelShuffle2DExt(2))
                 #self.post.add_module("post_conv", Conv2DExt(mixed_unetr_C_out//4, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True))
 
-                self.post["o_upsample"] = UpSample(N=1, C_in=mixed_unetr_C_out, C_out=mixed_unetr_C_out//2, with_conv=True)
+                self.post["o_upsample"] = UpSample(N=1, C_in=mixed_unetr_C_out, C_out=mixed_unetr_C_out//2, method='bspline', with_conv=True)
                 self.post["o_nl"] = nn.GELU(approximate="tanh")
                 self.post["o_conv"] = Conv2DExt(mixed_unetr_C_out//2, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
             else:
@@ -604,7 +604,7 @@ class MRI_hrnet(STCNNT_MRI):
             hrnet_C_out = 5*C
 
         if self.config.super_resolution:
-            self.post["o_upsample"] = UpSample(N=1, C_in=hrnet_C_out, C_out=hrnet_C_out//2, with_conv=True)
+            self.post["o_upsample"] = UpSample(N=1, C_in=hrnet_C_out, C_out=hrnet_C_out//2, method='bspline', with_conv=True)
             self.post["o_nl"] = nn.GELU(approximate="tanh")
             self.post["o_conv"] = Conv2DExt(hrnet_C_out//2, hrnet_C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
             # self.post["output_ps"] = PixelShuffle2DExt(2)
@@ -742,7 +742,7 @@ class MRI_double_net(STCNNT_MRI):
             # self.post["output_ps"] = PixelShuffle2DExt(2)
             # C_out = C_out // 4
 
-            self.post["o_upsample"] = UpSample(N=1, C_in=backbone_C_out, C_out=backbone_C_out//2, with_conv=True, is_3D=False)
+            self.post["o_upsample"] = UpSample(N=1, C_in=backbone_C_out, C_out=backbone_C_out//2, method='bspline', with_conv=True, is_3D=False)
             self.post["o_nl"] = nn.GELU(approximate="tanh")
             self.post["o_conv"] = Conv2DExt(backbone_C_out//2, backbone_C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
@@ -796,7 +796,7 @@ class MRI_double_net(STCNNT_MRI):
         #     # self.post["output_ps"] = PixelShuffle2DExt(2)
         #     # C_out = C_out // 4
 
-        #     self.post["o_upsample"] = UpSample(N=1, C_in=C_out, C_out=C_out//2, with_conv=True)
+        #     self.post["o_upsample"] = UpSample(N=1, C_in=C_out, C_out=C_out//2, method='bspline', with_conv=True)
         #     self.post["o_nl"] = nn.GELU(approximate="tanh")
         #     self.post["o_conv"] = Conv2DExt(C_out//2, C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 

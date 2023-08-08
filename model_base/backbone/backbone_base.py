@@ -289,11 +289,13 @@ class _U2(nn.Module):
     If with_conv is True, a 1x1 convolution is added after interpolation.
     """
 
-    def __init__(self, C_in=16, C_out=-1, with_conv=True) -> None:
+    def __init__(self, C_in=16, C_out=-1, method='NN', with_conv=True) -> None:
         super().__init__()
 
         self.C_in = C_in
         self.C_out = C_out if C_out>0 else C_in
+
+        self.method = method
 
         self.with_conv = with_conv
 
@@ -305,10 +307,14 @@ class _U2(nn.Module):
 
         B, T, C, H, W = x.shape
 
-        opt = dict(shape=[2*H, 2*W], anchor='first', bound='replicate')
-        y = interpol.resize(x.view((B*T, C, H, W)), **opt, interpolation=5)
+        if self.method == "NN":
+            y = F.interpolate(x.view((B*T, C, H, W)), size=(2*H, 2*W), mode="nearest", recompute_scale_factor=False)
+        elif self.method == 'linear':
+            y = F.interpolate(x.view((B*T, C, H, W)), size=(2*H, 2*W), mode="bilinear", align_corners=False, recompute_scale_factor=False)
+        else:
+            opt = dict(shape=[2*H, 2*W], anchor='first', bound='replicate')
+            y = interpol.resize(x.view((B*T, C, H, W)), **opt, interpolation=5)
 
-        #y = F.interpolate(x.view((B*T, C, H, W)), size=(2*H, 2*W), mode="bicubic", align_corners=False, recompute_scale_factor=False)
         y = torch.reshape(y, (B, T, *y.shape[1:]))
         if self.with_conv:
             y = self.conv(y)
@@ -325,12 +331,12 @@ class _U2_3D(nn.Module):
     If with_conv is True, a 1x1 convolution is added after interpolation.
     """
 
-    def __init__(self, C_in=16, C_out=-1, with_conv=True) -> None:
+    def __init__(self, C_in=16, C_out=-1, method='NN', with_conv=True) -> None:
         super().__init__()
 
         self.C_in = C_in
         self.C_out = C_out if C_out>0 else C_in
-
+        self.method = method        
         self.with_conv = with_conv
 
         self.conv = None
@@ -340,10 +346,14 @@ class _U2_3D(nn.Module):
     def forward(self, x:Tensor) -> Tensor:
 
         B, T, C, H, W = x.shape
-        #y = F.interpolate(torch.permute(x, (0, 2, 1, 3, 4)), size=(2*T, 2*H, 2*W), mode="trilinear", align_corners=False, recompute_scale_factor=False)
 
-        opt = dict(shape=[2*T, 2*H, 2*W], anchor='first', bound='replicate')
-        y = interpol.resize(torch.permute(x, (0, 2, 1, 3, 4)), **opt, interpolation=5)
+        if self.method == "NN":
+            y = F.interpolate(torch.permute(x, (0, 2, 1, 3, 4)), size=(2*T, 2*H, 2*W), mode="nearest", recompute_scale_factor=False)
+        elif self.method == 'linear':
+            y = F.interpolate(torch.permute(x, (0, 2, 1, 3, 4)), size=(2*T, 2*H, 2*W), mode="trilinear", align_corners=False, recompute_scale_factor=False)
+        else:
+            opt = dict(shape=[2*T, 2*H, 2*W], anchor='first', bound='replicate')
+            y = interpol.resize(torch.permute(x, (0, 2, 1, 3, 4)), **opt, interpolation=5)
 
         y = torch.permute(y, (0, 2, 1, 3, 4))
         if self.with_conv:
@@ -358,7 +368,7 @@ class UpSample(nn.Module):
     Upsample by x(2^N), by using N U2 layers
     """
 
-    def __init__(self, N=2, C_in=16, C_out=-1, with_conv=True, is_3D=False) -> None:
+    def __init__(self, N=2, C_in=16, C_out=-1, method='NN', with_conv=True, is_3D=False) -> None:
         super().__init__()
 
         C_out = C_out if C_out>0 else C_in
@@ -368,14 +378,15 @@ class UpSample(nn.Module):
         self.C_out = C_out
         self.with_conv = with_conv
         self.is_3D = is_3D
-
+        self.method = method
+        
         UpSampleLayer = _U2
         if is_3D:
             UpSampleLayer = _U2_3D
 
-        layers = [('U2_0', UpSampleLayer(C_in=C_in, C_out=C_out, with_conv=with_conv))]
+        layers = [('U2_0', UpSampleLayer(C_in=C_in, C_out=C_out, method=method, with_conv=with_conv))]
         for n in range(1, N):
-            layers.append( (f'U2_{n}', UpSampleLayer(C_in=C_out, C_out=C_out, with_conv=with_conv)) )
+            layers.append( (f'U2_{n}', UpSampleLayer(C_in=C_out, C_out=C_out, method=method, with_conv=with_conv)) )
 
         self.block = nn.Sequential(OrderedDict(layers))
 

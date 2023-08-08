@@ -502,24 +502,24 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
 
         self.down_3_4 = DownSample(N=1, C_in=8*self.C, C_out=16*self.C, use_interpolation=use_interpolation, with_conv=True)
 
-        self.up_1_0 = UpSample(N=1, C_in=2*self.C, C_out=self.C, with_conv=True)
-        self.up_2_0 = UpSample(N=2, C_in=4*self.C, C_out=self.C, with_conv=True)
-        self.up_3_0 = UpSample(N=3, C_in=8*self.C, C_out=self.C, with_conv=True)
-        self.up_4_0 = UpSample(N=4, C_in=16*self.C, C_out=self.C, with_conv=True)
+        self.up_1_0 = UpSample(N=1, C_in=2*self.C, C_out=self.C, method=c.upsample_method, with_conv=True)
+        self.up_2_0 = UpSample(N=2, C_in=4*self.C, C_out=self.C, method=c.upsample_method, with_conv=True)
+        self.up_3_0 = UpSample(N=3, C_in=8*self.C, C_out=self.C, method=c.upsample_method, with_conv=True)
+        self.up_4_0 = UpSample(N=4, C_in=16*self.C, C_out=self.C, method=c.upsample_method, with_conv=True)
 
-        self.up_2_1 = UpSample(N=1, C_in=4*self.C, C_out=2*self.C, with_conv=True)
-        self.up_3_1 = UpSample(N=2, C_in=8*self.C, C_out=2*self.C, with_conv=True)
-        self.up_4_1 = UpSample(N=3, C_in=16*self.C, C_out=2*self.C, with_conv=True)
+        self.up_2_1 = UpSample(N=1, C_in=4*self.C, C_out=2*self.C, method=c.upsample_method, with_conv=True)
+        self.up_3_1 = UpSample(N=2, C_in=8*self.C, C_out=2*self.C, method=c.upsample_method, with_conv=True)
+        self.up_4_1 = UpSample(N=3, C_in=16*self.C, C_out=2*self.C, method=c.upsample_method, with_conv=True)
 
-        self.up_3_2 = UpSample(N=1, C_in=8*self.C, C_out=4*self.C, with_conv=True)
-        self.up_4_2 = UpSample(N=2, C_in=16*self.C, C_out=4*self.C, with_conv=True)
+        self.up_3_2 = UpSample(N=1, C_in=8*self.C, C_out=4*self.C, method=c.upsample_method, with_conv=True)
+        self.up_4_2 = UpSample(N=2, C_in=16*self.C, C_out=4*self.C, method=c.upsample_method, with_conv=True)
 
-        self.up_4_3 = UpSample(N=1, C_in=16*self.C, C_out=8*self.C, with_conv=True)
+        self.up_4_3 = UpSample(N=1, C_in=16*self.C, C_out=8*self.C, method=c.upsample_method, with_conv=True)
 
-        self.up_1 = UpSample(N=1, C_in=2*self.C, C_out=2*self.C, with_conv=True)
-        self.up_2 = UpSample(N=2, C_in=4*self.C, C_out=4*self.C, with_conv=True)
-        self.up_3 = UpSample(N=3, C_in=8*self.C, C_out=8*self.C, with_conv=True)
-        self.up_4 = UpSample(N=4, C_in=16*self.C, C_out=16*self.C, with_conv=True)
+        self.up_1 = UpSample(N=1, C_in=2*self.C, C_out=2*self.C, method=c.upsample_method, with_conv=True)
+        self.up_2 = UpSample(N=2, C_in=4*self.C, C_out=4*self.C, method=c.upsample_method, with_conv=True)
+        self.up_3 = UpSample(N=3, C_in=8*self.C, C_out=8*self.C, method=c.upsample_method, with_conv=True)
+        self.up_4 = UpSample(N=4, C_in=16*self.C, C_out=16*self.C, method=c.upsample_method, with_conv=True)
 
 
     def check_class_specific_parameters(self, config):

@@ -501,7 +501,7 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
 
         # -----------------------------------------------------
         if num_resolution_levels >= 5:
-            self.up_4 = UpSample(N=1, C_in=16*self.C, C_out=16*self.C, with_conv=self.with_conv, is_3D=self.down_4.is_3D)
+            self.up_4 = UpSample(N=1, C_in=16*self.C, C_out=16*self.C, method=c.upsample_method, with_conv=self.with_conv, is_3D=self.down_4.is_3D)
             if self.use_unet_attention:
                 self.attention_4 = _unet_attention(C_q=16*self.C, C=16*self.C, use_conv_3d=use_conv_3d)
             else:
@@ -522,7 +522,7 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
             print_block_info(kwargs, "U4")
 
         if num_resolution_levels >= 4:
-            self.up_3 = UpSample(N=1, C_in=8*self.C, C_out=8*self.C, with_conv=self.with_conv, is_3D=self.down_3.is_3D)
+            self.up_3 = UpSample(N=1, C_in=8*self.C, C_out=8*self.C, method=c.upsample_method, with_conv=self.with_conv, is_3D=self.down_3.is_3D)
             if self.use_unet_attention:
                 self.attention_3 = _unet_attention(C_q=8*self.C, C=8*self.C, use_conv_3d=use_conv_3d)
             else:
@@ -543,7 +543,7 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
             print_block_info(kwargs, "U3")
 
         if num_resolution_levels >= 3:
-            self.up_2 = UpSample(N=1, C_in=4*self.C, C_out=4*self.C, with_conv=self.with_conv, is_3D=self.down_2.is_3D)
+            self.up_2 = UpSample(N=1, C_in=4*self.C, C_out=4*self.C, method=c.upsample_method, with_conv=self.with_conv, is_3D=self.down_2.is_3D)
             if self.use_unet_attention:
                 self.attention_2 = _unet_attention(C_q=4*self.C, C=4*self.C, use_conv_3d=use_conv_3d)
             else:
@@ -564,7 +564,7 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
             print_block_info(kwargs, "U2")
 
         if num_resolution_levels >= 2:
-            self.up_1 = UpSample(N=1, C_in=2*self.C, C_out=2*self.C, with_conv=self.with_conv, is_3D=self.down_1.is_3D)
+            self.up_1 = UpSample(N=1, C_in=2*self.C, C_out=2*self.C, method=c.upsample_method, with_conv=self.with_conv, is_3D=self.down_1.is_3D)
             if self.use_unet_attention:
                 self.attention_1 = _unet_attention(C_q=2*self.C, C=2*self.C, use_conv_3d=use_conv_3d)
             else:
@@ -585,7 +585,7 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
             print_block_info(kwargs, "U1")
 
         if num_resolution_levels >= 1:
-            self.up_0 = UpSample(N=1, C_in=2*self.C, C_out=2*self.C, with_conv=self.with_conv, is_3D=self.down_0.is_3D)
+            self.up_0 = UpSample(N=1, C_in=2*self.C, C_out=2*self.C, method=c.upsample_method, with_conv=self.with_conv, is_3D=self.down_0.is_3D)
             if self.use_unet_attention:
                 self.attention_0 = _unet_attention(C_q=self.C, C=self.C, use_conv_3d=use_conv_3d)
             else:
@@ -632,7 +632,7 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
         # -----------------------------------------------------
 
         if use_window_partition:
-            self.up_w = UpSample(N=1, C_in=4*self.C, C_out=4*self.C, with_conv=self.with_conv, is_3D=is_3D_window_partition)
+            self.up_w = UpSample(N=1, C_in=4*self.C, C_out=4*self.C, method=c.upsample_method, with_conv=self.with_conv, is_3D=is_3D_window_partition)
         else:
             self.up_w = nn.Identity()
             
