@@ -850,6 +850,10 @@ def trainer(rank, global_rank, config, wandb_run):
                 if wandb_run is not None:
                     wandb_run.log({"running_train_loss": loss.item()})
                     wandb_run.log({"running_train_snr": train_snr_meter.avg})
+                    wandb_run.log({"running_train_mse": loss_meters.mse_meter.avg})
+                    wandb_run.log({"running_train_ssim": loss_meters.ssim_meter.avg})
+                    wandb_run.log({"running_train_l1": loss_meters.l1_meter.avg})
+                    wandb_run.log({"running_train_perp": loss_meters.perp_meter.avg})
                     wandb_run.log({"lr": curr_lr})
 
                 end_timer(enable=c.with_timer, t=tm, msg="---> logging and measuring took ")
