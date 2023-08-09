@@ -289,7 +289,7 @@ class _U2(nn.Module):
     If with_conv is True, a 1x1 convolution is added after interpolation.
     """
 
-    def __init__(self, C_in=16, C_out=-1, method='NN', with_conv=True) -> None:
+    def __init__(self, C_in=16, C_out=-1, method='linear', with_conv=True) -> None:
         super().__init__()
 
         self.C_in = C_in
@@ -331,7 +331,7 @@ class _U2_3D(nn.Module):
     If with_conv is True, a 1x1 convolution is added after interpolation.
     """
 
-    def __init__(self, C_in=16, C_out=-1, method='NN', with_conv=True) -> None:
+    def __init__(self, C_in=16, C_out=-1, method='linear', with_conv=True) -> None:
         super().__init__()
 
         self.C_in = C_in
@@ -368,7 +368,7 @@ class UpSample(nn.Module):
     Upsample by x(2^N), by using N U2 layers
     """
 
-    def __init__(self, N=2, C_in=16, C_out=-1, method='NN', with_conv=True, is_3D=False) -> None:
+    def __init__(self, N=2, C_in=16, C_out=-1, method='linear', with_conv=True, is_3D=False) -> None:
         super().__init__()
 
         C_out = C_out if C_out>0 else C_in

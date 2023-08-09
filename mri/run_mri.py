@@ -35,7 +35,7 @@ class mri_ddp_base(run_ddp_base):
         "--window_size", "8", "8",
         "--patch_size", "2", "2",
 
-        "--global_lr", "0.0001",
+        #"--global_lr", "0.0001",
 
         "--clip_grad_norm", "1.0",
         "--weight_decay", "1",
@@ -148,6 +148,8 @@ class mri_ddp_base(run_ddp_base):
             self.cmd.extend(["--ratio", f"{int(config.tra_ratio)}", f"{int(config.val_ratio)}", f"{int(config.test_ratio)}"])
 
         self.cmd.extend(["--max_load", f"{int(config.max_load)}"])
+
+        self.cmd.extend(["--global_lr", f"{config.global_lr}"])
 
         self.cmd.extend(["--lr_pre", f"{config.lr_pre}"])
         self.cmd.extend(["--lr_backbone", f"{config.lr_backbone}"])
@@ -452,7 +454,9 @@ class mri_ddp_base(run_ddp_base):
 
         parser.add_argument("--min_noise_level", type=float, default=1.0, help='minimal noise level')
         parser.add_argument("--max_noise_level", type=float, default=24.0, help='maximal noise level')
-        
+
+        parser.add_argument("--global_lr", type=float, default=0.0001, help='global learning rate')
+
         parser.add_argument("--lr_pre", type=float, default=-1, help='learning rate for pre network')
         parser.add_argument("--lr_backbone", type=float, default=-1, help='learning rate for backbone network')
         parser.add_argument("--lr_post", type=float, default=-1, help='learning rate for post network')

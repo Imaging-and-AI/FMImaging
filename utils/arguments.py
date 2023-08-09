@@ -172,7 +172,7 @@ def add_backbone_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for
     parser.add_argument("--use_einsum", action="store_true", help='if set, use einsum implementation.')
     parser.add_argument("--temporal_flash_attention", action="store_true", help='if set, temporal attention uses flash attention implementation.')
 
-    parser.add_argument('--upsample_method', type=str, default="NN", help="upsampling method in backbone, NN, linear or bspline ")
+    parser.add_argument('--upsample_method', type=str, default="linear", help="upsampling method in backbone, NN, linear or bspline ")
     
     # hrnet
     parser.add_argument('--backbone_hrnet.C', dest='backbone_hrnet.C', type=int, default=32, help="number of channels in main body of hrnet")

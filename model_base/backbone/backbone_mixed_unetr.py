@@ -1211,5 +1211,5 @@ def test2():
     print(f"model_out is {model_out.shape}")
 
 if __name__=="__main__":
-    #tests()
+    tests()
     test2()
