@@ -52,7 +52,6 @@ model=/export/Lab-Xue/projects/mri/test/second_stage/double_net/mri-MRI_double_n
 
 RES_DIR=res_double_net
 model_type_str=MRI_double_net
-
 scaling_factor=1.0
 
 export CUDA_VISIBLE_DEVICES=7
@@ -61,7 +60,7 @@ export CUDA_VISIBLE_DEVICES=7
 
 python3 ./mri/eval_mri.py --test_files /export/Lab-Xue/projects/mri/data/retro_cine_3T_sigma_1_20_repeated_test.h5 --saved_model_path ${model} --num_uploaded 256 --save_samples --num_saved_samples 1024 --results_path /export/Lab-Xue/projects/mri/results/${RES_DIR} --model_type ${model_type_str} --scaling_factor 1.0
 
-python3 ./mri/eval_mri.py --test_files /export/Lab-Xue/projects/mri/data/retro_cine_3T_sigma_1_20_repeated_test_2nd_random_mask.h5 --saved_model_path ${model} --num_uploaded 256 --save_samples --num_saved_samples 1024 --results_path /export/Lab-Xue/projects/mri/results/${RES_DIR}_random_mask --model_type ${model_type_str} --scaling_factor 1.0
+python3 ./mri/eval_mri.py --test_files /export/Lab-Xue/projects/mri/data/retro_cine_3T_sigma_1_20_repeated_test_3rd.h5 --saved_model_path ${model} --num_uploaded 256 --save_samples --num_saved_samples 1024 --results_path /export/Lab-Xue/projects/mri/results/${RES_DIR} --model_type ${model_type_str} --scaling_factor 1.0
 
 # ======================================================================
 ## Run the batch
@@ -101,6 +100,20 @@ python3 ./mri/run_inference_batch.py --input_dir /export/Lab-Kellman/ReconResult
 ```
 
 # ======================================================================
+# local PSF test
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/projects/mri/results/test/mri-MRI_double_net_20230/test_-1/1280/ --output_dir /export/Lab-Xue/projects/mri/results/test/mri-MRI_double_net_20230/test_-1/1280//${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname test_1280_epoch_-1_1280_sigma_1.00_x --gmap_fname test_1280_epoch_-1_1280_sigma_1.00_gmap --saved_model_path $model --model_type ${model_type_str}
+
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/projects/mri/results/test/mri-MRI_double_net_20230/test_-1/400/ --output_dir /export/Lab-Xue/projects/mri/results/test/mri-MRI_double_net_20230/test_-1/400//${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname test_400_epoch_-1_400_sigma_1.00_x --gmap_fname test_400_epoch_-1_400_sigma_1.00_gmap --saved_model_path $model --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/projects/mri/results/test/mri-MRI_double_net_20230/retro_cine_cases_for_quantification/1280/LPSF/bp/ori/ --output_dir /export/Lab-Xue/projects/mri/results/test/mri-MRI_double_net_20230/retro_cine_cases_for_quantification/1280/LPSF/bp/res/ori --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname x --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/projects/mri/results/test/mri-MRI_double_net_20230/retro_cine_cases_for_quantification/1280/LPSF/bp/perturb/ --output_dir /export/Lab-Xue/projects/mri/results/test/mri-MRI_double_net_20230/retro_cine_cases_for_quantification/1280/LPSF/bp/res/perturb --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname x --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/projects/mri/results/test/mri-MRI_double_net_20230/retro_cine_cases_for_quantification/1280/LPSF/bp/perturb_2x/ --output_dir /export/Lab-Xue/projects/mri/results/test/mri-MRI_double_net_20230/retro_cine_cases_for_quantification/1280/LPSF/bp/res/perturb_2x --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname x --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
+
+# ======================================================================
 
 # WB LGE
 
@@ -135,6 +148,8 @@ python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/deno
 python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/MINNESOTA_UHVC/MINNESOTA_UHVC_Perfusion_2023_AI_denoising/20230119/Perfusion_AIF_TwoEchoes_Interleaved_R2_169958_51358165_51358175_441_20230119-155638 --output_dir /export/Lab-Kellman/ReconResults/denoising/MINNESOTA_UHVC/MINNESOTA_UHVC_Perfusion_2023_AI_denoising/20230119/Perfusion_AIF_TwoEchoes_Interleaved_R2_169958_51358165_51358175_441_20230119-155638/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model  --model_type ${model_type_str}
 
 python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/MINNESOTA_UHVC/MINNESOTA_UHVC_Perfusion_2023_AI_denoising/20230117/Perfusion_AIF_TwoEchoes_Interleaved_R2_169958_46001532_46001542_263_20230117-110441 --output_dir /export/Lab-Kellman/ReconResults/denoising/MINNESOTA_UHVC/MINNESOTA_UHVC_Perfusion_2023_AI_denoising/20230117/Perfusion_AIF_TwoEchoes_Interleaved_R2_169958_46001532_46001542_263_20230117-110441/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/MINNESOTA_UHVC_perf_stcnnt/20220517/Perfusion_AIF_TwoEchoes_Interleaved_R2_169958_26210628_26210638_148_20220517-100037/DebugOutput --output_dir /export/Lab-Kellman/ReconResults/MINNESOTA_UHVC_perf_stcnnt/20220517/Perfusion_AIF_TwoEchoes_Interleaved_R2_169958_26210628_26210638_148_20220517-100037/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
 
 # high res perfusion
 
@@ -273,3 +288,12 @@ python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/fre
 
 
 ```
+
+## Run the LPSF scripts
+
+cd /export/Lab-Xue/projects/mri/results/test/mri-MRI_double_net_20230/scripts
+
+for f in *.sh; do
+  bash "$f" 
+done
+

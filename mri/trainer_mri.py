@@ -151,7 +151,8 @@ def save_batch_samples(saved_path, fname, x, y, output, y_2x, y_degraded, gmap_m
 
     post_str = ""
     if gmap_median > 0 and noise_sigma > 0:
-        post_str = f"_gmap_{gmap_median:.2f}_sigma_{noise_sigma:.2f}"
+        post_str = f"_sigma_{noise_sigma:.2f}"
+        #post_str = f"_gmap_{gmap_median:.2f}_sigma_{noise_sigma:.2f}"
 
     fname += post_str
 
@@ -169,43 +170,51 @@ def save_batch_samples(saved_path, fname, x, y, output, y_2x, y_degraded, gmap_m
     y_degraded = np.transpose(y_degraded, [3, 4, 2, 1, 0])
     y_2x = np.transpose(y_2x, [3, 4, 2, 1, 0])
 
+    hdr = nib.Nifti1Header()
+    hdr.set_data_shape((H, W, T, B))
+
     if C==3:
         x = noisy_im[:,:,0,:,:] + 1j * noisy_im[:,:,1,:,:]
         gmap = noisy_im[:,:,2,:,:]
 
-        nib.save(nib.Nifti1Image(np.real(x), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_x_real.nii"))
-        nib.save(nib.Nifti1Image(np.imag(x), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_x_imag.nii"))
-        nib.save(nib.Nifti1Image(np.abs(x), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_x.nii"))
+        nib.save(nib.Nifti1Image(np.real(x), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_x_real.nii"))
+        nib.save(nib.Nifti1Image(np.imag(x), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_x_imag.nii"))
+        nib.save(nib.Nifti1Image(np.abs(x), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_x.nii"))
 
         y = clean_im[:,:,0,:,:] + 1j * clean_im[:,:,1,:,:]
-        nib.save(nib.Nifti1Image(np.real(y), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_real.nii"))
-        nib.save(nib.Nifti1Image(np.imag(y), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_imag.nii"))
-        nib.save(nib.Nifti1Image(np.abs(y), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y.nii"))
+        nib.save(nib.Nifti1Image(np.real(y), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_real.nii"))
+        nib.save(nib.Nifti1Image(np.imag(y), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_imag.nii"))
+        nib.save(nib.Nifti1Image(np.abs(y), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y.nii"))
 
         output = pred_im[:,:,0,:,:] + 1j * pred_im[:,:,1,:,:]
-        nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output_real.nii"))
-        nib.save(nib.Nifti1Image(np.imag(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output_imag.nii"))
-        nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output.nii"))  
+        nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_output_real.nii"))
+        nib.save(nib.Nifti1Image(np.imag(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_output_imag.nii"))
+        nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_output.nii"))  
 
         output = y_degraded[:,:,0,:,:] + 1j * y_degraded[:,:,1,:,:]
-        nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_degraded_real.nii"))
-        nib.save(nib.Nifti1Image(np.imag(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_degraded_imag.nii"))
-        nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_degraded.nii"))
+        nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_degraded_real.nii"))
+        nib.save(nib.Nifti1Image(np.imag(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_degraded_imag.nii"))
+        nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_degraded.nii"))
 
         output = y_2x[:,:,0,:,:] + 1j * y_2x[:,:,1,:,:]
-        nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_2x_real.nii"))
-        nib.save(nib.Nifti1Image(np.imag(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_2x_imag.nii"))
-        nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_2x.nii"))
+        hdr = nib.Nifti1Header()
+        hdr.set_data_shape(y_2x.shape)
+        nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_2x_real.nii"))
+        nib.save(nib.Nifti1Image(np.imag(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_2x_imag.nii"))
+        nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_2x.nii"))
     else:
         x = noisy_im[:,:,0,:,:]
         gmap = noisy_im[:,:,1,:,:]
 
-        nib.save(nib.Nifti1Image(x, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_x.nii"))
-        nib.save(nib.Nifti1Image(clean_im, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y.nii"))
-        nib.save(nib.Nifti1Image(pred_im, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_output.nii"))
-        nib.save(nib.Nifti1Image(y_degraded, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_degraded.nii"))
-        nib.save(nib.Nifti1Image(y_2x, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_y_2x.nii"))
+        nib.save(nib.Nifti1Image(x, affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_x.nii"))
+        nib.save(nib.Nifti1Image(clean_im, affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y.nii"))
+        nib.save(nib.Nifti1Image(pred_im, affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_output.nii"))
+        nib.save(nib.Nifti1Image(y_degraded, affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_degraded.nii"))
 
+        hdr.set_data_shape(y_2x.shape)
+        nib.save(nib.Nifti1Image(y_2x, affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_2x.nii"))
+
+    hdr.set_data_shape(gmap.shape)
     nib.save(nib.Nifti1Image(gmap, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_gmap.nii"))
 
 # -------------------------------------------------------------------------------------------------
@@ -652,7 +661,7 @@ def trainer(rank, global_rank, config, wandb_run):
         logging.info(f"{Fore.GREEN}{'-'*20} Epoch:{epoch}/{c.num_epochs}, {rank_str}, global rank {global_rank} {'-'*20}{Style.RESET_ALL}")
 
         if config.save_samples:
-            saved_path = os.path.join(config.log_path, config.run_name, f"tra_{epoch}")
+            saved_path = os.path.join(config.log_path, config.run_name[:24], f"tra_{epoch}")
             os.makedirs(saved_path, exist_ok=True)
             logging.info(f"{Fore.GREEN}saved_path - {saved_path}{Style.RESET_ALL}")
 
@@ -1012,7 +1021,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
 
     batch_size = c.batch_size if isinstance(val_set[0], MRIDenoisingDatasetTrain) else 1
 
-    num_workers_per_loader = c.num_workers // len(val_set)
+    num_workers_per_loader = c.num_workers // (2 * len(val_set))
 
     if c.ddp:
         local_world_size = int(os.environ["LOCAL_WORLD_SIZE"])
@@ -1044,9 +1053,9 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
     images_saved = 0
     if config.save_samples:
         if epoch >= 0:
-            saved_path = os.path.join(config.log_path, config.run_name, id)
+            saved_path = os.path.join(config.log_path, config.run_name[:24], id)
         else:
-            saved_path = os.path.join(config.log_path, config.run_name, f"{id}_{epoch}")
+            saved_path = os.path.join(config.log_path, config.run_name[:24], f"{id}_{epoch}")
         os.makedirs(saved_path, exist_ok=True)
         print(f"save path is {saved_path}")
 
@@ -1124,7 +1133,10 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
                                                       fps=1, format="gif")})
 
                 if rank<=0 and images_saved < config.num_saved_samples and config.save_samples:
-                    save_batch_samples(saved_path, f"{id}_epoch_{epoch}_{images_saved}", x.cpu(), y.cpu(), output.cpu(), y_2x.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
+                    case_dir = f"{saved_path}/{images_saved}"
+                    print(f"--> save - {id}_{images_saved}_epoch_{epoch}_{images_saved} at {case_dir}")
+                    os.makedirs(case_dir, exist_ok=True)
+                    save_batch_samples(case_dir, f"{id}_{images_saved}_epoch_{epoch}_{images_saved}", x.cpu(), y.cpu(), output.cpu(), y_2x.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
                     images_saved += 1
 
                 pbar.update(1)

@@ -153,7 +153,7 @@ def main():
 
     try: 
         test_set, _ = load_mri_test_data(config=config)
-        losses = eval_val(rank=-1, model=model, config=config, val_set=test_set, epoch=-1, device=get_device(), wandb_run=run, id="test", scaling_factor=config.scaling_factor)
+        losses = eval_val(rank=-1, model=model, config=config, val_set=test_set, epoch=-1, device=get_device(), wandb_run=run, id="test", scaling_factor=c.scaling_factor)
 
         save_results(config, losses, id="")
     except KeyboardInterrupt:
