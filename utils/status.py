@@ -48,7 +48,7 @@ def get_cuda_info(device):
 
 def support_bfloat16(device):
     
-    check_bfloat16 = os.getenv("DISABLE_FLOAT16_INFERENCE", 'False').lower() in ('true', '1', 't')
+    check_bfloat16 = os.getenv("DISABLE_FLOAT16_INFERENCE", 'False').lower() in ('false', '0', 'f')
     if check_bfloat16:
         info =  get_cuda_info(device)
         if info["gpu_name"].find("A100") >= 0 or info["gpu_name"].find("H100") >= 0:
