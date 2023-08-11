@@ -77,6 +77,8 @@ def main():
     args = check_args(arg_parser())
     print(args)
     
+    print(f"---> support bfloat16 is {support_bfloat16(device=get_device())}")
+    
     print(f"{Fore.YELLOW}Load in model file - {args.saved_model_path}")
     model, config = load_model(args.saved_model_path, args.saved_model_config, args.model_type)
 
