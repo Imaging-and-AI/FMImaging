@@ -356,7 +356,6 @@ def trainer(rank, global_rank, config, wandb_run):
     ddp = config.ddp
 
     if config.load_path is not None:
-        load_path = config.load_path
         status = torch.load(config.load_path)
         config = status['config']
 
