@@ -142,6 +142,9 @@ class run_ddp_base(object):
         if config.seed is not None:
             cmd_run.extend(["--seed", f"{config.seed}"])
 
+        if config.num_workers is not None:
+            cmd_run.extend(["--num_workers", f"{config.num_workers}"])
+
         if config.continued_training:
             cmd_run.extend(["--continued_training"])
 
@@ -285,6 +288,8 @@ class run_ddp_base(object):
         parser.add_argument("--separable_conv", action="store_true", help='if set, use separable conv')
 
         parser.add_argument("--seed", type=int, default=None, help='seed for randomization')
+
+        parser.add_argument("--num_workers", type=int, default=None, help='number of total workers')
 
         parser.add_argument("--run_extra_note", type=str, default=None, help="extra notes for the runs")
 
