@@ -349,18 +349,25 @@
             "program": "./microscopy/main_micro.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT":"10", "CUDA_VISIBLE_DEVICES":"0,1", "WORLD_SIZE":"2", "LOCAL_WORLD_SIZE":"0", "MASTER_ADDR":"localhost", "MASTER_PORT":"12355"},
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT":"10", "CUDA_VISIBLE_DEVICES":"1"},
             "args": [
                 "-D",
+                "--run_name", "micro_test_5",
+                "--log_path", "/export/Lab-Xue/projects/microscopy/logs",
+                "--results_path", "/export/Lab-Xue/projects/microscopy/results",
+                "--model_path", "/export/Lab-Xue/projects/microscopy/models",
+                "--check_path", "/export/Lab-Xue/projects/microscopy/checkpoints",
                 "--train_files", "Base_Actin_train.h5",
-                "--ratio", "10","0","0",
+                "--test_files", "Base_Actin_test.h5",
+                "--ratio", "100","10","0",
                 "--C_in", "1",
                 "--C_out", "1",
-                "--disable_LSUV",
                 "--num_epochs", "2",
                 "--backbone", "unet",
                 "--batch_size", "8",
-                "--ddp"
+                "--project", "micro",
+                "--disable_LSUV",
+                "--save_samples"
             ]
         },
     ]

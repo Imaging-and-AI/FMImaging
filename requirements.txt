@@ -18,3 +18,5 @@ GPUtil
 onnxruntime
 piq
 torchmetrics
+moviepy
+imageio

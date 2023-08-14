@@ -103,7 +103,7 @@ class STCNNT_MICRO(STCNNT_Task_Base):
             self.pre = Conv2DExt(config.C_in, config.backbone_hrnet.C, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
         if self.config.backbone == "unet":
-            self.pre = nn.Identity()
+            self.pre = Conv2DExt(config.C_in, config.backbone_unet.C, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
         if self.config.backbone == "LLM":
             self.pre = nn.Identity()
