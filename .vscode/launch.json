@@ -343,7 +343,7 @@
                 "--run_name", "membrane_potential_prediction",
                 "--batch_size", "32",
                 "--num_starts", "40",
-                "--num_epoch", "20",
+                "--num_epochs", "20",
                 "--save_cycle", "2",
                 "--weight_decay", "0.1",
                 "--global_lr", "0.001",
@@ -354,6 +354,34 @@
                 "--results_path", "~/projects/membrane_potential/results/",
                 "--model_path", "~/projects/membrane_potential/models/",
                 "--data_root", "/export/Lab-Xue/MembranePotential/experiments"
+            ]
+        },
+        {
+            "name": "microscopy base",
+            "type": "python",
+            "request": "launch",
+            "program": "./microscopy/main_micro.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT":"10", "CUDA_VISIBLE_DEVICES":"1"},
+            "args": [
+                "-D",
+                "--run_name", "micro_test_5",
+                "--log_path", "/export/Lab-Xue/projects/microscopy/logs",
+                "--results_path", "/export/Lab-Xue/projects/microscopy/results",
+                "--model_path", "/export/Lab-Xue/projects/microscopy/models",
+                "--check_path", "/export/Lab-Xue/projects/microscopy/checkpoints",
+                "--train_files", "Base_Actin_train.h5",
+                "--test_files", "Base_Actin_test.h5",
+                "--ratio", "100","10","0",
+                "--C_in", "1",
+                "--C_out", "1",
+                "--num_epochs", "2",
+                "--backbone", "unet",
+                "--batch_size", "8",
+                "--project", "micro",
+                "--disable_LSUV",
+                "--save_samples"
             ]
         },
     ]

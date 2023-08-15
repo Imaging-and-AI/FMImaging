@@ -14,14 +14,10 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 c_handler = logging.StreamHandler(sys.stderr)
-f_handler = logging.FileHandler('/tmp/fsi.log')
 
 log_format = logging.Formatter('[%(filename)s:%(lineno)s - %(funcName)s() ] - %(asctime)s - %(levelname)s - %(message)s')
 c_handler.setFormatter(log_format)
-f_handler.setFormatter(log_format)
-
 logger.addHandler(c_handler)
-logger.addHandler(f_handler)
 
 from time import time
 

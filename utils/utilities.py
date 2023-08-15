@@ -98,7 +98,7 @@ def repatch(image_list, original_shape, patch_shape):
 
 # -------------------------------------------------------------------------------------------------
 
-def save_image_local(path, complex_i, i, noisy, predi, clean):
+def save_image_local(path, complex_i, name, noisy, predi, clean):
     """
     Saves the image locally as a 4D tiff [T,C,H,W]
     3 channels: noisy, predicted, clean
@@ -124,7 +124,7 @@ def save_image_local(path, complex_i, i, noisy, predi, clean):
 
     composed_channel_wise = np.transpose(np.array([save_x, save_p, save_y]), (1,0,2,3))
 
-    tifffile.imwrite(os.path.join(path, f"Image_{i:03d}_{save_x.shape}.tif"),\
+    tifffile.imwrite(os.path.join(path, f"{name}.tif"),\
                         composed_channel_wise, imagej=True)
 
 # -------------------------------------------------------------------------------------------------
@@ -320,6 +320,39 @@ def save_inference_results(input, output, gmap, output_dir, noisy_image=None):
         print(res_name)
         np.save(res_name, noisy_image)
         nib.save(nib.Nifti1Image(noisy_image, affine=np.eye(4)), os.path.join(output_dir, 'noisy_image.nii'))
+
+# -------------------------------------------------------------------------------------------------
+
+def normalize_image(image, percentiles=None, values=None, clip=True):
+    """
+    TODO: fix comment
+    Normalizes image locally.
+    @inputs:
+        image: nd numpy array or torch tensor
+        percentiles: pair of percentiles ro normalize with
+        values: pair of values normalize with
+        NOTE: only one of percentiles and values is required
+    @return:
+        n_img: the image normalized wrt given params.
+    """
+
+    assert (percentiles==None and values!=None) or (percentiles!=None and values==None)
+
+    if type(image)==torch.Tensor:
+        image_c = image.cpu().detach().numpy()
+    else:
+        image_c = image
+
+    if percentiles != None:
+        i_min = np.percentile(image_c, percentiles[0])
+        i_max = np.percentile(image_c, percentiles[1])
+    if values != None:
+        i_min = values[0]
+        i_max = values[1]
+
+    n_img = (image - i_min)/(i_max - i_min)
+
+    return np.clip(n_img, 0, 1) if clip else n_img
 
 # -------------------------------------------------------------------------------------------------
 
