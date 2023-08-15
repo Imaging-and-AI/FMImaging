@@ -2,16 +2,11 @@
 Model(s) used for Mircoscopy
 """
 import os
-import sys
+import torch
 import logging
-import copy
-import abc 
-from abc import ABC
 from colorama import Fore, Back, Style
 
-import torch
-import torch.nn as nn
-
+import sys
 from pathlib import Path
 
 Project_DIR = Path(__file__).parents[0].resolve()
@@ -25,9 +20,8 @@ sys.path.insert(1, str(Project_DIR))
 
 from model_base.imaging_attention import *
 from model_base.backbone import *
-from model_base.backbone.backbone_small_unet import *
 
-from utils import get_device, create_generic_class_str, optimizer_to
+from utils import get_device, optimizer_to
 
 from model_base.task_base import *
 from model_base.losses import *
@@ -45,10 +39,10 @@ class STCNNT_MICRO(STCNNT_Task_Base):
         @args:
             - config (Namespace): runtime namespace for setup
             - total_steps (int): total training steps. used for OneCycleLR
-            
+
         Task specific args:
-        
-            - losses: 
+
+            - losses:
             - loss_weights:
         """
         super().__init__(config=config)
@@ -57,10 +51,10 @@ class STCNNT_MICRO(STCNNT_Task_Base):
         self.C_in = config.C_in
         self.C_out = config.C_out
 
-        print(f"{Fore.YELLOW}{Back.WHITE}===> Micro - create pre <==={Style.RESET_ALL}")
+        logging.info(f"{Fore.YELLOW}{Back.WHITE}===> Micro - create pre <==={Style.RESET_ALL}")
         self.create_pre()
 
-        print(f"{Fore.GREEN}{Back.WHITE}===> Micro - backbone <==={Style.RESET_ALL}")
+        logging.info(f"{Fore.GREEN}{Back.WHITE}===> Micro - backbone <==={Style.RESET_ALL}")
         if config.backbone == "small_unet":
             self.backbone = CNNT_Unet(config=config)
 
@@ -70,17 +64,15 @@ class STCNNT_MICRO(STCNNT_Task_Base):
             config.C_in = self.C_in
 
         if config.backbone == "unet":
+            config.C_in = config.backbone_unet.C
             self.backbone = STCNNT_Unet(config=config)
+            config.C_in = self.C_in
 
         if config.backbone == "LLM":
-            self.backbone = STCNNT_LLMnet(config=config) 
+            self.backbone = STCNNT_LLMnet(config=config)
 
-        print(f"{Fore.RED}{Back.WHITE}===> Micro - post <==={Style.RESET_ALL}")
+        logging.info(f"{Fore.RED}{Back.WHITE}===> Micro - post <==={Style.RESET_ALL}")
         self.create_post()
-
-        # if use weighted loss
-        self.a = torch.nn.Parameter(torch.tensor(5.0))
-        self.b = torch.nn.Parameter(torch.tensor(4.0))
 
         device = get_device(device=config.device)
         self.set_up_loss(device=device)
@@ -90,45 +82,45 @@ class STCNNT_MICRO(STCNNT_Task_Base):
         if config.load_path is not None:
             self.load(load_path=config.load_path, device=device)
 
-        print(f"{Fore.BLUE}{Back.WHITE}===> Micro - done <==={Style.RESET_ALL}")
+        logging.info(f"{Fore.BLUE}{Back.WHITE}===> Micro - done <==={Style.RESET_ALL}")
 
     def create_pre(self):
 
-        config = self.config
+        c = self.config
 
         if self.config.backbone == "small_unet":
-            self.pre = nn.Identity()
+            self.pre = torch.nn.Identity()
 
         if self.config.backbone == "hrnet":
-            self.pre = Conv2DExt(config.C_in, config.backbone_hrnet.C, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
+            self.pre = Conv2DExt(c.C_in, c.backbone_hrnet.C, kernel_size=c.kernel_size, stride=c.stride, padding=c.padding, bias=True)
 
         if self.config.backbone == "unet":
-            self.pre = Conv2DExt(config.C_in, config.backbone_unet.C, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
+            self.pre = Conv2DExt(c.C_in, c.backbone_unet.C, kernel_size=c.kernel_size, stride=c.stride, padding=c.padding, bias=True)
 
         if self.config.backbone == "LLM":
-            self.pre = nn.Identity()
+            self.pre = torch.nn.Identity()
 
 
     def create_post(self):
 
-        config = self.config
+        c = self.config
 
         if self.config.backbone == "small_unet":
-            self.pre = nn.Identity()
+            self.pre = torch.nn.Identity()
 
         if self.config.backbone == "hrnet":
-            hrnet_C_out = int(config.backbone_hrnet.C * sum([np.power(2, k) for k in range(config.backbone_hrnet.num_resolution_levels)]))
-            self.post = Conv2DExt(hrnet_C_out, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
+            hrnet_C_out = int(c.backbone_hrnet.C * sum([np.power(2, k) for k in range(c.backbone_hrnet.num_resolution_levels)]))
+            self.post = Conv2DExt(hrnet_C_out, c.C_out, kernel_size=c.kernel_size, stride=c.stride, padding=c.padding, bias=True)
 
-        if config.backbone == "unet":
-            self.post = Conv2DExt(config.backbone_unet.C, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
+        if c.backbone == "unet":
+            self.post = Conv2DExt(c.backbone_unet.C, c.C_out, kernel_size=c.kernel_size, stride=c.stride, padding=c.padding, bias=True)
 
-        if config.backbone == "LLM":
-            output_C = int(np.power(2, config.backbone_LLM.num_stages-2)) if config.backbone_LLM.num_stages>2 else config.backbone_LLM.C
-            self.post = Conv2DExt(output_C,config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
+        if c.backbone == "LLM":
+            output_C = int(np.power(2, c.backbone_LLM.num_stages-2)) if c.backbone_LLM.num_stages>2 else c.backbone_LLM.C
+            self.post = Conv2DExt(output_C,c.C_out, kernel_size=c.kernel_size, stride=c.stride, padding=c.padding, bias=True)
 
 
-    def forward(self, x, snr=None, base_snr_t=-1):
+    def forward(self, x):
         """
         @args:
             - x (5D torch.Tensor): input image
@@ -155,15 +147,8 @@ class STCNNT_MICRO(STCNNT_Task_Base):
             if self.residual:
                 logits = x - logits
 
-        if base_snr_t > 0:
-            weights = self.compute_weights(snr=snr, base_snr_t=base_snr_t)
-            return logits, weights
-        else:
-            return logits
+        return logits
 
-    def compute_weights(self, snr, base_snr_t):
-        weights = self.a - self.b * torch.sigmoid(snr-base_snr_t)
-        return weights
 
     def set_up_loss(self, device="cpu"):
         """
@@ -171,7 +156,7 @@ class STCNNT_MICRO(STCNNT_Task_Base):
         @args:
             - device (torch.device): device to setup the loss on
         @args (from config):
-            - losses (list of "ssim", "ssim3D", "l1", "mse", "psnr"):
+            - losses (list of "ssim", "ssim3D", "msssim", "l1", "mse", "psnr", "gaussian", "gaussian3D"):
                 list of losses to be combined
             - loss_weights (list of floats)
                 weights of the losses in the combined loss
@@ -220,7 +205,7 @@ class STCNNT_MICRO(STCNNT_Task_Base):
             if param.requires_grad:
                 num_learnable += 1
 
-        print(f"{rank_str} model, pre, learnable tensors {num_learnable} out of {num} ...")
+        logging.info(f"{rank_str} model, pre, learnable tensors {num_learnable} out of {num} ...")
 
         num = 0
         num_learnable = 0
@@ -229,7 +214,7 @@ class STCNNT_MICRO(STCNNT_Task_Base):
             if param.requires_grad:
                 num_learnable += 1
 
-        print(f"{rank_str} model, backbone, learnable tensors {num_learnable} out of {num} ...")
+        logging.info(f"{rank_str} model, backbone, learnable tensors {num_learnable} out of {num} ...")
 
         num = 0
         num_learnable = 0
@@ -238,44 +223,44 @@ class STCNNT_MICRO(STCNNT_Task_Base):
             if param.requires_grad:
                 num_learnable += 1
 
-        print(f"{rank_str} model, post, learnable tensors {num_learnable} out of {num} ...")
+        logging.info(f"{rank_str} model, post, learnable tensors {num_learnable} out of {num} ...")
 
     def save(self, epoch, only_paras=False, save_file_name=None):
         """
         Save model checkpoints
         @args:
             - epoch (int): current epoch of the training cycle
+            - only_paras (bool): save only parameters or scheduler and optimizer as well
+            - save_file_name (str): name to save the file with
         @args (from config):
             - date (datetime str): runtime date
             - checkpath (str): directory to save checkpoint in
+        @rets:
+            - save_path (str): path of the saved model
         """
         if save_file_name is None:
             run_name = self.config.run_name.replace(" ", "_")
             save_file_name = f"{run_name}_epoch-{epoch}.pth"
-            
+
         save_path = os.path.join(self.config.check_path, save_file_name)
         logging.info(f"{Fore.YELLOW}Saving model status at {save_path}{Style.RESET_ALL}")
         if only_paras:
                 torch.save({
                 "epoch":epoch,
                 "config": self.config,
-                "pre_state": self.pre.state_dict(), 
-                "backbone_state": self.backbone.state_dict(), 
-                "post_state": self.post.state_dict(), 
-                "a": self.a,
-                "b": self.b
+                "pre_state": self.pre.state_dict(),
+                "backbone_state": self.backbone.state_dict(),
+                "post_state": self.post.state_dict(),
             }, save_path)
         else:
             torch.save({
                 "epoch":epoch,
-                "pre_state": self.pre.state_dict(), 
-                "backbone_state": self.backbone.state_dict(), 
-                "post_state": self.post.state_dict(), 
-                "a": self.a,
-                "b": self.b,
-                "optimizer_state": self.optim.state_dict(), 
-                "scheduler_state": self.sched.state_dict(),
                 "config": self.config,
+                "pre_state": self.pre.state_dict(),
+                "backbone_state": self.backbone.state_dict(),
+                "post_state": self.post.state_dict(),
+                "optimizer_state": self.optim.state_dict(),
+                "scheduler_state": self.sched.state_dict(),
                 "scheduler_type":self.stype
             }, save_path)
 
@@ -285,15 +270,15 @@ class STCNNT_MICRO(STCNNT_Task_Base):
         """
         Load the model from status; the config will not be updated
         @args:
-            - status (dict): dict to hold model parameters etc.
+            - status (dict): dict to hold model parameters etc
+            - device (torch.device): device to load at
+            - load_others (bool): on top of params, load scheduler and optimizer as well
         """
 
         if 'backbone_state' in status:
             self.pre.load_state_dict(status['pre_state'])
             self.backbone.load_state_dict(status['backbone_state'])
             self.post.load_state_dict(status['post_state'])
-            self.a = status['a']
-            self.b = status['b']
         else:
             self.load_state_dict(status['model_state'])
 
@@ -315,9 +300,8 @@ class STCNNT_MICRO(STCNNT_Task_Base):
         """
         Load a checkpoint from the load path
         @args:
-            - device (torch.device): device to setup the model on
-        @args (from config):
             - load_path (str): path to load the weights from
+            - device (torch.device): device to setup the model on
         """
         logging.info(f"{Fore.YELLOW}Loading model from {load_path}{Style.RESET_ALL}")
 
@@ -327,7 +311,7 @@ class STCNNT_MICRO(STCNNT_Task_Base):
             self.config = status['config']
 
             self.load_from_status(status, device=device, load_others=True)
-                
+
             if device is not None:
                 self.to(device=device)
         else:

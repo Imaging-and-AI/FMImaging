@@ -4,6 +4,7 @@ Python script to run microscopy bash scripts in batches
 
 import sys
 from pathlib import Path
+from datetime import datetime
 
 Project_DIR = Path(__file__).parents[0].resolve()
 sys.path.insert(1, str(Project_DIR))
@@ -13,8 +14,6 @@ sys.path.insert(1, str(Project_DIR))
 
 from trainer_base import *
 
-import time
-from datetime import datetime
 
 # -------------------------------------------------------------------------------------------------
 
@@ -31,57 +30,48 @@ class micro_ddp_base(run_ddp_base):
 
         "--num_epochs", "75",
         "--batch_size", "16",
-
-        "--samples_per_image", "32",
+        "--global_lr", "0.0001",
+        "--clip_grad_norm", "1.0",
+        "--weight_decay", "1",
+        "--iters_to_accumulate", "1",
+        "--num_workers", "8",
+        "--prefetch_factor", "4",
 
         "--window_size", "8", "8",
         "--patch_size", "2", "2",
 
-        "--global_lr", "0.0001",
-
-        "--clip_grad_norm", "1.0",
-        "--weight_decay", "1",
-        "--iters_to_accumulate", "1",
-
-        "--num_workers", "8",
-        "--prefetch_factor", "4",
-
         "--scheduler_type", "ReduceLROnPlateau",
-        #"--scheduler_type", "OneCycleLR",
-
         "--scheduler.ReduceLROnPlateau.patience", "0",
         "--scheduler.ReduceLROnPlateau.cooldown", "0",
         "--scheduler.ReduceLROnPlateau.factor", "0.9",
-
         "--scheduler.OneCycleLR.pct_start", "0.2",
 
         # hrnet
         "--backbone_hrnet.num_resolution_levels", "2",
-
         # unet
         "--backbone_unet.num_resolution_levels", "3",
         "--backbone_unet.C", "16",
-
         # LLMs
-        # "--backbone_LLM.num_stages", "3",
-
+        "--backbone_LLM.num_stages", "3",
         # small unet
         "--backbone_small_unet.channels", "16", "32", "64",   
         "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1",
 
-        #"--losses", "mse", "l1",
-        #"--loss_weights", "1.0", "1.0",
+        # "--losses", "mse", "l1",
+        # "--loss_weights", "1.0", "1.0",
         "--height", "128",
         "--width", "128",
         "--time", "12",
         "--C_in", "1",
         "--C_out", "1",
-        "--num_uploaded", "12",
+        "--num_uploaded", "6",
 
         "--train_files", "Base_Actin_train.h5",
         "--test_files", "Base_Actin_test.h5",
+        "--samples_per_image", "32",
         
-        "--ratio", "100", "10", "0"
+        "--ratio", "100", "50", "0",
+        "--save_samples"
         ])
 
         self.cmd.extend(["--max_load", f"{int(config.max_load)}"])
@@ -91,6 +81,11 @@ class micro_ddp_base(run_ddp_base):
         vars = dict()
 
         vars['optim'] = ['sophia']
+
+        vars['scaling_type'] = ['per']
+        vars['scaling_vals'] = [
+            [0,99.9]
+        ]
 
         vars['backbone'] = ['unet']
         vars['cell_types'] = ["sequential"]
@@ -106,6 +101,8 @@ class micro_ddp_base(run_ddp_base):
         vars['norm_modes'] = ["instance2d"]
         vars['C'] = [32]
         vars['scale_ratio_in_mixers'] = [1.0]
+        vars['residual'] = [True]
+        vars['n_heads'] = [8] # TODO: try 32
 
         vars['block_strs'] = [
                         [
@@ -116,10 +113,6 @@ class micro_ddp_base(run_ddp_base):
         vars['losses'] = [
             [['ssim'], ['1.0']],
         ]
-
-        vars['residual'] = [True]
-
-        vars['n_heads'] = [8]
 
         return vars
     
@@ -143,7 +136,9 @@ class micro_ddp_base(run_ddp_base):
                         residual=True,
                         n_heads=32,
                         losses=['mse', 'l1'],
-                        loss_weights=['1.0', '1.0']
+                        loss_weights=['1.0', '1.0'],
+                        scaling_type='per',
+                        scaling_vals=[0,100]
                         ):
 
         if c < n_heads:
@@ -160,7 +155,6 @@ class micro_ddp_base(run_ddp_base):
         curr_time = datetime.now()
         moment = curr_time.strftime('%Y%m%d_%H%M%S_%f')
         run_str = f"{config.model_type}_{moment}_C-{c}_amp-{config.use_amp}"
-        #run_str = moment
 
         if config.run_extra_note is not None:
             run_str += "_" 
@@ -198,7 +192,9 @@ class micro_ddp_base(run_ddp_base):
         cmd_run.extend([
             "--run_name", f"{config.project}-{run_str}",
             "--run_notes", f"{config.project}-{run_str}",
-            "--n_head", f"{n_heads}"
+            "--n_head", f"{n_heads}",
+            "--scaling_type", f"{scaling_type}",
+            "--scaling_vals", f"{scaling_vals[0]}", f"{scaling_vals[1]}",
         ])
 
         return cmd_run
@@ -226,7 +222,9 @@ class micro_ddp_base(run_ddp_base):
                 c, \
                 scale_ratio_in_mixer, \
                 bs, \
-                loss_and_weights \
+                loss_and_weights, \
+                scaling_type, \
+                scaling_vals \
                     in itertools.product( 
                                         vars['optim'],
                                         vars['mixer_types'], 
@@ -244,7 +242,9 @@ class micro_ddp_base(run_ddp_base):
                                         vars['C'],
                                         vars['scale_ratio_in_mixers'],
                                         block_str,
-                                        vars['losses']
+                                        vars['losses'],
+                                        vars['scaling_type'],
+                                        vars['scaling_vals']
                                         ):
 
                     # -------------------------------------------------------------
@@ -269,7 +269,9 @@ class micro_ddp_base(run_ddp_base):
                                     residual=residual,
                                     n_heads=n_heads,
                                     losses=loss_and_weights[0],
-                                    loss_weights=loss_and_weights[1]
+                                    loss_weights=loss_and_weights[1],
+                                    scaling_type=scaling_type,
+                                    scaling_vals=scaling_vals
                                     )
 
                     if cmd_run:

@@ -92,7 +92,7 @@ class MircoTrainer(Trainer_Base):
         super().check_args()
 
         if self.config.data_root is None:
-            self.config.data_root = "/export/Lab-Xue/projects/micro/data"
+            self.config.data_root = "/export/Lab-Xue/projects/microscopy/data"
 
     def set_up_config_for_sweep(self, wandb_config):
         super().set_up_config_for_sweep(wandb_config=wandb_config)
@@ -117,7 +117,7 @@ class MircoTrainer(Trainer_Base):
 def main():
 
     config_default = arg_parser()
-    
+
     trainer = MircoTrainer(config_default)
     trainer.train()
 

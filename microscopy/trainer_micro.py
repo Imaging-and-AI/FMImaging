@@ -7,7 +7,6 @@ import copy
 import wandb
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.distributed as dist
 
 from time import time
@@ -31,19 +30,17 @@ from utils.running_inference import running_inference
 from model_micro import STCNNT_MICRO
 from data_micro import MicroscopyDatasetTrain, load_micro_data
 
+# Helpers
 # -------------------------------------------------------------------------------------------------
+
 class micro_trainer_meters(object):
     """
     A helper class to organize meters for training
     """
-
     def __init__(self, config, device):
-
         super().__init__()
 
         self.config = config
-
-        c = config
 
         self.mse_meter = AverageMeter()
         self.l1_meter = AverageMeter()
@@ -97,8 +94,9 @@ class micro_trainer_meters(object):
         self.gaussian3D_meter.update(gauss3D_loss, n=total)
 
     def get_loss(self):
-        # mse, l1, ssim, ssim3D, psnr_loss, psnr, perp,  gaussian, gaussian3D
-        return self.mse_meter.avg, self.l1_meter.avg, self.ssim_meter.avg, self.ssim3D_meter.avg, self.psnr_loss_meter.avg, self.psnr_meter.avg, self.gaussian_meter.avg, self.gaussian3D_meter.avg
+        # mse, l1, ssim, ssim3D, psnr_loss, psnr, gaussian, gaussian3D
+        return self.mse_meter.avg, self.l1_meter.avg, self.ssim_meter.avg, self.ssim3D_meter.avg,\
+            self.psnr_loss_meter.avg, self.psnr_meter.avg, self.gaussian_meter.avg, self.gaussian3D_meter.avg
 
 # -------------------------------------------------------------------------------------------------
 
@@ -126,7 +124,7 @@ def create_log_str(config, epoch, rank, data_shape, loss, loss_meters, curr_lr, 
             f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},"\
             f"{Style.RESET_ALL} {Fore.WHITE}{Back.LIGHTBLUE_EX}{Style.NORMAL}{Style.RESET_ALL}"\
             f"{C}mse {mse:.4f}, l1 {l1:.4f}, ssim {ssim:.4f}, ssim3D {ssim3D:.4f}, "\
-            f"gaussian {gaussian:.4f}, gaussian3D {gaussian3D:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}{Style.RESET_ALL}{lr_str}"
+            f"gaussian {gaussian:.4f}, gaussian3D {gaussian3D:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}{Style.RESET_ALL}{lr_str} "
 
     return str
 
@@ -181,9 +179,9 @@ def create_model(config, model_type, total_steps=-1):
 
 # -------------------------------------------------------------------------------------------------
 
-def save_image_batch_micro(complex_i, noisy, predi, clean):
+def create_wandb_log_vid(noisy, predi, clean, complex_i=False):
     """
-    Logs the image to wandb as a 5D gif [B,T,C,H,W]
+    Create the log video for wandb as a 5D gif [B,T,C,H,W]
     If complex image then save the magnitude using first 2 channels
     Else use just the first channel
     @args:
@@ -211,17 +209,18 @@ def save_image_batch_micro(complex_i, noisy, predi, clean):
     save_p = normalize_image(save_p, percentiles=[0,100])
     save_y = normalize_image(save_y, percentiles=[0,100])
 
-    while save_x.shape[3] > 500:
+    # scale down the images before logging
+    while save_x.shape[2] > 500 or save_x.shape[3] > 500:
         save_x = save_x[:,:,::2,::2]
         save_p = save_p[:,:,::2,::2]
         save_y = save_y[:,:,::2,::2]
-       
+
     B, T, H, W = save_x.shape
 
     max_col = 16
     if B>max_col:
         num_row = B//max_col
-        if max_col*num_row < B: 
+        if max_col*num_row < B:
             num_row += 1
         composed_res = np.zeros((T, 3*H*num_row, max_col*W))
         for b in range(B):
@@ -429,10 +428,6 @@ def trainer(rank, global_rank, config, wandb_run):
                         param.requires_grad = False
                 else:
                     logging.info(f"{rank_str}, {Fore.RED}load saved model, post requires_grad_(True){Style.RESET_ALL}")
-                # ------------------------------
-
-                model.a = status['a']
-                model.b = status['b']
 
                 # ---------------------------------------------------
 
@@ -455,7 +450,7 @@ def trainer(rank, global_rank, config, wandb_run):
         model = model.to(device)
         if not c.disable_LSUV:
             t0 = time()
-            LSUVinit(model, input_data.to(device=device), verbose=True, cuda=True)
+            LSUVinit(model, input_data.to(device=device), verbose=True, cuda=device_type=="cuda")
             logging.info(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
 
     if c.ddp:
@@ -493,6 +488,7 @@ def trainer(rank, global_rank, config, wandb_run):
         samplers = [None for _ in train_set]
         shuffle = True
 
+    model_str = ""
     if c.backbone == 'hrnet':
         model_str = f"C {c.backbone_hrnet.C}, {c.n_head} heads, {c.backbone_hrnet.block_str}"
     elif c.backbone == 'unet':
@@ -525,7 +521,6 @@ def trainer(rank, global_rank, config, wandb_run):
             wandb_run.define_metric("train_ssim3D_loss", step_metric='epoch')
             wandb_run.define_metric("train_psnr_loss", step_metric='epoch')
             wandb_run.define_metric("train_psnr", step_metric='epoch')
-            wandb_run.define_metric("train_perp", step_metric='epoch')
             wandb_run.define_metric("train_gaussian_deriv", step_metric='epoch')
             wandb_run.define_metric("train_gaussian3D_deriv", step_metric='epoch')
 
@@ -535,7 +530,6 @@ def trainer(rank, global_rank, config, wandb_run):
             wandb_run.define_metric("val_ssim_loss", step_metric='epoch')
             wandb_run.define_metric("val_ssim3D_loss", step_metric='epoch')
             wandb_run.define_metric("val_psnr", step_metric='epoch')
-            wandb_run.define_metric("val_perp", step_metric='epoch')
             wandb_run.define_metric("val_gaussian_deriv", step_metric='epoch')
             wandb_run.define_metric("val_gaussian3D_deriv", step_metric='epoch')
 
@@ -552,7 +546,7 @@ def trainer(rank, global_rank, config, wandb_run):
                     y = np.concatenate((y, np.expand_dims(a_y, axis=0)), axis=0)
 
                 title = f"Tra_samples_{i}_Noisy_Noisy_GT_{x.shape}"
-                vid = save_image_batch_micro(complex_i=False, noisy=x, predi=x, clean=y)
+                vid = create_wandb_log_vid(noisy=x, predi=x, clean=y)
                 wandb_run.log({title:wandb.Video(vid, caption=f"Tra sample {i}", fps=1, format='gif')})
                 logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}")
 
@@ -597,6 +591,7 @@ def trainer(rank, global_rank, config, wandb_run):
         if c.ddp: [loader_x.sampler.set_epoch(epoch) for loader_x in train_loader]
 
         images_saved = 0
+        images_logged = 0
 
         train_loader_iter = [iter(loader_x) for loader_x in train_loader]
 
@@ -615,13 +610,13 @@ def trainer(rank, global_rank, config, wandb_run):
                 loader_ind = idx % len(train_loader_iter)
 
                 tm = start_timer(enable=c.with_timer)
-                stuff = next(train_loader_iter[loader_ind], None)
-                while stuff is None:
+                batch = next(train_loader_iter[loader_ind], None)
+                while batch is None:
                     del train_loader_iter[loader_ind]
                     loader_ind = idx % len(train_loader_iter)
-                    stuff = next(train_loader_iter[loader_ind], None)
+                    batch = next(train_loader_iter[loader_ind], None)
 
-                x, y = stuff
+                x, y = batch
                 end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
 
                 tm = start_timer(enable=c.with_timer)
@@ -649,15 +644,14 @@ def trainer(rank, global_rank, config, wandb_run):
                 if (idx + 1) % c.iters_to_accumulate == 0 or (idx + 1 == total_iters):
                     if(c.clip_grad_norm>0):
                         scaler.unscale_(optim)
-                        nn.utils.clip_grad_norm_(model.parameters(), c.clip_grad_norm)
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), c.clip_grad_norm)
 
                     scaler.step(optim)
                     optim.zero_grad()
                     scaler.update()
-
                     if stype == "OneCycleLR": sched.step()
-                end_timer(enable=c.with_timer, t=tm, msg="---> other steps took ")
 
+                end_timer(enable=c.with_timer, t=tm, msg="---> other steps took ")
 
                 tm = start_timer(enable=c.with_timer)
                 curr_lr = optim.param_groups[0]['lr']
@@ -670,6 +664,13 @@ def trainer(rank, global_rank, config, wandb_run):
                 if rank<=0 and idx%image_save_step_size==0 and images_saved < c.num_saved_samples and c.save_samples:
                     save_image_local(saved_path, False, f"tra_epoch_{epoch}_{images_saved}", x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
                     images_saved += 1
+                if rank<=0 and images_logged < config.num_uploaded and wandb_run is not None:
+                    title = f"tra_{images_logged}_{x.shape}"
+                    vid = create_wandb_log_vid(noisy=x.numpy(force=True), predi=output.numpy(force=True), clean=y.numpy(force=True))
+                    wandb_run.log({title: wandb.Video(vid,
+                                                      caption=f"epoch {epoch}, mse {loss_meters.mse_meter.val:.2f}, ssim {loss_meters.ssim_meter.val:.2f}, psnr {loss_meters.psnr_meter.val:.2f}",
+                                                      fps=1, format="gif")})
+                    images_logged += 1
 
                 loss_meters.update(output, y)
 
@@ -773,8 +774,8 @@ def trainer(rank, global_rank, config, wandb_run):
             # save both models
             fname_last, fname_best = save_final_model(model, c, best_model_wts, only_pt=True)
 
-            logging.info(f"--> {Fore.YELLOW}Save last mode at {fname_last}{Style.RESET_ALL}")
-            logging.info(f"--> {Fore.YELLOW}Save best mode at {fname_best}{Style.RESET_ALL}")
+            logging.info(f"--> {Fore.YELLOW}Save last model at {fname_last}{Style.RESET_ALL}")
+            logging.info(f"--> {Fore.YELLOW}Save best model at {fname_best}{Style.RESET_ALL}")
 
     # test best model, reload the weights
     model = create_model(c, c.model_type, total_steps)
@@ -823,6 +824,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
         - val_set (torch Dataset list): the data to validate on
         - epoch (int): the current epoch
         - device (torch.device): the device to run eval on
+        - wandb_run (wandb.Run): the run object for loggin to wandb
         - id (str): the extra id name to save with
         - scaling_factor (int): factor to scale the input image with
     @rets:
@@ -850,9 +852,9 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
     else:
         sampler = [None for _ in val_set]
 
-    batch_size = c.batch_size if isinstance(val_set[0], MicroscopyDatasetTrain) else 1
+    batch_size = [c.batch_size if isinstance(val_set_x, MicroscopyDatasetTrain) else 1 for val_set_x in val_set]
 
-    val_loader = [DataLoader(dataset=val_set_x, batch_size=batch_size, shuffle=False, sampler=sampler[i],
+    val_loader = [DataLoader(dataset=val_set_x, batch_size=batch_size[i], shuffle=False, sampler=sampler[i],
                                 num_workers=c.num_workers, prefetch_factor=c.prefetch_factor,
                                 persistent_workers=c.num_workers>0) for i, val_set_x in enumerate(val_set)]
 
@@ -898,7 +900,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
                 if scaling_factor > 0:
                     x *= scaling_factor
 
-                if batch_size >1 and x.shape[-1]==c.width[-1]:
+                if x.shape[0] > 1 and x.shape[-2] == cutout[-2] and x.shape[-1] == cutout[-1]:
                     # run normal inference
                     x = x.to(device)
                     y = y.to(device)
@@ -926,21 +928,18 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
                 if scaling_factor > 0:
                     output /= scaling_factor
 
-                total = x.shape[0]
-
                 if loss_f:
                     loss = loss_f(output, y)
-
-                    val_loss_meter.update(loss.item(), n=total)
+                    val_loss_meter.update(loss.item(), n=x.shape[0])
 
                 loss_meters.update(output, y)
 
                 if rank<=0 and images_logged < config.num_uploaded and wandb_run is not None:
                     images_logged += 1
                     title = f"{id.upper()}_{images_logged}_{x.shape}"
-                    vid = save_image_batch_micro(complex_i=False, noisy=x.numpy(force=True), predi=output.numpy(force=True), clean=y.numpy(force=True))
+                    vid = create_wandb_log_vid(noisy=x.numpy(force=True), predi=output.numpy(force=True), clean=y.numpy(force=True))
                     wandb_run.log({title: wandb.Video(vid,
-                                                      caption=f"epoch {epoch}, mse {loss_meters.mse_meter.avg:.2f}, ssim {loss_meters.ssim_meter.avg:.2f}, psnr {loss_meters.psnr_meter.avg:.2f}",
+                                                      caption=f"epoch {epoch}, mse {loss_meters.mse_meter.val:.2f}, ssim {loss_meters.ssim_meter.val:.2f}, psnr {loss_meters.psnr_meter.val:.2f}",
                                                       fps=1, format="gif")})
 
                 if rank<=0 and images_saved < config.num_saved_samples and config.save_samples:

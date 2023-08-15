@@ -313,7 +313,7 @@ class MicroscopyDatasetTest():
 
         if noisy_im.ndim == 2: noisy_im = noisy_im[np.newaxis,:,:]
         if clean_im.ndim == 2: clean_im = clean_im[np.newaxis,:,:]
-        
+
         noisy_im = noisy_im[:,np.newaxis,:,:]
         clean_im = clean_im[:,np.newaxis,:,:]
 
@@ -419,7 +419,12 @@ def load_micro_data(config):
         for hw in zip(c.height, c.width):
             train_set.append(MicroscopyDatasetTrain(h5file=[h_file], keys=[train_keys[i]], max_load=-1,
                                                     cutout_shape=hw, **kwargs))
-            train_set[-1].images = images
+            train_set[-1].images = images[:c.train_samples] if c.train_samples>0 else images
+
+    # kwargs for val set
+    kwargs["samples_per_image"] = 1
+    kwargs["cutout_shape"] = (c.height[-1], c.width[-1])
+    kwargs["max_load"] = c.max_load
 
     if c.train_only:
         val_set, test_set = [], []
@@ -446,11 +451,13 @@ def load_micro_data(config):
             test_keys.append(keys)
 
             val_keys.append(keys[:int(ratio[1]*n)])
-        
+
             if len(val_keys[-1])==0:
                 val_keys[-1] = keys[-1:]
 
-        val_set = [MicroscopyDatasetTest(h5file=h5files, keys=val_keys, max_load=c.max_load,
+        # val set is cutouts of parts of test set + two complete images of test set
+        val_set = [MicroscopyDatasetTrain(h5file=h5files, keys=val_keys, **kwargs),
+                    MicroscopyDatasetTest(h5file=h5files[:1], keys=[val_keys[0][:2]], max_load=c.max_load,
                                             scaling_type=c.scaling_type, scaling_vals=c.scaling_vals)]
 
         test_set = [MicroscopyDatasetTest(h5file=h5files, keys=test_keys, max_load=c.max_load,
@@ -458,7 +465,8 @@ def load_micro_data(config):
 
     else:
         # No test case given, use some of the train set
-        val_set = [MicroscopyDatasetTest(h5file=h5files, keys=val_keys, max_load=c.max_load,
+        val_set = [MicroscopyDatasetTrain(h5file=h5files, keys=val_keys, **kwargs),
+                    MicroscopyDatasetTest(h5file=h5files[:1], keys=[val_keys[0][:2]], max_load=c.max_load,
                                             scaling_type=c.scaling_type, scaling_vals=c.scaling_vals)]
 
         test_set = [MicroscopyDatasetTest(h5file=h5files, keys=test_keys, max_load=c.max_load,
