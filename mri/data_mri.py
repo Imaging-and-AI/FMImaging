@@ -916,6 +916,42 @@ if __name__ == '__main__':
 
     import nibabel as nib
 
+    saved_path = "/export/Lab-Xue/projects/mri/results/loader_test"
+    os.makedirs(saved_path, exist_ok=True)
+    
+    # -----------------------------------------------------------------
+    
+    file = "/data/mri/data/VIDA_train_clean_0430.h5"
+    h5file = h5py.File(file, libver='earliest', mode='r')
+    keys = list(h5file.keys())
+
+    images = load_images_from_h5file([h5file], [keys], max_load=-1)
+
+    tra_data = MRIDenoisingDatasetTrain([h5file], [keys], data_type='3D', load_2x_resolution=True)
+    
+    for k in range(10):
+        noisy_im, clean_im, clean_im_degraded, clean_im_2x, gmaps_median, noise_sigmas = tra_data[np.random.randint(len(tra_data))]
+
+        noisy_im = np.transpose(noisy_im.numpy(), (2, 3, 1, 0))
+        clean_im = np.transpose(clean_im.numpy(), (2, 3, 1, 0))
+        clean_im_degraded = np.transpose(clean_im_degraded.numpy(), (2, 3, 1, 0))
+        clean_im_2x = np.transpose(clean_im_2x.numpy(), (2, 3, 1, 0))
+
+        gmap = noisy_im[:,:,2,:]
+        noisy_im = noisy_im[:,:,0,:] + 1j * noisy_im[:,:,1,:]
+        clean_im = clean_im[:,:,0,:] + 1j * clean_im[:,:,1,:]
+        clean_im_degraded = clean_im_degraded[:,:,0,:] + 1j * clean_im_degraded[:,:,1,:]
+        clean_im_2x = clean_im_2x[:,:,0,:] + 1j * clean_im_2x[:,:,1,:]
+
+        nib.save(nib.Nifti1Image(np.abs(noisy_im), affine=np.eye(4)), os.path.join(saved_path, f"noisy_im_{k}.nii"))
+        nib.save(nib.Nifti1Image(np.abs(clean_im), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_{k}.nii"))
+        nib.save(nib.Nifti1Image(np.abs(clean_im_degraded), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_degraded_{k}.nii"))
+        nib.save(nib.Nifti1Image(np.abs(clean_im_2x), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_2x_{k}.nii"))
+        nib.save(nib.Nifti1Image(gmap, affine=np.eye(4)), os.path.join(saved_path, f"gmap_{k}.nii"))
+        print(gmaps_median, noise_sigmas)
+        
+    # -----------------------------------------------------------------
+    
     file = "/data/mri/data/train_3D_3T_retro_cine_2018_with_2x_resized.h5"
     h5file = h5py.File(file, libver='earliest', mode='r')
     keys = list(h5file.keys())
@@ -923,9 +959,6 @@ if __name__ == '__main__':
     images = load_images_from_h5file([h5file], [keys], max_load=-1)
 
     tra_data = MRIDenoisingDatasetTrain([h5file], [keys], data_type='2DT', load_2x_resolution=True)
-
-    saved_path = "/export/Lab-Xue/projects/mri/results/loader_test"
-    os.makedirs(saved_path, exist_ok=True)
 
     for k in range(10):
         noisy_im, clean_im, clean_im_degraded, clean_im_2x, gmaps_median, noise_sigmas = tra_data[np.random.randint(len(tra_data))]
