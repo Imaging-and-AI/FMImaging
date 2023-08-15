@@ -112,7 +112,6 @@ def setup_run(config, dirs=["log_path", "results_path", "model_path", "check_pat
 
 # -------------------------------------------------------------------------------------------------
 def compute_total_steps(config, num_samples):
-    # TODO: comment here too?
     if config.ddp: 
         num_samples /= dist.get_world_size()
 
@@ -140,7 +139,6 @@ def get_device(device=None):
 def clean_after_training():
     """Clean after the training
     """
-    # TODO: kill only username
     os.system("kill -9 $(ps aux | grep torchrun | grep -v grep | awk '{print $2}') ")
     os.system("kill -9 $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
     os.system("kill -9 $(ps aux | grep mri | grep -v grep | awk '{print $2}') ")
