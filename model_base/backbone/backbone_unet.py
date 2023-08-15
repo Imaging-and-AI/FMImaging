@@ -317,7 +317,7 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
 
         if num_resolution_levels >= 1:
             # define D0
-            kwargs["C_in"] = self.C
+            kwargs["C_in"] = c.C_in
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height[0]
             kwargs["W"] = c.width[0]
