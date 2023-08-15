@@ -1,6 +1,7 @@
 """
 Utility functions to measure system status
 """
+import os
 import torch
 from collections import OrderedDict
 from datetime import datetime
@@ -46,9 +47,14 @@ def get_cuda_info(device):
 	}
 
 def support_bfloat16(device):
-    info =  get_cuda_info(device)
-    if info["gpu_name"].find("A100") >= 0 or info["gpu_name"].find("H100") >= 0:
-        return True
+    
+    check_bfloat16 = os.getenv("DISABLE_FLOAT16_INFERENCE", 'False').lower() in ('false', '0', 'f')
+    if check_bfloat16:
+        info =  get_cuda_info(device)
+        if info["gpu_name"].find("A100") >= 0 or info["gpu_name"].find("H100") >= 0:
+            return True
+        else:
+            return False
     else:
         return False
 
