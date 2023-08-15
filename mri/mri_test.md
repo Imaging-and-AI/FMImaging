@@ -98,7 +98,7 @@ python3 ./mri/run_inference_batch.py --input_dir /export/Lab-Kellman/ReconResult
 python3 ./mri/run_inference_batch.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_Perf_Denoising_2021_AI_denoising --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_Perf_Denoising_2021_AI_denoising_AI --scaling_factor ${scaling_factor} --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model --model_type ${model_type_str}
 
 # 1.5T
-python3 ./mri/run_inference_batch.py --input_dir /export/Lab-Kellman/ReconResults/denoising/1p5T_for_testing/Barts_Perf_Denoising_2021_AI_denoising --output_dir /export/Lab-Kellman/ReconResults/denoising/1p5T_for_testing/Barts_Perf_Denoising_2021_AI_denoising_AI --scaling_factor ${scaling_factor} --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model --model_type ${model_type_str}
+python3 ./mri/run_inference_batch.py --input_dir /export/Lab-Kellman/ReconResults/denoising/1p5T_for_testing/Barts_Perf_Denoising_2021_AI_denoising --output_dir /export/Lab-Kellman/ReconResults/denoising/1p5T_for_testing/Barts_Perf_Denoising_2021_AI_denoising_AI --scaling_factor ${scaling_factor} --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model --model_type ${model_type_str} # --num_batches_to_process 2
 
 ```
 
@@ -128,7 +128,7 @@ python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/deno
 
 python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_Perf_Denoising_2022_AI_denoising/20221005/Perfusion_AIF_TwoEchoes_Interleaved_R2_42110_121388454_121388463_784_20221005-121636 --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_Perf_Denoising_2022_AI_denoising_AI/Perfusion_AIF_TwoEchoes_Interleaved_R2_42110_121388454_121388463_784_20221005-121636/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model  --model_type ${model_type_str}
 
-python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/1p5T_for_testing/Barts_Perf_Denoising_2021_AI_denoising_AI/Perfusion_AIF_TwoEchoes_Interleaved_R2_41837_659532_659541_396_20210203-084704 --output_dir /export/Lab-Kellman/ReconResults/denoising/1p5T_for_testing/Barts_Perf_Denoising_2021_AI_denoising_AI/Perfusion_AIF_TwoEchoes_Interleaved_R2_41837_659532_659541_396_20210203-084704/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --saved_model_path $model  --model_type ${model_type_str}
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/1p5T_for_testing/Barts_Perf_Denoising_2021_AI_denoising_AI/Perfusion_AIF_TwoEchoes_Interleaved_R2_42110_0343475_0343484_1759_20210118-083835 --output_dir /export/Lab-Kellman/ReconResults/denoising/1p5T_for_testing/Barts_Perf_Denoising_2021_AI_denoising_AI/Perfusion_AIF_TwoEchoes_Interleaved_R2_42110_0343475_0343484_1759_20210118-083835/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --saved_model_path $model  --model_type ${model_type_str}
 
 python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/1p5T_for_testing/Barts_Perf_Denoising_2021_AI_denoising_AI/Perfusion_AIF_TwoEchoes_Interleaved_R2_42110_5346528_5346537_161_20210105-104117 --output_dir /export/Lab-Kellman/ReconResults/denoising/1p5T_for_testing/Barts_Perf_Denoising_2021_AI_denoising_AI/Perfusion_AIF_TwoEchoes_Interleaved_R2_42110_5346528_5346537_161_20210105-104117/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --saved_model_path $model  --model_type ${model_type_str}
 
@@ -141,6 +141,50 @@ python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/deno
 # high res perfusion
 
 python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/Share/data/perfusion/cloud/Perfusion_AIF_2E_NL_Cloud_42170_49443333_49443342_657_20190330-124527/cloud_flow_res/DebugOutput --output_dir /export/Lab-Kellman/Share/data/perfusion/cloud/Perfusion_AIF_2E_NL_Cloud_42170_49443333_49443342_657_20190330-124527/cloud_flow_res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_072714971_072714980_550_20180718-175707/cloud_flow_res/DebugOutput --output_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_072714971_072714980_550_20180718-175707/cloud_flow_res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_123211405_123211414_303_20180808-183735/cloud_flow_res/DebugOutput --output_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_123211405_123211414_303_20180808-183735/cloud_flow_res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_123211405_123211414_322_20180808-185431/cloud_flow_res/DebugOutput --output_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_123211405_123211414_322_20180808-185431/cloud_flow_res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_190304911_190304920_408_20180906-123716/cloud_flow_res/DebugOutput --output_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_190304911_190304920_408_20180906-123716/cloud_flow_res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_190304911_190304920_410_20180906-125352/cloud_flow_res/DebugOutput --output_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_190304911_190304920_410_20180906-125352/cloud_flow_res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_49443137_49443146_219_20190329-133337/cloud_flow_res/DebugOutput --output_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_49443137_49443146_219_20190329-133337/cloud_flow_res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+cases=(
+        Perfusion_AIF_2E_NL_Cloud_42170_072714971_072714980_550_20180718-175707
+        Perfusion_AIF_2E_NL_Cloud_42170_123211405_123211414_303_20180808-183735
+        Perfusion_AIF_2E_NL_Cloud_42170_123211405_123211414_322_20180808-185431
+        Perfusion_AIF_2E_NL_Cloud_42170_190304911_190304920_408_20180906-123716
+        Perfusion_AIF_2E_NL_Cloud_42170_190304911_190304920_410_20180906-125352
+        Perfusion_AIF_2E_NL_Cloud_42170_49443137_49443146_219_20190329-133337
+        Perfusion_AIF_2E_NL_Cloud_42170_49443461_49443470_1001_20190331-092527
+        Perfusion_AIF_2E_NL_Cloud_42170_49443486_49443495_1068_20190331-102251
+        Perfusion_AIF_2E_NL_Cloud_42170_55882022_55882031_89_20190401-084425
+        Perfusion_AIF_2E_NL_Cloud_42170_90141277_90141286_902_20170622-150439
+        Perfusion_AIF_2E_NL_Cloud_42170_90141277_90141286_916_20170622-151616
+        Perfusion_AIF_2E_NL_Cloud_42170_99913385_99913394_383_20171129-160152
+        Perfusion_AIF_2E_NL_Cloud_66097_19853195_19853203_3000002_20171207-151256
+        Perfusion_AIF_2E_NL_Cloud_66097_29373222_29373230_45_20180926-092303
+        Perfusion_AIF_2E_NL_Cloud_66097_46576496_46576504_228_20181010-161347
+        Perfusion_AIF_2E_NL_Cloud_66097_52964208_52964216_3000002_20180110-161515
+        Perfusion_AIF_2E_NL_Cloud_66097_5709937_5709942_106_20181016-173229
+    )
+
+for index in ${!cases[*]}; do 
+    echo "${cases[$index]}"
+
+    python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/${cases[$index]}/cloud_flow_res/DebugOutput --output_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/${cases[$index]}/cloud_flow_res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+done
+
+cases=(
+    Perfusion_AIF_2E_NL_Cloud_66097_29373222_29373230_45_20180926-092303
+        Perfusion_AIF_2E_NL_Cloud_66097_5709937_5709942_106_20181016-173229
+    )
 
 # -------------------------------------------------------
 

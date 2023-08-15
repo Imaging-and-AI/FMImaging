@@ -273,7 +273,7 @@
             "console": "integratedTerminal",
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "0"},
             "args": [
-                "--input_dir", "/export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/res/DebugOutput/", "--output_dir", "/export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/res_ai/", "--im_scaling", "1", "--gmap_scaling", "1", "--saved_model_path", "/export/Lab-Xue/projects/mri/test/second_stage/mri-MRI_double_net_20230731_225634_401217_C-32-1_amp-True_2nd_stage_noise_1to8_amp_complex_residual_weighted_loss_snr_temporal_added_noise-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-51.pth*", 
+                "--input_dir", "/export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/res/DebugOutput/", "--output_dir", "/export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/res_ai/", "--im_scaling", "1", "--gmap_scaling", "1", "--saved_model_path", "/export/Lab-Xue/projects/mri/test/second_stage/mri-MRI_double_net_20230731_225634_401217_C-32-1_amp-True_2nd_stage_noise_1to8_amp_complex_residual_weighted_loss_snr_temporal_added_noise-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-51.pth", 
                 "--input_fname", "input", "--gmap_fname", "gmap", 
                 "--scaling_factor", "1.0"
             ]

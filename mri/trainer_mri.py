@@ -1290,7 +1290,7 @@ def _apply_model(model, x, g, scaling_factor, config, device, overlap=None):
 
 # -------------------------------------------------------------------------------------------------
 
-def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('cpu'), overlap=None):
+def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('cpu'), overlap=None, verbose=False):
     '''
     Input 
         data : [H, W, T, SLC], remove any extra scaling
@@ -1317,14 +1317,15 @@ def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('
     if(gmap.shape[0]!=H or gmap.shape[1]!=W or gmap.shape[2]!=SLC):
         gmap = np.ones(H, W, SLC)
 
-    print(f"---> apply_model, preparation took {time()-t0} seconds ")
-    print(f"---> apply_model, input array {data.shape}")
-    print(f"---> apply_model, gmap array {gmap.shape}")
-    print(f"---> apply_model, pad_time {config.pad_time}")
-    print(f"---> apply_model, height and width {config.height, config.width}")
-    print(f"---> apply_model, complex_i {config.complex_i}")
-    print(f"---> apply_model, scaling_factor {scaling_factor}")
-    print(f"---> apply_model, overlap {overlap}")
+    if verbose:
+        print(f"---> apply_model, preparation took {time()-t0} seconds ")
+        print(f"---> apply_model, input array {data.shape}")
+        print(f"---> apply_model, gmap array {gmap.shape}")
+        print(f"---> apply_model, pad_time {config.pad_time}")
+        print(f"---> apply_model, height and width {config.height, config.width}")
+        print(f"---> apply_model, complex_i {config.complex_i}")
+        print(f"---> apply_model, scaling_factor {scaling_factor}")
+        print(f"---> apply_model, overlap {overlap}")
 
     c = config
 
@@ -1365,7 +1366,7 @@ def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('
 
 # -------------------------------------------------------------------------------------------------
 
-def apply_model_3D(data, model, gmap, config, scaling_factor, device='cpu', overlap=None):
+def apply_model_3D(data, model, gmap, config, scaling_factor, device='cpu', overlap=None, verbose=False):
     '''
     Input 
         data : [H W SLC], remove any extra scaling
@@ -1382,13 +1383,14 @@ def apply_model_3D(data, model, gmap, config, scaling_factor, device='cpu', over
     if(gmap.shape[0]!=H or gmap.shape[1]!=W or gmap.shape[2]!=SLC):
         gmap = np.ones(H, W, SLC)
 
-    print(f"---> apply_model_3D, preparation took {time()-t0} seconds ")
-    print(f"---> apply_model_3D, input array {data.shape}")
-    print(f"---> apply_model_3D, gmap array {gmap.shape}")
-    print(f"---> apply_model_3D, pad_time {config.pad_time}")
-    print(f"---> apply_model_3D, height and width {config.height, config.width}")
-    print(f"---> apply_model_3D, complex_i {config.complex_i}")
-    print(f"---> apply_model_3D, scaling_factor {scaling_factor}")
+    if verbose:
+        print(f"---> apply_model_3D, preparation took {time()-t0} seconds ")
+        print(f"---> apply_model_3D, input array {data.shape}")
+        print(f"---> apply_model_3D, gmap array {gmap.shape}")
+        print(f"---> apply_model_3D, pad_time {config.pad_time}")
+        print(f"---> apply_model_3D, height and width {config.height, config.width}")
+        print(f"---> apply_model_3D, complex_i {config.complex_i}")
+        print(f"---> apply_model_3D, scaling_factor {scaling_factor}")
 
     c = config
 
@@ -1419,7 +1421,7 @@ def apply_model_3D(data, model, gmap, config, scaling_factor, device='cpu', over
 
 # -------------------------------------------------------------------------------------------------
 
-def apply_model_2D(data, model, gmap, config, scaling_factor, device='cpu', overlap=None):
+def apply_model_2D(data, model, gmap, config, scaling_factor, device='cpu', overlap=None, verbose=False):
     '''
     Input 
         data : [H W SLC], remove any extra scaling
@@ -1438,13 +1440,14 @@ def apply_model_2D(data, model, gmap, config, scaling_factor, device='cpu', over
     if(gmap.shape[0]!=H or gmap.shape[1]!=W or gmap.shape[2]!=SLC):
         gmap = np.ones(H, W, SLC)
 
-    print(f"---> apply_model_2D, preparation took {time()-t0} seconds ")
-    print(f"---> apply_model_2D, input array {data.shape}")
-    print(f"---> apply_model_2D, gmap array {gmap.shape}")
-    print(f"---> apply_model_2D, pad_time {config.pad_time}")
-    print(f"---> apply_model_2D, height and width {config.height, config.width}")
-    print(f"---> apply_model_2D, complex_i {config.complex_i}")
-    print(f"---> apply_model_2D, scaling_factor {scaling_factor}")
+    if verbose:
+        print(f"---> apply_model_2D, preparation took {time()-t0} seconds ")
+        print(f"---> apply_model_2D, input array {data.shape}")
+        print(f"---> apply_model_2D, gmap array {gmap.shape}")
+        print(f"---> apply_model_2D, pad_time {config.pad_time}")
+        print(f"---> apply_model_2D, height and width {config.height, config.width}")
+        print(f"---> apply_model_2D, complex_i {config.complex_i}")
+        print(f"---> apply_model_2D, scaling_factor {scaling_factor}")
 
     c = config
 
