@@ -146,8 +146,8 @@ def clean_after_training():
     """
     os.system("kill -9 $(ps aux | grep torchrun | grep -v grep | awk '{print $2}') ")
     os.system("kill -9 $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
-    os.system("kill -9 $(ps aux | grep mri | grep -v grep | awk '{print $2}') ")
-    
+    #os.system("kill -9 $(ps aux | grep mri | grep -v grep | awk '{print $2}') ")
+
 # -------------------------------------------------------------------------------------------------
 
 def optimizer_to(optim, device):

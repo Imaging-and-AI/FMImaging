@@ -331,8 +331,6 @@ def trainer(rank, global_rank, config, wandb_run):
     disable_backbone = config.disable_backbone
     disable_post = config.disable_post
     model_type = config.model_type
-    post_hrnet_block_str = config.post_hrnet.block_str
-    post_hrnet_separable_conv = config.post_hrnet.separable_conv
     not_load_pre = config.not_load_pre
     not_load_backbone = config.not_load_backbone
     not_load_post = config.not_load_post
@@ -341,10 +339,23 @@ def trainer(rank, global_rank, config, wandb_run):
     disable_LSUV = config.disable_LSUV
     super_resolution = config.super_resolution
 
+    post_backbone = config.post_backbone
+
+    post_hrnet_block_str = config.post_hrnet.block_str
+    post_hrnet_separable_conv = config.post_hrnet.separable_conv
+
+    post_mixed_unetr_num_resolution_levels = config.post_mixed_unetr.num_resolution_levels
+    post_mixed_unetr_block_str = config.post_mixed_unetr.block_str
+    post_mixed_unetr_use_unet_attention = config.post_mixed_unetr.use_unet_attention
+    post_mixed_unetr_transformer_for_upsampling = config.post_mixed_unetr.transformer_for_upsampling
+    post_mixed_unetr_n_heads = config.post_mixed_unetr.n_heads
+    post_mixed_unetr_use_conv_3d = config.post_mixed_unetr.use_conv_3d
+    post_mixed_unetr_use_window_partition = config.post_mixed_unetr.use_window_partition
+    post_mixed_unetr_separable_conv = config.post_mixed_unetr.separable_conv
+
     ddp = config.ddp
 
     if config.load_path is not None:
-        load_path = config.load_path
         status = torch.load(config.load_path)
         config = status['config']
 
@@ -373,9 +384,6 @@ def trainer(rank, global_rank, config, wandb_run):
         config.disable_pre = disable_pre
         config.disable_backbone = disable_backbone
         config.disable_post = disable_post
-        config.post_hrnet = Nestedspace()
-        config.post_hrnet.block_str = post_hrnet_block_str
-        config.post_hrnet.separable_conv = post_hrnet_separable_conv
         config.not_load_pre = not_load_pre
         config.not_load_backbone = not_load_backbone
         config.not_load_post = not_load_post
@@ -384,6 +392,22 @@ def trainer(rank, global_rank, config, wandb_run):
         config.run_notes = run_notes
         config.disable_LSUV = disable_LSUV
         config.super_resolution = super_resolution
+
+        config.post_backbone = post_backbone
+
+        config.post_hrnet = Nestedspace()
+        config.post_hrnet.block_str = post_hrnet_block_str
+        config.post_hrnet.separable_conv = post_hrnet_separable_conv
+
+        config.post_mixed_unetr = Nestedspace()
+        config.post_mixed_unetr.num_resolution_levels = post_mixed_unetr_num_resolution_levels
+        config.post_mixed_unetr.block_str = post_mixed_unetr_block_str
+        config.post_mixed_unetr.use_unet_attention = post_mixed_unetr_use_unet_attention
+        config.post_mixed_unetr.transformer_for_upsampling = post_mixed_unetr_transformer_for_upsampling
+        config.post_mixed_unetr.n_heads = post_mixed_unetr_n_heads
+        config.post_mixed_unetr.use_conv_3d = post_mixed_unetr_use_conv_3d
+        config.post_mixed_unetr.use_window_partition = post_mixed_unetr_use_window_partition
+        config.post_mixed_unetr.separable_conv = post_mixed_unetr_separable_conv
         #config.load_path = load_path
 
         print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
@@ -463,6 +487,10 @@ def trainer(rank, global_rank, config, wandb_run):
         print(f"{rank_str}, after load saved model, config.weighted_loss_added_noise for running - {config.weighted_loss_added_noise}")
         print(f"{rank_str}, after load saved model, config.num_workers for running - {config.num_workers}")
         print(f"{rank_str}, after load saved model, config.super_resolution for running - {config.super_resolution}")
+        print(f"{rank_str}, after load saved model, config.post_backbone for running - {config.post_backbone}")
+        print(f"{rank_str}, after load saved model, config.post_hrnet for running - {config.post_hrnet}")
+        print(f"{rank_str}, after load saved model, config.post_mixed_unetr for running - {config.post_mixed_unetr}")
+
         print(f"{rank_str}, after load saved model, model.curr_epoch for running - {model.curr_epoch}")
         print(f"{rank_str}, {Fore.GREEN}after load saved model, model type - {config.model_type}{Style.RESET_ALL}")
         print(f"{rank_str}, {Fore.RED}after load saved model, model.device - {model.device}{Style.RESET_ALL}")
@@ -520,11 +548,13 @@ def trainer(rank, global_rank, config, wandb_run):
         shuffle = True
 
     if c.backbone == 'hrnet':
-        model_str = f"C {c.backbone_hrnet.C}, {c.n_head} heads, {c.backbone_hrnet.block_str}"
+        model_str = f"heads {c.n_head}, {c.backbone_hrnet}"
     elif c.backbone == 'unet':
-        model_str = f"C {c.backbone_unet.C}, {c.n_head} heads, {c.backbone_unet.block_str}"
+        model_str = f"heads {c.n_head}, {c.backbone_unet}"
+    elif c.backbone == 'mixed_unetr':
+        model_str = f"{c.backbone_mixed_unetr}"
 
-    logging.info(f"{rank_str}, {Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, {c.optim}, {c.global_lr}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, weighted loss - snr {c.weighted_loss_snr} - tempoeral {c.weighted_loss_temporal} - added_noise {c.weighted_loss_added_noise}, data degrading {c.with_data_degrading}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, amp {c.use_amp}, super resolution {c.super_resolution}, stride_s {c.stride_s}, separable_conv {c.separable_conv}, {model_str}{Style.RESET_ALL}")
+    logging.info(f"{rank_str}, {Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, {c.optim}, {c.global_lr}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, weighted loss - snr {c.weighted_loss_snr} - temporal {c.weighted_loss_temporal} - added_noise {c.weighted_loss_added_noise}, data degrading {c.with_data_degrading}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, amp {c.use_amp}, super resolution {c.super_resolution}, stride_s {c.stride_s}, separable_conv {c.separable_conv}, upsample method {c.upsample_method}, batch_size {c.batch_size}, {model_str}{Style.RESET_ALL}")
 
     # -----------------------------------------------
 
@@ -819,6 +849,10 @@ def trainer(rank, global_rank, config, wandb_run):
                 if wandb_run is not None:
                     wandb_run.log({"running_train_loss": loss.item()})
                     wandb_run.log({"running_train_snr": train_snr_meter.avg})
+                    wandb_run.log({"running_train_mse": loss_meters.mse_meter.avg})
+                    wandb_run.log({"running_train_ssim": loss_meters.ssim_meter.avg})
+                    wandb_run.log({"running_train_l1": loss_meters.l1_meter.avg})
+                    wandb_run.log({"running_train_perp": loss_meters.perp_meter.avg})
                     wandb_run.log({"lr": curr_lr})
 
                 end_timer(enable=c.with_timer, t=tm, msg="---> logging and measuring took ")
@@ -1240,7 +1274,7 @@ def _apply_model(model, x, g, scaling_factor, config, device, overlap=None):
         if overlap is None: overlap = (c.time//2, c.height[-1]//2, c.width[-1]//2)
 
     try:
-        _, output = running_inference(model, input, cutout=cutout, overlap=overlap, batch_size=4, device=device)
+        _, output = running_inference(model, input, cutout=cutout, overlap=overlap, batch_size=2, device=device)
     except Exception as e:
         print(e)
         print(f"{Fore.YELLOW}---> call inference on cpu ...")

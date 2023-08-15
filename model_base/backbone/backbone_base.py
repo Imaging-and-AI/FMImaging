@@ -13,6 +13,8 @@ import logging
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch import Tensor
+import interpol
 
 from pathlib import Path
 from argparse import Namespace
@@ -30,7 +32,7 @@ from imaging_attention import *
 from blocks import *
 from utils import get_device, create_generic_class_str
 
-__all__ = ['STCNNT_Base_Runtime', 'set_window_patch_sizes_keep_num_window', 'set_window_patch_sizes_keep_window_size']
+__all__ = ['STCNNT_Base_Runtime', 'set_window_patch_sizes_keep_num_window', 'set_window_patch_sizes_keep_window_size', 'DownSample', 'UpSample']
 
 # -------------------------------------------------------------------------------------------------
 
@@ -53,6 +55,8 @@ def set_window_patch_sizes_keep_num_window(kwargs, HW, num_wind, num_patch, modu
         print(info_str)
 
         return kwargs
+
+# -------------------------------------------------------------------------------------------------
 
 def set_window_patch_sizes_keep_window_size(kwargs, HW, window_size, patch_size, module_name=None):        
 
@@ -82,6 +86,426 @@ def set_window_patch_sizes_keep_window_size(kwargs, HW, window_size, patch_size,
     print(info_str)
 
     return kwargs
+
+# -------------------------------------------------------------------------------------------------
+# building blocks
+
+class _D2(nn.Module):
+    """
+    Downsample by 2 layer
+
+    This module takes in a [B, T, C, H, W] tensor and downsample it to [B, T, C, H//2, W//2]
+
+    By default, the operation is performed with a bilinear interpolation.
+    If with_conv is True, a 1x1 convolution is added after interpolation.
+    If with_interpolation is False, the stride convolution is used.
+    """
+
+    def __init__(self, C_in=16, C_out=-1, use_interpolation=True, with_conv=True) -> None:
+        super().__init__()
+
+        self.C_in = C_in
+        self.C_out = C_out if C_out>0 else C_in
+
+        self.use_interpolation = use_interpolation
+        self.with_conv = with_conv
+
+        self.stride_conv = None
+        self.conv = None
+
+        if not self.use_interpolation:
+            self.stride_conv = Conv2DExt(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[3,3], stride=[2,2], padding=[1,1])
+        elif self.with_conv or (self.C_in != self.C_out):
+            self.conv = Conv2DExt(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[1,1], stride=[1,1], padding=[0,0])
+
+    def forward(self, x:Tensor) -> Tensor:
+
+        B, T, C, H, W = x.shape
+        if self.use_interpolation:
+            y = F.interpolate(x.view((B*T, C, H, W)), scale_factor=(0.5, 0.5), mode="bilinear", align_corners=False, recompute_scale_factor=False)
+            y = torch.reshape(y, (B, T, *y.shape[1:]))
+            if self.with_conv:
+                y = self.conv(y)
+        else:
+            y = self.stride_conv(x)
+
+        return y
+
+# -------------------------------------------------------------------------------------------------
+
+class _D2_patch_merging(nn.Module):
+    """
+    Downsample by 2 layer using patch merging
+
+    This module takes in a [B, T, C, H, W] tensor and first reformat it to [B, T, 4*C_in, H//2, W//2],
+    then a conv is used to get C_out channels.
+    """
+
+    def __init__(self, C_in=16, C_out=64) -> None:
+        super().__init__()
+
+        self.C_in = C_in
+        self.C_out = C_out if C_out>0 else C_in
+
+        self.conv = Conv2DExt(in_channels=4*self.C_in, out_channels=self.C_out, kernel_size=[1,1], stride=[1,1], padding=[0,0])
+
+    def forward(self, x:Tensor) -> Tensor:
+
+        B, T, C, H, W = x.shape
+
+        x0 = x[:, :, :, 0::2, 0::2]  # B T C, H/2 W/2
+        x1 = x[:, :, :, 1::2, 0::2]
+        x2 = x[:, :, :, 0::2, 1::2]
+        x3 = x[:, :, :, 1::2, 1::2]
+
+        y = torch.cat([x0, x1, x2, x3], dim=2)  # B T 4*C H/2 W/2
+        y = self.conv(y)
+
+        return y
+
+# -------------------------------------------------------------------------------------------------
+
+class _D2_3D(nn.Module):
+    """
+    Downsample by 2
+
+    This module takes in a [B, T, C, H, W] tensor and downsample it to [B, T//2, C, H//2, W//2]
+
+    By default, the operation is performed with a trilinear interpolation.
+    If with_conv is True, a 1x1 convolution is added after interpolation.
+    If with_interpolation is False, the stride convolution is used.
+    """
+
+    def __init__(self, C_in=16, C_out=-1, use_interpolation=True, with_conv=True) -> None:
+        super().__init__()
+
+        self.C_in = C_in
+        self.C_out = C_out if C_out>0 else C_in
+
+        self.use_interpolation = use_interpolation
+        self.with_conv = with_conv
+
+        self.stride_conv = None
+        self.conv = None
+
+        if not self.use_interpolation:
+            self.stride_conv = Conv3DExt(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[3,3,3], stride=[2,2,2], padding=[1,1,1])
+        elif self.with_conv or (self.C_in != self.C_out):
+            self.conv = Conv3DExt(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[1,1,1], stride=[1,1,1], padding=[0,0,0])
+
+    def forward(self, x:Tensor) -> Tensor:
+
+        B, T, C, H, W = x.shape
+        if self.use_interpolation:
+            y = F.interpolate(torch.permute(x, (0, 2, 1, 3, 4)), scale_factor=(0.5, 0.5, 0.5), mode="trilinear", align_corners=False, recompute_scale_factor=False)
+            y = torch.permute(y, (0, 2, 1, 3, 4))
+            if self.with_conv:
+                y = self.conv(y)
+        else:
+            y = self.stride_conv(x)
+
+        return y
+
+# -------------------------------------------------------------------------------------------------
+
+class _D2_patch_merging_3D(nn.Module):
+    """
+    Downsample by 2 layer using patch merging
+
+    This module takes in a [B, T, C, H, W] tensor and first reformat it to [B, T//2, 8*C_in, H//2, W//2],
+    then a conv is used to get C_out channels.
+    """
+
+    def __init__(self, C_in=16, C_out=64) -> None:
+        super().__init__()
+
+        self.C_in = C_in
+        self.C_out = C_out if C_out>0 else C_in
+
+        self.conv = Conv3DExt(in_channels=8*self.C_in, out_channels=self.C_out, kernel_size=[1,1,1], stride=[1,1,1], padding=[0,0,0])
+
+    def forward(self, x:Tensor) -> Tensor:
+
+        B, T, C, H, W = x.shape
+
+        x0 = x[:, 0::2, :, 0::2, 0::2]  # B T C, H/2 W/2
+        x1 = x[:, 0::2, :, 1::2, 0::2]
+        x2 = x[:, 0::2, :, 0::2, 1::2]
+        x3 = x[:, 0::2, :, 1::2, 1::2]
+        x4 = x[:, 1::2, :, 0::2, 0::2]
+        x5 = x[:, 1::2, :, 1::2, 0::2]
+        x6 = x[:, 1::2, :, 0::2, 1::2]
+        x7 = x[:, 1::2, :, 1::2, 1::2]
+
+        y = torch.cat([x0, x1, x2, x3, x4, x5, x6, x7], dim=2)
+        y = self.conv(y)
+
+        return y
+
+# -------------------------------------------------------------------------------------------------
+
+class DownSample(nn.Module):
+    """
+    Downsample by x(2^N), by using N D2 layers
+    """
+
+    def __init__(self, N=2, C_in=16, C_out=-1, use_interpolation=True, with_conv=True, is_3D=False) -> None:
+        super().__init__()
+
+        C_out = C_out if C_out>0 else C_in
+
+        self.N = N
+        self.C_in = C_in
+        self.C_out = C_out
+        self.use_interpolation = use_interpolation
+        self.with_conv = with_conv
+        self.is_3D = is_3D
+
+        DownSampleLayer = _D2_patch_merging
+        if is_3D:
+            DownSampleLayer = _D2_patch_merging_3D
+            
+        #layers = [('D2_0', _D2(C_in=C_in, C_out=C_out, use_interpolation=use_interpolation, with_conv=with_conv))]
+        layers = [('D2_0', DownSampleLayer(C_in=C_in, C_out=C_out))]
+            
+        for n in range(1, N):
+            #layers.append( (f'D2_{n}', _D2(C_in=C_out, C_out=C_out, use_interpolation=use_interpolation, with_conv=with_conv)) )
+            layers.append( (f'D2_{n}', DownSampleLayer(C_in=C_out, C_out=C_out)) )
+
+        self.block = nn.Sequential(OrderedDict(layers))
+
+    def forward(self, x:Tensor) -> Tensor:
+        return self.block(x)
+
+# -------------------------------------------------------------------------------------------------
+
+class _U2(nn.Module):
+    """
+    Upsample by 2
+
+    This module takes in a [B, T, Cin, H, W] tensor and upsample it to [B, T, Cout, 2*H, 2*W]
+
+    By default, the operation is performed with a bilinear interpolation.
+    If with_conv is True, a 1x1 convolution is added after interpolation.
+    """
+
+    def __init__(self, C_in=16, C_out=-1, method='linear', with_conv=True) -> None:
+        super().__init__()
+
+        self.C_in = C_in
+        self.C_out = C_out if C_out>0 else C_in
+
+        self.method = method
+
+        self.with_conv = with_conv
+
+        self.conv = None
+        if self.with_conv or (self.C_in != self.C_out):
+            self.conv = Conv2DExt(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[3,3], stride=[1,1], padding=[1,1])
+
+    def forward(self, x:Tensor) -> Tensor:
+
+        B, T, C, H, W = x.shape
+
+        if self.method == "NN":
+            y = F.interpolate(x.view((B*T, C, H, W)), size=(2*H, 2*W), mode="nearest", recompute_scale_factor=False)
+        elif self.method == 'linear':
+            y = F.interpolate(x.view((B*T, C, H, W)), size=(2*H, 2*W), mode="bilinear", align_corners=False, recompute_scale_factor=False)
+        else:
+            opt = dict(shape=[2*H, 2*W], anchor='first', bound='replicate')
+            y = interpol.resize(x.view((B*T, C, H, W)), **opt, interpolation=5)
+
+        y = torch.reshape(y, (B, T, *y.shape[1:]))
+        if self.with_conv:
+            y = self.conv(y)
+
+        return y
+
+class _U2_3D(nn.Module):
+    """
+    Upsample by 2
+
+    This module takes in a [B, T, Cin, H, W] tensor and upsample it to [B, 2*T, Cout, 2*H, 2*W]
+
+    By default, the operation is performed with a trilinear interpolation.
+    If with_conv is True, a 1x1 convolution is added after interpolation.
+    """
+
+    def __init__(self, C_in=16, C_out=-1, method='linear', with_conv=True) -> None:
+        super().__init__()
+
+        self.C_in = C_in
+        self.C_out = C_out if C_out>0 else C_in
+        self.method = method        
+        self.with_conv = with_conv
+
+        self.conv = None
+        if self.with_conv or (self.C_in != self.C_out):
+            self.conv = Conv3DExt(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[3,3,3], stride=[1,1,1], padding=[1,1,1])
+
+    def forward(self, x:Tensor) -> Tensor:
+
+        B, T, C, H, W = x.shape
+
+        if self.method == "NN":
+            y = F.interpolate(torch.permute(x, (0, 2, 1, 3, 4)), size=(2*T, 2*H, 2*W), mode="nearest", recompute_scale_factor=False)
+        elif self.method == 'linear':
+            y = F.interpolate(torch.permute(x, (0, 2, 1, 3, 4)), size=(2*T, 2*H, 2*W), mode="trilinear", align_corners=False, recompute_scale_factor=False)
+        else:
+            opt = dict(shape=[2*T, 2*H, 2*W], anchor='first', bound='replicate')
+            y = interpol.resize(torch.permute(x, (0, 2, 1, 3, 4)), **opt, interpolation=5)
+
+        y = torch.permute(y, (0, 2, 1, 3, 4))
+        if self.with_conv:
+            y = self.conv(y)
+
+        return y
+
+# -------------------------------------------------------------------------------------------------
+
+class UpSample(nn.Module):
+    """
+    Upsample by x(2^N), by using N U2 layers
+    """
+
+    def __init__(self, N=2, C_in=16, C_out=-1, method='linear', with_conv=True, is_3D=False) -> None:
+        super().__init__()
+
+        C_out = C_out if C_out>0 else C_in
+
+        self.N = N
+        self.C_in = C_in
+        self.C_out = C_out
+        self.with_conv = with_conv
+        self.is_3D = is_3D
+        self.method = method
+        
+        UpSampleLayer = _U2
+        if is_3D:
+            UpSampleLayer = _U2_3D
+
+        layers = [('U2_0', UpSampleLayer(C_in=C_in, C_out=C_out, method=method, with_conv=with_conv))]
+        for n in range(1, N):
+            layers.append( (f'U2_{n}', UpSampleLayer(C_in=C_out, C_out=C_out, method=method, with_conv=with_conv)) )
+
+        self.block = nn.Sequential(OrderedDict(layers))
+
+    def forward(self, x:Tensor) -> Tensor:
+        return self.block(x)
+
+# -------------------------------------------------------------------------------------------------
+
+class WindowPartition2D(nn.Module):
+    """window partition operation based on: "Liu et al.,
+    Swin Transformer: Hierarchical Vision Transformer using Shifted Windows
+    <https://arxiv.org/abs/2103.14030>"
+    https://github.com/microsoft/Swin-Transformer
+
+     Args:
+        x: input tensor [B, T, C, H, W].
+        window_size: local window size.
+    Outputs:
+        res : [B, T, w[0]*w[1]*C, H//w[0], W//w[0]]
+    """
+
+    def __init__(self, window_size=[2,2]):
+        super().__init__()
+        self.window_size = window_size
+
+    def forward(self, x):
+
+        B, T, C, H, W = x.shape
+
+        H_prime = H // self.window_size[0]
+        W_prime = W // self.window_size[1]
+
+        x = x.view(B, T, C, 
+            H_prime, self.window_size[0],
+            W_prime, self.window_size[1]
+        )
+
+        res = (
+            x.permute(0, 1, 2, 3, 5, 4, 6).contiguous().view(B, T, C*self.window_size[0]*self.window_size[1], H_prime, W_prime)
+        )
+
+        return res
+
+class WindowPartition3D(nn.Module):
+    """window partition operation based on: "Liu et al.,
+    Swin Transformer: Hierarchical Vision Transformer using Shifted Windows
+    <https://arxiv.org/abs/2103.14030>"
+    https://github.com/microsoft/Swin-Transformer
+
+     Args:
+        x: input tensor [B, T, C, H, W].
+        window_size: local window size.
+    Outputs:
+        res : [B, T//w[2], w[0]*w[1]*w[2]*C, H//w[0], W//w[0]]
+    """
+
+    def __init__(self, window_size=[2,2,2]):
+        super().__init__()
+        self.window_size = window_size
+
+    def forward(self, x):
+
+        B, T, C, H, W = x.shape
+
+        H_prime = H // self.window_size[0]
+        W_prime = W // self.window_size[1]
+        T_prime = T // self.window_size[2]
+
+        x = x.view(B, T_prime, self.window_size[2], C, H_prime, self.window_size[0], W_prime, self.window_size[1])
+
+        res = (
+            x.permute(0, 1, 3, 2, 5, 7, 4, 6).contiguous().view(B, T_prime, C*self.window_size[0]*self.window_size[1]*self.window_size[2], H_prime, W_prime)
+        )
+
+        return res
+
+class WindowPartitionReverse2D(nn.Module):
+    """
+     Args:
+        window_size: local window size.
+    """
+    def __init__(self, window_size=[2,2]):
+        super().__init__()
+        self.window_size = window_size
+
+    def forward(self, x):
+        B, T, C, H, W = x.shape
+
+        C_prime = C//(self.window_size[0]*self.window_size[1])
+
+        res = x.view(
+            B, T, C_prime, self.window_size[0], self.window_size[1], H, W 
+        )
+
+        res = res.permute(0, 1, 2, 3, 5, 4, 6).contiguous().view(B, T, C_prime, self.window_size[0]*H, self.window_size[1]*W)
+
+        return res
+
+class WindowPartitionReverse3D(nn.Module):
+    """
+     Args:
+        window_size: local window size.
+    """
+    def __init__(self, window_size=[2,2,2]):
+        super().__init__()
+        self.window_size = window_size
+
+    def forward(self, x):
+        B, T, C, H, W = x.shape
+
+        C_prime = C//(self.window_size[0]*self.window_size[1]*self.window_size[2])
+
+        res = x.view(
+            B, T, C_prime, self.window_size[0], self.window_size[1], self.window_size[2], H, W 
+        )
+
+        res = res.permute(0, 1, 5, 2, 3, 6, 4, 7).contiguous().view(B, T*self.window_size[2], C_prime, self.window_size[0]*H, self.window_size[1]*W)
+
+        return res
 
 # -------------------------------------------------------------------------------------------------
 # # Base model for rest to inherit

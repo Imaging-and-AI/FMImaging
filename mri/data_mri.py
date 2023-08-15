@@ -647,7 +647,10 @@ def load_test_images_from_h5file(h5file, keys):
         for i in range(len(h5file)):
             with tqdm(total=len(keys[i]), bar_format=get_bar_format()) as pbar:
                 for n, key in enumerate(keys[i]):
-                    images.append([key+"/noisy", key+"/image", key+"/image_resized", key+"/gmap", key+"/noise_sigma", i])
+                    if 'clean' in h5file[i][key].keys():
+                        images.append([key+"/noisy", key+"/clean", key+"/clean", key+"/gmap", key+"/noise_sigma", i])
+                    else:
+                        images.append([key+"/noisy", key+"/image", key+"/image_resized", key+"/gmap", key+"/noise_sigma", i])
                     num_loaded += 1
 
                     if n>0 and n%100 == 0:
@@ -932,6 +935,7 @@ if __name__ == '__main__':
         clean_im_degraded = np.transpose(clean_im_degraded.numpy(), (2, 3, 1, 0))
         clean_im_2x = np.transpose(clean_im_2x.numpy(), (2, 3, 1, 0))
 
+        gmap = noisy_im[:,:,2,:]
         noisy_im = noisy_im[:,:,0,:] + 1j * noisy_im[:,:,1,:]
         clean_im = clean_im[:,:,0,:] + 1j * clean_im[:,:,1,:]
         clean_im_degraded = clean_im_degraded[:,:,0,:] + 1j * clean_im_degraded[:,:,1,:]
@@ -941,8 +945,35 @@ if __name__ == '__main__':
         nib.save(nib.Nifti1Image(np.abs(clean_im), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_{k}.nii"))
         nib.save(nib.Nifti1Image(np.abs(clean_im_degraded), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_degraded_{k}.nii"))
         nib.save(nib.Nifti1Image(np.abs(clean_im_2x), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_2x_{k}.nii"))
-        nib.save(nib.Nifti1Image(noisy_im[:,:,2,:], affine=np.eye(4)), os.path.join(saved_path, f"gmap_{k}.nii"))
+        nib.save(nib.Nifti1Image(gmap, affine=np.eye(4)), os.path.join(saved_path, f"gmap_{k}.nii"))
         print(gmaps_median, noise_sigmas)
+
+    # ---------------------------------------------------------
+
+    file = "/data/mri/data/train_3D_3T_retro_cine_2020_500_samples.h5"
+    h5file = h5py.File(file, libver='earliest', mode='r')
+    keys = list(h5file.keys())
+
+    test_data = MRIDenoisingDatasetTest([h5file], [keys])
+
+    noisy_im, clean_im, clean_im_degraded, clean_im_2x, gmaps_median, noise_sigmas = test_data[22]
+
+    noisy_im = np.transpose(noisy_im.numpy(), (2, 3, 1, 0))
+    clean_im = np.transpose(clean_im.numpy(), (2, 3, 1, 0))
+    clean_im_2x = np.transpose(clean_im_2x.numpy(), (2, 3, 1, 0))
+
+    gmap = noisy_im[:,:,2,:]
+    noisy_im = noisy_im[:,:,0,:] + 1j * noisy_im[:,:,1,:]
+    clean_im = clean_im[:,:,0,:] + 1j * clean_im[:,:,1,:]
+    clean_im_2x = clean_im_2x[:,:,0,:] + 1j * clean_im_2x[:,:,1,:]
+
+    nib.save(nib.Nifti1Image(np.abs(noisy_im), affine=np.eye(4)), os.path.join(saved_path, f"noisy_im.nii"))
+    nib.save(nib.Nifti1Image(np.abs(clean_im), affine=np.eye(4)), os.path.join(saved_path, f"clean_im.nii"))
+    nib.save(nib.Nifti1Image(np.abs(clean_im_2x), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_2x.nii"))
+    nib.save(nib.Nifti1Image(gmap, affine=np.eye(4)), os.path.join(saved_path, f"gmap.nii"))
+    print(gmaps_median, noise_sigmas)
+
+    # ---------------------------------------------------------
 
     file = "/data/mri/data/train_3D_3T_retro_cine_2020_500_samples_with_2x_resized.h5"
     h5file = h5py.File(file, libver='earliest', mode='r')
@@ -956,6 +987,7 @@ if __name__ == '__main__':
     clean_im = np.transpose(clean_im.numpy(), (2, 3, 1, 0))
     clean_im_2x = np.transpose(clean_im_2x.numpy(), (2, 3, 1, 0))
 
+    gmap = noisy_im[:,:,2,:]
     noisy_im = noisy_im[:,:,0,:] + 1j * noisy_im[:,:,1,:]
     clean_im = clean_im[:,:,0,:] + 1j * clean_im[:,:,1,:]
     clean_im_2x = clean_im_2x[:,:,0,:] + 1j * clean_im_2x[:,:,1,:]
@@ -963,5 +995,5 @@ if __name__ == '__main__':
     nib.save(nib.Nifti1Image(np.abs(noisy_im), affine=np.eye(4)), os.path.join(saved_path, f"noisy_im_test.nii"))
     nib.save(nib.Nifti1Image(np.abs(clean_im), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_test.nii"))
     nib.save(nib.Nifti1Image(np.abs(clean_im_2x), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_2x_test.nii"))
-    nib.save(nib.Nifti1Image(noisy_im[:,:,2,:], affine=np.eye(4)), os.path.join(saved_path, f"gmap_test.nii"))
+    nib.save(nib.Nifti1Image(gmap, affine=np.eye(4)), os.path.join(saved_path, f"gmap_test.nii"))
     print(gmaps_median, noise_sigmas)

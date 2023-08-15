@@ -116,6 +116,7 @@ class run_ddp_base(object):
             "--backbone_hrnet.C", f"{c}",
             "--backbone_unet.C", f"{c}",
             "--backbone_LLM.C", f"{c}",
+            "--backbone_mixed_unetr.C", f"{c}",
             "--block_dense_connection", f"{block_dense_connection}",
             "--norm_mode", f"{norm_mode}",
             "--mixer_type", f"{mixer_type}",
@@ -140,6 +141,9 @@ class run_ddp_base(object):
 
         if config.seed is not None:
             cmd_run.extend(["--seed", f"{config.seed}"])
+
+        if config.num_workers is not None:
+            cmd_run.extend(["--num_workers", f"{config.num_workers}"])
 
         if config.continued_training:
             cmd_run.extend(["--continued_training"])
@@ -167,7 +171,7 @@ class run_ddp_base(object):
 
         # hrnet
         "--backbone_hrnet.use_interpolation", "1",
-
+        
         # unet
         "--backbone_unet.use_unet_attention", "1",
         "--backbone_unet.use_interpolation", "1",
@@ -284,6 +288,8 @@ class run_ddp_base(object):
         parser.add_argument("--separable_conv", action="store_true", help='if set, use separable conv')
 
         parser.add_argument("--seed", type=int, default=None, help='seed for randomization')
+
+        parser.add_argument("--num_workers", type=int, default=None, help='number of total workers')
 
         parser.add_argument("--run_extra_note", type=str, default=None, help="extra notes for the runs")
 

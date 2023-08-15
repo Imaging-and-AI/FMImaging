@@ -14,6 +14,7 @@ Please ref to the project page for the network design.
 import os
 import sys
 import argparse
+import copy
 from collections import OrderedDict
 
 import torch
@@ -35,157 +36,9 @@ from cells import *
 from blocks import *
 from utils import get_device, model_info, add_backbone_STCNNT_args, Nestedspace
 
-from backbone_base import STCNNT_Base_Runtime, set_window_patch_sizes_keep_num_window, set_window_patch_sizes_keep_window_size
+from backbone_base import STCNNT_Base_Runtime, set_window_patch_sizes_keep_num_window, set_window_patch_sizes_keep_window_size, DownSample, UpSample
 
 __all__ = ['STCNNT_HRnet', 'DownSample', 'UpSample']
-
-# -------------------------------------------------------------------------------------------------
-# building blocks
-
-class _D2(nn.Module):
-    """
-    Downsample by 2 layer
-
-    This module takes in a [B, T, C, H, W] tensor and downsample it to [B, T, C, H//2, W//2]
-
-    By default, the operation is performed with a bilinear interpolation.
-    If with_conv is True, a 1x1 convolution is added after interpolation.
-    If with_interpolation is False, the stride convolution is used.
-    """
-
-    def __init__(self, C_in=16, C_out=-1, use_interpolation=True, with_conv=True) -> None:
-        super().__init__()
-
-        self.C_in = C_in
-        self.C_out = C_out if C_out>0 else C_in
-
-        self.use_interpolation = use_interpolation
-        self.with_conv = with_conv
-
-        self.stride_conv = None
-        self.conv = None
-
-        if not self.use_interpolation:
-            self.stride_conv = Conv2DExt(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[3,3], stride=[2,2], padding=[1,1])
-        elif self.with_conv or (self.C_in != self.C_out):
-            self.conv = Conv2DExt(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[1,1], stride=[1,1], padding=[0,0])
-
-    def forward(self, x:Tensor) -> Tensor:
-
-        B, T, C, H, W = x.shape
-        if self.use_interpolation:
-            y = F.interpolate(x.view((B*T, C, H, W)), scale_factor=(0.5, 0.5), mode="bilinear", align_corners=False, recompute_scale_factor=False)
-            y = torch.reshape(y, (B, T, *y.shape[1:]))
-            if self.with_conv:
-                y = self.conv(y)
-        else:
-            y = self.stride_conv(x)
-
-        return y
-    
-class _D2_patch_merging(nn.Module):
-    """
-    Downsample by 2 layer using patch merging
-
-    This module takes in a [B, T, C, H, W] tensor and first reformat it to [B, T, 4*C_in, H//2, W//2],
-    then a conv is used to get C_out channels.
-    """
-
-    def __init__(self, C_in=16, C_out=64) -> None:
-        super().__init__()
-
-        self.C_in = C_in
-        self.C_out = C_out if C_out>0 else C_in
-
-        self.conv = Conv2DExt(in_channels=4*self.C_in, out_channels=self.C_out, kernel_size=[1,1], stride=[1,1], padding=[0,0])
-
-    def forward(self, x:Tensor) -> Tensor:
-
-        B, T, C, H, W = x.shape
-        
-        x0 = x[:, :, :, 0::2, 0::2]  # B T C, H/2 W/2
-        x1 = x[:, :, :, 1::2, 0::2]
-        x2 = x[:, :, :, 0::2, 1::2]
-        x3 = x[:, :, :, 1::2, 1::2]
-
-        y = torch.cat([x0, x1, x2, x3], dim=2)  # B T 4*C H/2 W/2
-        y = self.conv(y)
-        
-        return y    
-
-class DownSample(nn.Module):
-    """
-    Downsample by x(2^N), by using N D2 layers
-    """
-
-    def __init__(self, N=2, C_in=16, C_out=-1, use_interpolation=True, with_conv=True) -> None:
-        super().__init__()
-
-        C_out = C_out if C_out>0 else C_in
-
-        #layers = [('D2_0', _D2(C_in=C_in, C_out=C_out, use_interpolation=use_interpolation, with_conv=with_conv))]
-        layers = [('D2_0', _D2_patch_merging(C_in=C_in, C_out=C_out))]
-        for n in range(1, N):
-            #layers.append( (f'D2_{n}', _D2(C_in=C_out, C_out=C_out, use_interpolation=use_interpolation, with_conv=with_conv)) )
-            layers.append( (f'D2_{n}', _D2_patch_merging(C_in=C_out, C_out=C_out)) )
-
-        self.block = nn.Sequential(OrderedDict(layers))
-
-    def forward(self, x:Tensor) -> Tensor:
-        return self.block(x)
-
-# -------------------------------------------------------------------------------------------------
-
-class _U2(nn.Module):
-    """
-    Upsample by 2
-
-    This module takes in a [B, T, Cin, H, W] tensor and upsample it to [B, T, Cout, 2*H, 2*W]
-
-    By default, the operation is performed with a bilinear interpolation.
-    If with_conv is True, a 1x1 convolution is added after interpolation.
-    """
-
-    def __init__(self, C_in=16, C_out=-1, with_conv=True) -> None:
-        super().__init__()
-
-        self.C_in = C_in
-        self.C_out = C_out if C_out>0 else C_in
-
-        self.with_conv = with_conv
-
-        self.conv = None
-        if self.with_conv or (self.C_in != self.C_out):
-            self.conv = Conv2DExt(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[1,1], stride=[1,1], padding=[0,0])
-
-    def forward(self, x:Tensor) -> Tensor:
-
-        B, T, C, H, W = x.shape
-        y = F.interpolate(x.view((B*T, C, H, W)), size=(2*H, 2*W), mode="bilinear", align_corners=False, recompute_scale_factor=False)
-        y = torch.reshape(y, (B, T, *y.shape[1:]))
-        if self.with_conv:
-            y = self.conv(y)
-
-        return y
-
-class UpSample(nn.Module):
-    """
-    Upsample by x(2^N), by using N U2 layers
-    """
-
-    def __init__(self, N=2, C_in=16, C_out=-1, with_conv=True) -> None:
-        super().__init__()
-
-        C_out = C_out if C_out>0 else C_in
-
-        layers = [('U2_0', _U2(C_in=C_in, C_out=C_out, with_conv=with_conv))]
-        for n in range(1, N):
-            layers.append( (f'U2_{n}', _U2(C_in=C_out, C_out=C_out, with_conv=with_conv)) )
-
-        self.block = nn.Sequential(OrderedDict(layers))
-
-    def forward(self, x:Tensor) -> Tensor:
-        return self.block(x)
 
 # -------------------------------------------------------------------------------------------------
 # stcnnt hrnet
@@ -286,7 +139,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
 
         self.use_interpolation = use_interpolation
 
-        c = config
+        c = copy.deepcopy(config)
 
         # compute number of windows and patches
         self.num_wind = [c.height[0]//c.window_size[0], c.width[0]//c.window_size[1]]
@@ -337,7 +190,9 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             "shuffle_in_window": c.shuffle_in_window,
 
             "use_einsum": c.use_einsum,
-            "temporal_flash_attention": c.temporal_flash_attention
+            "temporal_flash_attention": c.temporal_flash_attention, 
+
+            "activation_func": c.activation_func
         }
 
         window_sizes = []
@@ -647,24 +502,24 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
 
         self.down_3_4 = DownSample(N=1, C_in=8*self.C, C_out=16*self.C, use_interpolation=use_interpolation, with_conv=True)
 
-        self.up_1_0 = UpSample(N=1, C_in=2*self.C, C_out=self.C, with_conv=True)
-        self.up_2_0 = UpSample(N=2, C_in=4*self.C, C_out=self.C, with_conv=True)
-        self.up_3_0 = UpSample(N=3, C_in=8*self.C, C_out=self.C, with_conv=True)
-        self.up_4_0 = UpSample(N=4, C_in=16*self.C, C_out=self.C, with_conv=True)
+        self.up_1_0 = UpSample(N=1, C_in=2*self.C, C_out=self.C, method=c.upsample_method, with_conv=True)
+        self.up_2_0 = UpSample(N=2, C_in=4*self.C, C_out=self.C, method=c.upsample_method, with_conv=True)
+        self.up_3_0 = UpSample(N=3, C_in=8*self.C, C_out=self.C, method=c.upsample_method, with_conv=True)
+        self.up_4_0 = UpSample(N=4, C_in=16*self.C, C_out=self.C, method=c.upsample_method, with_conv=True)
 
-        self.up_2_1 = UpSample(N=1, C_in=4*self.C, C_out=2*self.C, with_conv=True)
-        self.up_3_1 = UpSample(N=2, C_in=8*self.C, C_out=2*self.C, with_conv=True)
-        self.up_4_1 = UpSample(N=3, C_in=16*self.C, C_out=2*self.C, with_conv=True)
+        self.up_2_1 = UpSample(N=1, C_in=4*self.C, C_out=2*self.C, method=c.upsample_method, with_conv=True)
+        self.up_3_1 = UpSample(N=2, C_in=8*self.C, C_out=2*self.C, method=c.upsample_method, with_conv=True)
+        self.up_4_1 = UpSample(N=3, C_in=16*self.C, C_out=2*self.C, method=c.upsample_method, with_conv=True)
 
-        self.up_3_2 = UpSample(N=1, C_in=8*self.C, C_out=4*self.C, with_conv=True)
-        self.up_4_2 = UpSample(N=2, C_in=16*self.C, C_out=4*self.C, with_conv=True)
+        self.up_3_2 = UpSample(N=1, C_in=8*self.C, C_out=4*self.C, method=c.upsample_method, with_conv=True)
+        self.up_4_2 = UpSample(N=2, C_in=16*self.C, C_out=4*self.C, method=c.upsample_method, with_conv=True)
 
-        self.up_4_3 = UpSample(N=1, C_in=16*self.C, C_out=8*self.C, with_conv=True)
+        self.up_4_3 = UpSample(N=1, C_in=16*self.C, C_out=8*self.C, method=c.upsample_method, with_conv=True)
 
-        self.up_1 = UpSample(N=1, C_in=2*self.C, C_out=2*self.C, with_conv=True)
-        self.up_2 = UpSample(N=2, C_in=4*self.C, C_out=4*self.C, with_conv=True)
-        self.up_3 = UpSample(N=3, C_in=8*self.C, C_out=8*self.C, with_conv=True)
-        self.up_4 = UpSample(N=4, C_in=16*self.C, C_out=16*self.C, with_conv=True)
+        self.up_1 = UpSample(N=1, C_in=2*self.C, C_out=2*self.C, method=c.upsample_method, with_conv=True)
+        self.up_2 = UpSample(N=2, C_in=4*self.C, C_out=4*self.C, method=c.upsample_method, with_conv=True)
+        self.up_3 = UpSample(N=3, C_in=8*self.C, C_out=8*self.C, method=c.upsample_method, with_conv=True)
+        self.up_4 = UpSample(N=4, C_in=16*self.C, C_out=16*self.C, method=c.upsample_method, with_conv=True)
 
 
     def check_class_specific_parameters(self, config):
@@ -923,7 +778,7 @@ def tests():
 
     config.with_timer = True
 
-    config.stride_s = 2
+    config.stride_s = 1
     config.separable_conv = True
     config.use_einsum = False
 
@@ -936,8 +791,8 @@ def tests():
 
     config.with_timer = False
     print(f"{Fore.GREEN}-------------> STCNNT_HRnet-einsum-{config.use_einsum}-stride_s-{config.stride_s}-separable_conv-{config.separable_conv} <----------------------{Style.RESET_ALL}")
-    benchmark_all(model, test_in, grad=None, repeats=20, desc='STCNNT_HRnet-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
-    benchmark_memory(model, test_in, desc='STCNNT_HRnet-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
+    benchmark_all(model, test_in, grad=None, min_run_time=5, desc='STCNNT_HRnet', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_memory(model, test_in, desc='STCNNT_HRnet', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
     config.stride_s = 1
     config.separable_conv = False
@@ -946,8 +801,12 @@ def tests():
     model = STCNNT_HRnet(config=config)
     model.to(device=device)
 
+    with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
+        for _ in range(10):
+            y = model(test_in)
+            
     print(f"{Fore.GREEN}-------------> STCNNT_HRnet-einsum-{config.use_einsum}-stride_s-{config.stride_s}-separable_conv-{config.separable_conv} <----------------------{Style.RESET_ALL}")
-    benchmark_all(model, test_in.to(device=device), grad=None, repeats=20, desc='STCNNT_HRnet-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_all(model, test_in.to(device=device), grad=None, min_run_time=5, desc='STCNNT_HRnet-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
     benchmark_memory(model, test_in.to(device=device), desc='STCNNT_HRnet-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
     model = STCNNT_HRnet(config=config)

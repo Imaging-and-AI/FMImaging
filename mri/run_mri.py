@@ -30,17 +30,19 @@ class mri_ddp_base(run_ddp_base):
         self.cmd.extend([
 
         "--num_epochs", "75",
-        "--batch_size", "32",
+        "--batch_size", "8",
 
         "--window_size", "8", "8",
         "--patch_size", "2", "2",
 
-        "--global_lr", "0.0001",
+        #"--global_lr", "0.0001",
 
         "--clip_grad_norm", "1.0",
         "--weight_decay", "1",
 
         #"--use_amp", 
+        
+        "--activation_func", "prelu",
 
         "--iters_to_accumulate", "1",
 
@@ -59,6 +61,19 @@ class mri_ddp_base(run_ddp_base):
         # hrnet
         "--backbone_hrnet.num_resolution_levels", "2",
 
+        # mixed_unetr
+        "--backbone_mixed_unetr.num_resolution_levels", "2", 
+        "--backbone_mixed_unetr.use_unet_attention", "1", 
+        "--backbone_mixed_unetr.use_interpolation", "1", 
+        "--backbone_mixed_unetr.with_conv", "0", 
+        "--backbone_mixed_unetr.min_T", "16", 
+        "--backbone_mixed_unetr.encoder_on_skip_connection", "1", 
+        "--backbone_mixed_unetr.encoder_on_input", "1", 
+        "--backbone_mixed_unetr.transformer_for_upsampling", "0", 
+        "--backbone_mixed_unetr.n_heads", "32", "32", "32", 
+        "--backbone_mixed_unetr.use_conv_3d", "1",
+        "--backbone_mixed_unetr.use_window_partition", "0",
+    
         # unet
         "--backbone_unet.num_resolution_levels", "2",
 
@@ -68,6 +83,9 @@ class mri_ddp_base(run_ddp_base):
         # small unet
         "--backbone_small_unet.channels", "16", "32", "64",   
         "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1",
+
+        #"--post_backbone", "mixed_unetr", 
+        #"--post_backbone", "hrnet", 
 
         #"--min_noise_level", "2.0",
         #"--max_noise_level", "24.0",
@@ -125,12 +143,15 @@ class mri_ddp_base(run_ddp_base):
                         "train_3D_3T_retro_cine_2020_small_2DT_test_with_2x_resized.h5", 
                         "train_3D_3T_retro_cine_2020_small_2D_test_with_2x_resized.h5", 
                         "train_3D_3T_retro_cine_2020_500_samples_with_2x_resized.h5",
+
         ])
 
         if config.tra_ratio > 0 and config.tra_ratio<=100:
             self.cmd.extend(["--ratio", f"{int(config.tra_ratio)}", f"{int(config.val_ratio)}", f"{int(config.test_ratio)}"])
 
         self.cmd.extend(["--max_load", f"{int(config.max_load)}"])
+
+        self.cmd.extend(["--global_lr", f"{config.global_lr}"])
 
         self.cmd.extend(["--lr_pre", f"{config.lr_pre}"])
         self.cmd.extend(["--lr_backbone", f"{config.lr_backbone}"])
@@ -161,7 +182,7 @@ class mri_ddp_base(run_ddp_base):
 
         vars['optim'] = ['sophia']
 
-        vars['backbone'] = ['hrnet']
+        vars['backbone'] = ['hrnet', 'mixed_unetr']
         vars['cell_types'] = ["parallel"]
         vars['Q_K_norm'] = [True]
         vars['cosine_atts'] = ["1"]
@@ -182,23 +203,23 @@ class mri_ddp_base(run_ddp_base):
                         [
                             #["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
                             ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
+                            #["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                            #["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
+                            #["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                          ],
 
                         [
                             ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
-                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
-                            ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"]
+                            #["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                            #["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
+                            #["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                            #["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"]
                          ]
                     ]
 
         vars['losses'] = [
             [["mse", "perpendicular", "psnr", "l1"], ['1.0', '1.0', '1.0', '1.0', '1.0']],
-            [["mse", "perpendicular", "psnr", "l1", "gaussian", "gaussian3D", "ssim"], ['1.0', '1.0', '1.0', '1.0', '20.0', '20.0', "5.0"]],
+            #[["mse", "perpendicular", "psnr", "l1", "gaussian", "gaussian3D", "ssim"], ['1.0', '1.0', '1.0', '1.0', '20.0', '20.0', "5.0"]],
             #[['perpendicular', 'ssim', 'psnr', 'l1'], ['1.0', '1.0', '1.0', '1.0', '1.0']],
             #[['psnr','l1', 'mse'], ['1.0', '1.0', '1.0', '1.0', '1.0']],
             #[['ssim', 'ssim3D', 'mse', 'l1', 'psnr'], ['0.1', '0.1', '1.0', '1.0', '1.0']], 
@@ -389,6 +410,8 @@ class mri_ddp_base(run_ddp_base):
         if config.disable_LSUV:
             cmd_run.extend(["--disable_LSUV"])
 
+        cmd_run.extend(["--post_backbone", f"{config.post_backbone}"])
+
         run_str += f"-{'_'.join(bs)}"
 
         cmd_run.extend(["--losses"])
@@ -435,7 +458,9 @@ class mri_ddp_base(run_ddp_base):
 
         parser.add_argument("--min_noise_level", type=float, default=1.0, help='minimal noise level')
         parser.add_argument("--max_noise_level", type=float, default=24.0, help='maximal noise level')
-        
+
+        parser.add_argument("--global_lr", type=float, default=0.0001, help='global learning rate')
+
         parser.add_argument("--lr_pre", type=float, default=-1, help='learning rate for pre network')
         parser.add_argument("--lr_backbone", type=float, default=-1, help='learning rate for backbone network')
         parser.add_argument("--lr_post", type=float, default=-1, help='learning rate for post network')
@@ -454,6 +479,8 @@ class mri_ddp_base(run_ddp_base):
 
         parser.add_argument("--not_add_noise", action="store_true", help='if set, will not add noise to images.')
         parser.add_argument("--with_data_degrading", action="store_true", help='if set, degrade image before adding noise.')
+
+        parser.add_argument('--post_backbone', type=str, default="hrnet", help="model for post module, 'hrnet', 'mixed_unetr' ")
 
         return parser
 
