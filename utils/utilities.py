@@ -305,19 +305,21 @@ def save_inference_results(input, output, gmap, output_dir, noisy_image=None):
 
 # -------------------------------------------------------------------------------------------------
 
-def normalize_image(image, percentiles=None, values=None, clip=True):
+def normalize_image(image, percentiles=None, values=None, clip=True, clip_vals=[0,1]):
     """
-    TODO: fix comment
     Normalizes image locally.
-    @inputs:
-        image: nd numpy array or torch tensor
-        percentiles: pair of percentiles ro normalize with
-        values: pair of values normalize with
-        NOTE: only one of percentiles and values is required
+    @args:
+        - image (numpy.ndarray or torch.tensor): the image to normalize
+        - percentiles (2-tuple int or float within [0,100]): pair of percentiles to normalize with
+        - values (2-tuple int or float): pair of values normalize with
+        - clip (bool): whether to clip the image or not
+        - clip_vals (2-tuple int or float): values to clip with
+    @reqs:
+        - only one of percentiles and values is required
     @return:
-        n_img: the image normalized wrt given params.
+        - n_img (numpy.ndarray or torch.tensor): the image normalized wrt given params
+            same type as the input image
     """
-
     assert (percentiles==None and values!=None) or (percentiles!=None and values==None)
 
     if type(image)==torch.Tensor:
@@ -334,7 +336,7 @@ def normalize_image(image, percentiles=None, values=None, clip=True):
 
     n_img = (image - i_min)/(i_max - i_min)
 
-    return np.clip(n_img, 0, 1) if clip else n_img
+    return np.clip(n_img, clip_vals[0], clip_vals[1]) if clip else n_img
 
 # -------------------------------------------------------------------------------------------------
 
