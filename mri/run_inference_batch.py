@@ -48,6 +48,8 @@ def arg_parser():
     parser.add_argument("--batch_size", type=int, default=16, help='after loading a batch, start processing')
     parser.add_argument("--overlap", nargs='+', type=int, default=None, help='overlap for (T, H, W), e.g. (2, 8, 8), (0, 0, 0) means no overlap')
 
+    parser.add_argument("--num_batches_to_process", type=int, default=-1, help='number of batches to be processed')
+
     parser.add_argument("--input_fname", type=str, default="im", help='input file name')
     parser.add_argument("--gmap_fname", type=str, default="gfactor", help='gmap input file name')
 
@@ -95,10 +97,10 @@ def process_a_batch(args, model, config, images, selected_cases, gmaps, device):
         gmap = gmaps[ind]
 
         if len(image.shape) == 3 and gmap.ndim==3 and gmap.shape[2]==image.shape[2]:
-            output = apply_model_3D(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device(), overlap=overlap_used)
+            output = apply_model_3D(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device(), overlap=overlap_used, verbose=True)
             print(f"3D mode, {args.input_dir}, images - {image.shape}, gmap - {gmap.shape}, median gmap {np.median(gmap)}")
         else:
-            output = apply_model(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=device, overlap=overlap_used)
+            output = apply_model(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=device, overlap=overlap_used, verbose=True)
 
         case = os.path.basename(case_dir)
         output_dir = os.path.join(args.output_dir, case)
@@ -137,6 +139,8 @@ def main():
     images = []
     gmaps = []
 
+    num_batches_processed = 0
+    
     with tqdm(total=len(case_dirs), bar_format=get_bar_format()) as pbar:
         for c in case_dirs:
             fname = os.path.join(c, f"{args.input_fname}_real.npy")
@@ -178,12 +182,17 @@ def main():
                 selected_cases = []
                 images = []
                 gmaps = []
+                
+                num_batches_processed += 1
+                if args.num_batches_to_process> 0 and num_batches_processed > args.num_batches_to_process:
+                    break
 
             pbar.update(1)
 
     # process left over cases
-    if len(images) > 0:
-        process_a_batch(args, model, config, images, selected_cases, gmaps, device)
+    if args.num_batches_to_process <= 0:
+        if len(images) > 0:
+            process_a_batch(args, model, config, images, selected_cases, gmaps, device)
 
 if __name__=="__main__":
     main()
