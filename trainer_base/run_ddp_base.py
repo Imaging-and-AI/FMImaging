@@ -73,7 +73,7 @@ class run_ddp_base(object):
 
         # set up run record
         self.run_completed = []
-        self.run_record = os.path.join(project_base_dir, config.project, "run_mri_record.pkl")
+        self.run_record = os.path.join(project_base_dir, config.project, f"run_{config.project}_record.pkl")
         print(f"check run record - {self.run_record}")
         if os.path.isfile(self.run_record):
             with open(self.run_record, 'rb') as f:
