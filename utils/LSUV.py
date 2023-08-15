@@ -1,5 +1,6 @@
 from __future__ import print_function
 import numpy as np
+import scipy
 import torch
 import torch.nn.init
 import torch.nn as nn
@@ -49,7 +50,9 @@ def svd_orthonormal(w):
         raise RuntimeError("Only shapes of length 2 or more are supported.")
     flat_shape = (shape[0], np.prod(shape[1:]))
     a = np.random.normal(0.0, 1.0, flat_shape).astype(dtype=np.float32)#w;
-    u, _, v = np.linalg.svd(a, full_matrices=False)
+    #u, _, v = np.linalg.svd(a, full_matrices=False)
+    u, _, v = scipy.linalg.svd(a, full_matrices=False)
+    
     q = u if u.shape == flat_shape else v
     #print (shape, flat_shape)
     q = q.reshape(shape)

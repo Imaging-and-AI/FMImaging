@@ -170,7 +170,7 @@
             "program": "./mri/main_mri.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "2"},
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "0"},
             "args": [
                 "--project", "mri", 
                 "--data_root", "/data/mri/data", "--check_path", "/export/Lab-Xue/projects//mri/checkpoints", "--model_path", "/export/Lab-Xue/projects//mri/models", "--log_path", "/export/Lab-Xue/projects//mri/logs", "--results_path", "/export/Lab-Xue/projects//mri/results", "--summary_depth", "6", "--save_cycle", "200", "--device", "cuda", "--project", "mri", "--num_epochs", "100", "--batch_size", "16", "--weight_decay", "1",  
@@ -213,7 +213,7 @@
                 "--post_mixed_unetr.num_resolution_levels", "2",
                 "--save_samples", 
                 "--super_resolution",
-                "--load_path", "/export/Lab-Xue/projects/mri/test/mri-STCNNT_MRI_20230806_193859_694086_C-32-1_amp-True_1st_stage_8gpus_instance2d_B16_hrnet/mri-STCNNT_MRI_20230806_193859_694086_C-32-1_amp-True_1st_stage_8gpus_instance2d_B16_hrnet_complex_residual_weighted_loss_snr_temporal_added_noise-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-65.pth"
+                "--load_path", "/export/Lab-Xue/projects/mri/checkpoints/hy_search_mixed_unetr_epoch-8.pth"
             ]
         },
         {

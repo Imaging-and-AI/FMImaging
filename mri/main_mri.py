@@ -128,7 +128,7 @@ class MriTrainer(Trainer_Base):
             - config (Namespace): runtime namespace for setup
         """
         super().__init__(config)
-        self.project = 'mri'
+        self.project = 'mri-hy_search'
 
     def check_args(self):
         """
