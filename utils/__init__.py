@@ -9,3 +9,4 @@ from .utilities import *
 from .LSUV import *
 from .gaussian import *
 from .benchmark import *
+from .snr import *

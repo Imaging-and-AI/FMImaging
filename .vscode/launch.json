@@ -279,6 +279,20 @@
             ]
         },
         {
+            "name": "run_inference_snr_pseudo_replica",
+            "type": "python",
+            "request": "launch",
+            "program": "./mri/run_inference_snr_pseudo_replica.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "0"},
+            "args": [
+                "--input_dir", "/export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/res/DebugOutput/", "--output_dir", "/export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/res_ai/", "--im_scaling", "1", "--gmap_scaling", "1", "--saved_model_path", "/export/Lab-Xue/projects/mri/test/hy_search_contined_gaussian_2nd_stage/hy_search_contined_gaussian_2nd_stage_epoch-74.pth", 
+                "--input_fname", "input", "--gmap_fname", "gmap", 
+                "--scaling_factor", "1.0", "--added_noise_sd", "0.1", "--rep", "8"
+            ]
+        },
+        {
             "name": "run_inference_batch, mri",
             "type": "python",
             "request": "launch",
