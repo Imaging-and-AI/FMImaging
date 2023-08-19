@@ -33,7 +33,7 @@ def arg_parser():
     @rets:
         - config (Namespace): runtime namespace for setup
     """
-    parser = argparse.ArgumentParser("Argument parser for STCNNT MRI test evaluation")
+    parser = argparse.ArgumentParser("Argument parser for STCNNT MRI snr pseudo replica test")
 
     parser.add_argument("--input_dir", default=None, help="folder to load the data")
     parser.add_argument("--output_dir", default=None, help="folder to save the data")
@@ -49,6 +49,9 @@ def arg_parser():
     parser.add_argument("--gmap_fname", type=str, default="gfactor", help='gmap input file name')
 
     parser.add_argument("--model_type", type=str, default=None, help="if set, overwrite the config setting, STCNNT_MRI or MRI_hrnet, MRI_double_net")
+
+    parser.add_argument("--added_noise_sd", type=float, default=0.1, help="add noise sigma")
+    parser.add_argument("--rep", type=int, default=100, help="number of repetition")
 
     return parser.parse_args()
 
@@ -99,10 +102,24 @@ def main():
 
     gmap = np.load(f"{args.input_dir}/{args.gmap_fname}.npy")
     gmap /= args.gmap_scaling
-    
+
+    # --------------------------------------------
+
     if len(image.shape) == 3 and gmap.ndim==3 and gmap.shape[2]==image.shape[2]:
-        output = apply_model_3D(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device(), verbose=True)
-        print(f"3D mode, {args.input_dir}, images - {image.shape}, gmap - {gmap.shape}, median gmap {np.median(gmap)}")
+
+        image_noised = create_pseudo_replica(image, added_noise_sd=args.added_noise_sd, N=args.rep)
+        output = np.copy(image_noised)
+
+        total_time_in_seconds = 0
+        for n in range(args.rep):
+            print(f"--> process rep {n}, out of {args.rep}")
+
+            start = time()
+            output[:,:,:,n] = apply_model_3D(image_noised[:,:,:,n], model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device(), verbose=True)
+            total_time_in_seconds += time()-start
+
+        print(f"Total processing time is {total_time_in_seconds:.1f} seconds")
+        print(f"3D mode, {args.input_dir}, images - {image.shape}, gmap - {gmap.shape}, median gmap {np.median(gmap)}, image_noised - {image_noised.shape}")
     else:
         if len(image.shape) == 2:
             image = image[:,:,np.newaxis,np.newaxis]
@@ -116,6 +133,8 @@ def main():
         RO, E1, frames, slices = image.shape
         print(f"2DT mode, {args.input_dir}, images - {image.shape}, gmap - {gmap.shape}, median gmap {np.median(gmap)}")
 
+        image = image.astype(np.complex64)
+
         if(gmap.ndim==2):
             gmap = np.expand_dims(gmap, axis=2)
 
@@ -128,23 +147,32 @@ def main():
         else:
             overlap_used = None
 
-        output = apply_model(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device(), overlap=overlap_used, verbose=True)
+        # generate the noise
+        image_noised = create_pseudo_replica(image, added_noise_sd=args.added_noise_sd, N=args.rep)
+        image_noised = image_noised.astype(np.complex64)
 
-        # input = np.flip(image, axis=0)
-        # output2 = apply_model(input, model, np.flip(gmap, axis=0), config=config, scaling_factor=args.scaling_factor, device=get_device())
-        # output2 = np.flip(output2, axis=0)
+        res_name = os.path.join(args.output_dir, 'noisy_image_real.npy')
+        np.save(res_name, image_noised.real)
+        res_name = os.path.join(args.output_dir, 'noisy_image_imag.npy')
+        np.save(res_name, image_noised.imag)
 
-        # input = np.flip(image, axis=1)
-        # output3 = apply_model(input, model, np.flip(gmap, axis=1), config=config, scaling_factor=args.scaling_factor, device=get_device())
-        # output3 = np.flip(output3, axis=1)
+        output = np.copy(image_noised)
 
-        # input = np.transpose(image, axes=(1, 0, 2, 3))
-        # output4 = apply_model(input, model, np.transpose(gmap, axes=(1, 0, 2)), config=config, scaling_factor=args.scaling_factor, device=get_device())
-        # output4 = np.transpose(output4, axes=(1, 0, 2, 3))
+        total_time_in_seconds = 0
 
-        # res = output + output2 + output3 + output4
-        # output = res / 4
-    
+        for n in range(args.rep):
+            print(f"--> process rep {n}, out of {args.rep}")
+
+            curr_input = np.copy(image_noised[:,:,:,:,n])
+            curr_gmap = np.copy(gmap)
+
+            start = time()
+            output[:,:,:,:,n] = apply_model(curr_input, model, curr_gmap, config=config, scaling_factor=args.scaling_factor, device=get_device(), overlap=overlap_used, verbose=True)
+
+            total_time_in_seconds += time()-start
+
+        print(f"Total processing time is {total_time_in_seconds:.1f} seconds")
+
     # -------------------------------------------    
 
     print(f"{args.output_dir}, images - {image.shape}, {output.shape}")

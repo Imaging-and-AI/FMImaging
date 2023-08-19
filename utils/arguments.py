@@ -136,9 +136,9 @@ def add_shared_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for S
     parser.add_argument("--stride_t", type=int, default=2, help='stride for temporal attention, q and k (equal x and y)') 
     parser.add_argument("--separable_conv", action="store_true", help='if set, use separable conv')
 
-    parser.add_argument("--mixer_kernel_size", type=int, default=5, help='conv kernel size for the mixer')
+    parser.add_argument("--mixer_kernel_size", type=int, default=3, help='conv kernel size for the mixer')
     parser.add_argument("--mixer_stride", type=int, default=1, help='stride for the mixer')
-    parser.add_argument("--mixer_padding", type=int, default=2, help='padding for the mixer')
+    parser.add_argument("--mixer_padding", type=int, default=1, help='padding for the mixer')
 
     parser.add_argument("--normalize_Q_K", action="store_true", help='whether to normalize Q and K before computing attention matrix')
     parser.add_argument("--cosine_att", type=int, default=0, help='whether to use cosine attention; if True, normalize_Q_K is ignored')   
