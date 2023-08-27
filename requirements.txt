@@ -20,3 +20,4 @@ piq
 torchmetrics
 moviepy
 imageio
+interpol
