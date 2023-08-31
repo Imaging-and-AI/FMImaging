@@ -446,8 +446,6 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
             kwargs["H"] = c.height[0] // 16
             kwargs["W"] = c.width[0] // 16
 
-            kwargs = set_window_patch_sizes(kwargs, [kwargs["H"],kwargs["W"]], self.num_wind, self.num_patch, module_name="B44")
-
             if c.window_sizing_method == "keep_num_window":
                 kwargs = set_window_patch_sizes_keep_num_window(kwargs, [kwargs["H"],kwargs["W"]], self.num_wind, self.num_patch, module_name="B44")
             elif c.window_sizing_method == "keep_window_size":

@@ -20,3 +20,5 @@ piq
 torchmetrics
 moviepy
 imageio
+interpol
+flash-attn

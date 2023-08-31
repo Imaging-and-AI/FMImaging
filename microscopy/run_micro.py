@@ -28,13 +28,13 @@ class micro_ddp_base(run_ddp_base):
 
         self.cmd.extend([
 
-        "--num_epochs", "75",
-        "--batch_size", "16",
+        "--num_epochs", "300",
+        "--batch_size", "12",
         "--global_lr", "0.0001",
         "--clip_grad_norm", "1.0",
         "--weight_decay", "1",
         "--iters_to_accumulate", "1",
-        "--num_workers", "8",
+        "--num_workers", "2",
         "--prefetch_factor", "4",
 
         "--window_size", "8", "8",
@@ -48,6 +48,7 @@ class micro_ddp_base(run_ddp_base):
 
         # hrnet
         "--backbone_hrnet.num_resolution_levels", "2",
+        "--backbone_hrnet.C", "16",
         # unet
         "--backbone_unet.num_resolution_levels", "3",
         "--backbone_unet.C", "16",
@@ -59,19 +60,22 @@ class micro_ddp_base(run_ddp_base):
 
         # "--losses", "mse", "l1",
         # "--loss_weights", "1.0", "1.0",
-        "--height", "128",
-        "--width", "128",
-        "--time", "12",
+        "--height", "128", "144",
+        "--width", "128", "144",
+        "--time", "16",
         "--C_in", "1",
         "--C_out", "1",
         "--num_uploaded", "6",
 
-        "--train_files", "Base_Actin_train.h5",
-        "--test_files", "Base_Actin_test.h5",
-        "--samples_per_image", "32",
+        "--data_root", "/data/microscopy/data/",
+        "--train_files", "Base_All_train.h5",
+        "--test_files", "Base_All_test.h5",
+        "--samples_per_image", "16",
         
         "--ratio", "100", "50", "0",
-        "--save_samples"
+        "--save_samples",
+
+        "--valu_thres", "0.035"
         ])
 
         self.cmd.extend(["--max_load", f"{int(config.max_load)}"])
@@ -82,12 +86,12 @@ class micro_ddp_base(run_ddp_base):
 
         vars['optim'] = ['sophia']
 
-        vars['scaling_type'] = ['per']
+        vars['scaling_type'] = ['val']
         vars['scaling_vals'] = [
-            [0,99.9]
+            [0,4096]
         ]
 
-        vars['backbone'] = ['unet']
+        vars['backbone'] = ['hrnet']
         vars['cell_types'] = ["sequential"]
         vars['Q_K_norm'] = [True]
         vars['cosine_atts'] = ["1"]
@@ -99,14 +103,14 @@ class micro_ddp_base(run_ddp_base):
         vars['shuffle_in_windows'] = ["0"]
         vars['block_dense_connections'] = ["1"]
         vars['norm_modes'] = ["instance2d"]
-        vars['C'] = [32]
+        vars['C'] = [16]
         vars['scale_ratio_in_mixers'] = [1.0]
         vars['residual'] = [True]
         vars['n_heads'] = [8] # TODO: try 32
 
         vars['block_strs'] = [
                         [
-                            ["T1T1T1"]
+                            ["T1T1T1T1"]
                          ]
                     ]
 
@@ -154,7 +158,7 @@ class micro_ddp_base(run_ddp_base):
 
         curr_time = datetime.now()
         moment = curr_time.strftime('%Y%m%d_%H%M%S_%f')
-        run_str = f"{config.model_type}_{moment}_C-{c}_amp-{config.use_amp}"
+        run_str = f"{config.model_type}_{bk}_{moment}"
 
         if config.run_extra_note is not None:
             run_str += "_" 
@@ -162,7 +166,6 @@ class micro_ddp_base(run_ddp_base):
 
         if residual:
             cmd_run.extend(["--residual"])
-            run_str += "_residual"
 
         if config.disable_LSUV:
             cmd_run.extend(["--disable_LSUV"])
@@ -223,8 +226,8 @@ class micro_ddp_base(run_ddp_base):
                 scale_ratio_in_mixer, \
                 bs, \
                 loss_and_weights, \
-                scaling_type, \
-                scaling_vals \
+                (scaling_type, \
+                scaling_vals) \
                     in itertools.product( 
                                         vars['optim'],
                                         vars['mixer_types'], 
@@ -243,8 +246,8 @@ class micro_ddp_base(run_ddp_base):
                                         vars['scale_ratio_in_mixers'],
                                         block_str,
                                         vars['losses'],
-                                        vars['scaling_type'],
-                                        vars['scaling_vals']
+                                        zip(vars['scaling_type'],
+                                        vars['scaling_vals'])
                                         ):
 
                     # -------------------------------------------------------------

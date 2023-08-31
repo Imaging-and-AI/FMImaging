@@ -499,7 +499,7 @@ def trainer(rank, global_rank, config, wandb_run):
     # -----------------------------------------------
 
     train_loader = [DataLoader(dataset=train_set_x, batch_size=c.batch_size, shuffle=shuffle, sampler=samplers[i],
-                                num_workers=c.num_workers//len(train_set), prefetch_factor=c.prefetch_factor, drop_last=False,
+                                num_workers=c.num_workers, prefetch_factor=c.prefetch_factor, drop_last=False,
                                 persistent_workers=c.num_workers>0) for i, train_set_x in enumerate(train_set)]
 
     # -----------------------------------------------
