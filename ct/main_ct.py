@@ -1,5 +1,5 @@
 """
-Main file for STCNNT Microscopy denoising
+Main file for STCNNT CT denoising
 """
 
 import argparse
@@ -25,7 +25,7 @@ def arg_parser():
         - config (Namespace): runtime namespace for setup
     """
     parser = argparse.ArgumentParser("Argument parser for STCNNT Mirco")
-    parser.add_argument("--data_set", type=str, default="microscopy", help='general purpose argument')
+    parser.add_argument("--data_set", type=str, default="ct", help='general purpose argument')
     parser.add_argument("--data_root", type=str, default=None, help='root folder containing h5 data files')
     parser.add_argument("--train_files", type=str, nargs='+', default=[], help='list of train h5files. If empty then all files present in the folder are used')
     parser.add_argument("--test_files", type=str, nargs='+', default=[], help='list of test h5files. Either complete paths, or file in data root')
@@ -33,7 +33,7 @@ def arg_parser():
 
     parser = add_backbone_STCNNT_args(parser=parser)
 
-    # loss for micro
+    # loss for ct
     parser.add_argument("--losses", nargs='+', type=str, default=["mse", "l1"], help='Any combination of "mse", "l1", "sobel", "ssim", "ssim3D", "psnr", "msssim", "gaussian", "gaussian3D" ')
     parser.add_argument('--loss_weights', nargs='+', type=float, default=[1.0, 1.0], help='to balance multiple losses, weights can be supplied')
     parser.add_argument("--residual", action="store_true", help='add long term residual connection')
@@ -55,15 +55,11 @@ def arg_parser():
     parser.add_argument("--disable_LSUV", action="store_true", help='if set, do not perform LSUV initialization.')
 
     # training
-    parser.add_argument("--model_type", type=str, default="STCNNT_Micro", help="STCNNT_Micro only for now")
+    parser.add_argument("--model_type", type=str, default="STCNNT_CT", help="STCNNT_CT only for now")
     parser.add_argument("--train_only", action="store_true", help='focus on training only. no val or test')
     parser.add_argument('--train_samples', type=int, default=0, help='number of images to train/finetune with. First n are taken from the train set if n>0')
-    parser.add_argument('--samples_per_image', type=int, default=8, help='samples to take from a single image per epoch')
+    parser.add_argument('--samples_per_image', type=int, default=32, help='samples to take from a single image per epoch')
     parser.add_argument('--num_uploaded', type=int, default=12, help='number of images uploaded to wandb')
-    parser.add_argument('--scaling_type', type=str, default="val", help='scaling type: "val" for scaling with a static value or "per" for scaling with a percentile')
-    parser.add_argument("--scaling_vals", type=float, nargs='+', default=[0,65536], help='min max values to scale with respect to the scaling type')
-    parser.add_argument("--valu_thres", type=float, default=0.002, help='threshold of pixel value between background and foreground')
-    parser.add_argument("--area_thres", type=float, default=0.25, help='percentage threshold of area that needs to be foreground')
 
     # inference
     parser.add_argument("--pad_time", action="store_true", help='whether to pad along time when doing inference; if False, the entire series is inputted')
@@ -75,14 +71,14 @@ def arg_parser():
 
 # -------------------------------------------------------------------------------------------------
 
-class MircoTrainer(Trainer_Base):
+class CTTrainer(Trainer_Base):
     def __init__(self, config) -> None:
         """
         @args:
             - config (Namespace): runtime namespace for setup
         """
         super().__init__(config)
-        self.project = 'micro'
+        self.project = 'ct'
 
     def check_args(self):
         """
@@ -92,7 +88,7 @@ class MircoTrainer(Trainer_Base):
         super().check_args()
 
         if self.config.data_root is None:
-            self.config.data_root = "/export/Lab-Xue/projects/microscopy/data"
+            self.config.data_root = "/export/Lab-Xue/projects/ct/data"
 
     def set_up_config_for_sweep(self, wandb_config):
         super().set_up_config_for_sweep(wandb_config=wandb_config)
@@ -118,7 +114,7 @@ def main():
 
     config_default = arg_parser()
 
-    trainer = MircoTrainer(config_default)
+    trainer = CTTrainer(config_default)
     trainer.train()
 
 # -------------------------------------------------------------------------------------------------

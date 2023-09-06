@@ -398,5 +398,37 @@
                 "--save_samples"
             ]
         },
+        {
+            "name": "ct base",
+            "type": "python",
+            "request": "launch",
+            "program": "./ct/main_ct.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT":"10", "CUDA_VISIBLE_DEVICES":"0"},
+            "args": [
+                "-D",
+                // "--train_only",
+                "--run_name", "ct_test_4",
+                "--log_path", "/export/Lab-Xue/projects/ct/logs",
+                "--results_path", "/export/Lab-Xue/projects/ct/results",
+                "--model_path", "/export/Lab-Xue/projects/ct/models",
+                "--check_path", "/export/Lab-Xue/projects/ct/checkpoints",
+                "--train_files", "ct_research_train.h5",
+                "--test_files", "ct_research_train.h5",
+                "--ratio", "100","100","0",
+                "--C_in", "1",
+                "--C_out", "1",
+                "--num_epochs", "2",
+                "--backbone", "hrnet",
+                "--batch_size", "8",
+                "--height", "64",
+                "--width", "64",
+                "--project", "ct",
+                "--disable_LSUV",
+                "--save_samples",
+                "--num_workers", "0"
+            ]
+        },
     ]
 }

@@ -1,5 +1,5 @@
 """
-Python script to run microscopy bash scripts in batches
+Python script to run ct bash scripts in batches
 """
 
 import sys
@@ -17,7 +17,7 @@ from trainer_base import *
 
 # -------------------------------------------------------------------------------------------------
 
-class micro_ddp_base(run_ddp_base):
+class ct_ddp_base(run_ddp_base):
     
     def __init__(self, project, script_to_run) -> None:
         super().__init__(project, script_to_run)
@@ -28,7 +28,7 @@ class micro_ddp_base(run_ddp_base):
 
         self.cmd.extend([
 
-        "--num_epochs", "300",
+        "--num_epochs", "100",
         "--batch_size", "12",
         "--global_lr", "0.0001",
         "--clip_grad_norm", "1.0",
@@ -60,22 +60,20 @@ class micro_ddp_base(run_ddp_base):
 
         # "--losses", "mse", "l1",
         # "--loss_weights", "1.0", "1.0",
-        "--height", "128", "144",
-        "--width", "128", "144",
+        "--height", "64", "128",
+        "--width", "64", "128",
         "--time", "16",
         "--C_in", "1",
         "--C_out", "1",
         "--num_uploaded", "6",
 
-        "--data_root", "/data/microscopy/data/",
-        "--train_files", "Base_All_train.h5",
-        "--test_files", "Base_All_test.h5",
-        "--samples_per_image", "16",
+        "--train_files", "ct_research_train.h5",
+        "--test_files", "ct_research_test.h5",
+        "--samples_per_image", "256",
         
         "--ratio", "100", "50", "0",
         "--save_samples",
 
-        "--valu_thres", "0.035"
         ])
 
         self.cmd.extend(["--max_load", f"{int(config.max_load)}"])
@@ -85,11 +83,6 @@ class micro_ddp_base(run_ddp_base):
         vars = dict()
 
         vars['optim'] = ['sophia']
-
-        vars['scaling_type'] = ['val']
-        vars['scaling_vals'] = [
-            [0,4096]
-        ]
 
         vars['backbone'] = ['hrnet']
         vars['cell_types'] = ["sequential"]
@@ -141,8 +134,6 @@ class micro_ddp_base(run_ddp_base):
                         n_heads=32,
                         losses=['mse', 'l1'],
                         loss_weights=['1.0', '1.0'],
-                        scaling_type='per',
-                        scaling_vals=[0,100]
                         ):
 
         if c < n_heads:
@@ -196,8 +187,6 @@ class micro_ddp_base(run_ddp_base):
             "--run_name", f"{config.project}-{run_str}",
             "--run_notes", f"{config.project}-{run_str}",
             "--n_head", f"{n_heads}",
-            "--scaling_type", f"{scaling_type}",
-            "--scaling_vals", f"{scaling_vals[0]}", f"{scaling_vals[1]}",
         ])
 
         return cmd_run
@@ -226,8 +215,6 @@ class micro_ddp_base(run_ddp_base):
                 scale_ratio_in_mixer, \
                 bs, \
                 loss_and_weights, \
-                (scaling_type, \
-                scaling_vals) \
                     in itertools.product( 
                                         vars['optim'],
                                         vars['mixer_types'], 
@@ -246,8 +233,6 @@ class micro_ddp_base(run_ddp_base):
                                         vars['scale_ratio_in_mixers'],
                                         block_str,
                                         vars['losses'],
-                                        zip(vars['scaling_type'],
-                                        vars['scaling_vals'])
                                         ):
 
                     # -------------------------------------------------------------
@@ -273,8 +258,6 @@ class micro_ddp_base(run_ddp_base):
                                     n_heads=n_heads,
                                     losses=loss_and_weights[0],
                                     loss_weights=loss_and_weights[1],
-                                    scaling_type=scaling_type,
-                                    scaling_vals=scaling_vals
                                     )
 
                     if cmd_run:
@@ -289,7 +272,7 @@ class micro_ddp_base(run_ddp_base):
         parser = super().arg_parser()
 
         parser.add_argument("--max_load", type=int, default=-1, help='number of samples to load into the disk, if <0, samples will be read from the disk while training')
-        parser.add_argument("--model_type", type=str, default="STCNNT_Micro", help="STCNNT_Micro only for now")
+        parser.add_argument("--model_type", type=str, default="STCNNT_CT", help="STCNNT_CT only for now")
 
         parser.add_argument("--losses", nargs='+', type=str, default=["ssim"], help='Any combination of "mse", "l1", "sobel", "ssim", "ssim3D", "psnr", "msssim", "gaussian", "gaussian3D" ')
         parser.add_argument('--loss_weights', nargs='+', type=float, default=[1.0], help='to balance multiple losses, weights can be supplied')
@@ -303,7 +286,7 @@ def main():
 
     os.system("ulimit -n 65536")
 
-    ddp_run = micro_ddp_base(project="microscopy", script_to_run='./microscopy/main_micro.py')
+    ddp_run = ct_ddp_base(project="ct", script_to_run='./ct/main_ct.py')
     ddp_run.run()
 
 # -------------------------------------------------------------

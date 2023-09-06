@@ -18,6 +18,7 @@ import os
 import sys
 import h5py
 import torch
+import random
 import logging
 import itertools
 import numpy as np
@@ -38,7 +39,7 @@ clean_name = "SOC_AiCE"
 noisy_names = name_prefs[1:]
 
 # -------------------------------------------------------------------------------------------------
-# train dataset class
+# some helper(s)
 
 def load_images_from_h5file(h5files, keys, max_load=100000):
     """
@@ -57,31 +58,39 @@ def load_images_from_h5file(h5files, keys, max_load=100000):
 
     num_loaded = 0
     for i in range(len(h5files)):
-        images.append({})
 
         with tqdm(total=len(keys[i]), bar_format=get_bar_format()) as pbar:
             for n, key_1 in enumerate(keys[i]):
 
-                images[i][key_1] = {}
-                images[i][key_1][clean_name] = (f"{key_1}/{clean_name}", i)
+                noisy_im_list = []
+
                 found_clean = False
-
                 for key_2 in h5files[i][key_1]:
-                    if key_2 == clean_name: found_clean = True
 
-                    images[i][key_1][key_2] = (f"{key_1}/{key_2}", i)
+                    complete_key = f"{key_1}/{key_2}"
+                    image_2_save = [complete_key, complete_key]
                     if num_loaded < max_load:
-                        image = np.array(h5files[i][f"{key_1}/{key_2}"])
-                        images[i][key_1][key_2] = (image, i)
+                        image_2_save = [np.array(h5files[i][complete_key]), complete_key]
                         num_loaded += 1
-                    
+
+                    if key_2 == clean_name:
+                        clean_im = image_2_save
+                        found_clean = True
+                    else:
+                        noisy_im_list.append(image_2_save)
+
+                images.append((noisy_im_list, clean_im, i))
+
                 assert found_clean, f"clean image not found in {h5files[i]}/{key_1}"
 
-                if n and n%10 == 0:
+                if n%10 == 0 and n:
                     pbar.update(10)
                     pbar.set_description_str(f"{h5files}, {n} in {len(keys[i])}, total {len(images)}")
 
     return images
+
+# -------------------------------------------------------------------------------------------------
+# train dataset class
 
 class CtDatasetTrain():
     """
@@ -90,7 +99,7 @@ class CtDatasetTrain():
     Since the image size is big, "samples_per_image" number of samples are taken from same image every epoch.
     """
     def __init__(self, h5file, keys, max_load=10000,
-                    time_cutout=30, cutout_shape=[64, 64], samples_per_image=8):
+                    time_cutout=30, cutout_shape=[64, 64], samples_per_image=32):
         """
         Initilize the dataset
 
@@ -104,7 +113,6 @@ class CtDatasetTrain():
         """
         self.h5file = h5file
         self.keys = keys
-        self.N_files = len(self.keys)
 
         self.time_cutout = time_cutout
         self.cutout_shape = cutout_shape
@@ -113,7 +121,7 @@ class CtDatasetTrain():
 
         self.images = load_images_from_h5file(h5file, keys, max_load=max_load)
 
-    def load_one_sample(self, i, id):
+    def load_one_sample(self, i):
         """
         Load one sample from the images
 
@@ -122,18 +130,21 @@ class CtDatasetTrain():
         @rets:
             - noisy_cutout, clean_cutout (5D torch.Tensors): the pair of images cutouts
         """
-        noisy_im = self.images[i][id][0]
-        clean_im = self.images[i][1]
+        noisy_im, noisy_im_name = self.select_random_noisy(self.images[i][0])
+        clean_im = self.images[i][1][0]
 
         if not isinstance(noisy_im, np.ndarray):
             ind = self.images[i][2]
-            key_noisy = self.images[i][0]
-            key_clean = self.images[i][1]
-            noisy_im = np.array(self.h5file[ind][key_noisy])
-            clean_im = np.array(self.h5file[ind][key_clean])
+            noisy_im = np.array(self.h5file[ind][noisy_im])
+            clean_im = np.array(self.h5file[ind][clean_im])
 
         if noisy_im.ndim == 2: noisy_im = noisy_im[np.newaxis,:,:]
         if clean_im.ndim == 2: clean_im = clean_im[np.newaxis,:,:]
+
+        min_t = min(noisy_im.shape[0], clean_im.shape[0])
+
+        noisy_im = noisy_im[:min_t,:,:]
+        clean_im = clean_im[:min_t,:,:]
 
         # pad symmetrically if not enough images in the time dimension
         if noisy_im.shape[0] < self.time_cutout:
@@ -159,8 +170,16 @@ class CtDatasetTrain():
 
         noisy_cutout = torch.from_numpy(noisy_cutout.astype(np.float32))
         clean_cutout = torch.from_numpy(clean_cutout.astype(np.float32))
+        noisy_im_name = noisy_im_name.replace("/","_")
 
-        return noisy_cutout, clean_cutout
+        return noisy_cutout, clean_cutout, noisy_im_name
+
+    def select_random_noisy(self, noisy_im_list):
+        """
+        Randomly select a noist image from the noisy image list
+        """
+        random.shuffle(noisy_im_list)
+        return noisy_im_list[0][0], noisy_im_list[0][1]
 
     def get_cutout_range(self, data):
         """
@@ -216,13 +235,7 @@ class CtDatasetTrain():
         """
         Length of dataset
         """
-        n = 0
-        for dict_i in self.images:          # iterate through all h5files
-            for dict_j in dict_i:           # iterate through all keys in an h5file
-                n += len(dict_j)            # all keys are potential hits
-                n -= 1                      # except for the clean_name used as ground truth
-
-        return n * self.samples_per_image   # samples_per_image * num_images for total len
+        return len(self.images)*self.samples_per_image
 
     def __getitem__(self, idx):
         """
@@ -233,6 +246,7 @@ class CtDatasetTrain():
             - idx (int): the index in the dataset
         @rets:
             - noisy_im, clean_im (5D torch.Tensors): the noisy and clean pair
+            - noisy_im_name (str): the name of the noist image for id purpose
         """
 
         sample_list = []
@@ -242,31 +256,32 @@ class CtDatasetTrain():
         # 10 tries to find a suitable sample
         for i in range(10):
 
-            noisy_im, clean_im = self.load_one_sample(idx//self.samples_per_image) # the actual index of the image
+            noisy_im, clean_im, noisy_im_name = self.load_one_sample(idx//self.samples_per_image) # the actual index of the image
 
             # The foreground content check
-            valu_score = torch.count_nonzero(clean_im > self.valu_thres)
-            area_score = self.area_thres * clean_im.numel()
+            # hardcoded values because image is always normalized to [0,1] with background == 0
+            # require >= half of image being foreground
+            valu_score = torch.count_nonzero(clean_im)
+            area_score = 0.5 * clean_im.numel()
             if (valu_score >= area_score):
                 found = True
                 break
 
-            sample_list.append((noisy_im, clean_im))
+            sample_list.append((noisy_im, clean_im, noisy_im_name))
             counts_list.append(valu_score)
 
         # if failed, find the one with the highest foreground ratio
         if not found:
-            noisy_im, clean_im = sample_list[counts_list.index(max(counts_list))]
+            noisy_im, clean_im, noisy_im_name = sample_list[counts_list.index(max(counts_list))]
 
-        return noisy_im, clean_im
+        return noisy_im, clean_im, noisy_im_name
 
-class MicroscopyDatasetTest():
+class CTDatasetTest():
     """
-    Dataset for testing Microscopy.
+    Dataset for testing CT.
     Returns the complete images with proper scaling for inference.
     """
-    def __init__(self, h5file, keys, max_load=10000,
-                    scaling_type="val", scaling_vals=[0,65536]):
+    def __init__(self, h5file, keys, max_load=10000):
         """
         Initilize the dataset
 
@@ -279,14 +294,10 @@ class MicroscopyDatasetTest():
         """
         self.h5file = h5file
         self.keys = keys
-        self.N_files = len(self.keys)
 
-        self.scaling_type = scaling_type
-        self.scaling_vals = scaling_vals
+        self.images = load_images_from_h5file(h5file, keys, max_load=max_load)
 
-        self.images = load_images_from_h5file(h5file, keys, scaling_type=scaling_type, scaling_vals=scaling_vals,max_load=max_load)
-
-    def load_one_sample(self, i):
+    def load_one_sample(self, i, noisy_im_idx):
         """
         Load one sample from the images
 
@@ -295,38 +306,34 @@ class MicroscopyDatasetTest():
         @rets:
             - noisy_cutout, clean_cutout (5D torch.Tensors): the pair of images cutouts
         """
-        noisy_im = self.images[i][0]
-        clean_im = self.images[i][1]
+        noisy_im = self.images[i][0][noisy_im_idx][0]
+        noisy_im_name = self.images[i][0][noisy_im_idx][1]
+        clean_im = self.images[i][1][0]
 
         if not isinstance(noisy_im, np.ndarray):
             ind = self.images[i][2]
-            key_noisy = self.images[i][0]
-            key_clean = self.images[i][1]
-            noisy_im = np.array(self.h5file[ind][key_noisy])
-            clean_im = np.array(self.h5file[ind][key_clean])
-            if self.scaling_type=="per":
-                noisy_im = normalize_image(noisy_im, percentiles=self.scaling_vals)
-                clean_im = normalize_image(clean_im, percentiles=self.scaling_vals)
-            else:
-                noisy_im = normalize_image(noisy_im, values=self.scaling_vals)
-                clean_im = normalize_image(clean_im, values=self.scaling_vals)
+            noisy_im = np.array(self.h5file[ind][noisy_im])
+            clean_im = np.array(self.h5file[ind][clean_im])
 
         if noisy_im.ndim == 2: noisy_im = noisy_im[np.newaxis,:,:]
         if clean_im.ndim == 2: clean_im = clean_im[np.newaxis,:,:]
 
-        noisy_im = noisy_im[:,np.newaxis,:,:]
-        clean_im = clean_im[:,np.newaxis,:,:]
+        min_t = min(noisy_im.shape[0], clean_im.shape[0])
+
+        noisy_im = noisy_im[:min_t,np.newaxis,:,:]
+        clean_im = clean_im[:min_t,np.newaxis,:,:]
 
         noisy_im = torch.from_numpy(noisy_im.astype(np.float32))
         clean_im = torch.from_numpy(clean_im.astype(np.float32))
+        noisy_im_name = noisy_im_name.replace("/","_")
 
-        return noisy_im, clean_im
+        return noisy_im, clean_im, noisy_im_name
 
     def __len__(self):
         """
         Length of dataset
         """
-        return len(self.images)
+        return sum([len(noisy_im_list) for noisy_im_list, _, _ in self.images])
 
     def __getitem__(self, idx):
         """
@@ -335,14 +342,24 @@ class MicroscopyDatasetTest():
             - idx (int): the index in the dataset
         @rets:
             - noisy_im, clean_im (5D torch.Tensors): the noisy and clean pair
+            - noisy_im_name (str): the name of the noist image for id purpose
         """
-        noisy_im, clean_im = self.load_one_sample(idx)
+        cumulative_i = 0
+        noisy_im_idx = -1
+        for i, (noisy_im_list,_,_) in enumerate(self.images):
+            start_sample = cumulative_i
+            cumulative_i += len(noisy_im_list)
+            if start_sample <= idx < cumulative_i:
+                noisy_im_idx = idx - start_sample
+                break
 
-        return noisy_im, clean_im
+        noisy_im, clean_im, noisy_im_name = self.load_one_sample(i, noisy_im_idx)
 
-def load_micro_data(config):
+        return noisy_im, clean_im, noisy_im_name
+
+def load_ct_data(config):
     """
-    Defines how to load microscopy data
+    Defines how to load ct data
     Loads the given ratio of the given h5files
 
     @args:
@@ -400,12 +417,9 @@ def load_micro_data(config):
 
     # common kwargs
     kwargs = {
+        "max_load" : c.max_load,
         "time_cutout" : c.time,
-        "samples_per_image" : c.samples_per_image,
-        "scaling_type" : c.scaling_type,
-        "scaling_vals" : c.scaling_vals,
-        "valu_thres" : c.valu_thres,
-        "area_thres" : c.area_thres
+        "samples_per_image" : c.samples_per_image
     }
 
     train_set = []
@@ -415,16 +429,11 @@ def load_micro_data(config):
 
     for (i, h_file) in enumerate(h5files):
         logging.info(f"--> loading data from file: {h_file} for {len(train_keys[i])} entries ...")
-        images = load_images_from_h5file([h_file], [train_keys[i]], max_load=c.max_load)
         for hw in zip(c.height, c.width):
-            train_set.append(CtDatasetTrain(h5file=[h_file], keys=[train_keys[i]], max_load=-1,
-                                                    cutout_shape=hw, **kwargs))
-            train_set[-1].images = images[:c.train_samples] if c.train_samples>0 else images
+            train_set.append(CtDatasetTrain(h5file=[h_file], keys=[train_keys[i]], cutout_shape=hw, **kwargs))
 
     # kwargs for val set
-    kwargs["samples_per_image"] = 1
     kwargs["cutout_shape"] = (c.height[-1], c.width[-1])
-    kwargs["max_load"] = c.max_load
 
     if c.train_only:
         val_set, test_set = [], []
@@ -456,20 +465,14 @@ def load_micro_data(config):
                 val_keys[-1] = keys[-1:]
 
         # val set is cutouts of parts of test set + two complete images of test set
-        val_set = [CtDatasetTrain(h5file=h5files, keys=val_keys, **kwargs),
-                    MicroscopyDatasetTest(h5file=h5files[:1], keys=[val_keys[0][:2]], max_load=c.max_load,
-                                            scaling_type=c.scaling_type, scaling_vals=c.scaling_vals)]
+        val_set = [CtDatasetTrain(h5file=h5files, keys=val_keys, **kwargs)]
 
-        test_set = [MicroscopyDatasetTest(h5file=h5files, keys=test_keys, max_load=c.max_load,
-                                            scaling_type=c.scaling_type, scaling_vals=c.scaling_vals)]
+        test_set = [CTDatasetTest(h5file=h5files, keys=test_keys, max_load=c.max_load)]
 
     else:
         # No test case given, use some of the train set
-        val_set = [CtDatasetTrain(h5file=h5files, keys=val_keys, **kwargs),
-                    MicroscopyDatasetTest(h5file=h5files[:1], keys=[val_keys[0][:2]], max_load=c.max_load,
-                                            scaling_type=c.scaling_type, scaling_vals=c.scaling_vals)]
+        val_set = [CtDatasetTrain(h5file=h5files, keys=val_keys, **kwargs)]
 
-        test_set = [MicroscopyDatasetTest(h5file=h5files, keys=test_keys, max_load=c.max_load,
-                                            scaling_type=c.scaling_type, scaling_vals=c.scaling_vals)]
+        test_set = [CTDatasetTest(h5file=h5files, keys=test_keys, max_load=c.max_load)]
 
     return train_set, val_set, test_set

@@ -1,5 +1,5 @@
 """
-Trainer for Microscopy denoising.
+Trainer for CT denoising.
 Provides the mian function to call for training:
     - trainer
 """
@@ -27,13 +27,13 @@ from model_base.losses import *
 from utils.save_model import save_final_model
 from utils.running_inference import running_inference
 
-from ct.model_ct import STCNNT_MICRO
-from ct.data_ct import CtDatasetTrain, load_micro_data
+from ct.model_ct import STCNNT_CT
+from ct.data_ct import CtDatasetTrain, load_ct_data
 
 # Helpers
 # -------------------------------------------------------------------------------------------------
 
-class micro_trainer_meters(object):
+class ct_trainer_meters(object):
     """
     A helper class to organize meters for training
     """
@@ -173,7 +173,7 @@ def get_rank_str(rank):
 
 def create_model(config, model_type, total_steps=-1):
 
-    model = STCNNT_MICRO(config=config, total_steps=total_steps)
+    model = STCNNT_CT(config=config, total_steps=total_steps)
 
     return model
 
@@ -272,8 +272,8 @@ def trainer(rank, global_rank, config, wandb_run):
     # -----------------------------------------------
 
     start = time()
-    train_set, val_set, test_set = load_micro_data(config=c)
-    logging.info(f"{rank_str}, load_micro_data took {time() - start} seconds ...")
+    train_set, val_set, test_set = load_ct_data(config=c)
+    logging.info(f"{rank_str}, load_ct_data took {time() - start} seconds ...")
 
     total_num_samples = sum([len(s) for s in train_set])
 
@@ -537,11 +537,11 @@ def trainer(rank, global_rank, config, wandb_run):
             for i, train_set_x in enumerate(train_set):
                 if i > 8 or wandb_run is None: break
                 ind = np.random.randint(0, len(train_set_x), 4)
-                x, y = train_set_x[ind[0]]
+                x, y, _ = train_set_x[ind[0]]
                 x = np.expand_dims(x, axis=0)
                 y = np.expand_dims(y, axis=0)
                 for ii in range(1, len(ind)):
-                    a_x, a_y = train_set_x[ind[ii]]
+                    a_x, a_y, _ = train_set_x[ind[ii]]
                     x = np.concatenate((x, np.expand_dims(a_x, axis=0)), axis=0)
                     y = np.concatenate((y, np.expand_dims(a_y, axis=0)), axis=0)
 
@@ -556,7 +556,7 @@ def trainer(rank, global_rank, config, wandb_run):
     best_model_wts = copy.deepcopy(model.module.state_dict() if c.ddp else model.state_dict())
 
     train_loss = AverageMeter()
-    loss_meters = micro_trainer_meters(config=c, device=device)
+    loss_meters = ct_trainer_meters(config=c, device=device)
 
     # -----------------------------------------------
 
@@ -616,7 +616,7 @@ def trainer(rank, global_rank, config, wandb_run):
                     loader_ind = idx % len(train_loader_iter)
                     batch = next(train_loader_iter[loader_ind], None)
 
-                x, y = batch
+                x, y, _ = batch
                 end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
 
                 tm = start_timer(enable=c.with_timer)
@@ -859,7 +859,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
                                 persistent_workers=c.num_workers>0) for i, val_set_x in enumerate(val_set)]
 
     val_loss_meter = AverageMeter()
-    loss_meters = micro_trainer_meters(config=c, device=device)
+    loss_meters = ct_trainer_meters(config=c, device=device)
 
     model.eval()
     model.to(device)
@@ -895,7 +895,8 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
                     del val_loader_iter[loader_ind]
                     loader_ind = idx % len(val_loader_iter)
                     batch = next(val_loader_iter[loader_ind], None)
-                x, y = batch
+                x, y, name = batch
+                name = name[0]
 
                 if scaling_factor > 0:
                     x *= scaling_factor
@@ -922,8 +923,10 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
                         _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device=device)
                     except:
                         logging.info(f"{Fore.YELLOW}---> call inference on cpu ...")
-                        _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device="cpu")
+                        _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device=torch.device("cpu"))
                         y = y.to("cpu")
+
+                output = output * (x > 0)
 
                 if scaling_factor > 0:
                     output /= scaling_factor
@@ -936,14 +939,14 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
 
                 if rank<=0 and images_logged < config.num_uploaded and wandb_run is not None:
                     images_logged += 1
-                    title = f"{id.upper()}_{images_logged}_{x.shape}"
+                    title = f"{id.upper()}_{images_logged}_{name}_{x.shape}"
                     vid = create_wandb_log_vid(noisy=x.numpy(force=True), predi=output.numpy(force=True), clean=y.numpy(force=True))
                     wandb_run.log({title: wandb.Video(vid,
                                                       caption=f"epoch {epoch}, mse {loss_meters.mse_meter.val:.2f}, ssim {loss_meters.ssim_meter.val:.2f}, psnr {loss_meters.psnr_meter.val:.2f}",
                                                       fps=1, format="gif")})
 
                 if rank<=0 and images_saved < config.num_saved_samples and config.save_samples:
-                    save_image_local(saved_path, False, f"{id}_epoch_{epoch}_{images_saved}", x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
+                    save_image_local(saved_path, False, f"{id}_epoch_{epoch}_{name}_{images_saved}", x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
                     images_saved += 1
 
                 pbar.update(1)

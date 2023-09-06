@@ -1,5 +1,5 @@
 """
-Model(s) used for Mircoscopy
+Model(s) used for CT
 """
 import os
 import torch
@@ -27,11 +27,11 @@ from model_base.task_base import *
 from model_base.losses import *
 
 # -------------------------------------------------------------------------------------------------
-# Micro model
+# CT model
 
-class STCNNT_MICRO(STCNNT_Task_Base):
+class STCNNT_CT(STCNNT_Task_Base):
     """
-    STCNNT for Micro data
+    STCNNT for CT data
     Just the base CNNT with care to residual
     """
     def __init__(self, config, total_steps=1) -> None:
@@ -51,10 +51,10 @@ class STCNNT_MICRO(STCNNT_Task_Base):
         self.C_in = config.C_in
         self.C_out = config.C_out
 
-        logging.info(f"{Fore.YELLOW}{Back.WHITE}===> Micro - create pre <==={Style.RESET_ALL}")
+        logging.info(f"{Fore.YELLOW}{Back.WHITE}===> CT - create pre <==={Style.RESET_ALL}")
         self.create_pre()
 
-        logging.info(f"{Fore.GREEN}{Back.WHITE}===> Micro - backbone <==={Style.RESET_ALL}")
+        logging.info(f"{Fore.GREEN}{Back.WHITE}===> CT - backbone <==={Style.RESET_ALL}")
         if config.backbone == "small_unet":
             self.backbone = CNNT_Unet(config=config)
 
@@ -71,7 +71,7 @@ class STCNNT_MICRO(STCNNT_Task_Base):
         if config.backbone == "LLM":
             self.backbone = STCNNT_LLMnet(config=config)
 
-        logging.info(f"{Fore.RED}{Back.WHITE}===> Micro - post <==={Style.RESET_ALL}")
+        logging.info(f"{Fore.RED}{Back.WHITE}===> CT - post <==={Style.RESET_ALL}")
         self.create_post()
 
         device = get_device(device=config.device)
@@ -82,7 +82,7 @@ class STCNNT_MICRO(STCNNT_Task_Base):
         if config.load_path is not None:
             self.load(load_path=config.load_path, device=device)
 
-        logging.info(f"{Fore.BLUE}{Back.WHITE}===> Micro - done <==={Style.RESET_ALL}")
+        logging.info(f"{Fore.BLUE}{Back.WHITE}===> CT - done <==={Style.RESET_ALL}")
 
     def create_pre(self):
 
@@ -137,6 +137,15 @@ class STCNNT_MICRO(STCNNT_Task_Base):
 
             if self.residual:
                 y_hat[:,:, :C, :, :] = res_pre + y_hat[:,:, :C, :, :]
+
+            logits = self.post(y_hat)
+
+        elif self.config.backbone == "unet":
+
+            y_hat = self.backbone(res_pre)
+
+            if self.residual:
+                y_hat = y_hat - res_pre
 
             logits = self.post(y_hat)
 
