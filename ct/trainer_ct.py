@@ -753,7 +753,7 @@ def trainer(rank, global_rank, config, wandb_run):
 
 
     # test last model
-    test_losses = eval_val(rank, model, c, test_set, epoch, device, wandb_run, id="tes")
+    test_losses = eval_val(rank, model, c, test_set, epoch, device, wandb_run, id="tes_last")
     if rank<=0:
         if wandb_run is not None:
             wandb_run.summary["best_val_loss"] = best_val_loss
@@ -786,7 +786,7 @@ def trainer(rank, global_rank, config, wandb_run):
     if c.ddp:
         model = DDP(model, device_ids=[rank], find_unused_parameters=True)
 
-    test_losses = eval_val(rank, model, c, test_set, epoch, device, wandb_run, id="tes")
+    test_losses = eval_val(rank, model, c, test_set, epoch, device, wandb_run, id="tes_best")
     if rank<=0:
         if wandb_run is not None:
             wandb_run.summary["test_loss_best"] = test_losses[0]
@@ -939,13 +939,14 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
 
                 if rank<=0 and images_logged < config.num_uploaded and wandb_run is not None:
                     images_logged += 1
-                    title = f"{id.upper()}_{images_logged}_{name}_{x.shape}"
+                    name_wandb = name if x.shape[0]==1 else "random_level"
+                    title = f"{id.upper()}_{images_logged}_{name_wandb}_{x.shape}"
                     vid = create_wandb_log_vid(noisy=x.numpy(force=True), predi=output.numpy(force=True), clean=y.numpy(force=True))
                     wandb_run.log({title: wandb.Video(vid,
                                                       caption=f"epoch {epoch}, mse {loss_meters.mse_meter.val:.2f}, ssim {loss_meters.ssim_meter.val:.2f}, psnr {loss_meters.psnr_meter.val:.2f}",
                                                       fps=1, format="gif")})
 
-                if rank<=0 and images_saved < config.num_saved_samples and config.save_samples:
+                if (rank<=0 or "tes" in id) and images_saved < config.num_saved_samples and config.save_samples:
                     save_image_local(saved_path, False, f"{id}_epoch_{epoch}_{name}_{images_saved}", x.numpy(force=True), output.numpy(force=True), y.numpy(force=True))
                     images_saved += 1
 
