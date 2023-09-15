@@ -27,7 +27,7 @@ from model_base.losses import *
 from utils.save_model import save_final_model
 from utils.running_inference import running_inference
 
-from ct.model_ct import STCNNT_CT
+from ct.model_ct import STCNNT_CT, STCNNT_double_net
 from ct.data_ct import CtDatasetTrain, load_ct_data
 
 # Helpers
@@ -173,7 +173,12 @@ def get_rank_str(rank):
 
 def create_model(config, model_type, total_steps=-1):
 
-    model = STCNNT_CT(config=config, total_steps=total_steps)
+    if model_type == "STCNNT_CT":
+        model = STCNNT_CT(config=config, total_steps=total_steps)
+    elif model_type == "STCNNT_double":
+        model = STCNNT_double_net(config=config, total_steps=total_steps)
+    else:
+        raise NotImplementedError(f"model type not supported:{model_type}")
 
     return model
 
@@ -331,6 +336,8 @@ def trainer(rank, global_rank, config, wandb_run):
     run_name = c.run_name
     run_notes = c.run_notes
     disable_LSUV = c.disable_LSUV
+    post_backbone = c.post_backbone
+    training_step = c.training_step
     device_type = "cpu" if c.device == torch.device("cpu") else "cuda"
 
     ddp = c.ddp
@@ -369,6 +376,8 @@ def trainer(rank, global_rank, config, wandb_run):
         c.run_name = run_name
         c.run_notes = run_notes
         c.disable_LSUV = disable_LSUV
+        c.post_backbone = post_backbone
+        c.training_step = training_step
         # c.load_path = load_path
 
         logging.info(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")

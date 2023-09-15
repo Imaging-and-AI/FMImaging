@@ -54,8 +54,14 @@ def arg_parser():
     parser.add_argument("--continued_training", action="store_true", help='if set, it means a continued training loaded from checkpoints (optim and scheduler will be loaded); if not set, it mean a new stage of training.')
     parser.add_argument("--disable_LSUV", action="store_true", help='if set, do not perform LSUV initialization.')
 
+    parser.add_argument('--post_backbone', type=str, default="hrnet", help="model for post module, 'hrnet', 'mixed_unetr' ")
+    parser.add_argument('--post_hrnet.block_str', dest='post_hrnet.block_str', nargs='+', type=str, default=['T1L1G1', 'T1L1G1'], help="hrnet MR post network block string, from the low resolution level to high resolution level.")
+    parser.add_argument('--post_hrnet.separable_conv', dest='post_hrnet.separable_conv', action="store_true", help="post network, whether to use separable convolution.")
+
+    parser.add_argument("--training_step", type=int, default=0, help='step number for muti-step training')
+
     # training
-    parser.add_argument("--model_type", type=str, default="STCNNT_CT", help="STCNNT_CT only for now")
+    parser.add_argument("--model_type", type=str, default="STCNNT_CT", help='"STCNNT_CT" or "STCNNT_double"')
     parser.add_argument("--train_only", action="store_true", help='focus on training only. no val or test')
     parser.add_argument('--train_samples', type=int, default=0, help='number of images to train/finetune with. First n are taken from the train set if n>0')
     parser.add_argument('--samples_per_image', type=int, default=32, help='samples to take from a single image per epoch')

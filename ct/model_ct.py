@@ -2,6 +2,7 @@
 Model(s) used for CT
 """
 import os
+import copy
 import torch
 import logging
 from colorama import Fore, Back, Style
@@ -325,3 +326,129 @@ class STCNNT_CT(STCNNT_Task_Base):
                 self.to(device=device)
         else:
             logging.warning(f"{Fore.YELLOW}{load_path} does not exist .... {Style.RESET_ALL}")
+
+class STCNNT_double_net(STCNNT_CT):
+    """
+    CT_double_net
+    Using double hrnet, with two step training for each network
+    """
+    def __init__(self, config, total_steps=1) -> None:
+        """
+        @args:
+            - config (Namespace): runtime namespace for setup
+            - total_steps (int): total training steps. used for OneCycleLR
+        """
+        assert config.backbone == 'hrnet' or config.backbone == 'mixed_unetr'
+        assert config.post_backbone == 'hrnet' or config.post_backbone == 'mixed_unetr'
+        super().__init__(config=config, total_steps=total_steps)
+
+    def get_backbone_C_out(self):
+        config = self.config
+        if config.backbone == 'hrnet':
+            C = config.backbone_hrnet.C
+            backbone_C_out = int(C * sum([np.power(2, k) for k in range(config.backbone_hrnet.num_resolution_levels)]))
+        else:
+            C = config.backbone_mixed_unetr.C
+
+            if config.backbone_mixed_unetr.use_window_partition:
+                if config.backbone_mixed_unetr.encoder_on_input:
+                    backbone_C_out = config.backbone_mixed_unetr.C * 5
+                else:
+                    backbone_C_out = config.backbone_mixed_unetr.C * 4
+            else:
+                backbone_C_out = config.backbone_mixed_unetr.C * 3
+
+        return backbone_C_out
+
+    def create_post(self):
+
+        config = self.config
+
+        backbone_C_out = self.get_backbone_C_out()
+
+        self.post = torch.nn.ModuleDict()
+
+        config_post = copy.deepcopy(config)
+        C_out = int(config_post.backbone_hrnet.C * sum([np.power(2, k) for k in range(config_post.backbone_hrnet.num_resolution_levels)]))
+
+        if config.post_backbone == 'hrnet':
+            config_post.backbone_hrnet.block_str = config.post_hrnet.block_str
+            config_post.separable_conv = config.post_hrnet.separable_conv
+
+            config_post.C_in = backbone_C_out + config_post.C_out
+            config_post.backbone_hrnet.C = backbone_C_out
+
+            self.post['post_main'] = STCNNT_HRnet(config=config_post)
+
+            C_out = int(config_post.backbone_hrnet.C * sum([np.power(2, k) for k in range(config_post.backbone_hrnet.num_resolution_levels)]))
+        else:
+            config_post.separable_conv = config.post_mixed_unetr.separable_conv
+
+            config_post.backbone_mixed_unetr.block_str = config.post_mixed_unetr.block_str
+            config_post.backbone_mixed_unetr.num_resolution_levels = config.post_mixed_unetr.num_resolution_levels
+            config_post.backbone_mixed_unetr.use_unet_attention = config.post_mixed_unetr.use_unet_attention
+            config_post.backbone_mixed_unetr.transformer_for_upsampling = config.post_mixed_unetr.transformer_for_upsampling
+            config_post.backbone_mixed_unetr.n_heads = config.post_mixed_unetr.n_heads
+            config_post.backbone_mixed_unetr.use_conv_3d = config.post_mixed_unetr.use_conv_3d
+            config_post.backbone_mixed_unetr.use_window_partition = config.post_mixed_unetr.use_window_partition
+            config_post.backbone_mixed_unetr.num_resolution_levels = config.post_mixed_unetr.num_resolution_levels
+
+            config_post.C_in = backbone_C_out + config_post.C_out
+            config_post.backbone_mixed_unetr.C = backbone_C_out
+
+            if self.config.super_resolution:
+                config_post.height[0] *= 2
+                config_post.width[0] *= 2
+
+            self.post['post_main'] = STCNNT_Mixed_Unetr(config=config_post)
+
+            if config_post.backbone_mixed_unetr.use_window_partition:
+                if config_post.backbone_mixed_unetr.encoder_on_input:
+                    C_out = config_post.backbone_mixed_unetr.C * 5
+                else:
+                    C_out = config_post.backbone_mixed_unetr.C * 4
+            else:
+                C_out = config_post.backbone_mixed_unetr.C * 3
+
+        self.post["mid_conv"] = Conv2DExt(backbone_C_out, config_post.C_out, kernel_size=config_post.kernel_size, stride=config_post.stride, padding=config_post.padding, bias=True)
+
+        self.post["output_conv"] = Conv2DExt(C_out, config_post.C_out, kernel_size=config_post.kernel_size, stride=config_post.stride, padding=config_post.padding, bias=True)
+
+
+    def forward(self, x):
+        """
+        @args:
+            - x (5D torch.Tensor): input image
+        @rets:
+            - output (5D torch.Tensor): output image
+        """
+        res_pre = self.pre(x)
+        B, T, C, H, W = res_pre.shape
+
+        if self.config.backbone == 'hrnet':
+            y_hat, _ = self.backbone(res_pre)
+        else:
+            y_hat = self.backbone(res_pre)
+
+        if self.residual:
+            y_hat[:,:, :C, :, :] = res_pre + y_hat[:,:, :C, :, :]
+
+        logits_half = self.post["mid_conv"](y_hat)
+
+        # training step 1, so return the output of the first network
+        if self.config.training_step == 0:
+            return logits_half
+
+        y_hat = torch.concat((logits_half, y_hat), axis=2)
+        if self.config.post_backbone == 'hrnet':
+            res, _ = self.post['post_main'](y_hat)
+        else:
+            res = self.post['post_main'](y_hat)
+
+        B, T, C, H, W = y_hat.shape
+        if self.residual:
+            res[:,:, :C, :, :] = res[:,:, :C, :, :] + y_hat
+
+        logits = self.post["output_conv"](res)
+
+        return logits

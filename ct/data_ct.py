@@ -79,13 +79,11 @@ def load_images_from_h5file(h5files, keys, max_load=100000):
                     else:
                         noisy_im_list.append(image_2_save)
 
+                assert found_clean, f"clean image not found in {h5files[i]}/{key_1}"
                 images.append((noisy_im_list, clean_im, i))
 
-                assert found_clean, f"clean image not found in {h5files[i]}/{key_1}"
-
-                if n%10 == 0 and n:
-                    pbar.update(10)
-                    pbar.set_description_str(f"{h5files}, {n} in {len(keys[i])}, total {len(images)}")
+                pbar.update(1)
+                pbar.set_description_str(f"{h5files}, {n} in {len(keys[i])}, total {len(images)}")
 
     return images
 
@@ -97,6 +95,7 @@ class CtDatasetTrain():
     Train dataset for ct.
     Makes a cutout of original image pair to be used during training cycle.
     Since the image size is big, "samples_per_image" number of samples are taken from same image every epoch.
+    Randomly select a noisy image each iteration.
     """
     def __init__(self, h5file, keys, max_load=10000,
                     time_cutout=30, cutout_shape=[64, 64], samples_per_image=32):
@@ -176,7 +175,7 @@ class CtDatasetTrain():
 
     def select_random_noisy(self, noisy_im_list):
         """
-        Randomly select a noist image from the noisy image list
+        Randomly select a noisy image from the noisy image list
         """
         random.shuffle(noisy_im_list)
         return noisy_im_list[0][0], noisy_im_list[0][1]
@@ -242,11 +241,12 @@ class CtDatasetTrain():
         Given index(idx) retreive the noisy clean image pair.
         For the given image tries 10 times to find a suitable patch wrt area and value thresholds.
         If found, returns that patch otherwise returns the one with the highest foreground content.
+
         @args:
             - idx (int): the index in the dataset
         @rets:
             - noisy_im, clean_im (5D torch.Tensors): the noisy and clean pair
-            - noisy_im_name (str): the name of the noist image for id purpose
+            - noisy_im_name (str): the name of the noisy image for id purpose
         """
 
         sample_list = []
@@ -280,6 +280,7 @@ class CTDatasetTest():
     """
     Dataset for testing CT.
     Returns the complete images with proper scaling for inference.
+    Iterates over all the images as noisy besides the clean image.
     """
     def __init__(self, h5file, keys, max_load=10000):
         """
@@ -289,8 +290,6 @@ class CTDatasetTest():
             - h5file (h5File list): list of h5files to load images from
             - keys (key list list): list of list of keys. One for each h5file
             - max_load (int): max number of images to load during init
-            - scaling_type ("val" or "per"): "val" for scaling with a static value or "per" for scaling with a percentile
-            - scaling_vals (int 2-tuple): min max values to scale with respect to the scaling type
         """
         self.h5file = h5file
         self.keys = keys
@@ -304,7 +303,8 @@ class CTDatasetTest():
         @args:
             - i (int): index of the image to load
         @rets:
-            - noisy_cutout, clean_cutout (5D torch.Tensors): the pair of images cutouts
+            - noisy_cutout, clean_cutout (5D torch.Tensors): the pair of images
+            - noisy_im_name (str): the name of the noisy image for id purpose
         """
         noisy_im = self.images[i][0][noisy_im_idx][0]
         noisy_im_name = self.images[i][0][noisy_im_idx][1]
@@ -338,11 +338,13 @@ class CTDatasetTest():
     def __getitem__(self, idx):
         """
         Given index(idx) retreive the noisy clean image pair.
+        (TODO: not O(1) in getting the correct index. could be done better)
+
         @args:
             - idx (int): the index in the dataset
         @rets:
             - noisy_im, clean_im (5D torch.Tensors): the noisy and clean pair
-            - noisy_im_name (str): the name of the noist image for id purpose
+            - noisy_im_name (str): the name of the noisy image for id purpose
         """
         cumulative_i = 0
         noisy_im_idx = -1
@@ -375,6 +377,8 @@ def load_ct_data(config):
         - time (int): cutout size in time dimension
         - height (int list): different height cutouts
         - width (int list): different width cutouts
+    @rets:
+        - train_set, val_set, test_set (custom dataloader list): the datasets
     """
 
     c = config # shortening due to numerous uses
@@ -437,7 +441,6 @@ def load_ct_data(config):
 
     if c.train_only:
         val_set, test_set = [], []
-
     elif len(c.test_files)!=0:
         # Test case given so use that for test and val
         h5files = []
@@ -468,7 +471,6 @@ def load_ct_data(config):
         val_set = [CtDatasetTrain(h5file=h5files, keys=val_keys, **kwargs)]
 
         test_set = [CTDatasetTest(h5file=h5files, keys=test_keys, max_load=c.max_load)]
-
     else:
         # No test case given, use some of the train set
         val_set = [CtDatasetTrain(h5file=h5files, keys=val_keys, **kwargs)]
