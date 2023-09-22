@@ -151,6 +151,8 @@ def main():
         image_noised = create_pseudo_replica(image, added_noise_sd=args.added_noise_sd, N=args.rep)
         image_noised = image_noised.astype(np.complex64)
 
+        os.makedirs(args.output_dir, exist_ok=True)
+
         res_name = os.path.join(args.output_dir, 'noisy_image_real.npy')
         np.save(res_name, image_noised.real)
         res_name = os.path.join(args.output_dir, 'noisy_image_imag.npy')

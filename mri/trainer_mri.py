@@ -141,13 +141,17 @@ def create_log_str(config, epoch, rank, data_shape, gmap_median, noise_sigma, lo
 
 # -------------------------------------------------------------------------------------------------
 
-def save_batch_samples(saved_path, fname, x, y, output, y_2x, y_degraded, gmap_median, noise_sigma):
+def save_batch_samples(saved_path, fname, x, y, output, y_2x, y_degraded, gmap_median, noise_sigma, output_1st_net):
 
     noisy_im = x.numpy()
     clean_im = y.numpy()
     pred_im = output.numpy()
     y_degraded = y_degraded.numpy()
     y_2x = y_2x.numpy()
+    if output_1st_net is not None:
+        pred_im_1st_net = output_1st_net.numpy()
+    else:
+        pred_im_1st_net = None
 
     post_str = ""
     if gmap_median > 0 and noise_sigma > 0:
@@ -161,6 +165,7 @@ def save_batch_samples(saved_path, fname, x, y, output, y_2x, y_degraded, gmap_m
     np.save(os.path.join(saved_path, f"{fname}_output.npy"), pred_im)
     np.save(os.path.join(saved_path, f"{fname}_y_degraded.npy"), y_degraded)
     np.save(os.path.join(saved_path, f"{fname}_y_2x.npy"), y_2x)
+    if pred_im_1st_net is not None: np.save(os.path.join(saved_path, f"{fname}_y_1st_net.npy"), pred_im_1st_net)
 
     B, T, C, H, W = x.shape
 
@@ -169,6 +174,7 @@ def save_batch_samples(saved_path, fname, x, y, output, y_2x, y_degraded, gmap_m
     pred_im = np.transpose(pred_im, [3, 4, 2, 1, 0])
     y_degraded = np.transpose(y_degraded, [3, 4, 2, 1, 0])
     y_2x = np.transpose(y_2x, [3, 4, 2, 1, 0])
+    if pred_im_1st_net is not None: pred_im_1st_net = np.transpose(pred_im_1st_net, [3, 4, 2, 1, 0])
 
     hdr = nib.Nifti1Header()
     hdr.set_data_shape((H, W, T, B))
@@ -202,6 +208,12 @@ def save_batch_samples(saved_path, fname, x, y, output, y_2x, y_degraded, gmap_m
         nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_2x_real.nii"))
         nib.save(nib.Nifti1Image(np.imag(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_2x_imag.nii"))
         nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_2x.nii"))
+        
+        if pred_im_1st_net is not None: 
+            output = pred_im_1st_net[:,:,0,:,:] + 1j * pred_im_1st_net[:,:,1,:,:]
+            nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_output_1st_net_real.nii"))
+            nib.save(nib.Nifti1Image(np.imag(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_output_1st_net_imag.nii"))
+            nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_output_1st_net.nii"))  
     else:
         x = noisy_im[:,:,0,:,:]
         gmap = noisy_im[:,:,1,:,:]
@@ -213,6 +225,9 @@ def save_batch_samples(saved_path, fname, x, y, output, y_2x, y_degraded, gmap_m
 
         hdr.set_data_shape(y_2x.shape)
         nib.save(nib.Nifti1Image(y_2x, affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_2x.nii"))
+
+        if pred_im_1st_net is not None: 
+            nib.save(nib.Nifti1Image(pred_im_1st_net, affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_output_1st_net.nii"))
 
     hdr.set_data_shape(gmap.shape)
     nib.save(nib.Nifti1Image(gmap, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_gmap.nii"))
@@ -437,43 +452,37 @@ def trainer(rank, global_rank, config, wandb_run):
                 # ------------------------------
                 if not not_load_pre:
                     print(f"{rank_str}, {Fore.YELLOW}load saved model, pre_state{Style.RESET_ALL}")
-                    model.pre.load_state_dict(status['pre_state'])
+                    model.load_pre(status)
                 else:
                     print(f"{rank_str}, {Fore.RED}load saved model, WITHOUT pre_state{Style.RESET_ALL}")
 
                 if disable_pre:
                     print(f"{rank_str}, {Fore.YELLOW}load saved model, pre requires_grad_(False){Style.RESET_ALL}")
-                    model.pre.requires_grad_(False)
-                    for param in model.pre.parameters():
-                        param.requires_grad = False
+                    model.disable_pre()
                 else:
                     print(f"{rank_str}, {Fore.RED}load saved model, pre requires_grad_(True){Style.RESET_ALL}")
                 # ------------------------------
                 if not not_load_backbone:
                     print(f"{rank_str}, {Fore.YELLOW}load saved model, backbone_state{Style.RESET_ALL}")
-                    model.backbone.load_state_dict(status['backbone_state'])
+                    model.load_backbone(status)
                 else:
                     print(f"{rank_str}, {Fore.RED}load saved model, WITHOUT backbone_state{Style.RESET_ALL}")
 
                 if disable_backbone:
                     print(f"{rank_str}, {Fore.YELLOW}load saved model, backbone requires_grad_(False){Style.RESET_ALL}")
-                    model.backbone.requires_grad_(False)
-                    for param in model.backbone.parameters():
-                        param.requires_grad = False
+                    model.disable_backbone()
                 else:
                     print(f"{rank_str}, {Fore.RED}load saved model, backbone requires_grad_(True){Style.RESET_ALL}")
                 # ------------------------------
                 if not not_load_post:
                     print(f"{rank_str}, {Fore.YELLOW}load saved model, post_state{Style.RESET_ALL}")
-                    model.post.load_state_dict(status['post_state'])
+                    model.load_post(status)
                 else:
                     print(f"{rank_str}, {Fore.RED}load saved model, WITHOUT post_state{Style.RESET_ALL}")
 
                 if disable_post:
                     print(f"{rank_str}, {Fore.YELLOW}load saved model, post requires_grad_(False){Style.RESET_ALL}")
-                    model.post.requires_grad_(False)
-                    for param in model.post.parameters():
-                        param.requires_grad = False
+                    model.disable_post(status)
                 else:
                     print(f"{rank_str}, {Fore.RED}load saved model, post requires_grad_(True){Style.RESET_ALL}")
                 # ------------------------------
@@ -637,7 +646,7 @@ def trainer(rank, global_rank, config, wandb_run):
                     y_2x = np.concatenate((y_2x, np.expand_dims(a_y_2x, axis=0)), axis=0)
 
                 title = f"Tra_samples_{i}_Noisy_Noisy_GT_{x.shape}"
-                vid = save_image_batch(c.complex_i, x, y_degraded, y, y_2x)
+                vid = save_image_batch(c.complex_i, x, y_degraded, y, y_2x, y_degraded)
                 wandb_run.log({title:wandb.Video(vid, caption=f"Tra sample {i}", fps=1, format='gif')})
                 logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}, noise range {train_set_x.min_noise_level} to {train_set_x.max_noise_level}")
 
@@ -773,13 +782,16 @@ def trainer(rank, global_rank, config, wandb_run):
 
                 with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
                     if c.weighted_loss_snr:
-                        output, weights = model(x, snr, base_snr_t)
+                        output, weights, output_1st_net = model(x, snr, base_snr_t)
                         if c.weighted_loss_temporal:
                             weights *= weights_t
                     else:
-                        output = model(x)
+                        output, output_1st_net = model(x)
                         if c.weighted_loss_temporal:
                             weights = weights_t
+
+                    if torch.isnan(torch.sum(output)):
+                        continue
 
                     if torch.sum(noise_sigmas).item() > 0:
                         if c.weighted_loss_snr or c.weighted_loss_temporal:
@@ -839,7 +851,8 @@ def trainer(rank, global_rank, config, wandb_run):
                 loss_meters.update(output, y_for_loss)
 
                 if rank<=0 and idx%image_save_step_size==0 and images_saved < config.num_saved_samples and config.save_samples:  
-                    save_batch_samples(saved_path, f"tra_epoch_{epoch}_{images_saved}", x.cpu(), y.cpu(), output.detach().cpu(), y_for_loss.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
+                    if output_1st_net is not None: output_1st_net = output_1st_net.detach().cpu()
+                    save_batch_samples(saved_path, f"tra_epoch_{epoch}_{images_saved}", x.cpu(), y.cpu(), output.detach().cpu(), y_for_loss.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item(), output_1st_net)
                     images_saved += 1
 
                 pbar.update(1)
@@ -1122,7 +1135,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
                 y = y.to(device)
 
                 if batch_size >1 and x.shape[-1]==c.width[-1]:
-                    output = model(x)
+                    output, output_1st_net = model(x)
                 else:
                     B, T, C, H, W = x.shape
 
@@ -1141,11 +1154,12 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
 
                 if scaling_factor > 0:
                     output /= scaling_factor
+                    if output_1st_net is not None: output_1st_net /= scaling_factor
 
                 total = x.shape[0]
 
                 if loss_f:
-                    if torch.mean(noise_sigmas).item() > 0:
+                    if c.weighted_loss_added_noise and torch.mean(noise_sigmas).item() > 0:
                         loss = loss_f(output*noise_sigmas, y*noise_sigmas)
                     else:
                         loss = loss_f(output, y)
@@ -1161,7 +1175,9 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
                 if rank<=0 and images_logged < config.num_uploaded and wandb_run is not None:
                     images_logged += 1
                     title = f"{id.upper()}_{images_logged}_{x.shape}"
-                    vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True), y_2x.numpy(force=True))
+                    if output_1st_net is None: 
+                        output_1st_net = output
+                    vid = save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True), y_2x.numpy(force=True), output_1st_net.numpy(force=True))
                     wandb_run.log({title: wandb.Video(vid, 
                                                       caption=f"epoch {epoch}, gmap {torch.mean(gmaps_median).item():.2f}, noise {torch.mean(noise_sigmas).item():.2f}, mse {loss_meters.mse_meter.avg:.2f}, ssim {loss_meters.ssim_meter.avg:.2f}, psnr {loss_meters.psnr_meter.avg:.2f}", 
                                                       fps=1, format="gif")})
@@ -1170,7 +1186,8 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
                     case_dir = f"{saved_path}/{images_saved}"
                     print(f"--> save - {id}_{images_saved}_epoch_{epoch}_{images_saved} at {case_dir}")
                     os.makedirs(case_dir, exist_ok=True)
-                    save_batch_samples(case_dir, f"{id}_{images_saved}_epoch_{epoch}_{images_saved}", x.cpu(), y.cpu(), output.cpu(), y_2x.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item())
+                    if output_1st_net is not None: output_1st_net = output_1st_net.detach().cpu()
+                    save_batch_samples(case_dir, f"{id}_{images_saved}_epoch_{epoch}_{images_saved}", x.cpu(), y.cpu(), output.cpu(), y_2x.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item(), output_1st_net)
                     images_saved += 1
 
                 pbar.update(1)
@@ -1286,7 +1303,7 @@ def _apply_model(model, x, g, scaling_factor, config, device, overlap=None):
         if overlap is None: overlap = (c.time//2, c.height[-1]//2, c.width[-1]//2)
 
     try:
-        _, output = running_inference(model, input, cutout=cutout, overlap=overlap, batch_size=2, device=device)
+        _, output = running_inference(model, input, cutout=cutout, overlap=overlap, batch_size=1, device=device)
     except Exception as e:
         print(e)
         print(f"{Fore.YELLOW}---> call inference on cpu ...")

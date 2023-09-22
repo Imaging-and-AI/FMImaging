@@ -29,7 +29,7 @@ class mri_ddp_base(run_ddp_base):
 
         self.cmd.extend([
 
-        "--num_epochs", "75",
+        "--num_epochs", "50",
         "--batch_size", "8",
 
         "--window_size", "8", "8",
@@ -108,9 +108,12 @@ class mri_ddp_base(run_ddp_base):
 
         #"--seed", "593197",
 
-        "--post_hrnet.block_str", "T1L1G1", "T1L1G1",
+        #"--only_white_noise",
+        #"--ignore_gmap",
 
-        "--post_hrnet.separable_conv",
+        "--post_hrnet.block_str", "T1L1T1G1", "T1L1T1G1",
+
+        #"--post_hrnet.separable_conv",
 
         # "--train_files", "train_3D_3T_retro_cine_2018.h5",  
         #                 "train_3D_3T_retro_cine_2019.h5", 
@@ -182,7 +185,7 @@ class mri_ddp_base(run_ddp_base):
 
         vars['optim'] = ['sophia']
 
-        vars['backbone'] = ['hrnet', 'mixed_unetr']
+        vars['backbone'] = ['hrnet']
         vars['cell_types'] = ["parallel"]
         vars['Q_K_norm'] = [True]
         vars['cosine_atts'] = ["1"]
@@ -193,7 +196,7 @@ class mri_ddp_base(run_ddp_base):
         vars['mixer_types'] = ["conv"]
         vars['shuffle_in_windows'] = ["0"]
         vars['block_dense_connections'] = ["1"]
-        vars['norm_modes'] = ["batch2d", "instance2d"]
+        vars['norm_modes'] = ["instance2d"]
         vars['C'] = [32]
         vars['scale_ratio_in_mixers'] = [1.0]
 
@@ -201,20 +204,20 @@ class mri_ddp_base(run_ddp_base):
 
         vars['block_strs'] = [
                         [
-                            #["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
                             ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            #["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                            #["T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1"],
+                            #["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
                             #["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
                             #["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                          ],
 
-                        [
-                            ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            #["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
-                            #["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
-                            #["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
-                            #["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"]
-                         ]
+                        # [
+                        #     ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                        #     ["T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                        #     ["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
+                        #     ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                        #     ["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"]
+                         #  ]
                     ]
 
         vars['losses'] = [
@@ -231,9 +234,9 @@ class mri_ddp_base(run_ddp_base):
         vars['complex_i'] = [True]
         vars['residual'] = [True]
 
-        vars['weighted_loss_snr'] = [True]
-        vars['weighted_loss_temporal'] = [True]
-        vars['weighted_loss_added_noise'] = [True]
+        vars['weighted_loss_snr'] = [False]
+        vars['weighted_loss_temporal'] = [False]
+        vars['weighted_loss_added_noise'] = [False]
 
         vars['n_heads'] = [32]
 
@@ -411,6 +414,14 @@ class mri_ddp_base(run_ddp_base):
             cmd_run.extend(["--disable_LSUV"])
 
         cmd_run.extend(["--post_backbone", f"{config.post_backbone}"])
+        
+        if config.only_white_noise:
+            cmd_run.extend(["--only_white_noise"])
+            run_str += "_only_white_noise"
+            
+        if config.ignore_gmap:
+            cmd_run.extend(["--ignore_gmap"])
+            run_str += "_ignore_gmap"
 
         run_str += f"-{'_'.join(bs)}"
 
@@ -482,6 +493,9 @@ class mri_ddp_base(run_ddp_base):
 
         parser.add_argument('--post_backbone', type=str, default="hrnet", help="model for post module, 'hrnet', 'mixed_unetr' ")
 
+        parser.add_argument("--only_white_noise", action="store_true", help='if set, only add white noise.')
+        parser.add_argument("--ignore_gmap", action="store_true", help='if set, do not use gmap for training.')
+
         return parser
 
 # -------------------------------------------------------------
@@ -490,7 +504,7 @@ def main():
 
     os.system("ulimit -n 65536")
 
-    ddp_run = mri_ddp_base(project="mri", script_to_run='./mri/main_mri.py')
+    ddp_run = mri_ddp_base(project="mri-super-resolution", script_to_run='./mri/main_mri.py')
     ddp_run.run()
 
 # -------------------------------------------------------------

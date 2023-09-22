@@ -131,12 +131,12 @@ class STCNNT_MRI(STCNNT_Task_Base):
             if self.config.super_resolution:
                 self.post = nn.ModuleDict()
                 #self.post.add_module("post_ps", PixelShuffle2DExt(2))
-                #self.post.add_module("post_conv", Conv2DExt(hrnet_C_out//4, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=False))
+                #self.post.add_module("post_conv", Conv2DExt(hrnet_C_out//4, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True))
                 self.post["o_upsample"] = UpSample(N=1, C_in=hrnet_C_out, C_out=hrnet_C_out//2, method='bspline', with_conv=True)
                 self.post["o_nl"] = nn.GELU(approximate="tanh")
                 self.post["o_conv"] = Conv2DExt(hrnet_C_out//2, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
             else:
-                self.post = Conv2DExt(hrnet_C_out, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=False)
+                self.post = Conv2DExt(hrnet_C_out, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
         if self.config.backbone == "mixed_unetr":
             if config.backbone_mixed_unetr.use_window_partition:
@@ -206,9 +206,9 @@ class STCNNT_MRI(STCNNT_Task_Base):
 
         if base_snr_t is not None:
             weights = self.compute_weights(snr=snr, base_snr_t=base_snr_t)
-            return logits, weights
+            return logits, weights, None
         else:
-            return logits
+            return logits, None
 
     def compute_weights(self, snr, base_snr_t):
         weights = self.a - self.b * torch.sigmoid(snr-base_snr_t)
@@ -309,6 +309,10 @@ class STCNNT_MRI(STCNNT_Task_Base):
             
         save_path = os.path.join(self.config.check_path, save_file_name)
         logging.info(f"{Fore.YELLOW}Saving model status at {save_path}{Style.RESET_ALL}")
+        self.save_to_file(epoch, save_path, only_paras)
+        return save_path
+
+    def save_to_file(self, epoch, save_path, only_paras):
         if only_paras:
                 torch.save({
                 "epoch":epoch,
@@ -332,8 +336,6 @@ class STCNNT_MRI(STCNNT_Task_Base):
                 "config": self.config,
                 "scheduler_type":self.stype
             }, save_path)
-
-        return save_path
 
     def load_from_status(self, status, device=None, load_others=True):
         """
@@ -386,6 +388,30 @@ class STCNNT_MRI(STCNNT_Task_Base):
                 self.to(device=device)
         else:
             logging.warning(f"{Fore.YELLOW}{load_path} does not exist .... {Style.RESET_ALL}")
+
+    def load_pre(self, status):
+        self.pre.load_state_dict(status['pre_state'])
+
+    def load_backbone(self, status):
+        self.backbone.load_state_dict(status['backbone_state'])
+
+    def load_post(self, status):
+        self.post.load_state_dict(status['post_state'])
+
+    def disable_pre(self):
+        self.pre.requires_grad_(False)
+        for param in self.pre.parameters():
+            param.requires_grad = False
+
+    def disable_backbone(self):
+        self.backbone.requires_grad_(False)
+        for param in self.backbone.parameters():
+            param.requires_grad = False
+
+    def disable_post(self):
+        self.post.requires_grad_(False)
+        for param in self.post.parameters():
+            param.requires_grad = False
 
 # -------------------------------------------------------------------------------------------------
 # MRI model with loading backbone
@@ -690,9 +716,9 @@ class MRI_hrnet(STCNNT_MRI):
 
         if base_snr_t is not None:
             weights = self.compute_weights(snr=snr, base_snr_t=base_snr_t)
-            return logits, weights
+            return logits, weights, None
         else:
-            return logits
+            return logits, None
 
 # -------------------------------------------------------------------------------------------------
 # MRI model with loading backbone, double network
@@ -736,15 +762,24 @@ class MRI_double_net(STCNNT_MRI):
 
         backbone_C_out = self.get_backbone_C_out()
 
+        # original post
+        self.post_1st = Conv2DExt(backbone_C_out, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
+
         self.post = torch.nn.ModuleDict()
 
         if self.config.super_resolution:
             # self.post["output_ps"] = PixelShuffle2DExt(2)
             # C_out = C_out // 4
 
-            self.post["o_upsample"] = UpSample(N=1, C_in=backbone_C_out, C_out=backbone_C_out//2, method='bspline', with_conv=True, is_3D=False)
+            #self.post_2nd["o_upsample"] = UpSample(N=1, C_in=backbone_C_out, C_out=backbone_C_out//2, method='bspline', with_conv=True)
+            #self.post_2nd["o_nl"] = nn.GELU(approximate="tanh")
+            #self.post_2nd["o_conv"] = Conv2DExt(backbone_C_out//2, backbone_C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
+
+            self.post["1st_upsample"] = UpSample(N=1, C_in=config.C_out, C_out=config.C_out, method='bspline', with_conv=False)
+
+            self.post["o_upsample"] = UpSample(N=1, C_in=backbone_C_out, C_out=backbone_C_out, method='bspline', with_conv=False)
             self.post["o_nl"] = nn.GELU(approximate="tanh")
-            self.post["o_conv"] = Conv2DExt(backbone_C_out//2, backbone_C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
+            self.post["o_conv"] = Conv2DExt(backbone_C_out, backbone_C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
         if config.post_backbone == 'hrnet':
             config_post = copy.deepcopy(config)
@@ -802,6 +837,50 @@ class MRI_double_net(STCNNT_MRI):
 
         self.post["output_conv"] = Conv2DExt(C_out, config_post.C_out, kernel_size=config_post.kernel_size, stride=config_post.stride, padding=config_post.padding, bias=True)
 
+    def load_backbone(self, status):
+        super().load_backbone(status)
+        if 'post_1st_state' in status:
+            self.post_1st.load_state_dict(status['post_1st_state'])
+        else:
+            self.post_1st.load_state_dict(status['post_state'])
+
+    def disable_backbone(self):
+        super().disable_backbone()
+        self.post_1st.requires_grad_(False)
+        for param in self.post_1st.parameters():
+            param.requires_grad = False
+
+    def load_from_status(self, status, device=None, load_others=True):
+        super().load_from_status(status=status, device=device, load_others=load_others)
+        self.post_1st.load_state_dict(status['post_1st_state'])
+
+    def save_to_file(self, epoch, save_path, only_paras):
+        if only_paras:
+                torch.save({
+                "epoch":epoch,
+                "config": self.config,
+                "pre_state": self.pre.state_dict(), 
+                "backbone_state": self.backbone.state_dict(), 
+                "post_state": self.post.state_dict(), 
+                "post_1st_state": self.post_1st.state_dict(), 
+                "a": self.a,
+                "b": self.b
+            }, save_path)
+        else:
+            torch.save({
+                "epoch":epoch,
+                "pre_state": self.pre.state_dict(), 
+                "backbone_state": self.backbone.state_dict(), 
+                "post_state": self.post.state_dict(), 
+                "post_1st_state": self.post_1st.state_dict(), 
+                "a": self.a,
+                "b": self.b,
+                "optimizer_state": self.optim.state_dict(), 
+                "scheduler_state": self.sched.state_dict(),
+                "config": self.config,
+                "scheduler_type":self.stype
+            }, save_path)
+
 
     def forward(self, x, snr=-1, base_snr_t=None):
         """
@@ -821,8 +900,10 @@ class MRI_double_net(STCNNT_MRI):
         if self.residual:
             y_hat[:,:, :C, :, :] = res_pre + y_hat[:,:, :C, :, :]
 
+        logits_1st = self.post_1st(y_hat)
+
         if self.config.super_resolution:
-            #res = self.post["output_ps"](res)
+            logits_1st = self.post["1st_upsample"](logits_1st)
             y_hat = self.post["o_upsample"](y_hat)
             y_hat = self.post["o_nl"](y_hat)
             y_hat = self.post["o_conv"](y_hat)
@@ -833,13 +914,13 @@ class MRI_double_net(STCNNT_MRI):
             res = self.post['post_main'](y_hat)
 
         B, T, C, H, W = y_hat.shape
-        if self.residual:
-            res[:,:, :C, :, :] = res[:,:, :C, :, :] + y_hat
+        # if self.residual:
+        #     res[:,:, :C, :, :] = res[:,:, :C, :, :] + y_hat
 
-        logits = self.post["output_conv"](res)
+        logits = self.post["output_conv"](res) + logits_1st
 
         if base_snr_t is not None:
             weights = self.compute_weights(snr=snr, base_snr_t=base_snr_t)
-            return logits, weights
+            return logits, weights, logits_1st
         else:
-            return logits
+            return logits, logits_1st

@@ -72,12 +72,12 @@ class run_ddp_base(object):
             self.cmd.extend(["--with_timer"])
 
         # set up run record
-        self.run_completed = []
-        self.run_record = os.path.join(project_base_dir, config.project, f"run_{config.project}_record.pkl")
-        print(f"check run record - {self.run_record}")
-        if os.path.isfile(self.run_record):
-            with open(self.run_record, 'rb') as f:
-                self.run_completed = pickle.load(f)
+        # self.run_completed = []
+        # self.run_record = os.path.join(project_base_dir, config.project, "run_mri_record.pkl")
+        # print(f"check run record - {self.run_record}")
+        # if os.path.isfile(self.run_record):
+        #     with open(self.run_record, 'rb') as f:
+                #         self.run_completed = pickle.load(f)
 
     def create_cmd_run(self, cmd_run, config, 
                         optim='adamw',
@@ -279,8 +279,8 @@ class run_ddp_base(object):
         parser.add_argument("--load_path", type=str, default=None, help="check point file to load if provided")
         parser.add_argument("--clean_checkpoints", action="store_true", help='whether to delete previous check point files')
         parser.add_argument("--with_timer", action="store_true", help='whether to train with timing')
-        parser.add_argument("--tra_ratio", type=float, default=95, help="percentage of training data used")
-        parser.add_argument("--val_ratio", type=float, default=5, help="percentage of validation data used")
+        parser.add_argument("--tra_ratio", type=float, default=90, help="percentage of training data used")
+        parser.add_argument("--val_ratio", type=float, default=10, help="percentage of validation data used")
         parser.add_argument("--test_ratio", type=float, default=100, help="percentage of test data used")
 
         parser.add_argument("--stride_s", type=int, default=1, help='stride for spatial attention, q and k (equal x and y)') 
@@ -312,48 +312,48 @@ class run_ddp_base(object):
         cmd_runs = self.run_vars(config, vars)
 
         valid_cmd_runs = cmd_runs
-        if os.path.isfile(self.run_record):
-            with open(self.run_record, 'rb') as f:
-                run_completed = pickle.load(f)
+        # if os.path.isfile(self.run_record):
+        #     # with open(self.run_record, 'rb') as f:
+        #     #     run_completed = pickle.load(f)
 
-            compare = lambda a,b: len(a)==len(b) and len(a)==sum([1 for i,j in zip(a,b) if i==j])
+        #     # compare = lambda a,b: len(a)==len(b) and len(a)==sum([1 for i,j in zip(a,b) if i==j])
 
-            valid_cmd_runs = []
-            for cmd_run in cmd_runs:
-                run = copy.deepcopy(cmd_run)
+        #     valid_cmd_runs = []
+        #     for cmd_run in cmd_runs:
+        #         run = copy.deepcopy(cmd_run)
 
-                if "--run_name" in run:
-                    ind = run.index("--run_name")
-                    run.pop(ind)
-                    run.pop(ind)
+        #         if "--run_name" in run:
+        #             ind = run.index("--run_name")
+        #             run.pop(ind)
+        #             run.pop(ind)
 
-                if "--run_notes" in run:
-                    ind = run.index("--run_notes")
-                    run.pop(ind)
-                    run.pop(ind)
+        #         if "--run_notes" in run:
+        #             ind = run.index("--run_notes")
+        #             run.pop(ind)
+        #             run.pop(ind)
 
-                already_processed = False
-                for pre_run in run_completed:
+        #         already_processed = False
+        #         # for pre_run in run_completed:
 
-                    pre_run = copy.deepcopy(pre_run)
+        #         #     pre_run = copy.deepcopy(pre_run)
 
-                    if "--run_name" in pre_run:
-                        ind = pre_run.index("--run_name")
-                        pre_run.pop(ind)
-                        pre_run.pop(ind)
+        #         #     if "--run_name" in pre_run:
+        #         #         ind = pre_run.index("--run_name")
+        #         #         pre_run.pop(ind)
+        #         #         pre_run.pop(ind)
 
-                    if "--run_notes" in pre_run:
-                        ind = pre_run.index("--run_notes")
-                        pre_run.pop(ind)
-                        pre_run.pop(ind)
+        #         #     if "--run_notes" in pre_run:
+        #         #         ind = pre_run.index("--run_notes")
+        #         #         pre_run.pop(ind)
+        #         #         pre_run.pop(ind)
 
-                    if compare(run, pre_run):
-                        already_processed = True
-                        print("")
-                        break
+        #         #     if compare(run, pre_run):
+        #         #         already_processed = True
+        #         #         print("")
+        #         #         break
 
-                if not already_processed:
-                    valid_cmd_runs.append(cmd_run)
+                # if not already_processed:
+                    #     valid_cmd_runs.append(cmd_run)
 
         return valid_cmd_runs
 
@@ -380,14 +380,14 @@ class run_ddp_base(object):
             subprocess.run(cmd_run)
             print("===" * 20)
 
-            run_completed = []
-            if os.path.isfile(self.run_record):
-                with open(self.run_record, 'rb') as f:
-                    run_completed = pickle.load(f)
+            # run_completed = []
+            # if os.path.isfile(self.run_record):
+            #     with open(self.run_record, 'rb') as f:
+            #         run_completed = pickle.load(f)
 
-            run_completed.append(cmd_run)
-            with open(self.run_record, 'wb') as f:
-                pickle.dump(run_completed, f)
+            # run_completed.append(cmd_run)
+            # with open(self.run_record, 'wb') as f:
+                #     pickle.dump(run_completed, f)
 
 # -------------------------------------------------------------
 

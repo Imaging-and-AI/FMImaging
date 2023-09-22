@@ -58,6 +58,15 @@ scaling_factor=1.0
 
 export CUDA_VISIBLE_DEVICES=7
 
+# 2x super resolution model
+model=/export/Lab-Xue/projects/mri/checkpoints/mri-validation-MRI_double_net_20230915_225832_809885_C-32-1_amp-False_2nd_stage_super_resolution_bspline_complex_residual-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-21_best.pth
+
+RES_DIR=res_double_net_super_resolution
+model_type_str=MRI_double_net
+scaling_factor=1.0
+
+export CUDA_VISIBLE_DEVICES=0
+
 # ======================================================================
 
 python3 ./mri/eval_mri.py --test_files /export/Lab-Xue/projects/mri/data/retro_cine_3T_sigma_1_20_repeated_test.h5 --saved_model_path ${model} --num_uploaded 256 --save_samples --num_saved_samples 1024 --results_path /export/Lab-Xue/projects/mri/results/${RES_DIR} --model_type ${model_type_str} --scaling_factor 1.0
@@ -120,13 +129,15 @@ python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/projects/mri/results/
 # WB LGE
 
 
-python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BWH_WB_LGE_2023_AI_denoising/WB_LGE_MOCO_AVE_OnTheFly_41837_1194791055_1194791064_248_20230109-123219 --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_raw/WB_LGE_MOCO_AVE_OnTheFly_41837_1194791055_1194791064_248_20230109-123219/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_raw/WB_LGE_MOCO_AVE_OnTheFly_41837_1194791055_1194791064_248_20230109-123219 --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_raw/WB_LGE_MOCO_AVE_OnTheFly_41837_1194791055_1194791064_248_20230109-123219/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
 
-python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BWH_WB_LGE_2023_AI_denoising/WB_LGE_MOCO_AVE_OnTheFly_41837_1199034792_1199034801_784_20230111-110935 --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_raw/WB_LGE_MOCO_AVE_OnTheFly_41837_1199034792_1199034801_784_20230111-110935/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_raw/WB_LGE_MOCO_AVE_OnTheFly_41837_1199034792_1199034801_784_20230111-110935 --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_raw/WB_LGE_MOCO_AVE_OnTheFly_41837_1199034792_1199034801_784_20230111-110935/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
 
 python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BWH/BWH_WB_LGE_2023_AI_denoising/20230208/WB_LGE_MOCO_AVE_OnTheFly_41144_01418721_01418731_1929_20230208-164114 --output_dir /export/Lab-Kellman/ReconResults/denoising/BWH/BWH_WB_LGE_2023_AI_denoising/20230208/WB_LGE_MOCO_AVE_OnTheFly_41144_01418721_01418731_1929_20230208-164114/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname raw_im --gmap_fname gfactor --saved_model_path $model --model_type ${model_type_str}
 
-python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BWH_WB_LGE_2023_AI_denoising/WB_LGE_MOCO_AVE_OnTheFly_41837_1525437056_1525437065_1150_20230405-115358 --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_raw/WB_LGE_MOCO_AVE_OnTheFly_41837_1525437056_1525437065_1150_20230405-115358/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gfactor --saved_model_path $model --model_type ${model_type_str}
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_raw/WB_LGE_MOCO_AVE_OnTheFly_41837_1525437056_1525437065_1150_20230405-115358 --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_raw/WB_LGE_MOCO_AVE_OnTheFly_41837_1525437056_1525437065_1150_20230405-115358/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gfactor --saved_model_path $model --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/Barts_STCNNT_LGE/20230904/WB_LGE_MOCO_AVE_STCNNT_41837_2049151069_2049151078_178_20230904-105747/DebugOutput --output_dir /export/Lab-Kellman/ReconResults/Barts_STCNNT_LGE/20230904/WB_LGE_MOCO_AVE_STCNNT_41837_2049151069_2049151078_178_20230904-105747/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gfactor --saved_model_path $model --model_type ${model_type_str}
 
 # -------------------------------------------------------
 # 3T perfusion
@@ -138,6 +149,12 @@ python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/deno
 
 # -------------------------------------------------------
 # 1.5T perfusion
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/Barts_STCNNT/20230815/Perfusion_AIF_TwoEchoes_Interleaved_R2_41837_1986417889_1986417898_401_20230815-094846/DebugOutput --output_dir /export/Lab-Kellman/ReconResults/Barts_STCNNT/20230815/Perfusion_AIF_TwoEchoes_Interleaved_R2_41837_1986417889_1986417898_401_20230815-094846/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/Barts_STCNNT/20230815/Perfusion_AIF_TwoEchoes_Interleaved_R2_41837_1986418053_1986418062_697_20230815-154903/DebugOutput --output_dir /export/Lab-Kellman/ReconResults/Barts_STCNNT/20230815/Perfusion_AIF_TwoEchoes_Interleaved_R2_41837_1986418053_1986418062_697_20230815-154903/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/Barts_STCNNT/20230903/Perfusion_AIF_STCNNT_42110_56257534_56257543_3000004_20230903-172928/DebugOutput --output_dir /export/Lab-Kellman/ReconResults/Barts_STCNNT/20230903/Perfusion_AIF_STCNNT_42110_56257534_56257543_3000004_20230903-172928/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
 
 python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_Perf_Denoising_2022_AI_denoising/20221005/Perfusion_AIF_TwoEchoes_Interleaved_R2_42110_121388454_121388463_784_20221005-121636 --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_Perf_Denoising_2022_AI_denoising_AI/Perfusion_AIF_TwoEchoes_Interleaved_R2_42110_121388454_121388463_784_20221005-121636/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model  --model_type ${model_type_str}
 
@@ -288,6 +305,16 @@ python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/fre
 
 python3 ./mri/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00431_FID09089_G25_SAX3_FB_de_tpat4_BW450_res256_Ave24_BW399/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230720_NV/meas_MID00431_FID09089_G25_SAX3_FB_de_tpat4_BW450_res256_Ave24_BW399/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
 
+# -------------------------------------------------------
+# high-res cmr
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/Barts_STCNNT/20230824/Perfusion_AIF_STCNNT_41837_2020136443_2020136452_811_20230824-122633/DebugOutput --output_dir /export/Lab-Kellman/ReconResults/Barts_STCNNT/20230824/Perfusion_AIF_STCNNT_41837_2020136443_2020136452_811_20230824-122633/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/Barts_STCNNT/20230824/RT_Cine_LIN_STCNNT_41837_2020136389_2020136398_731_20230824-111014/DebugOutput --output_dir /export/Lab-Kellman/ReconResults/Barts_STCNNT/20230824/RT_Cine_LIN_STCNNT_41837_2020136389_2020136398_731_20230824-111014/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/Barts_STCNNT/20230824/RT_Cine_LIN_STCNNT_41837_2020136416_2020136425_774_20230824-115130/DebugOutput --output_dir /export/Lab-Kellman/ReconResults/Barts_STCNNT/20230824/RT_Cine_LIN_STCNNT_41837_2020136416_2020136425_774_20230824-115130/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
+
+python3 ./mri/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/Barts_STCNNT/20230824/LGE_MOCO_AVE_STCNNT_41837_2020136416_2020136425_772_20230824-115018/DebugOutput --output_dir /export/Lab-Kellman/ReconResults/Barts_STCNNT/20230824/LGE_MOCO_AVE_STCNNT_41837_2020136416_2020136425_772_20230824-115018/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
 
 ```
 
