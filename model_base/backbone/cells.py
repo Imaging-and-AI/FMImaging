@@ -225,9 +225,11 @@ class STCNNT_Cell(nn.Module):
                                             att_with_output_proj=att_with_output_proj,
                                             use_einsum=self.use_einsum)
         elif(att_mode=="conv2d" or att_mode=="conv3d"):
-            self.attn = ConvolutionModule(conv_type=att_mode, C_in=C_in, C_out=C_out,
+            self.attn = ConvolutionModule(conv_type=att_mode, C_in=C_in, C_out=C_out, H=self.H, W=self.W,
                                             kernel_size=kernel_size, stride=stride, padding=padding,
-                                            separable_conv=separable_conv)
+                                            separable_conv=separable_conv,
+                                            norm_mode=norm_mode,
+                                            activation_func=self.activation_func)
         else:
             raise NotImplementedError(f"Attention mode not implemented: {att_mode}")
 
@@ -446,7 +448,9 @@ class STCNNT_Parallel_Cell(nn.Module):
         elif(att_mode=="conv2d" or att_mode=="conv3d"):
             self.attn = ConvolutionModule(conv_type=att_mode, C_in=C_in, C_out=C_out,
                                             kernel_size=kernel_size, stride=stride, padding=padding,
-                                            separable_conv=separable_conv)
+                                            separable_conv=separable_conv,
+                                            norm_mode=norm_mode,
+                                            activation_func=self.activation_func)
         else:
             raise NotImplementedError(f"Attention mode not implemented: {att_mode}")
 
@@ -525,7 +529,7 @@ def tests():
 
     print("Begin Testing")
 
-    att_types = ["conv2d", "conv3d", "local", "global", "vit", "temporal"]
+    att_types = ["temporal", "conv2d", "conv3d", "local", "global", "vit"]
     norm_types = ["instance2d", "batch2d", "layer", "instance3d", "batch3d"]
     cosine_atts = ["True", "False"]
     att_with_relative_postion_biases = ["True", "False"]

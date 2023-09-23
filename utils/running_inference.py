@@ -28,7 +28,7 @@ from .status import support_bfloat16
 # -------------------------------------------------------------------------------------------------
 # Complete single image inference
 
-def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batch_size=4, device=torch.device('cpu'), verbose=False):
+def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batch_size=2, device=torch.device('cpu'), verbose=False):
     """
     Runs inference by breaking image into overlapping patches
     Runs the patches through the model and then stiches them back
@@ -138,7 +138,7 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
                 with torch.autocast(device_type='cuda', dtype=dtype, enabled=(not is_script_model)):
                     res = model(x_in)
 
-                res = res.cpu().detach().numpy()
+                res = res.cpu().detach().to(dtype=torch.float32).numpy()
 
                 if image_batch_pred is None:
                     image_batch_pred = np.empty((image_batch.shape[0], Tc, res.shape[2], res.shape[-2], res.shape[-1]), dtype=d_type)

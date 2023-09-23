@@ -56,6 +56,8 @@ def arg_parser():
     parser.add_argument("--snr_perturb", type=float, default=0.15, help='strength of snr perturbation')    
     parser.add_argument("--with_data_degrading", action="store_true", help='if true, degrade data for reduced resolution, temporal smoothing etc.')
     parser.add_argument("--not_add_noise", action="store_true", help='if set, not add noise.')
+    parser.add_argument("--only_white_noise", action="store_true", help='if set, only add white noise.')
+    parser.add_argument("--ignore_gmap", action="store_true", help='if set, do not use gmap for training.')
 
     # 2d/3d dataset arguments
     parser.add_argument('--twoD_num_patches_cutout', type=int, default=1, help='for 2D usecase, number of patches per frame')
@@ -95,7 +97,7 @@ def arg_parser():
     parser.add_argument("--disable_post", action="store_true", help='if set, post module will have require_grad_(False).')
 
     parser.add_argument('--post_backbone', type=str, default="hrnet", help="model for post module, 'hrnet', 'mixed_unetr' ")
-    parser.add_argument('--post_hrnet.block_str', dest='post_hrnet.block_str', nargs='+', type=str, default=['T1L1G1', 'T1L1G1'], help="hrnet MR post network block string, from the low resolution level to high resolution level.")
+    parser.add_argument('--post_hrnet.block_str', dest='post_hrnet.block_str', nargs='+', type=str, default=['T1L1T1G1', 'T1L1T1G1'], help="hrnet MR post network block string, from the low resolution level to high resolution level.")
     parser.add_argument('--post_hrnet.separable_conv', dest='post_hrnet.separable_conv', action="store_true", help="post network, whether to use separable convolution.")
 
     parser.add_argument('--post_mixed_unetr.num_resolution_levels', dest='post_mixed_unetr.num_resolution_levels', type=int, default=2, help="number of resolution levels for post mixed unetr")
@@ -128,7 +130,7 @@ class MriTrainer(Trainer_Base):
             - config (Namespace): runtime namespace for setup
         """
         super().__init__(config)
-        self.project = 'mri-hy_search'
+        self.project = 'mri'
 
     def check_args(self):
         """

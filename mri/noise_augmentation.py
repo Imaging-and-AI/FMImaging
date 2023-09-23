@@ -489,6 +489,7 @@ def generate_3D_MR_correlated_noise(T=30, RO=192, E1=144, REP=1,
                                     phase_resolution_ratio=[1.0, 0.85, 0.7, 0.65, 0.55],
                                     readout_resolution_ratio=[1.0, 0.85, 0.7, 0.65, 0.55],
                                     rng=np.random.Generator(np.random.PCG64(8754132)),
+                                    only_white_noise=False,
                                     verbose=False):
 
     # create noise
@@ -505,6 +506,9 @@ def generate_3D_MR_correlated_noise(T=30, RO=192, E1=144, REP=1,
         std_imag = np.mean(np.std(np.imag(nns), axis=3))
         print("noise, real, std is ", std_real)
         print("noise, imag, std is ", std_imag)
+
+    if only_white_noise:
+        return nns, noise_sigma
 
     # apply resolution reduction
     ratio_RO = readout_resolution_ratio[rng.integers(0, len(readout_resolution_ratio))]

@@ -173,7 +173,7 @@ def save_image_wandb(title, complex_i, noisy, predi, clean):
 
 # -------------------------------------------------------------------------------------------------
 
-def save_image_batch(complex_i, noisy, predi, clean, clean_2x):
+def save_image_batch(complex_i, noisy, predi, clean, clean_2x, predi_1st_net):
     """
     Logs the image to wandb as a 5D gif [B,T,C,H,W]
     If complex image then save the magnitude using first 2 channels
@@ -191,17 +191,20 @@ def save_image_batch(complex_i, noisy, predi, clean, clean_2x):
         predi = np.expand_dims(predi, axis=0)
         clean = np.expand_dims(clean, axis=0)
         clean_2x = np.expand_dims(clean_2x, axis=0)
+        predi_1st_net = np.expand_dims(predi_1st_net, axis=0)
 
     if complex_i:
         save_x = np.sqrt(np.square(noisy[:,:,0,:,:]) + np.square(noisy[:,:,1,:,:]))
         save_p = np.sqrt(np.square(predi[:,:,0,:,:]) + np.square(predi[:,:,1,:,:]))
         save_y = np.sqrt(np.square(clean[:,:,0,:,:]) + np.square(clean[:,:,1,:,:]))
         save_y_2x = np.sqrt(np.square(clean_2x[:,:,0,:,:]) + np.square(clean_2x[:,:,1,:,:]))
+        save_p_1st_net = np.sqrt(np.square(predi_1st_net[:,:,0,:,:]) + np.square(predi_1st_net[:,:,1,:,:]))
     else:
         save_x = noisy[:,:,0,:,:]
         save_p = predi[:,:,0,:,:]
         save_y = clean[:,:,0,:,:]
         save_y_2x = clean_2x[:,:,0,:,:]
+        save_p_1st_net = predi_1st_net[:,:,0,:,:]
 
     B, T, H, W = save_y_2x.shape
 
@@ -218,37 +221,55 @@ def save_image_batch(complex_i, noisy, predi, clean, clean_2x):
         num_row = B//max_col
         if max_col*num_row < B: 
             num_row += 1
-        composed_res = np.zeros((T, 4*H*num_row, max_col*W))
+        composed_res = np.zeros((T, 5*H*num_row, max_col*W))
         for b in range(B):
             r = b//max_col
             c = b - r*max_col
             for t in range(T):
-                S = 4*r
+                S = 5*r
                 composed_res[t, S*H:(S+1)*H, c*W:(c+1)*W] = resize_img(save_x[b,t,:,:].squeeze(), H, W)
                 composed_res[t, (S+1)*H:(S+2)*H, c*W:(c+1)*W] = resize_img(save_p[b,t,:,:].squeeze(), H, W)
-                composed_res[t, (S+2)*H:(S+3)*H, c*W:(c+1)*W] = resize_img(save_y[b,t,:,:].squeeze(), H, W)
-                composed_res[t, (S+3)*H:(S+4)*H, c*W:(c+1)*W] = resize_img(save_y_2x[b,t,:,:].squeeze(), H, W)
+                composed_res[t, (S+2)*H:(S+3)*H, c*W:(c+1)*W] = resize_img(save_p_1st_net[b,t,:,:].squeeze(), H, W)
+                composed_res[t, (S+3)*H:(S+4)*H, c*W:(c+1)*W] = resize_img(save_y[b,t,:,:].squeeze(), H, W)
+                composed_res[t, (S+4)*H:(S+5)*H, c*W:(c+1)*W] = resize_img(save_y_2x[b,t,:,:].squeeze(), H, W)
+
+            a_composed_res = composed_res[:,:,c*W:(c+1)*W]
+            a_composed_res = np.clip(a_composed_res, a_min=0.5*np.median(a_composed_res), a_max=np.percentile(a_composed_res, 90))
+            temp = np.zeros_like(a_composed_res)
+            composed_res[:,:,c*W:(c+1)*W] = cv2.normalize(a_composed_res, temp, 0, 255, norm_type=cv2.NORM_MINMAX)
+    
     elif B>2:
-        composed_res = np.zeros((T, 4*H, B*W))
+        composed_res = np.zeros((T, 5*H, B*W))
         for b in range(B):
             for t in range(T):
                 composed_res[t, :H, b*W:(b+1)*W] = resize_img(save_x[b,t,:,:].squeeze(), H, W)
                 composed_res[t, H:2*H, b*W:(b+1)*W] = resize_img(save_p[b,t,:,:].squeeze(), H, W)
-                composed_res[t, 2*H:3*H, b*W:(b+1)*W] = resize_img(save_y[b,t,:,:].squeeze(), H, W)
-                composed_res[t, 3*H:4*H, b*W:(b+1)*W] = resize_img(save_y_2x[b,t,:,:].squeeze(), H, W)
+                composed_res[t, 2*H:3*H, b*W:(b+1)*W] = resize_img(save_p_1st_net[b,t,:,:].squeeze(), H, W)
+                composed_res[t, 3*H:4*H, b*W:(b+1)*W] = resize_img(save_y[b,t,:,:].squeeze(), H, W)
+                composed_res[t, 4*H:5*H, b*W:(b+1)*W] = resize_img(save_y_2x[b,t,:,:].squeeze(), H, W)
+
+            a_composed_res = composed_res[:,:,b*W:(b+1)*W]
+            a_composed_res = np.clip(a_composed_res, a_min=0.5*np.median(a_composed_res), a_max=np.percentile(a_composed_res, 90))
+            temp = np.zeros_like(a_composed_res)
+            composed_res[:,:,b*W:(b+1)*W] = cv2.normalize(a_composed_res, temp, 0, 255, norm_type=cv2.NORM_MINMAX)
     else:
-        composed_res = np.zeros((T, B*H, 4*W))
+        composed_res = np.zeros((T, B*H, 5*W))
         for b in range(B):
             for t in range(T):
                 composed_res[t, b*H:(b+1)*H, :W] = resize_img(save_x[b,t,:,:].squeeze(), H, W)
                 composed_res[t, b*H:(b+1)*H, W:2*W] = resize_img(save_p[b,t,:,:].squeeze(), H, W)
-                composed_res[t, b*H:(b+1)*H, 2*W:3*W] = resize_img(save_y[b,t,:,:].squeeze(), H, W)
-                composed_res[t, b*H:(b+1)*H, 3*W:4*W] = resize_img(save_y_2x[b,t,:,:].squeeze(), H, W)
+                composed_res[t, b*H:(b+1)*H, 2*W:3*W] = resize_img(save_p_1st_net[b,t,:,:].squeeze(), H, W)
+                composed_res[t, b*H:(b+1)*H, 3*W:4*W] = resize_img(save_y[b,t,:,:].squeeze(), H, W)
+                composed_res[t, b*H:(b+1)*H, 4*W:5*W] = resize_img(save_y_2x[b,t,:,:].squeeze(), H, W)
 
-    composed_res = np.clip(composed_res, a_min=0.5*np.median(composed_res), a_max=np.percentile(composed_res, 90))
+            a_composed_res = composed_res[:,b*H:(b+1)*H,:]
+            a_composed_res = np.clip(a_composed_res, a_min=0.5*np.median(a_composed_res), a_max=np.percentile(a_composed_res, 90))
+            temp = np.zeros_like(a_composed_res)
+            composed_res[:,b*H:(b+1)*H,:] = cv2.normalize(a_composed_res, temp, 0, 255, norm_type=cv2.NORM_MINMAX)
 
-    temp = np.zeros_like(composed_res)
-    composed_res = cv2.normalize(composed_res, temp, 0, 255, norm_type=cv2.NORM_MINMAX)
+    # composed_res = np.clip(composed_res, a_min=0.5*np.median(composed_res), a_max=np.percentile(composed_res, 90))
+    # temp = np.zeros_like(composed_res)
+    # composed_res = cv2.normalize(composed_res, temp, 0, 255, norm_type=cv2.NORM_MINMAX)
 
     return np.repeat(composed_res[:,np.newaxis,:,:].astype('uint8'), 3, axis=1)
 

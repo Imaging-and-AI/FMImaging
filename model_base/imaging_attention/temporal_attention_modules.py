@@ -171,7 +171,7 @@ class TemporalCnnAttention(CnnAttentionBase):
     """
     def __init__(self, C_in, C_out=16, H=128, W=128, is_causal=False, n_head=8, \
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), \
-                    stride_qk=(2,2), att_dropout_p=0.0, 
+                    stride_qk=(2,2), separable_conv=False, att_dropout_p=0.0, 
                     cosine_att=False, normalize_Q_K=False, att_with_output_proj=True):
         """
         Defines the layer for a cnn self-attention on temporal axis
@@ -194,6 +194,7 @@ class TemporalCnnAttention(CnnAttentionBase):
                          stride=stride, 
                          padding=padding, 
                          stride_qk=stride_qk,
+                         separable_conv=separable_conv,
                          att_dropout_p=att_dropout_p, 
                          cosine_att=cosine_att,
                          normalize_Q_K=normalize_Q_K, 

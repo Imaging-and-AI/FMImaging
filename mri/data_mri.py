@@ -123,8 +123,10 @@ class MRIDenoisingDatasetTrain():
     This dataset is for 2D+T training, where the temporal redundancy is strong
     """
     def __init__(self, h5file, keys, data_type, max_load=-1,
-                    time_cutout=30, cutout_shape=[64, 64], use_gmap=True,
-                    use_complex=True, min_noise_level=1.0, max_noise_level=6.0,
+                    time_cutout=30, cutout_shape=[64, 64], 
+                    ignore_gmap=False,
+                    use_complex=True, 
+                    min_noise_level=1.0, max_noise_level=6.0,
                     matrix_size_adjust_ratio=[0.5, 0.75, 1.0, 1.25, 1.5],
                     kspace_filter_sigma=[0.8, 1.0, 1.5, 2.0, 2.25],
                     kspace_filter_T_sigma=[0.25, 0.5, 0.65, 0.85, 1.0, 1.5, 2.0, 2.25],
@@ -134,6 +136,7 @@ class MRIDenoisingDatasetTrain():
                     cutout_jitter=[-1, 0.5, 0.75, 1.0],
                     snr_perturb_prob=0.0, 
                     snr_perturb=0.15,
+                    only_white_noise=False,
                     cutout_shuffle_time=True,
                     num_patches_cutout=8,
                     patches_shuffle=False,
@@ -152,7 +155,7 @@ class MRIDenoisingDatasetTrain():
             - max_load (int): number of loaded samples when instantiating the dataset
             - time_cutout (int): cutout size in time dimension
             - cutout_shape (int list): 2 values for patch cutout shape
-            - use_gmap (bool): whether to load and return gmap
+            - ignore_gmap (bool): whether to ignore gmap in training
             - use_complex (bool): whether to return complex image
             - min_noise_level (float): minimal noise sigma to add
             - max_noise_level (float): maximal noise sigma to add
@@ -181,7 +184,7 @@ class MRIDenoisingDatasetTrain():
         if self.data_type=="2d": self.time_cutout = 1
         self.cutout_shape = cutout_shape
 
-        self.use_gmap = use_gmap
+        self.ignore_gmap = ignore_gmap
         self.use_complex = use_complex
 
         self.min_noise_level = min_noise_level
@@ -195,6 +198,8 @@ class MRIDenoisingDatasetTrain():
 
         self.snr_perturb_prob = snr_perturb_prob
         self.snr_perturb = snr_perturb
+
+        self.only_white_noise = only_white_noise
 
         self.cutout_jitter = cutout_jitter
         self.cutout_shuffle_time = cutout_shuffle_time
@@ -242,6 +247,9 @@ class MRIDenoisingDatasetTrain():
 
         gmap = self.load_gmap(gmaps, i, random_factor=-1)
 
+        if self.ignore_gmap:
+            gmap.fill(1.0)
+
         if data.ndim == 2: data = data[np.newaxis,:,:]
 
         # if data.shape[1] != gmap.shape[0] and data.shape[0] == gmap.shape[0]:
@@ -263,7 +271,7 @@ class MRIDenoisingDatasetTrain():
         assert data.shape[1] == gmap.shape[0] and data.shape[2] == gmap.shape[1]
 
         # random increase matrix size or reduce matrix size
-        if(np.random.random()<0.5):
+        if(not self.only_white_noise) and (np.random.random()<0.5):
             matrix_size_adjust_ratio = self.matrix_size_adjust_ratio[np.random.randint(0, len(self.matrix_size_adjust_ratio))]
             data_adjusted = np.array([adjust_matrix_size(img, matrix_size_adjust_ratio) for img in data])
             gmap_adjusted = cv2.resize(gmap, dsize=(data_adjusted.shape[2], data_adjusted.shape[1]), interpolation=cv2.INTER_LINEAR)
@@ -326,6 +334,7 @@ class MRIDenoisingDatasetTrain():
                                                                     phase_resolution_ratio=[ratio_E1],
                                                                     readout_resolution_ratio=[ratio_RO],
                                                                     rng=self.rng,
+                                                                    only_white_noise=self.only_white_noise,
                                                                     verbose=False)
                 # apply gmap
                 nn *= gmap
@@ -664,7 +673,7 @@ class MRIDenoisingDatasetTest():
     Dataset for MRI denoising testing.
     Returns full images. No cutouts.
     """
-    def __init__(self, h5file, keys, use_gmap=True, use_complex=True):
+    def __init__(self, h5file, keys, ignore_gmap=True, use_complex=True):
         """
         Initilize the denoising dataset
         Loads and stores everything
@@ -673,10 +682,10 @@ class MRIDenoisingDatasetTest():
         @args:
             - h5file (h5File list): list of h5files to load images from
             - keys (key list list): list of list of keys. One for every h5file
-            - use_gmap (bool): whether to load and return gmap
+            - ignore_gmap (bool): whether to ignore gmap in training
             - use_complex (bool): whether to return complex image
         """
-        self.use_gmap = use_gmap
+        self.ignore_gmap = ignore_gmap
         self.use_complex = use_complex
         self.h5file = h5file
         self.keys = keys
@@ -852,7 +861,9 @@ def load_mri_data(config):
         "snr_perturb" : c.snr_perturb,
         "with_data_degrading" : c.with_data_degrading,
         "add_noise": c.not_add_noise==False,
-        "load_2x_resolution": c.super_resolution
+        "load_2x_resolution": c.super_resolution,
+        "only_white_noise": c.only_white_noise,
+        "ignore_gmap": c.ignore_gmap
     }
 
     train_set = []
@@ -958,7 +969,10 @@ if __name__ == '__main__':
 
     images = load_images_from_h5file([h5file], [keys], max_load=-1)
 
-    tra_data = MRIDenoisingDatasetTrain([h5file], [keys], data_type='2DT', load_2x_resolution=True)
+    tra_data = MRIDenoisingDatasetTrain([h5file], [keys], data_type='2DT', load_2x_resolution=True, ignore_gmap=True, only_white_noise=True)
+
+    saved_path = "/export/Lab-Xue/projects/mri/results/loader_test"
+    os.makedirs(saved_path, exist_ok=True)
 
     for k in range(10):
         noisy_im, clean_im, clean_im_degraded, clean_im_2x, gmaps_median, noise_sigmas = tra_data[np.random.randint(len(tra_data))]

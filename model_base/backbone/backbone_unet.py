@@ -594,13 +594,35 @@ def tests():
     config.optim = "adamw"
     config.scheduler = "StepLR"
 
+    config.complex_i = False
+
+    # ---------------------------------------------------------------------
+
+    config.backbone_unet.block_str = ["C2C2C2",
+                        "C3C3C3",
+                        "C2C2C2",
+                        "C3C3C3",
+                        "C2C2C2"]
+
+    model = STCNNT_Unet(config=config)
+    model.to(device=device)
+
+    with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
+        for _ in range(10):
+            y = model(test_in)
+
+    config.with_timer = False
+    print(f"{Fore.GREEN}-------------> CONV_Unet---einsum-{config.use_einsum}-stride_s-{config.stride_s}-separable_conv-{config.separable_conv} <----------------------{Style.RESET_ALL}")
+    benchmark_all(model, test_in, grad=None, min_run_time=5, desc='CONV_Unet', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_memory(model, test_in, desc='CONV_Unet', amp=True, amp_dtype=torch.bfloat16, verbose=True)
+
+    # ---------------------------------------------------------------------
+
     config.backbone_unet.block_str = ["T1L1G1",
                         "T1L1G1",
                         "T1L1G1",
                         "T1L1G1",
                         "T1L1G1"]
-
-    config.complex_i = False        
 
     model = STCNNT_Unet(config=config)
     model.to(device=device)
@@ -614,6 +636,8 @@ def tests():
     print(f"{Fore.GREEN}-------------> STCNNT_Unet---einsum-{config.use_einsum}-stride_s-{config.stride_s}-separable_conv-{config.separable_conv} <----------------------{Style.RESET_ALL}")
     benchmark_all(model, test_in, grad=None, min_run_time=5, desc='STCNNT_Unet', verbose=True, amp=True, amp_dtype=torch.bfloat16)
     benchmark_memory(model, test_in, desc='STCNNT_Unet', amp=True, amp_dtype=torch.bfloat16, verbose=True)
+
+    # ---------------------------------------------------------------------
 
     config.stride_s = 1
     config.separable_conv = False
@@ -629,7 +653,9 @@ def tests():
     print(f"{Fore.GREEN}-------------> STCNNT_Unet---einsum-{config.use_einsum}-stride_s-{config.stride_s}-separable_conv-{config.separable_conv} <----------------------{Style.RESET_ALL}")
     benchmark_all(model, test_in.to(device=device), grad=None, min_run_time=5, desc='STCNNT_Unet-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
     benchmark_memory(model, test_in.to(device=device), desc='STCNNT_Unet-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
-    
+
+    # ---------------------------------------------------------------------
+
     model = STCNNT_Unet(config=config)
     model.to(device=device)
     with torch.no_grad():
