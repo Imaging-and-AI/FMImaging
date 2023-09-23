@@ -40,6 +40,8 @@ class mri_ddp_base(run_ddp_base):
         "--clip_grad_norm", "1.0",
         "--weight_decay", "1",
 
+        "--dropout_p", "0.1",
+
         #"--use_amp", 
         
         "--activation_func", "prelu",
