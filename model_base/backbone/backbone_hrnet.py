@@ -749,11 +749,6 @@ def tests():
     config.backbone_hrnet = Namespace()
     config.backbone_hrnet.C = 32
     config.backbone_hrnet.num_resolution_levels = 4
-    config.backbone_hrnet.block_str = ["T1L1G1",
-                        "T1L1G1",
-                        "T1L1G1",
-                        "T1L1G1",
-                        "T1L1G1"]
 
     config.backbone_hrnet.use_interpolation = True
 
@@ -780,6 +775,38 @@ def tests():
     config.separable_conv = True
     config.use_einsum = False
 
+    # ---------------------------------------------------------------------
+
+    config.backbone_hrnet.block_str = ["C2C2C2",
+                        "C3C3C3",
+                        "C2C2C2",
+                        "C3C3C3",
+                        "C2C2C2"]
+
+    config.dropout_p = 0.0
+
+    model = STCNNT_HRnet(config=config)
+    model.to(device=device)
+
+    with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
+        for _ in range(10):
+            y = model(test_in)
+
+    config.with_timer = False
+    print(f"{Fore.GREEN}-------------> CONV_HRnet-einsum-{config.use_einsum}-stride_s-{config.stride_s}-separable_conv-{config.separable_conv} <----------------------{Style.RESET_ALL}")
+    benchmark_all(model, test_in, grad=None, min_run_time=5, desc='CONV_HRnet', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+    benchmark_memory(model, test_in, desc='CONV_HRnet', amp=True, amp_dtype=torch.bfloat16, verbose=True)
+
+    # ---------------------------------------------------------------------
+
+    config.dropout_p = 0.1
+
+    config.backbone_hrnet.block_str = ["T1L1G1",
+                        "T1L1G1",
+                        "T1L1G1",
+                        "T1L1G1",
+                        "T1L1G1"]
+
     model = STCNNT_HRnet(config=config)
     model.to(device=device)
 
@@ -792,20 +819,24 @@ def tests():
     benchmark_all(model, test_in, grad=None, min_run_time=5, desc='STCNNT_HRnet', verbose=True, amp=True, amp_dtype=torch.bfloat16)
     benchmark_memory(model, test_in, desc='STCNNT_HRnet', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
+    # ---------------------------------------------------------------------
+
     config.stride_s = 1
     config.separable_conv = False
     config.use_einsum = False
-    
+
     model = STCNNT_HRnet(config=config)
     model.to(device=device)
 
     with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
         for _ in range(10):
             y = model(test_in)
-            
+
     print(f"{Fore.GREEN}-------------> STCNNT_HRnet-einsum-{config.use_einsum}-stride_s-{config.stride_s}-separable_conv-{config.separable_conv} <----------------------{Style.RESET_ALL}")
     benchmark_all(model, test_in.to(device=device), grad=None, min_run_time=5, desc='STCNNT_HRnet-einsum', verbose=True, amp=True, amp_dtype=torch.bfloat16)
     benchmark_memory(model, test_in.to(device=device), desc='STCNNT_HRnet-einsum', amp=True, amp_dtype=torch.bfloat16, verbose=True)
+
+    # ---------------------------------------------------------------------
 
     model = STCNNT_HRnet(config=config)
     model.to(device=device)

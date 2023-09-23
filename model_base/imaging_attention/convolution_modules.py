@@ -16,16 +16,18 @@ class ConvolutionModule(nn.Module):
     The standard convolution class.
     Either 2d or 3d depending on the argument.
     """
-    def __init__(self, conv_type, C_in, C_out,
+    def __init__(self, conv_type, C_in, C_out, H=128, W=128,
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1),
-                    separable_conv=False):
+                    separable_conv=False, 
+                    norm_mode="instance2d", 
+                    activation_func="prelu"):
         """
         @args:
             - conv_type ("conv2d" or "conv3d"): the type of conv
             - C_in (int): number of input channels
             - C_out (int): number of output channels
             - kernel_size, stride, padding (2 or 3 tuple): the params for conv
-                - can extrapolare 2 from 3 and vice versa
+                - can extrapolate 2 from 3 and vice versa
             - separable_conv (bool): whether to use separable conv or not
         """
         super().__init__()
@@ -60,6 +62,21 @@ class ConvolutionModule(nn.Module):
         else:
             raise NotImplementedError(f"Conv type not implemented: {conv_type}")
 
+        # if(norm_mode=="layer"):
+        #     self.n1 = nn.LayerNorm([C_out, H, W])
+        # elif(norm_mode=="batch2d"):
+        #     self.n1 = BatchNorm2DExt(C_out)
+        # elif(norm_mode=="instance2d"):
+        #     self.n1 = InstanceNorm2DExt(C_out)
+        # elif(norm_mode=="batch3d"):
+        #     self.n1 = BatchNorm3DExt(C_out)
+        # elif(norm_mode=="instance3d"):
+        #     self.n1 = InstanceNorm3DExt(C_out)
+        # else:
+        #     self.n1 = nn.Identity()
+        
+        self.act_func = create_activation_func(name=activation_func)
+        
     def forward(self, x):
         """
         @args:
@@ -69,7 +86,10 @@ class ConvolutionModule(nn.Module):
             y ([B, T, C_out, H', W']): Output of the batch
         """
 
-        return self.conv(x)
+        #y = self.act_func(self.n1(self.conv(x)))
+        y = self.act_func(self.conv(x))
+        
+        return y
 
 # -------------------------------------------------------------------------------------------------
 
@@ -94,12 +114,16 @@ def tests():
 
     conv_types = ["conv2d", "conv3d"]
     separables = [True, False]
+    norm_modes = ["instance2d", "batch2d"]
+    activation_funcs = ["prelu", "gelu", "relu"]
 
-    for conv_type, separable in itertools.product(conv_types, separables):
+    for conv_type, separable, norm_mode, activation_func in itertools.product(conv_types, separables, norm_modes, activation_funcs):
 
-        model = ConvolutionModule(conv_type=conv_type, C_in=C, C_out=C_out, \
-                                    kernel_size=kernel_size, stride=stride, padding=padding, \
-                                    separable_conv=separable)
+        model = ConvolutionModule(conv_type=conv_type, C_in=C, C_out=C_out, H=H, W=W, 
+                                    kernel_size=kernel_size, stride=stride, padding=padding, 
+                                    separable_conv=separable, 
+                                    norm_mode=norm_mode, 
+                                    activation_func=activation_func)
         
         model.to(device)
 
