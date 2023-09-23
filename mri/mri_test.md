@@ -60,12 +60,14 @@ export CUDA_VISIBLE_DEVICES=7
 
 # 2x super resolution model
 model=/export/Lab-Xue/projects/mri/checkpoints/mri-validation-MRI_double_net_20230915_225832_809885_C-32-1_amp-False_2nd_stage_super_resolution_bspline_complex_residual-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-21_best.pth
+model=/export/Lab-Xue/projects/mri-super-resolution/checkpoints/mri-super-resolution-MRI_double_net_20230922_100912_815184_C-32-1_amp-False_2nd_for_paper_v3_complex_residual-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-21.pth
 
 RES_DIR=res_double_net_super_resolution
 model_type_str=MRI_double_net
 scaling_factor=1.0
 
 export CUDA_VISIBLE_DEVICES=0
+export DISABLE_FLOAT16_INFERENCE=True
 
 # ======================================================================
 

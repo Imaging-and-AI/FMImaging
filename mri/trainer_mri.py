@@ -1147,6 +1147,7 @@ def eval_val(rank, model, config, val_set, epoch, device, wandb_run, id="val", s
 
                     try:
                         _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device=device)
+                        output_1st_net = None
                     except:
                         logging.info(f"{Fore.YELLOW}---> call inference on cpu ...")
                         _, output = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device="cpu")
