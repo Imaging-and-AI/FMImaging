@@ -204,9 +204,13 @@ class mri_ddp_base(run_ddp_base):
 
         vars['block_strs'] = [
                         [
+                            ["C2C2C2", "C2C2C2", "C2C2C2", "C2C2C2"],
+                            ["C3C3C3", "C3C3C3", "C3C3C3", "C3C3C3"],
+                            ["C2C2C2", "C2C2C2C2C2C2", "C2C2C2", "C2C2C2"],
+                            ["C3C3C3", "C3C3C3C3C3C3", "C3C3C3", "C3C3C3"],
                             #["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
                             #["T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1"],
-                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                            #["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
                             #["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
                             #["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                          ],
