@@ -368,6 +368,9 @@ class run_ddp_base(object):
         if run_lists[0] < 0:
             run_lists = range(len(valid_cmd_runs))
 
+        print("===" * 40)
+        print(f"{Fore.WHITE}{Back.RED}run_lists is {run_lists}{Style.RESET_ALL}")
+
         for run_ind in run_lists:
             cmd_run = valid_cmd_runs[run_ind]
             print("\n\n")
