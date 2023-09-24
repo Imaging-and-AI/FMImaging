@@ -53,6 +53,7 @@ python3 ./mri/run_mri.py --standalone --nproc_per_node 4 --use_amp --num_epochs 
 
 python3 ./mri/run_mri.py --standalone --nproc_per_node 4 --use_amp --num_epochs 50 --batch_size 16 --data_root /data/mri/data/ --run_extra_note 1st_main_branch_only_C3_no_gmap --num_workers 32 --ignore_gmap --run_list 0
 python3 ./mri/run_mri.py --standalone --nproc_per_node 4 --use_amp --num_epochs 50 --batch_size 16 --data_root /data/mri/data/ --run_extra_note 1st_main_branch_only_C3_only_white_noise --num_workers 32 --only_white_noise --run_list 0
+python3 ./mri/run_mri.py --standalone --nproc_per_node 4 --use_amp --num_epochs 50 --batch_size 16 --data_root /data/mri/data/ --run_extra_note 1st_main_branch_only_C3_snr_perturb_prob_1p0 --num_workers 32 --snr_perturb_prob 1.0 --run_list 0
 
 # ---------------------------------
 # second stage training

@@ -181,6 +181,8 @@ class mri_ddp_base(run_ddp_base):
         if config.disable_post:
             self.cmd.extend(["--disable_post"])
 
+        self.cmd.extend(["--snr_perturb_prob", f"{config.snr_perturb_prob}"])
+
     def set_up_variables(self, config):
 
         vars = dict()
@@ -202,7 +204,7 @@ class mri_ddp_base(run_ddp_base):
         vars['C'] = [32]
         vars['scale_ratio_in_mixers'] = [1.0]
 
-        vars['snr_perturb_prob'] = [0.0]
+        #vars['snr_perturb_prob'] = [0.0]
 
         vars['block_strs'] = [
                         [
@@ -267,7 +269,6 @@ class mri_ddp_base(run_ddp_base):
                     a_type, \
                     cell_type,\
                     residual, \
-                    snr_perturb_prob, \
                     n_heads, \
                     c, \
                     scale_ratio_in_mixer, \
@@ -290,7 +291,6 @@ class mri_ddp_base(run_ddp_base):
                                             vars['a_types'], 
                                             vars['cell_types'],
                                             vars['residual'],
-                                            vars['snr_perturb_prob'],
                                             vars['n_heads'],
                                             vars['C'],
                                             vars['scale_ratio_in_mixers'],
@@ -326,7 +326,6 @@ class mri_ddp_base(run_ddp_base):
                                         weighted_loss_snr=weighted_loss_snr,
                                         weighted_loss_temporal=weighted_loss_temporal,
                                         weighted_loss_added_noise=weighted_loss_added_noise,
-                                        snr_perturb_prob=snr_perturb_prob,
                                         n_heads=n_heads,
                                         losses=loss_and_weights[0],
                                         loss_weights=loss_and_weights[1]
@@ -361,7 +360,6 @@ class mri_ddp_base(run_ddp_base):
                         weighted_loss_snr=True,
                         weighted_loss_temporal=True,
                         weighted_loss_added_noise=True,
-                        snr_perturb_prob=0,
                         n_heads=32,
                         losses=['mse', 'l1'],
                         loss_weights=['1.0', '1.0']
@@ -460,7 +458,6 @@ class mri_ddp_base(run_ddp_base):
         cmd_run.extend([
             "--run_name", f"{config.project}-{run_str}",
             "--run_notes", f"{config.project}-{run_str}",
-            "--snr_perturb_prob", f"{snr_perturb_prob}",
             "--n_head", f"{n_heads}"
         ])
 
@@ -507,6 +504,8 @@ class mri_ddp_base(run_ddp_base):
 
         parser.add_argument("--num_epochs", type=int, default=50, help='number of epochs to train for')
         parser.add_argument("--batch_size", type=int, default=16, help='size of each batch')
+
+        parser.add_argument("--snr_perturb_prob", type=float, default=0.0, help='prob to add snr perturbation')
 
         return parser
 
