@@ -46,6 +46,7 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
     parser.add_argument("--wandb_entity", type=str, default="gadgetron", help='wandb entity to link with')
     parser.add_argument("--sweep_id", type=str, default="none", help='sweep id for hyper parameter searching')
     parser.add_argument("--sweep_count", type=int, default=50, help='number of sweep per agent to run')
+    parser.add_argument("--wandb_dir", type=str, default='/export/Lab-Xue/projects/wandb', help='directory for saving wandb')
 
     # dataset arguments
     parser.add_argument("--ratio", nargs='+', type=float, default=[100,100,0], help='Ratio (as a percentage) for train/val/test divide of given data. Does allow for using partial dataset')    
