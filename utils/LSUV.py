@@ -88,23 +88,24 @@ def remove_hooks(hooks):
     return
 def orthogonal_weights_init(m):
     if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
-        if hasattr(m, 'weight'):
-            w_ortho = svd_orthonormal(m.weight.data.cpu().numpy())
-            m.weight.data = torch.from_numpy(w_ortho)
-            try:
-                nn.init.constant_(m.bias, 0)
-            except:
-                pass
-        else:
-            #nn.init.orthogonal(m.weight)
-            w_ortho = svd_orthonormal(m.weight.data.cpu().numpy())
-            #print w_ortho 
-            #m.weight.data.copy_(torch.from_numpy(w_ortho))
-            m.weight.data = torch.from_numpy(w_ortho)
-            try:
-                nn.init.constant(m.bias, 0)
-            except:
-                pass
+        if m.requires_grad:
+            if hasattr(m, 'weight'):
+                w_ortho = svd_orthonormal(m.weight.data.cpu().numpy())
+                m.weight.data = torch.from_numpy(w_ortho)
+                try:
+                    nn.init.constant_(m.bias, 0)
+                except:
+                    pass
+            else:
+                #nn.init.orthogonal(m.weight)
+                w_ortho = svd_orthonormal(m.weight.data.cpu().numpy())
+                #print w_ortho 
+                #m.weight.data.copy_(torch.from_numpy(w_ortho))
+                m.weight.data = torch.from_numpy(w_ortho)
+                try:
+                    nn.init.constant(m.bias, 0)
+                except:
+                    pass
     return
 
 def apply_weights_correction(m):
