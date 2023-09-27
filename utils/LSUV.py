@@ -68,18 +68,17 @@ def add_current_hook(m):
     if gg['hook'] is not None:
         return
     if (isinstance(m, nn.Conv2d)) or (isinstance(m, nn.Linear)):
-        #print 'trying to hook to', m, gg['hook_position'], gg['done_counter']
-        if gg['hook_position'] > gg['done_counter']:
-            gg['hook'] = m.register_forward_hook(store_activations)
-            #print ' hooking layer = ', gg['hook_position'], m
-        else:
-            #print m, 'already done, skipping'
-            gg['hook_position'] += 1
+        if m.requires_grad_:
+            if gg['hook_position'] > gg['done_counter']:
+                gg['hook'] = m.register_forward_hook(store_activations)
+            else:
+                gg['hook_position'] += 1
     return
 
 def count_conv_fc_layers(m):
     if (isinstance(m, nn.Conv2d)) or (isinstance(m, nn.Linear)):
-        gg['total_fc_conv_layers'] +=1
+        if m.requires_grad_:
+            gg['total_fc_conv_layers'] +=1
     return
 
 def remove_hooks(hooks):
@@ -88,7 +87,7 @@ def remove_hooks(hooks):
     return
 def orthogonal_weights_init(m):
     if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
-        if m.requires_grad:
+        if m.requires_grad_:
             if hasattr(m, 'weight'):
                 w_ortho = svd_orthonormal(m.weight.data.cpu().numpy())
                 m.weight.data = torch.from_numpy(w_ortho)
@@ -114,16 +113,17 @@ def apply_weights_correction(m):
     if not gg['correction_needed']:
         return
     if (isinstance(m, nn.Conv2d)) or (isinstance(m, nn.Linear)):
-        if gg['counter_to_apply_correction'] < gg['hook_position']:
-            gg['counter_to_apply_correction'] += 1
-        else:
-            if hasattr(m, 'weight'):
-                m.weight.data *= float(gg['current_coef'])
-                gg['correction_needed'] = False
-            if hasattr(m, 'bias'):
-                if m.bias is not None:
-                    m.bias.data += float(gg['current_bias'])
-            return
+        if m.requires_grad_:
+            if gg['counter_to_apply_correction'] < gg['hook_position']:
+                gg['counter_to_apply_correction'] += 1
+            else:
+                if hasattr(m, 'weight'):
+                    m.weight.data *= float(gg['current_coef'])
+                    gg['correction_needed'] = False
+                if hasattr(m, 'bias'):
+                    if m.bias is not None:
+                        m.bias.data += float(gg['current_bias'])
+                return
     return
 
 def LSUVinit(model, data, needed_std = 1.0, std_tol = 0.1, max_attempts = 10, do_orthonorm = True,needed_mean = 0., cuda = False, verbose = False):
