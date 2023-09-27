@@ -643,8 +643,8 @@ def trainer(rank, global_rank, config, wandb_run):
             wandb_run.define_metric("val_gaussian_deriv", step_metric='epoch')
             wandb_run.define_metric("val_gaussian3D_deriv", step_metric='epoch')
 
-            wandb_run.log({"block_str": f"{block_str}"})
-            wandb_run.log({"post_block_str": f"{post_block_str}"})
+            wandb_run.summary["block_str"] = f"{block_str}"
+            wandb_run.summary["post_block_str"] = f"{post_block_str}"
 
             # log a few training examples
             for i, train_set_x in enumerate(train_set):
