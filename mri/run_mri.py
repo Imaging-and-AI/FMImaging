@@ -113,7 +113,7 @@ class mri_ddp_base(run_ddp_base):
         #"--only_white_noise",
         #"--ignore_gmap",
 
-        "--post_hrnet.block_str", "T1L1T1G1", "T1L1T1G1",
+        "--post_hrnet.block_str", "T1L1G1", "T1L1G1",
 
         #"--post_hrnet.separable_conv",
 
