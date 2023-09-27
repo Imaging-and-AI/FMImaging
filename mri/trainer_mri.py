@@ -565,12 +565,23 @@ def trainer(rank, global_rank, config, wandb_run):
         samplers = [None for _ in train_set]
         shuffle = True
 
+    block_str = None
     if c.backbone == 'hrnet':
         model_str = f"heads {c.n_head}, {c.backbone_hrnet}"
+        block_str = c.backbone_hrnet.block_str
     elif c.backbone == 'unet':
         model_str = f"heads {c.n_head}, {c.backbone_unet}"
+        block_str = c.backbone_unet.block_str
     elif c.backbone == 'mixed_unetr':
         model_str = f"{c.backbone_mixed_unetr}"
+        block_str = c.backbone_mixed_unetr.block_str
+
+    post_block_str = None
+    if c.model_type == "MRI_double_net":
+        if c.post_backbone == "hrnet":
+            post_block_str = c.post_hrnet.block_str
+        if c.post_backbone == "mixed_unetr":
+            post_block_str = c.post_mixed_unetr.block_str
 
     logging.info(f"{rank_str}, {Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, {c.optim}, {c.global_lr}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, weighted loss - snr {c.weighted_loss_snr} - temporal {c.weighted_loss_temporal} - added_noise {c.weighted_loss_added_noise}, data degrading {c.with_data_degrading}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, amp {c.use_amp}, super resolution {c.super_resolution}, stride_s {c.stride_s}, separable_conv {c.separable_conv}, upsample method {c.upsample_method}, batch_size {c.batch_size}, {model_str}{Style.RESET_ALL}")
 
@@ -629,6 +640,9 @@ def trainer(rank, global_rank, config, wandb_run):
             wandb_run.define_metric("val_perp", step_metric='epoch')
             wandb_run.define_metric("val_gaussian_deriv", step_metric='epoch')
             wandb_run.define_metric("val_gaussian3D_deriv", step_metric='epoch')
+
+            wandb_run.log({"block_str": f"{block_str}"})
+            wandb_run.log({"post_block_str": f"{post_block_str}"})
 
             # log a few training examples
             for i, train_set_x in enumerate(train_set):
