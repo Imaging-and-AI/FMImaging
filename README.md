@@ -4,7 +4,7 @@
 This is the v1 refactor of the FMImaging codebase, which contains basic utilities for single-task segmentation, classification, and image enhancement with DDP. The purpose of the refactor was to:
   * Reduce the amount of new code needed for new projects, with zero-code solutions for basic applications and lightweight customizations for others.
   * Reduce the amount of rewritten code per project.
-  * Make organization clearer, for example by consolidating configs, metrics, optimizers, losses, etc., to keep codebase clean as we continue to add complexity.
+  * Make organization clearer (e.g., by consolidating configs, metrics, optimizers, losses, etc.) to keep codebase clean as we continue to add complexity.
   * Prepare consolidated codebase for FM experiments, including:
     * Build in pre/post/backbone structure.
     * Include utils for segmentation, classification, and enhancement tasks.
