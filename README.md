@@ -34,4 +34,32 @@ A final few notes on the refactor:
 
 ### Using the codebase with no customizations
 
+The codebase can be directly used with no customizations to train simple segmentation, classification, and image enhancement tasks. Examples of this are included in the ```projects``` folder, including ```abct_segment``` (3D multiclass segmentation), ```ct_denoise``` (3D image denoising), ```mrnet_classify``` (3D binary classification), ```ptx_classify``` (2D binary classification), and ```tissue_segment``` (2D binary segmentation). Each of these trains a model for their respective tasks simply by supplying args via the command line. All available args can be found in ```setup/parsers```
+
+To use the default codebase, you need to format your data according to the following structure:
+
+```
+├── task_name
+│   ├── subject_1
+│   │   ├── subject_1_input.npy
+│   │   ├── subject_1_output.npy (if training a segmentation or enhancement task)
+│   ├── subject_2
+│   │   ├── subject_2_input.npy
+│   │   ├── subject_2_output.npy (if training a segmentation or enhancement task)
+│   ├── subject_3
+│   │   ├── subject_3_input.npy
+│   │   ├── subject_3_output.npy (if training a segmentation or enhancement task)
+│   ├── task_name_metadata.csv (if training a classification task)
+```
+
+The ```task_name``` and ```subject_IDs``` can be chosen by the user. However, each subject's folder needs to have a file named ```<subject_ID>_input.npy```, and if training a segmentation or enhancement task, a file named ```<subject_ID>_output.npy```. Each numpy file should be formatted as an array of shape ```X Y Z C```, where Z and C are optional dimensions (i.e., they can be squeezed for 2D or single-channel tasks). For segmentation, the output file's channel dimension should either be squeezed or ```C=1```.
+If training a classification task, the ```<task_name>``` directory also needs to have a csv of labels called ```<task_name>_metadata.csv```, formatted as follows:
+
+| SubjectID      | Label |
+| ----------- | ----------- |
+| subject_1      | 0       |
+| subject_2   | 1        |
+
+where ```subject_1``` matches the naming convention of the data directories. 
+
 ### Using the codebase with customizations
