@@ -1,6 +1,6 @@
 # Refactor of FMImaging, v1
 
-### Purpose
+## Overview
 This is the v1 refactor of the FMImaging codebase, which contains basic utilities for single-task segmentation, classification, and image enhancement with DDP. The purpose of the refactor was to:
   * Reduce the amount of new code needed for new projects, with zero-code solutions for basic applications and lightweight customizations for others.
   * Reduce the amount of rewritten code per project.
@@ -9,7 +9,7 @@ This is the v1 refactor of the FMImaging codebase, which contains basic utilitie
     * Build in pre/post/backbone structure.
     * Include utils for segmentation, classification, and enhancement tasks.
 
-### Overview
+### Organization
 The codebase organizes directories by utility. The ```run.py``` file shows how the codebase progresses:
   * In the ```setup``` dir, args are parsed into a config and initial setup functions are run.
   * In the ```data``` dir, torch datasets are created.
@@ -32,7 +32,9 @@ A final few notes on the refactor:
   * There are additional utils we can build out (e.g., adding more args and optimizers, adding more augmentation functions, adding more losses). I put basic utils in. New utils should be relatively easy to add in the config + in the current organization.
   * I have not tested DDP on multiple nodes.
 
-### Using the codebase with no customizations
+## Using the codebase 
+
+### With no customizations
 
 The codebase can be directly used with no customizations to train simple segmentation, classification, and image enhancement tasks. Examples of this are included in the ```projects``` folder, including ```abct_segment``` (3D multiclass segmentation), ```ct_denoise``` (3D image denoising), ```mrnet_classify``` (3D binary classification), ```ptx_classify``` (2D binary classification), and ```tissue_segment``` (2D binary segmentation). Each of these trains a model for their respective tasks simply by supplying args via the command line. All available args can be found in ```setup/parsers```
 
@@ -62,4 +64,13 @@ If training a classification task, the ```<task_name>``` directory also needs to
 
 where ```subject_1``` matches the naming convention of the data directories. 
 
-### Using the codebase with customizations
+### With customizations
+
+If you need additional customizations, you can customize each component in the ```run.py``` file. Namely, you can add a custom parser, replace the dataset or loss functions, or modify the Model Manager, Optim Manager, Metric Manager, or Train Manager. To customize the codebase, you will need to:
+
+ 1. Create a custom ```run.py``` file. This should mirror the default ```run.py``` file with the same sequence of steps.
+ 2. Replace each step in ```run.py``` modularly with your custom code, as needed.
+
+Example projects with customizations include ```cifar_classify```, which has a custom dataset, and ```example_custom_project```, which has a custom parser, dataset, loss, and Model Manager.
+
+For futher details on how to customize the codebase, see ```projects/example_custom_project/custom_run.py```. This file will explain how to customize each component and includes an example.
