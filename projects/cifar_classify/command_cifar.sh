@@ -1,0 +1,26 @@
+export CUDA_VISIBLE_DEVICES=6
+                            
+python custom_cifar_run.py --run_name=cifar_refactor \
+                            --log_dir="/home/hoopersm/refactor_v1_FMImaging/projects/cifar_classify/logs" \
+                            --data_dir="/export/Lab-Xue/projects/cifar10/data" \
+                            --height=128 \
+                            --width=128 \
+                            --time=1 \
+                            --no_in_channel=1 \
+                            --no_out_channel=10 \
+                            --pre_model=Identity \
+                            --backbone_model=omnivore_tiny \
+                            --post_model=NormPoolLinear \
+                            --task_type=class \
+                            --optim_type=adam \
+                            --scheduler_type=None \
+                            --loss_type=CrossEntropy \
+                            --device=cuda \
+                            --num_workers=8 \
+                            --num_epochs=250 \
+                            --batch_size=512 \
+                            --clip_grad_norm=0 \
+                            --optim.lr=0.0002 \
+                            --optim.beta1=0.9 \
+                            --optim.beta2=0.99 \
+                            --optim.weight_decay=0 \

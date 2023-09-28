@@ -95,7 +95,7 @@ def model_info(model, config):
             see torchinfo/model_statistics.py for more information.
     """
     c = config
-    input_size = (c.batch_size, c.time, c.C_in, c.height[0], c.width[0])
+    input_size = (c.batch_size, c.no_in_channel, c.time, c.height, c.width)
     col_names=("num_params", "params_percent", "mult_adds", "input_size", "output_size", "trainable")
     row_settings=["var_names", "depth"]
     dtypes=[torch.float32]
@@ -114,34 +114,18 @@ def model_info(model, config):
     return model_summary
 
 # -------------------------------------------------------------------------------------------------
-# average metric tracker
-
-class AverageMeter(object):
+def get_device(device=None):
     """
-    Computes and stores the average and current value
+    Wrapper around getting device
+    @args:
+        - device (torch.device): if not None this device will be returned
+            otherwise check if cuda is available
+    @rets:
+        - device (torch.device): the device to be used
     """
-    def __init__(self):        
-        self.reset()
 
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-        self.vals = []
-        self.counts = []
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
-        
-        self.vals.append(val)
-        self.counts.append(n)
-
-    def status(self):
-        return np.array(self.vals), np.array(self.counts)
+    return device if device is not None else \
+            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 if __name__=="__main__":
     pass
