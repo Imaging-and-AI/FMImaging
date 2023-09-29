@@ -445,6 +445,11 @@ def trainer(rank, global_rank, config, wandb_run):
             else: # new stage training
                 model = model.to(device)
 
+                if not config.disable_LSUV:
+                    t0 = time()
+                    LSUVinit(model, input_data.to(device=device), verbose=True, cuda=True)
+                    print(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
+                    
                 # ------------------------------
                 if not not_load_pre:
                     print(f"{rank_str}, {Fore.YELLOW}load saved model, pre_state{Style.RESET_ALL}")
@@ -486,11 +491,6 @@ def trainer(rank, global_rank, config, wandb_run):
                 model.a = status['a']
                 model.b = status['b']
 
-                if not config.disable_LSUV:
-                    t0 = time()
-                    LSUVinit(model, input_data.to(device=device), verbose=True, cuda=True)
-                    print(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
-                    
                 # ---------------------------------------------------
 
         model = model.to(device)
