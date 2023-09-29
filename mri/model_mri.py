@@ -72,7 +72,9 @@ class STCNNT_MRI(STCNNT_Task_Base):
             config.C_in = self.C_in
 
         if config.backbone == "unet":
+            config.C_in = config.backbone_unet.C
             self.backbone = STCNNT_Unet(config=config)
+            config.C_in = self.C_in
 
         if config.backbone == "mixed_unetr":
             config.C_in = config.backbone_mixed_unetr.C
@@ -113,7 +115,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
             self.pre = Conv2DExt(config.C_in, config.backbone_mixed_unetr.C, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
             
         if self.config.backbone == "unet":
-            self.pre = nn.Identity()
+            self.pre = Conv2DExt(config.C_in, config.backbone_unet.C, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
         if self.config.backbone == "LLM":
             self.pre = nn.Identity()
@@ -159,7 +161,14 @@ class STCNNT_MRI(STCNNT_Task_Base):
                 self.post = Conv2DExt(mixed_unetr_C_out, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
         if config.backbone == "unet":
-            self.post = Conv2DExt(config.backbone_unet.C, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
+            unet_C_out = config.backbone_unet.C
+            if self.config.super_resolution:
+                self.post = nn.ModuleDict()
+                self.post["o_upsample"] = UpSample(N=1, C_in=unet_C_out, C_out=unet_C_out//2, method='bspline', with_conv=True)
+                self.post["o_nl"] = nn.GELU(approximate="tanh")
+                self.post["o_conv"] = Conv2DExt(unet_C_out//2, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
+            else:
+                self.post = Conv2DExt(unet_C_out, config.C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
         if config.backbone == "LLM":
             output_C = int(np.power(2, config.backbone_LLM.num_stages-2)) if config.backbone_LLM.num_stages>2 else config.backbone_LLM.C
@@ -177,7 +186,7 @@ class STCNNT_MRI(STCNNT_Task_Base):
 
         B, T, C, H, W = res_pre.shape
 
-        if self.config.backbone=="hrnet" or self.config.backbone=="mixed_unetr":
+        if self.config.backbone=="hrnet" or self.config.backbone=="mixed_unetr" or self.config.backbone=="unet":
 
             if self.config.backbone=="hrnet":
                 y_hat, _ = self.backbone(res_pre)
@@ -188,8 +197,6 @@ class STCNNT_MRI(STCNNT_Task_Base):
                 y_hat[:,:, :C, :, :] = res_pre + y_hat[:,:, :C, :, :]
 
             if self.config.super_resolution:
-                #res = self.post["post_ps"](y_hat)
-                #logits = self.post["post_conv"](res)
                 res = self.post["o_upsample"](y_hat)
                 res = self.post["o_nl"](res)
                 logits = self.post["o_conv"](res)
@@ -197,12 +204,10 @@ class STCNNT_MRI(STCNNT_Task_Base):
                 logits = self.post(y_hat)
 
         else:
-            res_backbone = self.backbone(res_pre)
-            logits = self.post(res_backbone)
-
+            y_hat = self.backbone(res_pre)
             if self.residual:
-                C = 2 if self.complex_i else 1
-                logits = x[:,:,:C] - logits
+                y_hat[:,:, :C, :, :] = res_pre + y_hat[:,:, :C, :, :]
+            logits = self.post(y_hat)
 
         if base_snr_t is not None:
             weights = self.compute_weights(snr=snr, base_snr_t=base_snr_t)

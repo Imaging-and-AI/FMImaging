@@ -123,7 +123,8 @@ class run_ddp_base(object):
             "--shuffle_in_window", f"{shuffle_in_window}",
             "--scale_ratio_in_mixer", f"{scale_ratio_in_mixer}",
             "--stride_s", f"{config.stride_s}",
-            "--stride_t", f"{config.stride_t}"
+            "--stride_t", f"{config.stride_t}",
+            "--wandb_dir", f"{config.wandb_dir}"
         ])
 
         if larger_mixer_kernel:
@@ -267,6 +268,7 @@ class run_ddp_base(object):
         parser = argparse.ArgumentParser(prog=self.project)   
 
         parser.add_argument("--data_root", type=str, default=None, help="data folder; if None, use the project folder")
+        parser.add_argument("--wandb_dir", type=str, default='/export/Lab-Xue/projects/mri/wandb', help='directory for saving wandb')
 
         parser.add_argument("--standalone", action="store_true", help='whether to run in the standalone mode')
         parser.add_argument("--nproc_per_node", type=int, default=4, help="number of processes per node")
@@ -367,6 +369,9 @@ class run_ddp_base(object):
 
         if run_lists[0] < 0:
             run_lists = range(len(valid_cmd_runs))
+
+        print("===" * 40)
+        print(f"{Fore.WHITE}{Back.RED}run_lists is {run_lists}{Style.RESET_ALL}")
 
         for run_ind in run_lists:
             cmd_run = valid_cmd_runs[run_ind]

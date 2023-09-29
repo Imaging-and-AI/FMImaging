@@ -104,7 +104,9 @@ class Trainer_Base(ABC):
         if self.config.model_path is None: self.config.model_path = os.path.join(project_base_dir, self.config.data_set, "models")
         if self.config.log_path is None: self.config.log_path = os.path.join(project_base_dir, self.config.data_set, "logs")
         if self.config.results_path is None: self.config.results_path = os.path.join(project_base_dir, self.config.data_set, "results")
-            
+
+        if self.config.wandb_dir is None: self.config.wandb_dir = self.config.check_path
+
         if self.config.run_name is None: self.config.run_name = self.config.data_set + '_' + datetime.now().strftime("%H-%M-%S")
         
         
@@ -173,7 +175,7 @@ class Trainer_Base(ABC):
         if(self.config.sweep_id != 'none'):
             if rank<=0:
                 print(f"---> get the config from wandb on local rank {rank}", flush=True)
-                wandb_run = wandb.init()
+                wandb_run = wandb.init(dir=self.config.wandb_dir)
                 print(wandb_run.name)
                 self.set_up_config_for_sweep(wandb_run.config)   
                 self.config.run_name = wandb_run.name
@@ -183,6 +185,7 @@ class Trainer_Base(ABC):
             # Config is a variable that holds and saves hyperparameters and inputs
             if global_rank<=0:
                 wandb_run = wandb.init(project=self.config.project, 
+                                       dir=self.config.wandb_dir,
                         entity=self.config.wandb_entity, 
                         config=self.config, 
                         name=self.config.run_name, 

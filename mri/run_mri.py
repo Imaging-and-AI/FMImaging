@@ -113,27 +113,27 @@ class mri_ddp_base(run_ddp_base):
         #"--only_white_noise",
         #"--ignore_gmap",
 
-        "--post_hrnet.block_str", "T1L1T1G1", "T1L1T1G1",
+        "--post_hrnet.block_str", "T1L1G1", "T1L1G1",
 
         #"--post_hrnet.separable_conv",
 
-        "--train_files", "train_3D_3T_retro_cine_2018.h5",  
-                        "train_3D_3T_retro_cine_2019.h5", 
-                        "train_3D_3T_retro_cine_2020.h5", 
-                        "BARTS_RetroCine_3T_2023.h5", 
-                        "BARTS_RetroCine_1p5T_2023.h5",
-                        #"BWH_Perfusion_3T_2023.h5",
-                        #"BWH_Perfusion_3T_2022.h5",
-                        "MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", 
-                        "MINNESOTA_UHVC_RetroCine_1p5T_2022.h5",
+        # "--train_files", "train_3D_3T_retro_cine_2018.h5",  
+        #                 "train_3D_3T_retro_cine_2019.h5", 
+        #                 "train_3D_3T_retro_cine_2020.h5", 
+        #                 "BARTS_RetroCine_3T_2023.h5", 
+        #                 "BARTS_RetroCine_1p5T_2023.h5",
+        #                 #"BWH_Perfusion_3T_2023.h5",
+        #                 #"BWH_Perfusion_3T_2022.h5",
+        #                 "MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", 
+        #                 "MINNESOTA_UHVC_RetroCine_1p5T_2022.h5",
 
-        "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", 
-                        "train_3D_3T_retro_cine_2020_small_2DT_test.h5", 
-                        "train_3D_3T_retro_cine_2020_small_2D_test.h5", 
-                        "train_3D_3T_retro_cine_2020_500_samples.h5",
+        # "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", 
+        #                 "train_3D_3T_retro_cine_2020_small_2DT_test.h5", 
+        #                 "train_3D_3T_retro_cine_2020_small_2D_test.h5", 
+        #                 "train_3D_3T_retro_cine_2020_500_samples.h5",
 
-        "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "3d",
-        "--test_data_types", "3d", "2dt", "2d", "2dt",
+        # "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "3d",
+        # "--test_data_types", "3d", "2dt", "2d", "2dt",
 
         # "--train_files", "train_3D_3T_retro_cine_2018_with_2x_resized.h5",  
         #                  "train_3D_3T_retro_cine_2019_with_2x_resized.h5", 
@@ -165,7 +165,46 @@ class mri_ddp_base(run_ddp_base):
         self.cmd.extend(["--model_type", f"{config.model_type}"])
 
         if config.super_resolution:
-            self.cmd.extend(["--super_resolution"])
+            self.cmd.extend([
+                        "--super_resolution",
+
+                        "--train_files", "train_3D_3T_retro_cine_2018_with_2x_resized.h5",  
+                                            "train_3D_3T_retro_cine_2019_with_2x_resized.h5", 
+                                            "train_3D_3T_retro_cine_2020_with_2x_resized.h5", 
+                                            "BARTS_RetroCine_3T_2023_with_2x_resized.h5", 
+                                            "BARTS_RetroCine_1p5T_2023_with_2x_resized.h5",
+                                            "MINNESOTA_UHVC_RetroCine_1p5T_2023_with_2x_resized.h5", 
+                                            "MINNESOTA_UHVC_RetroCine_1p5T_2022_with_2x_resized.h5",
+                                            #"VIDA_train_clean_0430_with_2x_resized.h5",
+
+                        "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test_with_2x_resized.h5", 
+                                        "train_3D_3T_retro_cine_2020_small_2DT_test_with_2x_resized.h5", 
+                                        "train_3D_3T_retro_cine_2020_small_2D_test_with_2x_resized.h5", 
+                                        "train_3D_3T_retro_cine_2020_500_samples_with_2x_resized.h5",
+
+                        "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "3d",
+                        "--test_data_types", "3d", "2dt", "2d", "2dt",
+                        ])
+        else:
+            self.cmd.extend([
+                             "--train_files", "train_3D_3T_retro_cine_2018.h5",  
+                                                "train_3D_3T_retro_cine_2019.h5", 
+                                                "train_3D_3T_retro_cine_2020.h5", 
+                                                "BARTS_RetroCine_3T_2023.h5", 
+                                                "BARTS_RetroCine_1p5T_2023.h5",
+                                                #"BWH_Perfusion_3T_2023.h5",
+                                                #"BWH_Perfusion_3T_2022.h5",
+                                                "MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", 
+                                                "MINNESOTA_UHVC_RetroCine_1p5T_2022.h5",
+
+                            "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", 
+                                            "train_3D_3T_retro_cine_2020_small_2DT_test.h5", 
+                                            "train_3D_3T_retro_cine_2020_small_2D_test.h5", 
+                                            "train_3D_3T_retro_cine_2020_500_samples.h5",
+
+                            "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "3d",
+                            "--test_data_types", "3d", "2dt", "2d", "2dt",
+                        ])
 
         if config.not_load_pre:
             self.cmd.extend(["--not_load_pre"])
@@ -180,6 +219,8 @@ class mri_ddp_base(run_ddp_base):
             self.cmd.extend(["--disable_backbone"])
         if config.disable_post:
             self.cmd.extend(["--disable_post"])
+
+        self.cmd.extend(["--snr_perturb_prob", f"{config.snr_perturb_prob}"])
 
     def set_up_variables(self, config):
 
@@ -202,17 +243,17 @@ class mri_ddp_base(run_ddp_base):
         vars['C'] = [32]
         vars['scale_ratio_in_mixers'] = [1.0]
 
-        vars['snr_perturb_prob'] = [0.0]
+        #vars['snr_perturb_prob'] = [0.0]
 
         vars['block_strs'] = [
                         [
-                            ["C2C2C2", "C2C2C2", "C2C2C2", "C2C2C2"],
-                            ["C3C3C3", "C3C3C3", "C3C3C3", "C3C3C3"],
-                            ["C2C2C2", "C2C2C2C2C2C2", "C2C2C2", "C2C2C2"],
-                            ["C3C3C3", "C3C3C3C3C3C3", "C3C3C3", "C3C3C3"],
-                            #["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                            #["C2C2C2", "C2C2C2", "C2C2C2", "C2C2C2"],
+                            #["C3C3C3", "C3C3C3", "C3C3C3", "C3C3C3"],
+                            #["C2C2C2", "C2C2C2C2C2C2", "C2C2C2", "C2C2C2"],
+                            #["C3C3C3", "C3C3C3C3C3C3", "C3C3C3", "C3C3C3"],
+                            ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
                             #["T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1"],
-                            #["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
                             #["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
                             #["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                          ],
@@ -267,7 +308,6 @@ class mri_ddp_base(run_ddp_base):
                     a_type, \
                     cell_type,\
                     residual, \
-                    snr_perturb_prob, \
                     n_heads, \
                     c, \
                     scale_ratio_in_mixer, \
@@ -290,7 +330,6 @@ class mri_ddp_base(run_ddp_base):
                                             vars['a_types'], 
                                             vars['cell_types'],
                                             vars['residual'],
-                                            vars['snr_perturb_prob'],
                                             vars['n_heads'],
                                             vars['C'],
                                             vars['scale_ratio_in_mixers'],
@@ -326,7 +365,6 @@ class mri_ddp_base(run_ddp_base):
                                         weighted_loss_snr=weighted_loss_snr,
                                         weighted_loss_temporal=weighted_loss_temporal,
                                         weighted_loss_added_noise=weighted_loss_added_noise,
-                                        snr_perturb_prob=snr_perturb_prob,
                                         n_heads=n_heads,
                                         losses=loss_and_weights[0],
                                         loss_weights=loss_and_weights[1]
@@ -361,7 +399,6 @@ class mri_ddp_base(run_ddp_base):
                         weighted_loss_snr=True,
                         weighted_loss_temporal=True,
                         weighted_loss_added_noise=True,
-                        snr_perturb_prob=0,
                         n_heads=32,
                         losses=['mse', 'l1'],
                         loss_weights=['1.0', '1.0']
@@ -460,7 +497,6 @@ class mri_ddp_base(run_ddp_base):
         cmd_run.extend([
             "--run_name", f"{config.project}-{run_str}",
             "--run_notes", f"{config.project}-{run_str}",
-            "--snr_perturb_prob", f"{snr_perturb_prob}",
             "--n_head", f"{n_heads}"
         ])
 
@@ -507,6 +543,8 @@ class mri_ddp_base(run_ddp_base):
 
         parser.add_argument("--num_epochs", type=int, default=50, help='number of epochs to train for')
         parser.add_argument("--batch_size", type=int, default=16, help='size of each batch')
+
+        parser.add_argument("--snr_perturb_prob", type=float, default=0.0, help='prob to add snr perturbation')
 
         return parser
 

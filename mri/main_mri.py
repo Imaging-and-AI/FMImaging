@@ -52,7 +52,7 @@ def arg_parser():
     parser.add_argument('--pf_filter_ratio', type=float, nargs='+', default=[1.0, 0.875, 0.75, 0.625, 0.55], help='pf filter ratio')
     parser.add_argument('--phase_resolution_ratio', type=float, nargs='+', default=[1.0, 0.85, 0.7, 0.65, 0.55], help='phase resolution ratio')
     parser.add_argument('--readout_resolution_ratio', type=float, nargs='+', default=[1.0, 0.85, 0.7, 0.65, 0.55], help='readout resolution ratio')
-    parser.add_argument("--snr_perturb_prob", type=float, default=0.1, help='prob to add snr perturbation')
+    parser.add_argument("--snr_perturb_prob", type=float, default=0.0, help='prob to add snr perturbation')
     parser.add_argument("--snr_perturb", type=float, default=0.15, help='strength of snr perturbation')    
     parser.add_argument("--with_data_degrading", action="store_true", help='if true, degrade data for reduced resolution, temporal smoothing etc.')
     parser.add_argument("--not_add_noise", action="store_true", help='if set, not add noise.')

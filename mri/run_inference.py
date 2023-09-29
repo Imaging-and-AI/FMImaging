@@ -76,9 +76,9 @@ def main():
 
     args = check_args(arg_parser())
     print(args)
-    
+
     print(f"---> support bfloat16 is {support_bfloat16(device=get_device())}")
-    
+
     print(f"{Fore.YELLOW}Load in model file - {args.saved_model_path}")
     model, config = load_model(args.saved_model_path, args.saved_model_config, args.model_type)
 
@@ -97,9 +97,13 @@ def main():
     image /= args.im_scaling
     image = np.squeeze(image)
 
-    gmap = np.load(f"{args.input_dir}/{args.gmap_fname}.npy")
-    gmap /= args.gmap_scaling
-    
+    gmap_file = f"{args.input_dir}/{args.gmap_fname}.npy"
+    if os.path.exists(gmap_file):
+        gmap = np.load(f"{args.input_dir}/{args.gmap_fname}.npy")
+        gmap /= args.gmap_scaling
+    else:
+        gmap = np.ones((image.shape[:2]))
+
     if len(image.shape) == 3 and gmap.ndim==3 and gmap.shape[2]==image.shape[2]:
         output = apply_model_3D(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device(), verbose=True)
         print(f"3D mode, {args.input_dir}, images - {image.shape}, gmap - {gmap.shape}, median gmap {np.median(gmap)}")

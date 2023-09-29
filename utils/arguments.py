@@ -46,6 +46,7 @@ def add_shared_args(parser=argparse.ArgumentParser("Argument parser for transfor
     parser.add_argument("--wandb_entity", type=str, default="gadgetron", help='wandb entity to link with')
     parser.add_argument("--sweep_id", type=str, default="none", help='sweep id for hyper parameter searching')
     parser.add_argument("--sweep_count", type=int, default=50, help='number of sweep per agent to run')
+    parser.add_argument("--wandb_dir", type=str, default='/export/Lab-Xue/projects/wandb', help='directory for saving wandb')
 
     # dataset arguments
     parser.add_argument("--ratio", nargs='+', type=float, default=[100,100,0], help='Ratio (as a percentage) for train/val/test divide of given data. Does allow for using partial dataset')    
@@ -184,8 +185,8 @@ def add_backbone_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for
     # unet
     parser.add_argument('--backbone_unet.C', dest='backbone_unet.C', type=int, default=32, help="number of channels in main body of unet")
     parser.add_argument('--backbone_unet.num_resolution_levels', dest='backbone_unet.num_resolution_levels', type=int, default=2, help="number of resolution levels for unet; image size reduce by x2 for every level")
-    parser.add_argument('--backbone_unet.block_str', dest='backbone_unet.block_str', nargs='+', type=str, default=['T1L1G1'], help="block string \
-        to define the attention layers in blocks; if multiple strings are given, each is for a resolution level.")    
+    parser.add_argument('--backbone_unet.block_str', dest='backbone_unet.block_str', nargs='+', type=str, default=['T1L1G1', 'T1L1G1'], help="block string \
+        to define the attention layers in blocks; if multiple strings are given, each is for a resolution level.")
     parser.add_argument('--backbone_unet.use_unet_attention', dest='backbone_unet.use_unet_attention', type=int, default=1, help="whether to add unet attention between resolution levels")
     parser.add_argument('--backbone_unet.use_interpolation', dest='backbone_unet.use_interpolation', type=int, default=1, help="whether to use interpolation in downsample layer; if False, use stride convolution")
     parser.add_argument('--backbone_unet.with_conv', dest='backbone_unet.with_conv', type=int, default=1, help="whether to add conv in down/upsample layers; if False, only interpolation is performed")

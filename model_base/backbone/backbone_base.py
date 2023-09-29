@@ -308,12 +308,12 @@ class _U2(nn.Module):
         B, T, C, H, W = x.shape
 
         if self.method == "NN":
-            y = F.interpolate(x.view((B*T, C, H, W)), size=(2*H, 2*W), mode="nearest", recompute_scale_factor=False)
+            y = F.interpolate(x.reshape((B*T, C, H, W)), size=(2*H, 2*W), mode="nearest", recompute_scale_factor=False)
         elif self.method == 'linear':
-            y = F.interpolate(x.view((B*T, C, H, W)), size=(2*H, 2*W), mode="bilinear", align_corners=False, recompute_scale_factor=False)
+            y = F.interpolate(x.reshape((B*T, C, H, W)), size=(2*H, 2*W), mode="bilinear", align_corners=False, recompute_scale_factor=False)
         else:
             opt = dict(shape=[2*H, 2*W], anchor='first', bound='replicate')
-            y = interpol.resize(x.view((B*T, C, H, W)), **opt, interpolation=5)
+            y = interpol.resize(x.reshape((B*T, C, H, W)), **opt, interpolation=5)
 
         y = torch.reshape(y, (B, T, *y.shape[1:]))
         if self.with_conv:
