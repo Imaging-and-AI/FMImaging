@@ -185,8 +185,8 @@ def add_backbone_STCNNT_args(parser=argparse.ArgumentParser("Argument parser for
     # unet
     parser.add_argument('--backbone_unet.C', dest='backbone_unet.C', type=int, default=32, help="number of channels in main body of unet")
     parser.add_argument('--backbone_unet.num_resolution_levels', dest='backbone_unet.num_resolution_levels', type=int, default=2, help="number of resolution levels for unet; image size reduce by x2 for every level")
-    parser.add_argument('--backbone_unet.block_str', dest='backbone_unet.block_str', nargs='+', type=str, default=['T1L1G1'], help="block string \
-        to define the attention layers in blocks; if multiple strings are given, each is for a resolution level.")    
+    parser.add_argument('--backbone_unet.block_str', dest='backbone_unet.block_str', nargs='+', type=str, default=['T1L1G1', 'T1L1G1'], help="block string \
+        to define the attention layers in blocks; if multiple strings are given, each is for a resolution level.")
     parser.add_argument('--backbone_unet.use_unet_attention', dest='backbone_unet.use_unet_attention', type=int, default=1, help="whether to add unet attention between resolution levels")
     parser.add_argument('--backbone_unet.use_interpolation', dest='backbone_unet.use_interpolation', type=int, default=1, help="whether to use interpolation in downsample layer; if False, use stride convolution")
     parser.add_argument('--backbone_unet.with_conv', dest='backbone_unet.with_conv', type=int, default=1, help="whether to add conv in down/upsample layers; if False, only interpolation is performed")
