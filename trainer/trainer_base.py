@@ -62,11 +62,14 @@ class TrainManager(object):
         self.optim_manager = optim_manager
         self.metric_manager = metric_manager
 
-        if support_bfloat16(self.config.device):
-            self.cast_type = torch.bfloat16
+        if self.config.use_amp:
+            if support_bfloat16(self.config.device):
+                self.cast_type = torch.bfloat16
+            else:
+                self.cast_type = torch.float16
         else:
-            self.cast_type = torch.float16
-
+            self.cast_type = torch.float32
+            
     def _train_model(self, rank, global_rank):
         """
         The training loop. Allows training on cpu/single gpu/multiple gpu (ddp)

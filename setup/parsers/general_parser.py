@@ -50,6 +50,7 @@ class general_parser(object):
         self.parser.add_argument("--project", type=str, default='FMImaging', help='Project name for wandb')
         self.parser.add_argument("--run_notes", type=str, default='Default project notes', help='Notes for the current run for wandb')
         self.parser.add_argument("--wandb_entity", type=str, default="gadgetron", help='Wandb entity to link with')
+        self.parser.add_argument("--wandb_dir", type=str, default=os.path.join(Project_DIR, 'wandb'), help='directory for saving wandb')
         
         # Data args
         self.parser.add_argument("--height", type=int, default=256, help='Height (number of rows) of input; will interpolate to this')

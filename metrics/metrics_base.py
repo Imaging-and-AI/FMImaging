@@ -38,7 +38,8 @@ class MetricManager(object):
                                     entity=self.config.wandb_entity, 
                                     config=self.config, 
                                     name=self.config.run_name, 
-                                    notes=self.config.run_notes)
+                                    notes=self.config.run_notes,
+                                    dir=self.config.wandb_dir)
 
     def setup_wandb_and_metrics(self, rank):
         """

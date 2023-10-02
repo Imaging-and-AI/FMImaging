@@ -39,7 +39,9 @@ def get_nestedspace_loader():
 def config_to_yaml(config, save_path):
     """Save nestedspace config to yaml file."""
     if not os.path.exists(save_path): os.makedirs(save_path)
-    with open(os.path.join(save_path,'config.yaml'), "w", encoding = "utf-8") as yaml_file:
+    yaml_file = os.path.join(save_path,'config.yaml')
+    print(f"--> save config as yaml at {yaml_file}")
+    with open(yaml_file, "w", encoding = "utf-8") as yaml_file:
         dump = yaml.dump(config, default_flow_style = False, allow_unicode = True, encoding = None)
         yaml_file.write(dump)
 

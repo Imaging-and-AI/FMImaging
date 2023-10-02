@@ -42,8 +42,13 @@ class OptimManager(object):
         self.model_manager = model_manager
         
         # # Compute total steps (needed for some schedulers)
-        self.total_steps = compute_total_steps(self.config, len(train_set))
-        logging.info(f"Total steps for this run: {self.total_steps}, len(train_set) {len(train_set)}, batch {self.config.batch_size}")
+        if isinstance(train_set, list):
+            total_num_samples = sum([len(a_train_set) for a_train_set in train_set])
+        else:
+            total_num_samples = len(train_set)
+            
+        self.total_steps = compute_total_steps(self.config, total_num_samples)
+        logging.info(f"Total steps for this run: {self.total_steps}, number of samples {total_num_samples}, batch {self.config.batch_size}")
         
         # Set up optimizer and scheduler
         self.set_up_optim_and_scheduling(total_steps=self.total_steps)
