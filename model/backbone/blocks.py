@@ -163,10 +163,12 @@ class STCNNT_Block(nn.Module):
             att_type = att_types[2*i]
             mixer = att_types[2*i+1]
 
-            assert att_type=='L' or att_type=='G' or att_type=='T' or att_type=='V', \
+            assert att_type=='L' or att_type=='G' or att_type=='T' or att_type=='V' or att_type=='C', \
                 f"att_type not implemented: {att_type} at index {2*i} in {att_types}"
-            assert mixer=='0' or mixer=='1', \
+            assert mixer=='0' or mixer=='1' or mixer=='2' or mixer=='3', \
                 f"mixer not implemented: {mixer} at index {2*i+1} in {att_types}"
+            assert not att_type=='C' or mixer=='2' or mixer=='3', \
+                f"mixer: {mixer} can not be used with att_type=='C'"
 
             if att_type=='L':
                 att_type = "local"
@@ -176,8 +178,12 @@ class STCNNT_Block(nn.Module):
                 att_type = "temporal"
             elif att_type=='V':
                 att_type = "vit"
+            elif att_type=='C' and mixer=='2':
+                att_type = "conv2d"
+            elif att_type=='C' and mixer=='3':
+                att_type = "conv3d"
             else:
-                raise f"Incorrect att_type: {att_type}"
+                raise f"Incorrect att_type: {att_type}, mixer: {mixer}"
 
             C = C_in if i==0 else C_out
 
@@ -277,7 +283,7 @@ def tests():
 
     print("Begin Testing")  
 
-    att_typess = ["L1", "G1", "T1", "L0", "L1", "G0", "G1", "T1", "T0", "V1", "V0", "L0G1T0V1", "T1L0G1V0"]
+    att_typess = ["C2", "C3", "L1C2T1C3G1", "L1", "G1", "T1", "L0", "L1", "G0", "G1", "T1", "T0", "V1", "V0", "L0G1T0V1", "T1L0G1V0"]
 
     for att_types in att_typess:
         CNNT_Block = STCNNT_Block(H=H, W=W, att_types=att_types, C_in=C, C_out=C_out, window_size=[H//8, W//8], patch_size=[H//16, W//16], separable_conv=True)

@@ -281,6 +281,10 @@ class L1_Loss:
         else:
             v_l1 = torch.sum(diff_L1)
 
+        if(torch.any(torch.isnan(v_l1))):
+            raise NotImplementedError(f"nan in L1_Loss")
+            v_l1 = torch.mean(0.0 * outputs)
+
         return v_l1 / diff_L1.numel()
 
 # -------------------------------------------------------------------------------------------------
@@ -318,6 +322,10 @@ class MSE_Loss:
             v_l2 = torch.sum(weights*diff_mag_square) / (torch.sum(weights) + torch.finfo(torch.float16).eps)
         else:
             v_l2 = torch.sum(diff_mag_square)
+
+        if(torch.any(torch.isnan(v_l2))):
+            raise NotImplementedError(f"nan in MSE_Loss")
+            v_l2 = torch.mean(0.0 * outputs)
 
         return v_l2 / diff_mag_square.numel()
 
@@ -372,6 +380,10 @@ class PSNR_Loss:
             v_l2 = torch.sum(weights*torch.log10(num/den)) / (torch.sum(weights) + torch.finfo(torch.float16).eps)
         else:
             v_l2 = torch.sum(torch.log10(num/den))
+
+        if(torch.any(torch.isnan(v_l2))):
+            raise NotImplementedError(f"nan in PSNR_Loss")
+            v_l2 = torch.mean(0.0 * outputs)
 
         return 10 - v_l2 / den.numel()
 
@@ -434,6 +446,10 @@ class Perpendicular_Loss:
             v = torch.sum(weights*loss) / (torch.sum(weights) + torch.finfo(torch.float16).eps)
         else:
             v = torch.sum(loss)
+
+        if(torch.any(torch.isnan(v))):
+            raise NotImplementedError(f"nan in Perpendicular_Loss")
+            v = torch.mean(0.0 * outputs)
 
         return v / targets.numel()
 
@@ -502,6 +518,10 @@ class GaussianDeriv_Loss:
         else:
             v = torch.mean(loss)
 
+        if(torch.any(torch.isnan(v))):
+            raise NotImplementedError(f"nan in GaussianDeriv_Loss")
+            v = torch.mean(0.0 * outputs)
+
         return v
 
 # -------------------------------------------------------------------------------------------------
@@ -568,6 +588,10 @@ class GaussianDeriv3D_Loss:
         else:
             v = torch.mean(loss)
 
+        if(torch.any(torch.isnan(v))):
+            raise NotImplementedError(f"nan in GaussianDeriv3D_Loss")
+            v = torch.mean(0.0 * outputs)
+
         return v
 
 # -------------------------------------------------------------------------------------------------
@@ -614,7 +638,7 @@ class Combined_Loss:
         elif loss_name=="msssim":
             loss_f = MSSSIM_Loss(window_size=3, complex_i=self.complex_i, data_range=256, device=self.device)
         elif loss_name=="gaussian":
-            loss_f = GaussianDeriv_Loss(sigmas=[0.25, 0.5, 1.0], complex_i=self.complex_i, device=self.device)
+            loss_f = GaussianDeriv_Loss(sigmas=[0.25, 0.5, 1.0, 1.5], complex_i=self.complex_i, device=self.device)
         elif loss_name=="gaussian3D":
             loss_f = GaussianDeriv3D_Loss(sigmas=[0.25, 0.5, 1.0], sigmas_T=[0.25, 0.5, 0.5], complex_i=self.complex_i, device=self.device)
         else:
@@ -624,8 +648,15 @@ class Combined_Loss:
     
     def __call__(self, outputs, targets, weights=None):
 
-        combined_loss = sum([weight*loss_f(outputs=outputs, targets=targets, weights=weights) \
-                                for loss_f, weight in self.losses])
+        #combined_loss = torch.mean(0.0 * outputs)
+        combined_loss = 0
+        for loss_f, weight in self.losses:
+            v = weight*loss_f(outputs=outputs, targets=targets, weights=weights)
+            if not torch.isnan(v):
+                combined_loss += v
+
+        # combined_loss = sum([weight*loss_f(outputs=outputs, targets=targets, weights=weights) \
+        #                         for loss_f, weight in self.losses])
         
         return combined_loss
 
@@ -634,6 +665,10 @@ class Combined_Loss:
 def tests():
 
     device = get_device()
+
+    import numpy as np
+
+    Project_DIR = Path(__file__).parents[1].resolve()
 
     clean_a = np.load(os.path.join(Project_DIR, 'data/microscopy/clean1.npy'))
     clean_b = np.load(os.path.join(Project_DIR, 'data/microscopy/clean2.npy'))

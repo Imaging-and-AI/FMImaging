@@ -87,8 +87,10 @@ def create_activation_func(name="gelu"):
         return nn.modules.SELU(inplace=False)
     elif name == "celu":
         return nn.modules.CELU(alpha=1, inplace=False)
-    else:
+    elif name == "gelu":
         return nn.modules.GELU(approximate="tanh")
+    else:
+        return nn.Identity()
 
 # class Conv2DExt(nn.Module):
 #     # Extends torch 2D conv to support 5D inputs
