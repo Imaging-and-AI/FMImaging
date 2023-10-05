@@ -24,7 +24,7 @@ REPO_DIR = Path(__file__).parents[2].resolve()
 sys.path.append(str(REPO_DIR))
 
 from noise_augmentation import *
-from data_utils import *
+from mri_data_utils import *
 
 # -------------------------------------------------------------------------------------------------
 # train dataset class
@@ -639,6 +639,170 @@ class MRIDenoisingDatasetTest(torch.utils.data.Dataset):
         Gets the item given index
         """
         return self.load_one_sample(index)
+
+# -------------------------------------------------------------------------------------------------
+
+# -------------------------------------------------------------------------------------------------
+# main loading function
+
+def load_mri_data(config):
+    """
+    File loader for MRI h5files
+    prepares the multiple train sets as well as val and test sets
+    if test case is given val set is created using 5 samples from it
+    @args:
+        - config (Namespace): runtime namespace for setup
+    @args (from config):
+        - ratio (int list): ratio to divide the given train dataset
+            3 integers for ratio between train, val and test. Can be [100,0,0]
+        - data_root (str): main folder of the data
+        - train_files (str list): names of h5files in dataroot for training
+        - test_files (str list): names of h5files in dataroot for testing
+        - train_data_types ("2d"|"2dt"|"3d" list): type of each train data file
+        - test_data_types ("2d"|"2dt"|"3d" list): type of each test data file
+        - time (int): cutout size in time dimension
+        - height (int list): different height cutouts
+        - width (int list): different width cutouts
+        - complex_i (bool): whether to use complex image
+        - min_noise_level (float): minimal noise sigma to add. Defaults to 1.0
+        - max_noise_level (float): maximal noise sigma to add. Defaults to 6.0
+        - matrix_size_adjust_ratio (float list): down/upsample the image, keeping the fov
+        - kspace_filter_sigma (float list): kspace filter sigma
+        - pf_filter_ratio (float list): partial fourier filter
+        - phase_resolution_ratio (float list): phase resolution ratio
+        - readout_resolution_ratio (float list): readout resolution ratio
+    """
+    c = config # shortening due to numerous uses
+
+    ratio = [x/100 for x in c.ratio]
+    logging.info(f"--> loading data with ratio {ratio} ...")
+
+    h5files = []
+    train_keys = []
+    val_keys = []
+    test_keys = []
+
+    train_paths = []
+    for path_x in c.train_files:
+        train_paths.append(os.path.join(c.data_root, path_x))
+
+    # check file
+    for file in train_paths:
+        if not os.path.exists(file):
+            raise RuntimeError(f"File not found: {file}")
+        print(f"file exist - {file}")
+
+    for file in train_paths:
+        if not os.path.exists(file):
+            raise RuntimeError(f"File not found: {file}")
+
+        logging.info(f"reading from file: {file}")
+        h5file = h5py.File(file, libver='earliest', mode='r')
+        keys = list(h5file.keys())
+
+        n = len(keys)
+
+        tra = int(ratio[0]*n)
+        tra = 1 if tra == 0 else tra
+
+        val = int((ratio[0]+ratio[1])*n)
+        val = tra + 1 if val<=tra else val
+        val = n if val>n else val
+
+        h5files.append(h5file)
+        train_keys.append(keys[:tra])
+        val_keys.append(keys[tra:val])
+        test_keys.append(keys[val:])
+
+        # make sure there is no empty testing
+        if len(val_keys[-1])==0:
+            val_keys[-1] = keys[-1:]
+        if len(test_keys[-1])==0:
+            test_keys[-1] = keys[-1:]
+
+        logging.info(f"Done - reading from file: {file}, \
+                     tra {sum([len(v) for v in train_keys])},\
+                     val {sum([len(v) for v in val_keys])}, \
+                     test {sum([len(v) for v in test_keys])}")
+
+    # common kwargs
+    kwargs = {
+        "time_cutout" : c.time,
+        "use_complex" : c.complex_i,
+        "min_noise_level" : c.min_noise_level,
+        "max_noise_level" : c.max_noise_level,
+        "matrix_size_adjust_ratio" : c.matrix_size_adjust_ratio,
+        "kspace_filter_sigma" : c.kspace_filter_sigma,
+        "pf_filter_ratio" : c.pf_filter_ratio,
+        "phase_resolution_ratio" : c.phase_resolution_ratio,
+        "readout_resolution_ratio" : c.readout_resolution_ratio,
+        "cutout_jitter" : c.threeD_cutout_jitter,
+        "cutout_shuffle_time" : c.threeD_cutout_shuffle_time,
+        "snr_perturb_prob" : c.snr_perturb_prob,
+        "snr_perturb" : c.snr_perturb,
+        "with_data_degrading" : c.with_data_degrading,
+        "add_noise": c.not_add_noise==False,
+        "load_2x_resolution": c.super_resolution,
+        "only_white_noise": c.only_white_noise,
+        "ignore_gmap": c.ignore_gmap
+    }
+
+    train_set = []
+
+    for (i, h_file) in enumerate(h5files):
+        logging.info(f"--> loading data from file: {h_file} for {len(train_keys[i])} entries ...")
+        images = load_images_from_h5file([h_file], [train_keys[i]], max_load=c.max_load)
+        for hw in zip(c.height, c.width):        
+            train_set.append(MRIDenoisingDatasetTrain(h5file=[h_file], keys=[train_keys[i]], max_load=-1, data_type=c.train_data_types[i], cutout_shape=hw, **kwargs))
+            train_set[-1].images = images
+
+    kwargs["snr_perturb_prob"] = 0
+    val_set = [MRIDenoisingDatasetTrain(h5file=[h_file], keys=[val_keys[i]], max_load=c.max_load, 
+                                        data_type=c.train_data_types[i], cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
+                                            for (i,h_file) in enumerate(h5files)]
+
+    if c.test_files is None or c.test_files[0] is None: # no test case given so use some from train data
+        test_set = [MRIDenoisingDatasetTrain(h5file=[h_file], keys=[test_keys[i]], max_load=c.max_load, 
+                                             data_type=c.train_data_types[i], cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
+                                                for (i,h_file) in enumerate(h5files)]
+    else: # test case is given. take part of it as val set
+        test_set, test_h5files = load_mri_test_data(config, ratio_test=ratio[2])
+
+    total_tra = sum([len(d) for d in train_set])
+    total_val = sum([len(d) for d in val_set])
+    total_test = sum([len(d) for d in test_set])
+
+    logging.info(f"--->{Fore.YELLOW}Number of samples for tra/val/test are {total_tra}/{total_val}/{total_test}{Style.RESET_ALL}")
+
+    return train_set, val_set, test_set
+
+# -------------------------------------------------------------------------------------------------
+
+def load_mri_test_data(config, ratio_test=1.0):
+    c = config
+    test_h5files = []
+    test_paths = [os.path.join(c.data_root, path_x) for path_x in c.test_files]
+
+    cutout_shape=[c.height[-1], c.width[-1]]
+
+    for i, file in enumerate(test_paths):
+        if not os.path.exists(file):
+            raise RuntimeError(f"File not found: {file}")
+
+        logging.info(f"reading from file: {file}")
+        h5file = h5py.File(file, libver='earliest', mode='r')
+        keys = list(h5file.keys())
+
+        if ratio_test>0:
+            keys = keys[:int(len(keys)*ratio_test)]
+
+        test_h5files.append((h5file,keys))
+
+    logging.info(f"loading in test data ...")
+    test_set = [MRIDenoisingDatasetTest([h_file], keys=[t_keys], use_complex=c.complex_i) for (h_file,t_keys) in test_h5files]
+    logging.info(f"loading in test data --- completed")
+
+    return test_set, test_h5files
 
 # -------------------------------------------------------------------------------------------------
 

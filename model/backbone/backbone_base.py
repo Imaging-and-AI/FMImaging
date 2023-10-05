@@ -14,6 +14,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch import Tensor
+import torchvision
 import interpol
 
 from pathlib import Path
@@ -524,6 +525,14 @@ class STCNNT_Base_Runtime(nn.Module):
         """
         super().__init__()
         self.config = config
+
+        self.permute = torchvision.ops.misc.Permute([0,2,1,3,4])
+
+    # def permute(self, x):
+    #     if self.config.Channel_as_1st_dim: # input is [B, C, T, H, W]
+    #         return self.torch_permute(x)
+    #     else:
+    #         x
 
     @property
     def device(self):

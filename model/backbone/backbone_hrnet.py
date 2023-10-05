@@ -534,8 +534,6 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
         self.up_3 = UpSample(N=3, C_in=8*self.C, C_out=8*self.C, method=c.upsample_method, with_conv=True)
         self.up_4 = UpSample(N=4, C_in=16*self.C, C_out=16*self.C, method=c.upsample_method, with_conv=True)
 
-        self.permute = torchvision.ops.misc.Permute([0,2,1,3,4])
-
     def check_class_specific_parameters(self, config):
         if not "backbone_hrnet" in config:
             raise "backbone_hrnet namespace should exist in config"

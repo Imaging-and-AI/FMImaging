@@ -438,21 +438,19 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
             kwargs["att_types"] = self.block_str[0]
             self.U0 = STCNNT_Block(**kwargs)
 
-        self.permute = torchvision.ops.misc.Permute([0,2,1,3,4])
-
 
     def check_class_specific_parameters(self, config):
         if not "backbone_unet" in config:
             raise "backbone_unet namespace should exist in config"
-               
-        err_str = lambda x : f"{x} should exist in config.backbone_unet"        
 
-        para_list = ["C", "num_resolution_levels", "block_str", "use_unet_attention", "use_interpolation", "with_conv"]        
-        for arg_name in para_list:            
+        err_str = lambda x : f"{x} should exist in config.backbone_unet"
+
+        para_list = ["C", "num_resolution_levels", "block_str", "use_unet_attention", "use_interpolation", "with_conv"]
+        for arg_name in para_list:
             if not arg_name in config.backbone_unet:
                 raise ValueError(err_str(arg_name))
-            
-            
+
+
     def forward(self, x):
         """
         @args:

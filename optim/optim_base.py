@@ -170,7 +170,7 @@ class OptimManager(object):
         elif c.optim_type == "nadam":
             self.optim = optim.NAdam(optim_groups, lr=c.optim.lr, betas=(c.optim.beta1, c.optim.beta2), weight_decay=c.optim.weight_decay)
         elif c.optim_type == "sophia":
-            raise NotImplementedError(f"Sophia optimizer not debugged yet.")
+            self.optim = SophiaG(optim_groups, lr=c.optim.lr, betas=(0.965, 0.99), rho = 0.01, weight_decay=c.optim.weight_decay)
         else:
             raise NotImplementedError(f"Optimizer not implemented: {c.optim_type}")
 

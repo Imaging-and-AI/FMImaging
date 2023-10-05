@@ -52,5 +52,5 @@ class AverageMeter(object):
 
     def status(self):
         return np.array(self.vals), np.array(self.counts)
-    
+
 

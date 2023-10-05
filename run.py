@@ -26,7 +26,10 @@ def main():
 
     # Create a ModelManager
     model_manager = ModelManager(config=config)
-
+    
+    # load model if needed
+    model_manager.load()
+    
     # Create OptimManager, which defines optimizers and schedulers
     optim_manager = OptimManager(config=config, model_manager=model_manager, train_set=train_set)
 

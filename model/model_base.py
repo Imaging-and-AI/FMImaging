@@ -42,11 +42,6 @@ class ModelManager(nn.Module):
         self.create_backbone()
         self.create_post()
 
-        # Load models if paths specified
-        if config.pre_model_load_path is not None: self.load_pre(config.pre_model_load_path)
-        if config.backbone_model_load_path is not None: self.load_backbone(config.backbone_model_load_path)
-        if config.post_model_load_path is not None: self.load_post(config.post_model_load_path)
-
     def create_pre(self): 
         """
         Sets up the pre model architecture
@@ -90,7 +85,7 @@ class ModelManager(nn.Module):
             "config": self.config,
         }
         if sched is not None: save_dict["scheduler_state"] = sched.state_dict()
-        torch.save(save_dict, save_path)        
+        torch.save(save_dict, save_path)
 
     def load_pre(self, load_path, device=None):
         """
@@ -176,7 +171,7 @@ class ModelManager(nn.Module):
             "config": self.config,
         }
         if sched is not None: save_dict["scheduler_state"] = sched.state_dict()
-        torch.save(save_dict, save_path)        
+        torch.save(save_dict, save_path)
 
     def load_backbone(self, load_path, device=None):
         """
@@ -259,7 +254,7 @@ class ModelManager(nn.Module):
             "config": self.config,
         }
         if sched is not None: save_dict["scheduler_state"] = sched.state_dict()
-        torch.save(save_dict, save_path)        
+        torch.save(save_dict, save_path)
 
     def load_post(self, load_path, device=None):
         """
@@ -289,6 +284,45 @@ class ModelManager(nn.Module):
         for param in self.post.parameters():
             param.requires_grad = False
 
+    def check_model_learnable_status(self, rank_str=""):
+        num = 0
+        num_learnable = 0
+        for param in self.pre.parameters():
+            num += 1
+            if param.requires_grad:
+                num_learnable += 1
+
+        print(f"{rank_str} model, pre, learnable tensors {num_learnable} out of {num} ...")
+
+        num = 0
+        num_learnable = 0
+        for param in self.backbone.parameters():
+            num += 1
+            if param.requires_grad:
+                num_learnable += 1
+
+        print(f"{rank_str} model, backbone, learnable tensors {num_learnable} out of {num} ...")
+
+        num = 0
+        num_learnable = 0
+        for param in self.post.parameters():
+            num += 1
+            if param.requires_grad:
+                num_learnable += 1
+
+        print(f"{rank_str} model, post, learnable tensors {num_learnable} out of {num} ...")
+
+    def load(self):
+        # Load models if paths specified
+        if self.config.pre_model_load_path is not None: self.load_pre(self.config.pre_model_load_path)
+        if self.config.backbone_model_load_path is not None: self.load_backbone(self.config.backbone_model_load_path)
+        if self.config.post_model_load_path is not None: self.load_post(self.config.post_model_load_path)
+        
+    def load(self, model_save_name):
+        self.load_pre(model_save_name+"_pre.pth")
+        self.load_backbone(model_save_name+"_backbone.pth")
+        self.load_post(model_save_name+"_post.pth")
+
     def save(self, model_save_name, epoch, optim, sched):
         self.save_pre(model_save_name+"_pre", epoch, optim, sched)
         self.save_backbone(model_save_name+"_backbone", epoch, optim, sched)
@@ -305,7 +339,7 @@ class ModelManager(nn.Module):
         backbone_output = self.backbone(pre_output[-1])
         post_output = self.post(backbone_output)
         return post_output
-    
+
 
 # -------------------------------------------------------------------------------------------------
 
