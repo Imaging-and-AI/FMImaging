@@ -22,12 +22,16 @@ class model_parser(object):
 
         if 'omnivore' in model_type: 
             self.add_omnivore_args()
-        if 'STCNNT' in model_type: 
+        else:
+        #if 'STCNNT' in model_type: 
             self.add_shared_STCNNT_args()
+            
         if model_type=='STCNNT_HRNET': 
             self.add_hrnet_STCNNT_args()
+            
         if model_type=='STCNNT_UNET': 
             self.add_unet_STCNNT_args()
+            
         if model_type=='STCNNT_mUNET': 
             self.add_mixed_unetr_STCNNT_args()
         

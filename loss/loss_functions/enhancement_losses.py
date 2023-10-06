@@ -568,6 +568,8 @@ class GaussianDeriv3D_Loss:
             outputs_im = outputs
             targets_im = targets
 
+        B, C, T, H, W = targets_im.shape
+        
         loss = 0
         for k_3d in self.kernels:
             grad_outputs_im = F.conv3d(outputs_im, k_3d, bias=None, stride=1, padding='same', groups=C)
@@ -671,6 +673,123 @@ def tests():
 
     REPO_DIR = Path(__file__).parents[2].resolve()
     sys.path.append(str(REPO_DIR))
+
+    # --------------------------------------------------------------------------
+    
+    noisy = np.load(str(REPO_DIR) + '/ut/data/loss/noisy_real.npy') + 1j * np.load(str(REPO_DIR) + '/ut/data/loss/noisy_imag.npy')
+    print(noisy.shape)
+
+    clean = np.load(str(REPO_DIR) + '/ut/data/loss/clean_real.npy') + 1j * np.load(str(REPO_DIR) + '/ut/data/loss/clean_imag.npy')
+    print(clean.shape)
+
+    pred = np.load(str(REPO_DIR) + '/ut/data/loss/pred_real.npy') + 1j * np.load(str(REPO_DIR) + '/ut/data/loss/pred_imag.npy')
+    print(pred.shape)
+
+    RO, E1, PHS, N = noisy.shape
+
+    for k in range(N):
+        perp_loss = Perpendicular_Loss()
+
+        x = np.zeros((1, 2, PHS, RO, E1))
+        y = np.zeros((1, 2, PHS, RO, E1))
+
+        x[:,0,:,:,:] = np.transpose(np.real(noisy[:,:,:,k]), (2, 0, 1))
+        x[:,1,:,:,:] = np.transpose(np.imag(noisy[:,:,:,k]), (2, 0, 1))
+        y[:,0,:,:,:] = np.transpose(np.real(clean[:,:,:,k]), (2, 0, 1))
+        y[:,1,:,:,:] = np.transpose(np.imag(clean[:,:,:,k]), (2, 0, 1))
+
+        x = torch.from_numpy(x)
+        y = torch.from_numpy(y)
+
+        v = perp_loss(x, y)
+
+        if k==0: assert np.isclose(v, 0.3917464616376294)
+        if k==N-1: assert np.isclose(v, 3.0950791641223936)
+
+        print(f"sigma {k+1} - perp - {v}")
+       
+    # -----------------------------------------------------------------
+    
+    # further test ssim, msssim and perp loss
+    noisy = np.load(str(REPO_DIR) + '/ut/data/loss/noisy.npy')
+    print(noisy.shape)
+
+    clean = np.load(str(REPO_DIR) + '/ut/data/loss/clean.npy')
+    print(clean.shape)
+
+    pred = np.load(str(REPO_DIR) + '/ut/data/loss/pred.npy')
+    print(pred.shape)
+
+    RO, E1, PHS, N = noisy.shape
+
+    print("-----------------------")
+
+    msssim_loss = torchmetrics.image.MultiScaleStructuralSimilarityIndexMeasure(kernel_size=5, reduction=None, data_range=256)
+    msssim_loss.to(device=device)
+
+    # 2D ssim
+    x = torch.from_numpy(noisy[:,:,0,:]).to(device=device)
+    y = torch.from_numpy(clean[:,:,0,:]).to(device=device)
+
+    x = torch.permute(x, (2, 0, 1)).reshape([N, 1, RO, E1])
+    y = torch.permute(y, (2, 0, 1)).reshape([N, 1, RO, E1])
+    v = msssim_loss(x, y)
+    print(f"sigma 1 to 10 - mssim - {v}")
+        
+    # 3D ssim
+    x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1))
+    y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1))
+    v = msssim_loss(x, y)
+    print(f"sigma 1 to 10 - mssim - {v}")
+
+    print("-----------------------")
+
+    # loss code
+    x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
+    y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
+   
+    msssim_loss = MSSSIM_Loss(window_size=3, data_range=128, device=device, complex_i=False)
+    
+    for k in range(N):
+        v = msssim_loss(torch.unsqueeze(x[k], dim=0), torch.unsqueeze(y[k], dim=0), weights=torch.ones(1, device=device))
+        print(f"msssim loss - {v}")
+        
+        if k==0: assert np.isclose(v.item(), 0.0031998753547668457)
+        if k==N-1: assert np.isclose(v.item(), 0.1460852026939392)
+
+    print("-----------------------")
+
+    # loss code
+    x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
+    y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
+
+    gauss_loss = GaussianDeriv_Loss(sigmas=[0.25, 0.5, 1.0, 1.5], device=device, complex_i=False)
+
+    for k in range(N):
+        v = gauss_loss(torch.unsqueeze(x[k], dim=0), torch.unsqueeze(y[k], dim=0), weights=torch.ones(1, device=device))
+        print(f"gauss loss - {v}")
+        
+        if k==0: assert np.isclose(v.item(), 9.217391014099121)
+        if k==N-1: assert np.isclose(v.item(), 82.76207733154297)
+
+    print("-----------------------")
+
+    # loss code
+    x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
+    y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
+
+    gauss_loss = GaussianDeriv3D_Loss(sigmas=[0.25, 0.5, 1.0, 1.25], sigmas_T=[0.25, 0.5, 0.5, 0.5], device=device, complex_i=False)
+
+    for k in range(N):
+        v = gauss_loss(torch.unsqueeze(x[k], dim=0), torch.unsqueeze(y[k], dim=0), weights=torch.ones(1, device=device))
+        print(f"gauss 3D loss - {v}")
+        
+        if k==0: assert np.isclose(v.item(), 0.21694710850715637)
+        if k==N-1: assert np.isclose(v.item(), 1.933052897453308)
+
+    print("Passed all tests")
+
+    # --------------------------------------------------------------------------
 
     clean_a = np.load(os.path.join(REPO_DIR, 'ut/data/microscopy/clean1.npy'))
     clean_b = np.load(os.path.join(REPO_DIR, 'ut/data/microscopy/clean2.npy'))
@@ -864,107 +983,7 @@ def tests():
 
     print("Passed Combined Loss")
 
-
-    noisy = np.load(str(REPO_DIR) + '/ut/data/loss/noisy_real.npy') + 1j * np.load(str(REPO_DIR) + '/ut/data/loss/noisy_imag.npy')
-    print(noisy.shape)
-
-    clean = np.load(str(REPO_DIR) + '/ut/data/loss/clean_real.npy') + 1j * np.load(str(REPO_DIR) + '/ut/data/loss/clean_imag.npy')
-    print(clean.shape)
-
-    pred = np.load(str(REPO_DIR) + '/ut/data/loss/pred_real.npy') + 1j * np.load(str(REPO_DIR) + '/ut/data/loss/pred_imag.npy')
-    print(pred.shape)
-
-    RO, E1, PHS, N = noisy.shape
-
-    for k in range(N):
-        perp_loss = Perpendicular_Loss()
-
-        x = np.zeros((1, 2, PHS, RO, E1))
-        y = np.zeros((1, 2, PHS, RO, E1))
-
-        x[:,0,:,:,:] = np.transpose(np.real(noisy[:,:,:,k]), (2, 0, 1))
-        x[:,1,:,:,:] = np.transpose(np.imag(noisy[:,:,:,k]), (2, 0, 1))
-        y[:,0,:,:,:] = np.transpose(np.real(clean[:,:,:,k]), (2, 0, 1))
-        y[:,1,:,:,:] = np.transpose(np.imag(clean[:,:,:,k]), (2, 0, 1))
-
-        x = torch.from_numpy(x)
-        y = torch.from_numpy(y)
-
-        v = perp_loss(x, y)
-
-        print(f"sigma {k+1} - perp - {v}")
-       
-    # -----------------------------------------------------------------
-    
-    # further test ssim, msssim and perp loss
-    noisy = np.load(str(REPO_DIR) + '/ut/data/loss/noisy.npy')
-    print(noisy.shape)
-
-    clean = np.load(str(REPO_DIR) + '/ut/data/loss/clean.npy')
-    print(clean.shape)
-
-    pred = np.load(str(REPO_DIR) + '/ut/data/loss/pred.npy')
-    print(pred.shape)
-
-    RO, E1, PHS, N = noisy.shape
-
-    print("-----------------------")
-
-    msssim_loss = torchmetrics.image.MultiScaleStructuralSimilarityIndexMeasure(kernel_size=5, reduction=None, data_range=256)
-    msssim_loss.to(device=device)
-
-    # 2D ssim
-    x = torch.from_numpy(noisy[:,:,0,:]).to(device=device)
-    y = torch.from_numpy(clean[:,:,0,:]).to(device=device)
-
-    x = torch.permute(x, (2, 0, 1)).reshape([N, 1, RO, E1])
-    y = torch.permute(y, (2, 0, 1)).reshape([N, 1, RO, E1])
-    v = msssim_loss(x, y)
-    print(f"sigma 1 to 10 - mssim - {v}")
-        
-    # 3D ssim
-    x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1))
-    y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1))
-    v = msssim_loss(x, y)
-    print(f"sigma 1 to 10 - mssim - {v}")
-
-    print("-----------------------")
-
-    # loss code
-    x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
-    y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
-   
-    msssim_loss = MSSSIM_Loss(window_size=3, data_range=128, device=device, complex_i=False)
-    
-    for k in range(N):
-        v = msssim_loss(torch.unsqueeze(x[k], dim=0), torch.unsqueeze(y[k], dim=0), weights=torch.ones(1, device=device))
-        print(f"msssim loss - {v}")
-
-    print("-----------------------")
-
-    # loss code
-    x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
-    y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
-
-    gauss_loss = GaussianDeriv_Loss(sigmas=[0.25, 0.5, 1.0, 1.5], device=device, complex_i=False)
-
-    for k in range(N):
-        v = gauss_loss(torch.unsqueeze(x[k], dim=0), torch.unsqueeze(y[k], dim=0), weights=torch.ones(1, device=device))
-        print(f"gauss loss - {v}")
-
-    print("-----------------------")
-
-    # loss code
-    x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
-    y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
-
-    gauss_loss = GaussianDeriv3D_Loss(sigmas=[0.25, 0.5, 1.0, 1.25], sigmas_T=[0.25, 0.5, 0.5, 0.5], device=device, complex_i=False)
-
-    for k in range(N):
-        v = gauss_loss(torch.unsqueeze(x[k], dim=0), torch.unsqueeze(y[k], dim=0), weights=torch.ones(1, device=device))
-        print(f"gauss 3D loss - {v}")
-
-    print("Passed all tests")
+    # --------------------------------------------------------------------
 
 if __name__=="__main__":
     tests()

@@ -70,7 +70,7 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
     if device == torch.device('cpu'):
         batch_size = 32
     
-    dtype = torch.float32
+    torch_dtype = torch.float32
     if is_torch_model or is_script_model:
         if is_script_model:
             model.cuda()
@@ -149,7 +149,7 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
                 x_in = torch.from_numpy(image_batch[i:i+batch_size]).to(device=device, dtype=torch_dtype)
                 x_in = torch.permute(x_in, (0, 2, 1, 3, 4))
 
-                with torch.autocast(device_type='cuda', dtype=dtype, enabled=(not is_script_model)):
+                with torch.autocast(device_type='cuda', dtype=torch_dtype, enabled=(not is_script_model)):
                     res, res_1st_net = model(x_in)
 
                 res = res.cpu().detach().to(dtype=torch.float32).numpy()

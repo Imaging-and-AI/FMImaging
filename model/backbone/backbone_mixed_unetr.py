@@ -689,8 +689,10 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
             - y_hat (5D torch.Tensor): output tensor, [B, T, Cout, H, W]
         """
 
+        tm = start_timer(enable=self.with_timer)
         x = self.permute(x)
-
+        end_timer(enable=self.with_timer, t=tm, msg="x = self.permute(x)")
+        
         B, T, Cin, H, W = x.shape
 
         # apply the window partition
@@ -975,7 +977,10 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
         else:
             y_hat = y_w
             
+        tm = start_timer(enable=self.with_timer)
         y_hat = self.permute(y_hat)
+        end_timer(enable=self.with_timer, t=tm, msg="y_hat = self.permute(y_hat)")
+        
         return [y_hat]
 
     def __str__(self):
@@ -985,19 +990,23 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
 
 def run_test(config, data_shape=(1, 128, 1, 256, 256), num_resolution_levels=4, separable_conv=True, use_einsum=True, use_conv_3d=True, transformer_for_upsampling=0, use_window_partition=True, min_run_time=5):
     
+    from setup.config_utils import Nestedspace    
+    from setup.setup_base import parse_config
     from utils.benchmark import benchmark_all, benchmark_memory, pytorch_profiler
-    from utils.setup_training import set_seed
+    from setup.setup_utils import set_seed
     from colorama import Fore, Style
     
     device = get_device()
 
-    B,T,C,H,W = data_shape
-    test_in = torch.rand(B,T,C,H,W, dtype=torch.float32, device=device)
+    B,C,T,H,W = data_shape
+    test_in = torch.rand(B,C,T,H,W, dtype=torch.float32, device=device)
+
+    config = parse_config()
 
     config.no_in_channel = C
     config.C_out = C
-    config.height = [H]
-    config.width = [W]
+    config.height = H
+    config.width = W
     config.batch_size = B
     config.time = T
     config.norm_mode = "instance2d"
@@ -1031,6 +1040,8 @@ def run_test(config, data_shape=(1, 128, 1, 256, 256), num_resolution_levels=4, 
     
     config.complex_i = False
 
+    config.backbone_mixed_unetr = Nestedspace()
+
     config.backbone_mixed_unetr.block_str = ["T1L1G1",
                         "T1L1G1",
                         "T1L1G1",
@@ -1058,6 +1069,17 @@ def run_test(config, data_shape=(1, 128, 1, 256, 256), num_resolution_levels=4, 
     config.separable_conv = separable_conv
     config.stride_s = 1
 
+    config.mixer_kernel_size = 3
+    config.mixer_stride = 1
+    config.mixer_padding = 1
+
+    config.mixer_type = 'conv'
+    config.shuffle_in_window = False
+    config.temporal_flash_attention = False 
+    config.activation_func = 'prelu'
+
+    config.upsample_method = 'linear'
+    
     config.with_timer = True
     print(f"{Fore.GREEN}-------------> STCNNT_mixed_Unetr, einsum-{config.use_einsum}-stride_s-{config.stride_s}-separable_conv-{config.separable_conv}-use_conv_3d-{config.backbone_mixed_unetr.use_conv_3d}-transformer_for_upsampling-{transformer_for_upsampling} <----------------------{Style.RESET_ALL}")
     model = STCNNT_Mixed_Unetr(config=config)
@@ -1068,7 +1090,7 @@ def run_test(config, data_shape=(1, 128, 1, 256, 256), num_resolution_levels=4, 
             model.with_timer = k==9
             y = model(test_in)
             if k==9:
-                print(f"input shape - {test_in.shape}, output shape - {y.shape}")
+                print(f"input shape - {test_in.shape}, output shape - {y[0].shape}")
 
     model.with_timer = False
     benchmark_all(model, test_in, grad=None, min_run_time=min_run_time, desc='STCNNT_mixed_Unetr', verbose=True, amp=True, amp_dtype=torch.bfloat16)
@@ -1080,14 +1102,13 @@ def run_test(config, data_shape=(1, 128, 1, 256, 256), num_resolution_levels=4, 
 def tests():
 
     import copy
-
-    parser = add_backbone_STCNNT_args()
-    ns = Nestedspace()
-    config_base = parser.parse_args(namespace=ns)
-
+    from setup.setup_base import parse_config
+    
+    config_base = parse_config()
+    
     # -----------------------------------------------------
 
-    data_shape = (1, 16, 1, 256, 256)
+    data_shape = (1, 1, 8, 256, 256)
     num_resolution_levels = 4
 
     for separable_conv in [False, True]:
@@ -1101,7 +1122,7 @@ def tests():
 
     # -----------------------------------------------------
 
-    data_shape = (8, 1, 3, 256, 256)
+    data_shape = (8, 3, 1, 256, 256)
     num_resolution_levels = 2
 
     for separable_conv in [False, True]:
@@ -1114,7 +1135,7 @@ def tests():
                                         use_window_partition=use_window_partition, min_run_time=2)
 
     # -----------------------------------------------------
-    data_shape = (1, 12, 1, 64, 64)
+    data_shape = (1, 1, 12, 64, 64)
     num_resolution_levels = 2
 
     for separable_conv in [False, True]:
@@ -1146,9 +1167,10 @@ def test2():
                                     img_width,
                                     img_depth):
 
-        parser = add_backbone_STCNNT_args()
-
-        config = parser.parse_args(args=[],namespace=Nestedspace())
+        from setup.setup_base import parse_config
+    
+        config = parse_config()
+        
         config.no_in_channel = num_channels
         config.C_out = num_classes
         config.time = img_depth
@@ -1203,6 +1225,17 @@ def test2():
         config.norm_mode='instance2d'
         config.cell_type='sequential'
 
+        config.mixer_kernel_size = 3
+        config.mixer_stride = 1
+        config.mixer_padding = 1
+
+        config.mixer_type = 'conv'
+        config.shuffle_in_window = False
+        config.temporal_flash_attention = False 
+        config.activation_func = 'prelu'
+
+        config.upsample_method = 'linear'
+
         return config
 
 
@@ -1221,7 +1254,7 @@ def test2():
     model = STCNNT_Mixed_Unetr(config=model_config)
     model.to(device=device)
     
-    inimg = torch.ones((2,1,n_ch,xy,xy), device=device)
+    inimg = torch.ones((2,n_ch,1,xy,xy), device=device)
 
     print(f"model_input is {inimg.shape}")
     model_out = model(inimg)

@@ -569,23 +569,23 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
 
 def tests():
 
+    from setup.config_utils import Nestedspace    
+    from setup.setup_base import parse_config
     from utils.benchmark import benchmark_all, benchmark_memory, pytorch_profiler
-    from utils.setup_training import set_seed
+    from setup.setup_utils import set_seed
     from colorama import Fore, Style
 
     device = get_device()
         
-    B,T,C,H,W = 1, 12, 1, 256, 256
-    test_in = torch.rand(B,T,C,H,W, dtype=torch.float32, device=device)
+    B,C,T,H,W = 1, 12, 1, 256, 256
+    test_in = torch.rand(B,C,T,H,W, dtype=torch.float32, device=device)
     
-    parser = add_backbone_STCNNT_args()
-    ns = Nestedspace()
-    config = parser.parse_args(namespace=ns)
+    config = parse_config()
     
     config.no_in_channel = C
     config.C_out = C
-    config.height = [H]
-    config.width = [W]
+    config.height = H
+    config.width = W
     config.batch_size = B
     config.time = T
     config.norm_mode = "instance3d"
@@ -614,8 +614,26 @@ def tests():
 
     config.complex_i = False
 
+    config.mixer_kernel_size = 3
+    config.mixer_stride = 1
+    config.mixer_padding = 1
+
+    config.mixer_type = 'conv'
+    config.shuffle_in_window = False
+    config.temporal_flash_attention = False 
+    config.activation_func = 'prelu'
+
+    config.upsample_method = 'linear'   
     # ---------------------------------------------------------------------
 
+    config.backbone_unet = Nestedspace()
+    
+    config.backbone_unet.C = 32
+    config.backbone_unet.num_resolution_levels = 4
+    config.backbone_unet.use_unet_attention = True
+    config.backbone_unet.use_interpolation = True
+    config.backbone_unet.with_conv = True
+    
     config.backbone_unet.block_str = ["C2C2C2",
                         "C3C3C3",
                         "C2C2C2",

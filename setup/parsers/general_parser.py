@@ -71,7 +71,7 @@ class general_parser(object):
 
         # Model args
         self.parser.add_argument('--pre_model', type=str, default="Identity", choices=['Identity'], help="Which pre model to use")
-        self.parser.add_argument('--backbone_model', type=str, default="omnivore_tiny", choices=['Identity',
+        self.parser.add_argument('--backbone_model', type=str, default="STCNNT_HRNET", choices=['Identity',
                                                                                                  'omnivore_tiny',
                                                                                                  'omnivore_small',
                                                                                                  'omnivore_base',

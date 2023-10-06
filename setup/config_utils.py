@@ -44,6 +44,8 @@ def config_to_yaml(config, save_path):
     with open(yaml_file, "w", encoding = "utf-8") as yaml_file:
         dump = yaml.dump(config, default_flow_style = False, allow_unicode = True, encoding = None)
         yaml_file.write(dump)
+        
+    return yaml_file
 
 def yaml_to_config(yaml_path, new_log_dir, new_run_name):
     """Load yaml into nestedspace config"""

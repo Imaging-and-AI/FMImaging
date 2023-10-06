@@ -167,7 +167,7 @@ class MRITrainManager(TrainManager):
             num_workers_per_loader = num_workers_per_loader // local_world_size
             num_workers_per_loader = 1 if num_workers_per_loader<1 else num_workers_per_loader
 
-        logging.info(f"{rank_str}, {Fore.YELLOW}Local_world_size {local_world_size}, number of datasets {len(self.train_sets)}, cpu {os.cpu_count()}, number of workers per loader is {num_workers_per_loader}{Style.RESET_ALL}")
+        logging.info(f"{rank_str}, {Fore.YELLOW}Local_world_size {local_world_size}, number of datasets {len(self.train_sets)}, cpu {os.cpu_count()}, number of workers per loader is {num_workers_per_loader}, yaml file for this run is {self.config.yaml_file}{Style.RESET_ALL}")
 
         if isinstance(self.train_sets,list):
             train_loaders = [DataLoader(dataset=train_set, batch_size=c.batch_size, shuffle=shuffle, sampler=samplers[ind],
@@ -193,6 +193,8 @@ class MRITrainManager(TrainManager):
 
                 wandb_run.summary["block_str"] = f"{block_str}"
                 wandb_run.summary["post_block_str"] = f"{post_block_str}"
+
+                wandb_run.save(self.config.yaml_file)
 
             # log a few training examples
             for i, train_set_x in enumerate(self.train_sets):
@@ -397,7 +399,7 @@ class MRITrainManager(TrainManager):
 
                         train_snr_meter.update(torch.mean(snr), n=x.shape[0])
 
-                        tra_save_images = idx%image_save_step_size==0 and images_saved < config.num_saved_samples and config.save_samples
+                        tra_save_images = idx%image_save_step_size==0 and images_saved < config.num_saved_samples and config.save_train_samples
                         self.metric_manager.on_train_step_end(loss.item(), model_output, loader_outputs, rank, curr_lr, tra_save_images, epoch, images_saved)
                         images_saved += 1
 
@@ -550,6 +552,10 @@ class MRITrainManager(TrainManager):
         total_iters = sum([len(data_loader) for data_loader in data_loaders]) if not c.debug else 3
         
         # ------------------------------------------------------------------------
+        
+        images_logged = 0
+        
+        # ------------------------------------------------------------------------
         # Evaluation loop
         with torch.inference_mode():
             with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
@@ -576,7 +582,7 @@ class MRITrainManager(TrainManager):
                     x = x.to(device)
                     y = y.to(device)
 
-                    if batch_size >1 and x.shape[-1]==c.width[-1]:
+                    if batch_size >1 and x.shape[-1]==c.mri_width[-1]:
                         output, output_1st_net = self.model_manager(x)
                     else:
                         B, C, T, H, W = x.shape
@@ -586,8 +592,8 @@ class MRITrainManager(TrainManager):
                         cutout_in = cutout
                         overlap_in = overlap
                         if not self.config.pad_time:
-                            cutout_in = (T, c.height[-1], c.width[-1])
-                            overlap_in = (0, c.height[-1]//2, c.width[-1]//2)
+                            cutout_in = (T, c.mri_height[-1], c.mri_width[-1])
+                            overlap_in = (0, c.mri_height[-1]//2, c.mri_width[-1]//2)
 
                         try:
                             _, output = running_inference(self.model_manager, x, cutout=cutout_in, overlap=overlap_in, device=device)
@@ -597,13 +603,12 @@ class MRITrainManager(TrainManager):
                             _, output = running_inference(self.model_manager, x, cutout=cutout_in, overlap=overlap_in, device="cpu")
                             y = y.to("cpu")
 
+                        x = torch.permute(x, (0, 2, 1, 3, 4))
                         output = torch.permute(output, (0, 2, 1, 3, 4))
 
                     if scaling_factor > 0:
                         output /= scaling_factor
                         if output_1st_net is not None: output_1st_net /= scaling_factor
-
-                    total = x.shape[0]
 
                     # Update evaluation metrics
                     self.metric_manager.on_eval_step_end(-1, output, loader_outputs, f"{idx}", rank, save_samples, split)
@@ -615,8 +620,8 @@ class MRITrainManager(TrainManager):
                             output_1st_net = output
                         vid = self.save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True), y_2x.numpy(force=True), output_1st_net.numpy(force=True))
                         wandb_run.log({title: wandb.Video(vid, 
-                                                        caption=f"epoch {epoch}, gmap {torch.mean(gmaps_median).item():.2f}, noise {torch.mean(noise_sigmas).item():.2f}, mse {self.metric_manager.eval_metrics['mst'].avg:.2f}, ssim {self.metric_manager.eval_metrics['ssim'].avg:.2f}, psnr {self.metric_manager.eval_metrics['psnr'].avg:.2f}", 
-                                                        fps=1, format="gif")})
+                            caption=f"epoch {epoch}, gmap {torch.mean(gmaps_median).item():.2f}, noise {torch.mean(noise_sigmas).item():.2f}, mse {self.metric_manager.eval_metrics['mse'].avg:.2f}, ssim {self.metric_manager.eval_metrics['ssim'].avg:.2f}, psnr {self.metric_manager.eval_metrics['psnr'].avg:.2f}", 
+                            fps=1, format="gif")})
                     
                     # Print evaluation metrics to terminal
                     pbar.update(1)
@@ -667,7 +672,7 @@ class MRITrainManager(TrainManager):
         return 
 
 
-    def create_log_str(config, epoch, rank, data_shape, gmap_median, noise_sigma, snr, loss_meters, curr_lr, role):
+    def create_log_str(self, config, epoch, rank, data_shape, gmap_median, noise_sigma, snr, loss_meters, curr_lr, role):
         if data_shape is not None:
             data_shape_str = f"{data_shape[-1]}, "
         else:

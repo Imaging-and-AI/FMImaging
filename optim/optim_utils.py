@@ -44,7 +44,7 @@ def divide_optim_into_groups(optim, group, all_w_decay):
     pre_optim_state = {}
     for k in np.arange(0,num_pre_optim_params):
         if k in optim_state.keys(): pre_optim_state[k] = optim_state[k]
-    if group=='pre': return {'state':pre_optim_state, 'param_groups':pre_optim_param_groups, 'curr_epoch':optim.curr_epoch}
+    if group=='pre': return {'state':pre_optim_state, 'param_groups':pre_optim_param_groups}
     
     if all_w_decay:
         backbone_optim_param_groups = optim_param_groups[2:4]
@@ -54,7 +54,7 @@ def divide_optim_into_groups(optim, group, all_w_decay):
     backbone_optim_state = {}
     for k in np.arange(num_pre_optim_params,num_pre_optim_params+num_backbone_optim_params):
         if k in optim_state.keys(): backbone_optim_state[k] = optim_state[k]
-    if group=='backbone': return {'state':backbone_optim_state, 'param_groups':backbone_optim_param_groups, 'curr_epoch':optim.curr_epoch}
+    if group=='backbone': return {'state':backbone_optim_state, 'param_groups':backbone_optim_param_groups}
 
     if all_w_decay:
         post_optim_param_groups = optim_param_groups[4:]
@@ -64,7 +64,7 @@ def divide_optim_into_groups(optim, group, all_w_decay):
     post_optim_state = {}
     for k in np.arange(num_pre_optim_params+num_backbone_optim_params,num_pre_optim_params+num_backbone_optim_params+num_post_optim_params):
         if k in optim_state.keys(): post_optim_state[k] = optim_state[k]
-    if group=='post': return {'state':post_optim_state, 'param_groups':post_optim_param_groups, 'curr_epoch':optim.curr_epoch}
+    if group=='post': return {'state':post_optim_state, 'param_groups':post_optim_param_groups}
 
     raise ValueError(f"Unknown group specified for optim split: {group}")
 

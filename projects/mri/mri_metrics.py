@@ -43,6 +43,8 @@ class MriMetricManager(MetricManager):
     # ---------------------------------------------------------------------------------------
     def setup_wandb_and_metrics(self, rank):
 
+        self.best_val_loss = np.inf
+        
         device = self.config.device
 
         self.mse_loss_func = MSE_Loss(complex_i=self.config.complex_i)
@@ -144,12 +146,25 @@ class MriMetricManager(MetricManager):
     # ---------------------------------------------------------------------------------------
     def on_train_step_end(self, loss, output, labels, rank, curr_lr, save_samples, epoch, ids):
           
+        x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = labels
+        if len(output) == 3:
+            y_hat, weights, output_1st_net = output
+        else:
+            y_hat, output_1st_net = output
+        
+        y_for_loss = y
+        if self.config.super_resolution:
+            y_for_loss = y_2x
+                
+        y_hat = y_hat.to(torch.float32)
+        y_for_loss = y_for_loss.to(device=y_hat.device, dtype=torch.float32)
+        
         for metric_name in self.train_metrics.keys():
             if metric_name=='loss':
-                self.train_metrics[metric_name].update(loss, n=output.shape[0])
+                self.train_metrics[metric_name].update(loss, n=x.shape[0])
             else:
-                metric_value = self.train_metric_functions[metric_name](output, labels)
-                self.train_metrics[metric_name].update(metric_value.item(), n=output.shape[0])
+                metric_value = self.train_metric_functions[metric_name](y_hat, y_for_loss)
+                self.train_metrics[metric_name].update(metric_value.item(), n=x.shape[0])
 
         if rank<=0: 
             self.wandb_run.log({"lr": curr_lr})
@@ -159,45 +174,43 @@ class MriMetricManager(MetricManager):
             save_path = os.path.join(self.config.log_dir,self.config.run_name,'saved_samples', 'tra')
             os.makedirs(save_path, exist_ok=True)
             
-            x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = labels
-            if len(output) == 3:
-                output, weights, output_1st_net = output
-            else:
-                output, output_1st_net = output
-            
-            y_for_loss = y
-            if self.config.super_resolution:
-                y_for_loss = y_2x
-                    
             if output_1st_net is not None: output_1st_net = output_1st_net.detach().cpu()
-            self.save_batch_samples(save_path, f"epoch_{epoch}_{ids}", x.cpu(), y.cpu(), output.detach().cpu(), y_for_loss.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item(), output_1st_net)
+            self.save_batch_samples(save_path, f"epoch_{epoch}_{ids}", x.cpu(), y.cpu(), y_hat.detach().cpu(), y_for_loss.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item(), output_1st_net)
 
     # ---------------------------------------------------------------------------------------
     def on_eval_step_end(self, loss, output, labels, ids, rank, save_samples, split):
+        
+        x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = labels
+        if isinstance(output, list):
+            if len(output) == 3:
+                y_hat, weights, output_1st_net = output
+            else:
+                y_hat, output_1st_net = output
+        else:
+            y_hat = output
+            output_1st_net = None
+        
+        y_for_loss = y
+        if self.config.super_resolution:
+            y_for_loss = y_2x
+                
+        y_hat = y_hat.to(torch.float32)
+        y_for_loss = y_for_loss.to(device=y_hat.device, dtype=torch.float32)
+        
         for metric_name in self.eval_metrics.keys():
             if metric_name=='loss':
-                self.eval_metrics[metric_name].update(loss, n=output.shape[0])
+                self.eval_metrics[metric_name].update(loss, n=x.shape[0])
             else:
-                metric_value = self.eval_metric_functions[metric_name](output, labels)
-                self.eval_metrics[metric_name].update(metric_value.item(), n=output.shape[0])
+                metric_value = self.eval_metric_functions[metric_name](y_hat, y_for_loss)
+                self.eval_metrics[metric_name].update(metric_value.item(), n=x.shape[0])
 
         # Save outputs if desired
         if save_samples and rank<=0:
             save_path = os.path.join(self.config.log_dir,self.config.run_name,'saved_samples',split)
             os.makedirs(save_path, exist_ok=True)
-            
-            x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = labels
-            if len(output) == 3:
-                output, weights, output_1st_net = output
-            else:
-                output, output_1st_net = output
-            
-            y_for_loss = y
-            if self.config.super_resolution:
-                y_for_loss = y_2x
-                    
+                               
             if output_1st_net is not None: output_1st_net = output_1st_net.detach().cpu()
-            self.save_batch_samples(save_path, f"{ids}", x.cpu(), y.cpu(), output.detach().cpu(), y_for_loss.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item(), output_1st_net)
+            self.save_batch_samples(save_path, f"{ids}", x.cpu(), y.cpu(), y_hat.detach().cpu(), y_for_loss.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item(), output_1st_net)
             
     # ---------------------------------------------------------------------------------------        
     def on_eval_epoch_end(self, rank, epoch, model_manager, optim, sched, split, final_eval):
@@ -238,7 +251,7 @@ class MriMetricManager(MetricManager):
 
                 # Save model and update best metrics
                 if checkpoint_model:
-                    model_epoch.save('best_checkpoint', epoch, optim, sched)   
+                    model_epoch.save(f"best_checkpoint_epoch_{epoch}", epoch, optim, sched)   
                     self.wandb_run.log({"epoch":epoch, "best_val_loss":self.best_val_loss})
 
                 # Update wandb with eval metrics
@@ -266,7 +279,7 @@ class MriMetricManager(MetricManager):
             self.wandb_run.finish() 
         
     # ---------------------------------------------------------------------------------------
-    def save_batch_samples(saved_path, fname, x, y, output, y_2x, y_degraded, gmap_median, noise_sigma, output_1st_net):
+    def save_batch_samples(self, saved_path, fname, x, y, output, y_2x, y_degraded, gmap_median, noise_sigma, output_1st_net):
 
         noisy_im = x.numpy()
         clean_im = y.numpy()

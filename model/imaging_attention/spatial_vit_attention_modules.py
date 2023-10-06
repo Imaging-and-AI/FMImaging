@@ -412,7 +412,7 @@ def tests():
 def benchmark():
 
     from utils.benchmark import benchmark_all, benchmark_memory, pytorch_profiler
-    from utils.setup_training import set_seed
+    from setup.setup_utils import set_seed
     from colorama import Fore, Style
 
     set_seed(seed=53)
