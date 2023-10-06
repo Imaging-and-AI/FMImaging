@@ -109,10 +109,10 @@ class Conv2DExt(nn.Module):
     # Extends torch 2D conv to support 5D inputs
     # if channel_as_1st_dim is True, input x is [B, C, T, H, W]
     # if channel_as_1st_dim is False, input x is [B, T, C, H, W]
-    def __init__(self, in_channels, out_channels, kernel_size=[3,3], stride=[1,1], padding=[1,1], bias=False, separable_conv=False, channel_as_1st_dim=False):
+    def __init__(self, in_channels, out_channels, kernel_size=[3,3], stride=[1,1], padding=[1,1], bias=False, separable_conv=False, channel_fist=False):
         super().__init__()
         self.separable_conv = separable_conv
-        self.channel_as_1st_dim = channel_as_1st_dim
+        self.channel_fist = channel_fist
         if separable_conv:
             self.convA = nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias, groups=in_channels)
             self.convB = nn.Conv2d(in_channels, out_channels, kernel_size=[1,1], stride=[1,1], padding=[0,0], bias=bias)
@@ -121,26 +121,24 @@ class Conv2DExt(nn.Module):
 
     def forward(self, input):
         # requires input to have 5 dimensions
-        if self.channel_as_1st_dim:
+        if self.channel_fist:
             B, C, T, H, W = input.shape
             x = torch.permute(input, [0, 2, 1, 3, 4])
-            if self.separable_conv:
-                y = self.convB(self.convA(x.reshape((B*T, C, H, W))))
-            else:
-                y = self.conv(x.reshape((B*T, C, H, W)))
-
-            y = y.reshape([B, T, *y.shape[1:]])
-            y = torch.permute(y, [0, 2, 1, 3, 4])
-
-            return y
         else:
             B, T, C, H, W = input.shape
-            if self.separable_conv:
-                y = self.convB(self.convA(input.reshape((B*T, C, H, W))))
-            else:
-                y = self.conv(input.reshape((B*T, C, H, W)))
+            x = input
+            
+        if self.separable_conv:
+            y = self.convB(self.convA(x.reshape((B*T, C, H, W))))
+        else:
+            y = self.conv(x.reshape((B*T, C, H, W)))
 
-            return y.reshape([B, T, *y.shape[1:]])
+        y = y.reshape([B, T, *y.shape[1:]])
+        
+        if self.channel_fist:
+            y = torch.permute(y, [0, 2, 1, 3, 4])
+        
+        return y
 
 class Conv2DGridExt(nn.Module):
     # Extends torch 2D conv for grid attention with 7D inputs

@@ -87,11 +87,11 @@ class mri_parser(object):
         self.parser.add_argument("--not_load_backbone", action="store_true", help='if set, backbone module will not be loaded.')
         self.parser.add_argument("--not_load_post", action="store_true", help='if set, pre module will not be loaded.')
 
-        self.parser.add_argument("--disable_pre", action="store_true", help='if set, pre module will have require_grad_(False).')
-        self.parser.add_argument("--disable_backbone", action="store_true", help='if set, backbone module will have require_grad_(False).')
-        self.parser.add_argument("--disable_post", action="store_true", help='if set, post module will have require_grad_(False).')
+        # self.parser.add_argument("--disable_pre", action="store_true", help='if set, pre module will have require_grad_(False).')
+        # self.parser.add_argument("--disable_backbone", action="store_true", help='if set, backbone module will have require_grad_(False).')
+        # self.parser.add_argument("--disable_post", action="store_true", help='if set, post module will have require_grad_(False).')
 
-        self.parser.add_argument('--post_backbone', type=str, default="hrnet", help="model for post module, 'hrnet', 'mixed_unetr' ")
+        self.parser.add_argument('--post_backbone', type=str, default="STCNNT_HRNET", choices=["STCNNT_HRNET", "STCNNT_mUNET"], help="model for post module, 'STCNNT_HRNET', 'STCNNT_mUNET' ")
         self.parser.add_argument('--post_hrnet.block_str', dest='post_hrnet.block_str', nargs='+', type=str, default=['T1L1T1G1', 'T1L1T1G1'], help="hrnet MR post network block string, from the low resolution level to high resolution level.")
         self.parser.add_argument('--post_hrnet.separable_conv', dest='post_hrnet.separable_conv', action="store_true", help="post network, whether to use separable convolution.")
 
@@ -108,7 +108,7 @@ class mri_parser(object):
 
         # training
         self.parser.add_argument('--num_uploaded', type=int, default=12, help='number of images uploaded to wandb')
-
-        self.parser.add_argument("--model_type", type=str, default="STCNNT_MRI", help="STCNNT_MRI or MRI_hrnet, MRI_double_net")
+        self.parser.add_argument("--num_saved_samples", type=int, default=32, help='number of samples to save')
+        self.parser.add_argument("--model_type", type=str, default="STCNNT_MRI", choices=["STCNNT_MRI", "MRI_hrnet", "MRI_double_net"],  help="STCNNT_MRI or MRI_hrnet, MRI_double_net")
 
     

@@ -40,7 +40,7 @@ from utils.status import model_info
 
 from backbone_base import STCNNT_Base_Runtime, set_window_patch_sizes_keep_num_window, set_window_patch_sizes_keep_window_size, DownSample, UpSample
 
-__all__ = ['STCNNT_Unet_model']
+__all__ = ['STCNNT_Unet_model', 'STCNNT_Unet']
 
 #-------------------------------------------------------------------------------------
 def STCNNT_Unet_model(config, pre_feature_channels):
@@ -48,8 +48,10 @@ def STCNNT_Unet_model(config, pre_feature_channels):
     Simple function to return STCCNT Unet model.
     Additionally, function computes feature_channels, a list of ints containing the number of channels in each feature returned by the model.
     """
+    C_in = config.no_in_channel
     config.no_in_channel = pre_feature_channels[-1]
     model = STCNNT_Unet(config=config)
+    config.no_in_channel = C_in
     feature_channels = [int(config.backbone_unet.C)]
     return model, feature_channels
 

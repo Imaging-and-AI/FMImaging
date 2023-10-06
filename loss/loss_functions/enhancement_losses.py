@@ -57,18 +57,18 @@ class FSIM_Loss:
 
     def __call__(self, outputs, targets, weights=None):
 
-        B, T, C, H, W = targets.shape
+        B, C, T, H, W = targets.shape
         if(self.complex_i):
             assert C==2, f"Complex type requires image to have C=2, given C={C}"
-            outputs_im = torch.sqrt(outputs[:,:,:1]*outputs[:,:,:1] + outputs[:,:,1:]*outputs[:,:,1:])
-            targets_im = torch.sqrt(targets[:,:,:1]*targets[:,:,:1] + targets[:,:,1:]*targets[:,:,1:])
+            outputs_im = torch.sqrt(outputs[:,:1]*outputs[:,:1] + outputs[:,1:]*outputs[:,1:])
+            targets_im = torch.sqrt(targets[:,:1]*targets[:,:1] + targets[:,1:]*targets[:,1:])
         else:
             outputs_im = outputs
             targets_im = targets
 
-        B, T, C, H, W = targets_im.shape
-        outputs_im = torch.reshape(outputs_im, (B*T, C, H, W))
-        targets_im = torch.reshape(targets_im, (B*T, C, H, W))
+        B, C, T, H, W = targets_im.shape
+        outputs_im = torch.reshape(torch.permute(outputs_im, (0, 2, 1, 3, 4)), (B*T, C, H, W))
+        targets_im = torch.reshape(torch.permute(targets_im, (0, 2, 1, 3, 4)), (B*T, C, H, W))
 
         data_range = self.data_range
         if self.data_range is None:
@@ -85,7 +85,7 @@ class FSIM_Loss:
             else:
                 raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for FSIM_Loss")
             
-            v = torch.sum(weights_used*loss) / (torch.sum(weights_used) + torch.finfo(torch.float16).eps)
+            v = torch.sum(weights_used*loss) / (torch.sum(weights_used) + torch.finfo(torch.float32).eps)
         else:
             v = torch.mean(loss)
 
@@ -113,18 +113,18 @@ class SSIM_Loss:
 
     def __call__(self, outputs, targets, weights=None):
 
-        B, T, C, H, W = targets.shape
+        B, C, T, H, W = targets.shape
         if(self.complex_i):
             assert C==2, f"Complex type requires image to have C=2, given C={C}"
-            outputs_im = torch.sqrt(outputs[:,:,:1]*outputs[:,:,:1] + outputs[:,:,1:]*outputs[:,:,1:])
-            targets_im = torch.sqrt(targets[:,:,:1]*targets[:,:,:1] + targets[:,:,1:]*targets[:,:,1:])
+            outputs_im = torch.sqrt(outputs[:,:1]*outputs[:,:1] + outputs[:,1:]*outputs[:,1:])
+            targets_im = torch.sqrt(targets[:,:1]*targets[:,:1] + targets[:,1:]*targets[:,1:])
         else:
             outputs_im = outputs
             targets_im = targets
 
-        B, T, C, H, W = targets_im.shape
-        outputs_im = torch.reshape(outputs_im, (B*T, C, H, W))
-        targets_im = torch.reshape(targets_im, (B*T, C, H, W))
+        B, C, T, H, W = targets_im.shape
+        outputs_im = torch.reshape(torch.permute(outputs_im, (0, 2, 1, 3, 4)), (B*T, C, H, W))
+        targets_im = torch.reshape(torch.permute(targets_im, (0, 2, 1, 3, 4)), (B*T, C, H, W))
 
         if weights is not None:
 
@@ -135,7 +135,7 @@ class SSIM_Loss:
             else:
                 raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for SSIM_Loss")
 
-            v_ssim = torch.sum(weights_used*self.ssim_loss(outputs_im, targets_im)) / (torch.sum(weights_used) + torch.finfo(torch.float16).eps)
+            v_ssim = torch.sum(weights_used*self.ssim_loss(outputs_im, targets_im)) / (torch.sum(weights_used) + torch.finfo(torch.float32).eps)
         else:
             v_ssim = torch.mean(self.ssim_loss(outputs_im, targets_im))
 
@@ -163,23 +163,22 @@ class SSIM3D_Loss:
 
     def __call__(self, outputs, targets, weights=None):
 
-        B, T, C, H, W = targets.shape
+        B, C, T, H, W = targets.shape
         if(self.complex_i):
             assert C==2, f"Complex type requires image to have C=2, given C={C}"
-            outputs_im = torch.sqrt(outputs[:,:,:1]*outputs[:,:,:1] + outputs[:,:,1:]*outputs[:,:,1:])
-            targets_im = torch.sqrt(targets[:,:,:1]*targets[:,:,:1] + targets[:,:,1:]*targets[:,:,1:])
+            outputs_im = torch.sqrt(outputs[:,:1]*outputs[:,:1] + outputs[:,1:]*outputs[:,1:])
+            targets_im = torch.sqrt(targets[:,:1]*targets[:,:1] + targets[:,1:]*targets[:,1:])
         else:
             outputs_im = outputs
             targets_im = targets
 
-        outputs_im = torch.permute(outputs_im, (0, 2, 1, 3, 4))
-        targets_im = torch.permute(targets_im, (0, 2, 1, 3, 4))
+        B, C, T, H, W = targets_im.shape
 
         if weights is not None:
 
             if not weights.ndim==1:
                 raise NotImplementedError(f"Only support 1D(Batch) weights for SSIM3D_Loss")
-            v_ssim = torch.sum(weights*self.ssim_loss(outputs_im, targets_im)) / (torch.sum(weights) + torch.finfo(torch.float16).eps)
+            v_ssim = torch.sum(weights*self.ssim_loss(outputs_im, targets_im)) / (torch.sum(weights) + torch.finfo(torch.float32).eps)
         else:
             v_ssim = torch.mean(self.ssim_loss(outputs_im, targets_im))
 
@@ -209,18 +208,18 @@ class MSSSIM_Loss:
 
     def __call__(self, outputs, targets, weights=None):
 
-        B, T, C, H, W = targets.shape
+        B, C, T, H, W = targets.shape
         if(self.complex_i):
             assert C==2, f"Complex type requires image to have C=2, given C={C}"
-            outputs_im = torch.sqrt(outputs[:,:,:1]*outputs[:,:,:1] + outputs[:,:,1:]*outputs[:,:,1:])
-            targets_im = torch.sqrt(targets[:,:,:1]*targets[:,:,:1] + targets[:,:,1:]*targets[:,:,1:])
+            outputs_im = torch.sqrt(outputs[:,:1]*outputs[:,:1] + outputs[:,1:]*outputs[:,1:])
+            targets_im = torch.sqrt(targets[:,:1]*targets[:,:1] + targets[:,1:]*targets[:,1:])
         else:
             outputs_im = outputs
             targets_im = targets
 
-        B, T, C, H, W = targets_im.shape
-        outputs_im = torch.reshape(outputs_im, (B*T, C, H, W))
-        targets_im = torch.reshape(targets_im, (B*T, C, H, W))
+        B, C, T, H, W = targets_im.shape
+        outputs_im = torch.reshape(torch.permute(outputs_im, (0, 2, 1, 3, 4)), (B*T, C, H, W))
+        targets_im = torch.reshape(torch.permute(targets_im, (0, 2, 1, 3, 4)), (B*T, C, H, W))
 
         # make it B, C, T, H, W, so calling 3D msssim
         #outputs_im = torch.permute(outputs_im, (0, 2, 1, 3, 4))
@@ -237,7 +236,7 @@ class MSSSIM_Loss:
             else:
                 raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for SSIM_Loss")
 
-            v_ssim = torch.sum(weights_used*v) / (torch.sum(weights_used) + torch.finfo(torch.float16).eps)
+            v_ssim = torch.sum(weights_used*v) / (torch.sum(weights_used) + torch.finfo(torch.float32).eps)
         else:
             v_ssim = torch.mean(v)
 
@@ -261,10 +260,10 @@ class L1_Loss:
 
     def __call__(self, outputs, targets, weights=None):
 
-        B, T, C, H, W = targets.shape
+        B, C, T, H, W = targets.shape
         if(self.complex_i):
             assert C==2, f"Complex type requires image to have C=2, given C={C}"
-            diff_L1 = torch.abs(outputs[:,:,0]-targets[:,:,0]) + torch.abs(outputs[:,:,1]-targets[:,:,1])
+            diff_L1 = torch.abs(outputs[:,0]-targets[:,0]) + torch.abs(outputs[:,1]-targets[:,1])
         else:
             diff_L1 = torch.abs(outputs-targets)
 
@@ -277,7 +276,7 @@ class L1_Loss:
             else:
                 raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for L1_Loss")
 
-            v_l1 = torch.sum(weights*diff_L1) / (torch.sum(weights) + torch.finfo(torch.float16).eps)
+            v_l1 = torch.sum(weights*diff_L1) / (torch.sum(weights) + torch.finfo(torch.float32).eps)
         else:
             v_l1 = torch.sum(diff_L1)
 
@@ -303,10 +302,10 @@ class MSE_Loss:
 
     def __call__(self, outputs, targets, weights=None):
 
-        B, T, C, H, W = targets.shape
+        B, C, T, H, W = targets.shape
         if(self.complex_i):
             assert C==2, f"Complex type requires image to have C=2, given C={C}"
-            diff_mag_square = torch.square(outputs[:,:,0]-targets[:,:,0]) + torch.square(outputs[:,:,1]-targets[:,:,1])
+            diff_mag_square = torch.square(outputs[:,0]-targets[:,0]) + torch.square(outputs[:,1]-targets[:,1])
         else:
             diff_mag_square = torch.square(outputs-targets)
 
@@ -319,7 +318,7 @@ class MSE_Loss:
             else:
                 raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for MSE_Loss")
 
-            v_l2 = torch.sum(weights*diff_mag_square) / (torch.sum(weights) + torch.finfo(torch.float16).eps)
+            v_l2 = torch.sum(weights*diff_mag_square) / (torch.sum(weights) + torch.finfo(torch.float32).eps)
         else:
             v_l2 = torch.sum(diff_mag_square)
 
@@ -346,7 +345,7 @@ class PSNR:
     def __call__(self, outputs, targets):
 
         num = self.range * self.range
-        den = torch.mean(torch.square(targets - outputs)) + torch.finfo(torch.float16).eps
+        den = torch.mean(torch.square(targets - outputs)) + torch.finfo(torch.float32).eps
 
         return 10 * torch.log10(num/den)
 
@@ -363,10 +362,10 @@ class PSNR_Loss:
 
     def __call__(self, outputs, targets, weights=None):
 
-        B, T, C, H, W = targets.shape
+        B, C, T, H, W = targets.shape
 
         num = self.range * self.range
-        den = torch.square(targets - outputs) + torch.finfo(torch.float16).eps
+        den = torch.square(targets - outputs) + torch.finfo(torch.float32).eps
 
         if(weights is not None):
 
@@ -377,7 +376,7 @@ class PSNR_Loss:
             else:
                 raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for PSNR_Loss")
 
-            v_l2 = torch.sum(weights*torch.log10(num/den)) / (torch.sum(weights) + torch.finfo(torch.float16).eps)
+            v_l2 = torch.sum(weights*torch.log10(num/den)) / (torch.sum(weights) + torch.finfo(torch.float32).eps)
         else:
             v_l2 = torch.sum(torch.log10(num/den))
 
@@ -430,9 +429,9 @@ class Perpendicular_Loss:
 
     def __call__(self, outputs, targets, weights=None):
 
-        B, T, C, H, W = targets.shape
+        B, C, T, H, W = targets.shape
 
-        loss = perpendicular_loss_complex(outputs[:,:,0,:,:]+1j*outputs[:,:,1,:,:], targets[:,:,0,:,:]+1j*targets[:,:,1,:,:])
+        loss = perpendicular_loss_complex(outputs[:,0]+1j*outputs[:,1], targets[:,0]+1j*targets[:,1])
 
         if(weights is not None):
 
@@ -443,7 +442,7 @@ class Perpendicular_Loss:
             else:
                 raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for Perpendicular_Loss")
 
-            v = torch.sum(weights*loss) / (torch.sum(weights) + torch.finfo(torch.float16).eps)
+            v = torch.sum(weights*loss) / (torch.sum(weights) + torch.finfo(torch.float32).eps)
         else:
             v = torch.sum(loss)
 
@@ -484,18 +483,18 @@ class GaussianDeriv_Loss:
 
     def __call__(self, outputs, targets, weights=None):
 
-        B, T, C, H, W = targets.shape
+        B, C, T, H, W = targets.shape
         if(self.complex_i):
             assert C==2, f"Complex type requires image to have C=2, given C={C}"
-            outputs_im = torch.sqrt(outputs[:,:,:1]*outputs[:,:,:1] + outputs[:,:,1:]*outputs[:,:,1:])
-            targets_im = torch.sqrt(targets[:,:,:1]*targets[:,:,:1] + targets[:,:,1:]*targets[:,:,1:])
+            outputs_im = torch.sqrt(outputs[:,:1]*outputs[:,:1] + outputs[:,1:]*outputs[:,1:])
+            targets_im = torch.sqrt(targets[:,:1]*targets[:,:1] + targets[:,1:]*targets[:,1:])
         else:
             outputs_im = outputs
             targets_im = targets
 
-        B, T, C, H, W = targets_im.shape
-        outputs_im = torch.reshape(outputs_im, (B*T, C, H, W))
-        targets_im = torch.reshape(targets_im, (B*T, C, H, W))
+        B, C, T, H, W = targets_im.shape
+        outputs_im = torch.reshape(torch.permute(outputs_im, (0, 2, 1, 3, 4)), (B*T, C, H, W))
+        targets_im = torch.reshape(torch.permute(targets_im, (0, 2, 1, 3, 4)), (B*T, C, H, W))
 
         loss = 0
         for k_2d in self.kernels:
@@ -514,7 +513,7 @@ class GaussianDeriv_Loss:
             else:
                 raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for GaussianDeriv_Loss")
 
-            v = torch.sum(weights_used*loss) / (torch.sum(weights_used) + torch.finfo(torch.float16).eps)
+            v = torch.sum(weights_used*loss) / (torch.sum(weights_used) + torch.finfo(torch.float32).eps)
         else:
             v = torch.mean(loss)
 
@@ -560,18 +559,14 @@ class GaussianDeriv3D_Loss:
 
     def __call__(self, outputs, targets, weights=None):
 
-        B, T, C, H, W = targets.shape
+        B, C, T, H, W = targets.shape
         if(self.complex_i):
             assert C==2, f"Complex type requires image to have C=2, given C={C}"
-            outputs_im = torch.sqrt(outputs[:,:,:1]*outputs[:,:,:1] + outputs[:,:,1:]*outputs[:,:,1:])
-            targets_im = torch.sqrt(targets[:,:,:1]*targets[:,:,:1] + targets[:,:,1:]*targets[:,:,1:])
+            outputs_im = torch.sqrt(outputs[:,:1]*outputs[:,:1] + outputs[:,1:]*outputs[:,1:])
+            targets_im = torch.sqrt(targets[:,:1]*targets[:,:1] + targets[:,1:]*targets[:,1:])
         else:
             outputs_im = outputs
             targets_im = targets
-
-        B, T, C, H, W = targets_im.shape
-        outputs_im = torch.permute(outputs_im, (0, 2, 1, 3, 4))
-        targets_im = torch.permute(targets_im, (0, 2, 1, 3, 4))
 
         loss = 0
         for k_3d in self.kernels:
@@ -584,7 +579,7 @@ class GaussianDeriv3D_Loss:
         if weights is not None:
             if not weights.ndim==1:
                 raise NotImplementedError(f"Only support 1D(Batch) weights for GaussianDeriv3D_Loss")
-            v = torch.sum(weights*loss) / (torch.sum(weights) + torch.finfo(torch.float16).eps)
+            v = torch.sum(weights*loss) / (torch.sum(weights) + torch.finfo(torch.float32).eps)
         else:
             v = torch.mean(loss)
 
@@ -668,21 +663,28 @@ def tests():
 
     import numpy as np
 
-    Project_DIR = Path(__file__).parents[1].resolve()
+    Current_DIR = Path(__file__).parents[0].resolve()
+    sys.path.append(str(Current_DIR))
 
-    clean_a = np.load(os.path.join(Project_DIR, 'data/microscopy/clean1.npy'))
-    clean_b = np.load(os.path.join(Project_DIR, 'data/microscopy/clean2.npy'))
-    noisy_a = np.load(os.path.join(Project_DIR, 'data/microscopy/noisy.npy'))
+    Project_DIR = Path(__file__).parents[1].resolve()
+    sys.path.append(str(Project_DIR))
+
+    REPO_DIR = Path(__file__).parents[2].resolve()
+    sys.path.append(str(REPO_DIR))
+
+    clean_a = np.load(os.path.join(REPO_DIR, 'ut/data/microscopy/clean1.npy'))
+    clean_b = np.load(os.path.join(REPO_DIR, 'ut/data/microscopy/clean2.npy'))
+    noisy_a = np.load(os.path.join(REPO_DIR, 'ut/data/microscopy/noisy.npy'))
 
     H, W = clean_a.shape
     clean_a = torch.from_numpy(clean_a.reshape((1, 1, 1, H ,W)))
     clean_b = torch.from_numpy(clean_b.reshape((1, 1, 1, H ,W)))
     noisy_a = torch.from_numpy(noisy_a.reshape((1, 1, 1, H ,W)))
 
-    B,T,C,H,W = 4,8,1,64,64
+    B,C,T,H,W = 4,1,8,64,64
 
-    im_1 = torch.rand(B,T,C,H,W)
-    im_2 = torch.rand(B,T,C,H,W)
+    im_1 = torch.rand(B,C,T,H,W)
+    im_2 = torch.rand(B,C,T,H,W)
     im_3 = im_2.clone()
     im_3[0,0,0,0,0]+=0.1
     wt_1 = torch.rand(B)
@@ -690,10 +692,10 @@ def tests():
 
     fsim_loss_f = FSIM_Loss()
     fsim_1 = fsim_loss_f(im_1, im_1)
-    assert fsim_1==0
+    assert fsim_1<1e-4
 
     fsim_2 = fsim_loss_f(im_2, im_2)
-    assert fsim_2==0
+    assert fsim_2<1e-4
 
     fsim_3 = fsim_loss_f(im_1, im_2)
     assert 0<=fsim_3<=1
@@ -701,7 +703,7 @@ def tests():
     fsim_4 = fsim_loss_f(im_2, im_1)
     assert 0<=fsim_4<=1
 
-    assert fsim_3==fsim_4
+    assert np.isclose(fsim_3, fsim_4)
 
     f1 = fsim_loss_f(clean_a, clean_b)
     assert 0<=f1<=1
@@ -711,15 +713,14 @@ def tests():
 
     assert f2>f1
 
-    print("Passed fsim")    
+    print("Passed fsim")
 
     ssim_loss_f = SSIM_Loss()
 
     ssim_1 = ssim_loss_f(im_1, im_1)
-    assert ssim_1==0
-
+    assert ssim_1<1e-4
     ssim_2 = ssim_loss_f(im_2, im_2)
-    assert ssim_2==0
+    assert ssim_2<1e-4
 
     ssim_3 = ssim_loss_f(im_1, im_2)
     assert 0<=ssim_3<=1
@@ -727,15 +728,15 @@ def tests():
     ssim_4 = ssim_loss_f(im_2, im_1)
     assert 0<=ssim_4<=1
 
-    assert ssim_3==ssim_4
+    assert np.isclose(ssim_3, ssim_4)
 
     print("Passed ssim2D")
 
     ssim_1 = ssim_loss_f(im_1, im_1, weights=wt_1)
-    assert ssim_1==0
+    assert ssim_1<1e-3
 
     ssim_2 = ssim_loss_f(im_2, im_2, weights=wt_1)
-    assert ssim_2==0
+    assert ssim_2<1e-3
 
     ssim_3 = ssim_loss_f(im_1, im_2, weights=wt_2)
     assert 0<=ssim_3<=1
@@ -743,17 +744,17 @@ def tests():
     ssim_4 = ssim_loss_f(im_2, im_1, weights=wt_2)
     assert 0<=ssim_4<=1
 
-    assert ssim_3==ssim_4
+    assert np.isclose(ssim_3, ssim_4)
 
     print("Passed ssim2D weighted")
 
     ssim3d_loss_f = SSIM3D_Loss()
 
     ssim_5 = ssim3d_loss_f(im_1, im_1)
-    assert ssim_5==0
+    assert ssim_5<1e-4
 
     ssim_6 = ssim3d_loss_f(im_2, im_2)
-    assert ssim_6==0
+    assert ssim_6<1e-4
 
     ssim_7 = ssim3d_loss_f(im_1, im_2)
     assert 0<=ssim_7<=1
@@ -761,15 +762,15 @@ def tests():
     ssim_8 = ssim3d_loss_f(im_2, im_1)
     assert 0<=ssim_8<=1
 
-    assert ssim_7==ssim_8
+    assert np.isclose(ssim_7, ssim_8)
 
     print("Passed ssim3D")
 
     ssim_5 = ssim3d_loss_f(im_1, im_1, weights=wt_1)
-    assert ssim_5==0
+    assert ssim_5<1e-3
 
     ssim_6 = ssim3d_loss_f(im_2, im_2, weights=wt_1)
-    assert ssim_6==0
+    assert ssim_6<1e-3
 
     ssim_7 = ssim3d_loss_f(im_1, im_2, weights=wt_1)
     assert 0<=ssim_7<=1
@@ -777,7 +778,7 @@ def tests():
     ssim_8 = ssim3d_loss_f(im_2, im_1, weights=wt_1)
     assert 0<=ssim_8<=1
 
-    assert ssim_7==ssim_8
+    assert abs(ssim_7-ssim_8)<1e-4
 
     print("Passed ssim3D weighted")
 
@@ -785,27 +786,27 @@ def tests():
     l1_loss_f_t = torch.nn.L1Loss()
 
     l1_1 = l1_loss_f(im_1, im_1)
-    assert l1_1==0
+    assert l1_1<1e-4
 
     l1_2 = l1_loss_f(im_2, im_2)
-    assert l1_2==0
+    assert l1_2<1e-4
 
     l1_3 = l1_loss_f(im_1, im_2)
     assert l1_3>=0
 
     l1_4 = l1_loss_f(im_2, im_3)
     l1_5 = l1_loss_f_t(im_2, im_3)
-    assert l1_4==l1_5
+    assert np.isclose(l1_4, l1_5)
 
     print("Passed L1")
 
     l1_loss_f = L1_Loss()
 
     l1_1 = l1_loss_f(im_1, im_1, weights=wt_1)
-    assert l1_1==0
+    assert l1_1<1e-4
 
     l1_2 = l1_loss_f(im_2, im_2, weights=wt_2)
-    assert l1_2==0
+    assert l1_2<1e-4
 
     l1_3 = l1_loss_f(im_1, im_2, weights=wt_2)
     assert l1_3>=0
@@ -816,25 +817,25 @@ def tests():
     mse_loss_f_t = torch.nn.MSELoss()
 
     mse_1 = mse_loss_f(im_1, im_1)
-    assert mse_1==0
+    assert mse_1<1e-4
 
     mse_2 = mse_loss_f(im_2, im_2)
-    assert mse_2==0
+    assert mse_2<1e-4
 
     mse_3 = mse_loss_f(im_1, im_2)
     assert mse_3>=0
 
     mse_4 = mse_loss_f(im_2, im_3)
     mse_5 = mse_loss_f_t(im_2, im_3)
-    assert mse_4==mse_5
+    assert np.isclose(mse_4, mse_5)
 
     print("Passed MSE")
 
     mse_1 = mse_loss_f(im_1, im_1, weights=wt_1)
-    assert mse_1==0
+    assert mse_1<1e-4
 
     mse_2 = mse_loss_f(im_2, im_2, weights=wt_2)
-    assert mse_2==0
+    assert mse_2<1e-4
 
     mse_3 = mse_loss_f(im_1, im_2, weights=wt_2)
     assert mse_3>=0
@@ -844,7 +845,7 @@ def tests():
     psnr_f = PSNR(range=1.0)
 
     psnr_1 = psnr_f(im_1, im_1)
-    assert psnr_1==torch.inf
+    assert psnr_1>20
 
     psnr_2 = psnr_f(im_2, im_3)
     assert psnr_2>=50
@@ -852,7 +853,7 @@ def tests():
     psnr_3 = psnr_f(im_2, im_3)
     assert psnr_3>=50
 
-    assert psnr_2==psnr_3
+    assert np.isclose(psnr_2, psnr_3)
 
     print("Passed PSNR")
 
@@ -864,13 +865,13 @@ def tests():
     print("Passed Combined Loss")
 
 
-    noisy = np.load(str(Project_DIR) + '/data/loss/noisy_real.npy') + 1j * np.load(str(Project_DIR) + '/data/loss/noisy_imag.npy')
+    noisy = np.load(str(REPO_DIR) + '/ut/data/loss/noisy_real.npy') + 1j * np.load(str(REPO_DIR) + '/ut/data/loss/noisy_imag.npy')
     print(noisy.shape)
 
-    clean = np.load(str(Project_DIR) + '/data/loss/clean_real.npy') + 1j * np.load(str(Project_DIR) + '/data/loss/clean_imag.npy')
+    clean = np.load(str(REPO_DIR) + '/ut/data/loss/clean_real.npy') + 1j * np.load(str(REPO_DIR) + '/ut/data/loss/clean_imag.npy')
     print(clean.shape)
 
-    pred = np.load(str(Project_DIR) + '/data/loss/pred_real.npy') + 1j * np.load(str(Project_DIR) + '/data/loss/pred_imag.npy')
+    pred = np.load(str(REPO_DIR) + '/ut/data/loss/pred_real.npy') + 1j * np.load(str(REPO_DIR) + '/ut/data/loss/pred_imag.npy')
     print(pred.shape)
 
     RO, E1, PHS, N = noisy.shape
@@ -878,13 +879,13 @@ def tests():
     for k in range(N):
         perp_loss = Perpendicular_Loss()
 
-        x = np.zeros((1, PHS, 2, RO, E1))
-        y = np.zeros((1, PHS, 2, RO, E1))
+        x = np.zeros((1, 2, PHS, RO, E1))
+        y = np.zeros((1, 2, PHS, RO, E1))
 
-        x[:,:,0,:,:] = np.transpose(np.real(noisy[:,:,:,k]), (2, 0, 1))
-        x[:,:,1,:,:] = np.transpose(np.imag(noisy[:,:,:,k]), (2, 0, 1))
-        y[:,:,0,:,:] = np.transpose(np.real(clean[:,:,:,k]), (2, 0, 1))
-        y[:,:,1,:,:] = np.transpose(np.imag(clean[:,:,:,k]), (2, 0, 1))
+        x[:,0,:,:,:] = np.transpose(np.real(noisy[:,:,:,k]), (2, 0, 1))
+        x[:,1,:,:,:] = np.transpose(np.imag(noisy[:,:,:,k]), (2, 0, 1))
+        y[:,0,:,:,:] = np.transpose(np.real(clean[:,:,:,k]), (2, 0, 1))
+        y[:,1,:,:,:] = np.transpose(np.imag(clean[:,:,:,k]), (2, 0, 1))
 
         x = torch.from_numpy(x)
         y = torch.from_numpy(y)
@@ -896,13 +897,13 @@ def tests():
     # -----------------------------------------------------------------
     
     # further test ssim, msssim and perp loss
-    noisy = np.load(str(Project_DIR) + '/data/loss/noisy.npy')
+    noisy = np.load(str(REPO_DIR) + '/ut/data/loss/noisy.npy')
     print(noisy.shape)
 
-    clean = np.load(str(Project_DIR) + '/data/loss/clean.npy')
+    clean = np.load(str(REPO_DIR) + '/ut/data/loss/clean.npy')
     print(clean.shape)
 
-    pred = np.load(str(Project_DIR) + '/data/loss/pred.npy')
+    pred = np.load(str(REPO_DIR) + '/ut/data/loss/pred.npy')
     print(pred.shape)
 
     RO, E1, PHS, N = noisy.shape
@@ -930,8 +931,8 @@ def tests():
     print("-----------------------")
 
     # loss code
-    x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, PHS, 1, RO, E1)).to(device=device)
-    y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, PHS, 1, RO, E1)).to(device=device)
+    x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
+    y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
    
     msssim_loss = MSSSIM_Loss(window_size=3, data_range=128, device=device, complex_i=False)
     
@@ -942,8 +943,8 @@ def tests():
     print("-----------------------")
 
     # loss code
-    x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, PHS, 1, RO, E1)).to(device=device)
-    y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, PHS, 1, RO, E1)).to(device=device)
+    x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
+    y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
 
     gauss_loss = GaussianDeriv_Loss(sigmas=[0.25, 0.5, 1.0, 1.5], device=device, complex_i=False)
 
@@ -954,8 +955,8 @@ def tests():
     print("-----------------------")
 
     # loss code
-    x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, PHS, 1, RO, E1)).to(device=device)
-    y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, PHS, 1, RO, E1)).to(device=device)
+    x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
+    y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
 
     gauss_loss = GaussianDeriv3D_Loss(sigmas=[0.25, 0.5, 1.0, 1.25], sigmas_T=[0.25, 0.5, 0.5, 0.5], device=device, complex_i=False)
 

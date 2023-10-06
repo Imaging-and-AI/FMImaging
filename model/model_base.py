@@ -42,6 +42,10 @@ class ModelManager(nn.Module):
         self.create_backbone()
         self.create_post()
 
+    @property
+    def device(self):
+        return next(self.parameters()).device
+    
     def create_pre(self): 
         """
         Sets up the pre model architecture

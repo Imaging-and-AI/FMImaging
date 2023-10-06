@@ -25,7 +25,7 @@ class mri_loss(object):
         self.loss_f = Combined_Loss(self.config.losses, self.config.loss_weights,
                                     complex_i=self.config.complex_i, device=self.config.device)
 
-    def __call__(self, outputs, targets):
+    def __call__(self, outputs, targets, weights=None):
 
-        loss_value = self.loss_f(outputs, targets)
+        loss_value = self.loss_f(outputs, targets, weights=weights)
         return loss_value

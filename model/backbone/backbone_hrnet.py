@@ -42,7 +42,7 @@ from utils.status import model_info
 
 from backbone_base import STCNNT_Base_Runtime, set_window_patch_sizes_keep_num_window, set_window_patch_sizes_keep_window_size, DownSample, UpSample
 
-__all__ = ['STCNNT_HRnet_model', 'DownSample', 'UpSample']
+__all__ = ['STCNNT_HRnet_model', 'STCNNT_HRnet', 'DownSample', 'UpSample']
 
 # -------------------------------------------------------------------------------------------------
 def STCNNT_HRnet_model(config, pre_feature_channels):
@@ -50,8 +50,10 @@ def STCNNT_HRnet_model(config, pre_feature_channels):
     Simple function to return STCCNT HRnet model.
     Additionally, function computes feature_channels, a list of ints containing the number of channels in each feature returned by the model.
     """
+    C_in = config.no_in_channel
     config.no_in_channel = pre_feature_channels[-1]
     model = STCNNT_HRnet(config=config)
+    config.no_in_channel = C_in
     feature_channels = [int(config.backbone_hrnet.C * sum([np.power(2, k) for k in range(config.backbone_hrnet.num_resolution_levels)]))]
     return model, feature_channels
 

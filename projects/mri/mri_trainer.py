@@ -12,6 +12,7 @@ import logging
 
 from colorama import Fore, Back, Style
 import nibabel as nib
+import cv2
 import wandb
 
 import torch
@@ -43,6 +44,30 @@ from optim.optim_utils import compute_total_steps
 from mri_data import MRIDenoisingDatasetTrain
 from running_inference import running_inference
 
+# -------------------------------------------------------------------------------------------------
+
+def get_rank_str(rank):
+    if rank == 0:
+        return f"{Fore.BLUE}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
+    if rank == 1:
+        return f"{Fore.GREEN}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
+    if rank == 2:
+        return f"{Fore.YELLOW}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
+    if rank == 3:
+        return f"{Fore.MAGENTA}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
+    if rank == 4:
+        return f"{Fore.LIGHTYELLOW_EX}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
+    if rank == 5:
+        return f"{Fore.LIGHTBLUE_EX}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
+    if rank == 6:
+        return f"{Fore.LIGHTRED_EX}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
+    if rank == 7:
+        return f"{Fore.LIGHTCYAN_EX}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
+
+    return f"{Fore.WHITE}{Style.BRIGHT}rank {rank} {Style.RESET_ALL}"
+
+# -------------------------------------------------------------------------------------------------
+
 class MRITrainManager(TrainManager):
     """
     MRI train manager
@@ -62,26 +87,26 @@ class MRITrainManager(TrainManager):
         self.metric_manager.setup_wandb_and_metrics(rank)
         wandb_run = self.metric_manager.wandb_run
 
-        rank_str = self.get_rank_str(rank)
+        rank_str = get_rank_str(rank)
         # -----------------------------------------------
 
-        total_num_samples = sum([len(s) for s in self.train_set])
+        total_num_samples = sum([len(s) for s in self.train_sets])
         total_steps = compute_total_steps(config, total_num_samples)
-        logging.info(f"{rank_str}, total_steps for this run: {total_steps}, len(train_set) {[len(s) for s in self.train_set]}, batch {config.batch_size}")
-                           
+        logging.info(f"{rank_str}, total_steps for this run: {total_steps}, len(train_set) {[len(s) for s in self.train_sets]}, batch {config.batch_size}")
+
         # -----------------------------------------------
 
         print(f"{rank_str}, {Style.BRIGHT}{Fore.RED}{Back.LIGHTWHITE_EX}RUN NAME - {config.run_name}{Style.RESET_ALL}")
-                
+
         # -----------------------------------------------
         if rank<=0:
             model_summary = model_info(self.model_manager, c)
-            # logging.info(f"Configuration for this run:\n{c}") # Commenting out, prints a lot of info
-            # logging.info(f"Model Summary:\n{str(model_summary)}") # Commenting out, prints a lot of info
+            logging.info(f"Configuration for this run:\n{c}") # Commenting out, prints a lot of info
+            logging.info(f"Model Summary:\n{str(model_summary)}") # Commenting out, prints a lot of info
             logging.info(f"Wandb name:\n{wandb_run.name}")
             wandb_run.watch(self.model_manager)
             wandb_run.log_code(".")
-        
+
         # -----------------------------------------------
         if c.ddp:
             dist.barrier()
@@ -101,24 +126,24 @@ class MRITrainManager(TrainManager):
             else: 
                 samplers = None
             shuffle = True
-        
+
         # -----------------------------------------------
-        
+
         optim = self.optim_manager.optim
         sched = self.optim_manager.sched
         curr_epoch = self.optim_manager.curr_epoch
         loss_f = self.loss_f
-        
+
         # -----------------------------------------------
-        
+
         block_str = None
-        if c.backbone == 'hrnet':
+        if c.backbone_model == 'STCNNT_HRNET':
             model_str = f"heads {c.n_head}, {c.backbone_hrnet}"
             block_str = c.backbone_hrnet.block_str
-        elif c.backbone == 'unet':
+        elif c.backbone_model == 'STCNNT_UNET':
             model_str = f"heads {c.n_head}, {c.backbone_unet}"
             block_str = c.backbone_unet.block_str
-        elif c.backbone == 'mixed_unetr':
+        elif c.backbone_model == 'STCNNT_mUNET':
             model_str = f"{c.backbone_mixed_unetr}"
             block_str = c.backbone_mixed_unetr.block_str
 
@@ -129,9 +154,9 @@ class MRITrainManager(TrainManager):
             if c.post_backbone == "mixed_unetr":
                 post_block_str = c.post_mixed_unetr.block_str
 
-        logging.info(f"{rank_str}, {Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.backbone}, {c.a_type}, {c.cell_type}, {c.optim}, {c.global_lr}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, weighted loss - snr {c.weighted_loss_snr} - temporal {c.weighted_loss_temporal} - added_noise {c.weighted_loss_added_noise}, data degrading {c.with_data_degrading}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, amp {c.use_amp}, super resolution {c.super_resolution}, stride_s {c.stride_s}, separable_conv {c.separable_conv}, upsample method {c.upsample_method}, batch_size {c.batch_size}, {model_str}{Style.RESET_ALL}")
+        logging.info(f"{rank_str}, {Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.backbone_model}, {c.a_type}, {c.cell_type}, {c.optim_type}, {c.optim}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, weighted loss - snr {c.weighted_loss_snr} - temporal {c.weighted_loss_temporal} - added_noise {c.weighted_loss_added_noise}, data degrading {c.with_data_degrading}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, amp {c.use_amp}, super resolution {c.super_resolution}, stride_s {c.stride_s}, separable_conv {c.separable_conv}, upsample method {c.upsample_method}, batch_size {c.batch_size}, {model_str}{Style.RESET_ALL}")
         logging.info(f"{rank_str}, {Fore.RED}Local Rank:{rank}, global rank: {global_rank}, block_str, {block_str}, post_block_str, {post_block_str}{Style.RESET_ALL}")
-                    
+
         # -----------------------------------------------
 
         num_workers_per_loader = c.num_workers//len(self.train_sets)
@@ -141,7 +166,7 @@ class MRITrainManager(TrainManager):
             local_world_size = int(os.environ["LOCAL_WORLD_SIZE"])
             num_workers_per_loader = num_workers_per_loader // local_world_size
             num_workers_per_loader = 1 if num_workers_per_loader<1 else num_workers_per_loader
-    
+
         logging.info(f"{rank_str}, {Fore.YELLOW}Local_world_size {local_world_size}, number of datasets {len(self.train_sets)}, cpu {os.cpu_count()}, number of workers per loader is {num_workers_per_loader}{Style.RESET_ALL}")
 
         if isinstance(self.train_sets,list):
@@ -190,7 +215,7 @@ class MRITrainManager(TrainManager):
                 logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}, noise range {train_set_x.min_noise_level} to {train_set_x.max_noise_level}")
 
             logging.info(f"{Fore.YELLOW}---> noise range for validation {self.val_sets[0].min_noise_level} to {self.val_sets[0].max_noise_level}")
-            
+
         # -----------------------------------------------
 
         # Handle mix precision training
@@ -204,11 +229,11 @@ class MRITrainManager(TrainManager):
 
         # ----------------------------------------------------------------------------
         # Training loop
-        
+
         if self.config.train_model:
-            
+
             train_snr_meter = AverageMeter()
-            
+
             base_snr = 0
             beta_snr = 0.9
             beta_counter = 0
@@ -276,19 +301,19 @@ class MRITrainManager(TrainManager):
                         noise_sigmas = noise_sigmas.to(device)
                         gmaps_median = gmaps_median.to(device)
 
-                        B, T, C, H, W = x.shape
+                        B, C, T, H, W = x.shape
 
                         if c.weighted_loss_temporal:
                             # compute temporal std
                             if C == 3:
-                                std_t = torch.std(torch.abs(y[:,:,0,:,:] + 1j * y[:,:,1,:,:]), dim=1)
+                                std_t = torch.std(torch.abs(y[:,0,:,:,:] + 1j * y[:,1,:,:,:]), dim=1)
                             else:
-                                std_t = torch.std(y(y[:,:,0,:,:], dim=1))
+                                std_t = torch.std(y(y[:,0,:,:,:], dim=1))
 
                             weights_t = torch.mean(std_t, dim=(-2, -1)).to(device)
 
                         # compute snr
-                        signal = torch.mean(torch.linalg.norm(y, dim=2, keepdim=True), dim=(1, 2, 3, 4)).to(device)
+                        signal = torch.mean(torch.linalg.norm(y, dim=1, keepdim=True), dim=(1, 2, 3, 4)).to(device)
                         #snr = signal / (noise_sigmas*gmaps_median)
                         snr = signal / gmaps_median
                         #snr = snr.to(device)
@@ -308,12 +333,12 @@ class MRITrainManager(TrainManager):
 
                         with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
                             if c.weighted_loss_snr:
-                                model_output = self.metric_manager(x, snr, base_snr_t)
+                                model_output = self.model_manager(x, snr, base_snr_t)
                                 output, weights, output_1st_net = model_output
                                 if c.weighted_loss_temporal:
                                     weights *= weights_t
                             else:
-                                model_output = self.metric_manager(x)
+                                model_output = self.model_manager(x)
                                 output, output_1st_net = model_output
                                 if c.weighted_loss_temporal:
                                     weights = weights_t
@@ -357,21 +382,21 @@ class MRITrainManager(TrainManager):
                         if (idx + 1) % c.iters_to_accumulate == 0 or (idx + 1 == total_iters):
                             if(c.clip_grad_norm>0):
                                 scaler.unscale_(optim)
-                                nn.utils.clip_grad_norm_(self.metric_manager.parameters(), c.clip_grad_norm)
+                                nn.utils.clip_grad_norm_(self.model_manager.parameters(), c.clip_grad_norm)
 
                             scaler.step(optim)
-                            optim.zero_grad()
+                            optim.zero_grad(set_to_none=True)
                             scaler.update()
 
                             if c.scheduler_type == "OneCycleLR": sched.step()
                         end_timer(enable=c.with_timer, t=tm, msg="---> other steps took ")
-                                        
+
                         # -------------------------------------------------------
                         tm = start_timer(enable=c.with_timer)
                         curr_lr = optim.param_groups[0]['lr']
 
                         train_snr_meter.update(torch.mean(snr), n=x.shape[0])
-                        
+
                         tra_save_images = idx%image_save_step_size==0 and images_saved < config.num_saved_samples and config.save_samples
                         self.metric_manager.on_train_step_end(loss.item(), model_output, loader_outputs, rank, curr_lr, tra_save_images, epoch, images_saved)
                         images_saved += 1
@@ -391,7 +416,7 @@ class MRITrainManager(TrainManager):
 
                         end_timer(enable=c.with_timer, t=tm, msg="---> epoch step logging and measuring took ")
                     # ------------------------------------------------------------------------------------------------------
-                    
+
                     # Run metric logging for each epoch 
                     tm = start_timer(enable=c.with_timer) 
 
@@ -415,7 +440,7 @@ class MRITrainManager(TrainManager):
 
                     end_timer(enable=c.with_timer, t=tm, msg="---> epoch end logging and measuring took ")                
                 # ------------------------------------------------------------------------------------------------------
-                
+
                 if epoch % c.eval_frequency==0 or epoch==c.num_epochs:
                     self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="", split="val", final_eval=False, scaling_factor=1)
 
@@ -423,8 +448,8 @@ class MRITrainManager(TrainManager):
                     if c.scheduler_type == "ReduceLROnPlateau":
                         sched.step(loss.item())
                     elif c.scheduler_type == "StepLR":
-                        sched.step()                        
-                        
+                        sched.step()
+
             # ----------------------------------------------------------------------------
 
             self.model_manager.save(os.path.join(self.config.log_dir, self.config.run_name, 'last_checkpoint'), epoch, optim, sched)
@@ -432,21 +457,21 @@ class MRITrainManager(TrainManager):
                 wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_pre.pth'))
                 wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_backbone.pth'))
                 wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_post.pth'))
-                
+
             # Load the best model from training
             if self.config.eval_train_set or self.config.eval_val_set or self.config.eval_test_set:
                 logging.info(f"{Fore.CYAN}Loading the best models from training for final evaluation...{Style.RESET_ALL}")
                 self.model_manager.load_pre(os.path.join(self.config.log_dir,self.config.run_name,'best_checkpoint_pre.pth'))
                 self.model_manager.load_backbone(os.path.join(self.config.log_dir,self.config.run_name,'best_checkpoint_backbone.pth'))
                 self.model_manager.load_post(os.path.join(self.config.log_dir,self.config.run_name,'best_checkpoint_post.pth'))
-                
+
                 if wandb_run is not None:
                     wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'best_checkpoint_pre.pth'))
                     wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'best_checkpoint_backbone.pth'))
                     wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'best_checkpoint_post.pth'))
         else: 
             epoch = 0
-        
+
         # -----------------------------------------------
         # Evaluate models of each split
         if self.config.eval_train_set: 
@@ -462,18 +487,18 @@ class MRITrainManager(TrainManager):
         # -----------------------------------------------
         # Finish up training
         self.metric_manager.on_training_end(rank, epoch, model_manager, optim, sched, self.config.train_model)
-    
+
         if c.ddp:
             dist.barrier()
         print(f"--> run finished ...")
-    
+
     # -------------------------------------------------------------------------------------------------
-        
+
     def _eval_model(self, rank, model_manager, data_sets, epoch, device, optim, sched, id, split, final_eval, scaling_factor=1):
 
         c = self.config
         curr_lr = optim.param_groups[0]['lr']
-                
+
         # ------------------------------------------------------------------------
         # Determine if we will save the predictions to files for thie eval 
         if split=='train': save_samples = final_eval and self.config.save_train_samples
@@ -554,7 +579,9 @@ class MRITrainManager(TrainManager):
                     if batch_size >1 and x.shape[-1]==c.width[-1]:
                         output, output_1st_net = self.model_manager(x)
                     else:
-                        B, T, C, H, W = x.shape
+                        B, C, T, H, W = x.shape
+
+                        x = torch.permute(x, (0, 2, 1, 3, 4))
 
                         cutout_in = cutout
                         overlap_in = overlap
@@ -569,6 +596,8 @@ class MRITrainManager(TrainManager):
                             logging.info(f"{Fore.YELLOW}---> call inference on cpu ...")
                             _, output = running_inference(self.model_manager, x, cutout=cutout_in, overlap=overlap_in, device="cpu")
                             y = y.to("cpu")
+
+                        output = torch.permute(output, (0, 2, 1, 3, 4))
 
                     if scaling_factor > 0:
                         output /= scaling_factor
@@ -616,7 +645,7 @@ class MRITrainManager(TrainManager):
                                                 self.metric_manager,
                                                 curr_lr, 
                                                 "val")
-                
+
                 pbar_str = f"{log_str}"
                 if hasattr(self.metric_manager, 'average_eval_metrics'):
                     if isinstance(self.metric_manager.average_eval_metrics, dict):
@@ -634,10 +663,10 @@ class MRITrainManager(TrainManager):
                 pbar.set_description(pbar_str)
 
                 if rank<=0: 
-                    logging.getLogger("file_only").info(pbar_str)                        
+                    logging.getLogger("file_only").info(pbar_str)
         return 
-       
-       
+
+
     def create_log_str(config, epoch, rank, data_shape, gmap_median, noise_sigma, snr, loss_meters, curr_lr, role):
         if data_shape is not None:
             data_shape_str = f"{data_shape[-1]}, "
@@ -671,7 +700,7 @@ class MRITrainManager(TrainManager):
 
     # -------------------------------------------------------------------------------------------------
 
-    def distribute_learning_rates(rank, optim, src=0):
+    def distribute_learning_rates(self, rank, optim, src=0):
 
         N = len(optim.param_groups)
         new_lr = torch.zeros(N).to(rank)
@@ -686,337 +715,114 @@ class MRITrainManager(TrainManager):
 
     # -------------------------------------------------------------------------------------------------
 
-# -------------------------------------------------------------------------------------------------
-def _apply_model(model, x, g, scaling_factor, config, device, overlap=None):
-    """Apply the inference
+    def save_image_batch(self, complex_i, noisy, predi, clean, clean_2x, predi_1st_net):
+        """
+        Logs the image to wandb as a 5D gif [B,T,C,H,W]
+        If complex image then save the magnitude using first 2 channels
+        Else use just the first channel
+        @args:
+            - complex_i (bool): complex images or not
+            - noisy (5D numpy array): the noisy image [B, T, C+1, H, W]
+            - predi (5D numpy array): the predicted image [B, T, C, H, W]
+            - clean (5D numpy array): the clean image [B, T, C, H, W]
+            - clean_2x (5D numpy array): the clean image [B, T, C, 2*H, 2*W]
+        """
 
-    Input
-        x : [1, T, 1, H, W], attention is alone T
-        g : [1, T, 1, H, W]
+        if noisy.ndim == 4:
+            noisy = np.expand_dims(noisy, axis=0)
+            predi = np.expand_dims(predi, axis=0)
+            clean = np.expand_dims(clean, axis=0)
+            clean_2x = np.expand_dims(clean_2x, axis=0)
+            predi_1st_net = np.expand_dims(predi_1st_net, axis=0)
 
-    Output
-        res : [1, T, Cout, H, W]
-    """
-    c = config
+        noisy = np.transpose(noisy, (0, 2, 1, 3, 4))
+        predi = np.transpose(predi, (0, 2, 1, 3, 4))
+        clean = np.transpose(clean, (0, 2, 1, 3, 4))
+        clean_2x = np.transpose(clean_2x, (0, 2, 1, 3, 4))
+        predi_1st_net = np.transpose(predi_1st_net, (0, 2, 1, 3, 4))
 
-    x *= scaling_factor
+        if complex_i:
+            save_x = np.sqrt(np.square(noisy[:,:,0,:,:]) + np.square(noisy[:,:,1,:,:]))
+            save_p = np.sqrt(np.square(predi[:,:,0,:,:]) + np.square(predi[:,:,1,:,:]))
+            save_y = np.sqrt(np.square(clean[:,:,0,:,:]) + np.square(clean[:,:,1,:,:]))
+            save_y_2x = np.sqrt(np.square(clean_2x[:,:,0,:,:]) + np.square(clean_2x[:,:,1,:,:]))
+            save_p_1st_net = np.sqrt(np.square(predi_1st_net[:,:,0,:,:]) + np.square(predi_1st_net[:,:,1,:,:]))
+        else:
+            save_x = noisy[:,:,0,:,:]
+            save_p = predi[:,:,0,:,:]
+            save_y = clean[:,:,0,:,:]
+            save_y_2x = clean_2x[:,:,0,:,:]
+            save_p_1st_net = predi_1st_net[:,:,0,:,:]
 
-    B, T, C, H, W = x.shape
+        B, T, H, W = save_y_2x.shape
 
-    if config.complex_i:
-        input = np.concatenate((x.real, x.imag, g), axis=2)
-    else:
-        input = np.concatenate((np.abs(x), g), axis=2)
-
-    if not c.pad_time:
-        cutout = (T, c.height[-1], c.width[-1])
-        if overlap is None: overlap = (0, c.height[-1]//2, c.width[-1]//2)
-    else:
-        cutout = (c.time, c.height[-1], c.width[-1])
-        if overlap is None: overlap = (c.time//2, c.height[-1]//2, c.width[-1]//2)
-
-    try:
-        _, output = running_inference(model, input, cutout=cutout, overlap=overlap, batch_size=1, device=device)
-    except Exception as e:
-        print(e)
-        print(f"{Fore.YELLOW}---> call inference on cpu ...")
-        _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device=torch.device('cpu'))
-
-    x /= scaling_factor
-    output /= scaling_factor
-
-    if isinstance(output, torch.Tensor):
-        output = output.cpu().numpy()
-
-    return output
-
-# -------------------------------------------------------------------------------------------------
-
-def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('cpu'), overlap=None, verbose=False):
-    '''
-    Input 
-        data : [H, W, T, SLC], remove any extra scaling
-        gmap : [H, W, SLC], no scaling added
-        scaling_factor : scaling factor to adjust denoising strength, smaller value is for higher strength (0.5 is more smoothing than 1.0)
-        overlap (T, H, W): number of overlap between patches, can be (0, 0, 0)
-    Output
-        res: [H, W, T, SLC]
-    '''
-
-    t0 = time()
-
-    if(data.ndim==2):
-        data = data[:,:,np.newaxis,np.newaxis]
-
-    if(data.ndim<4):
-        data = np.expand_dims(data, axis=3)
-
-    H, W, T, SLC = data.shape
-
-    if(gmap.ndim==2):
-        gmap = np.expand_dims(gmap, axis=2)
-
-    if(gmap.shape[0]!=H or gmap.shape[1]!=W or gmap.shape[2]!=SLC):
-        gmap = np.ones(H, W, SLC)
-
-    if verbose:
-        print(f"---> apply_model, preparation took {time()-t0} seconds ")
-        print(f"---> apply_model, input array {data.shape}")
-        print(f"---> apply_model, gmap array {gmap.shape}")
-        print(f"---> apply_model, pad_time {config.pad_time}")
-        print(f"---> apply_model, height and width {config.height, config.width}")
-        print(f"---> apply_model, complex_i {config.complex_i}")
-        print(f"---> apply_model, scaling_factor {scaling_factor}")
-        print(f"---> apply_model, overlap {overlap}")
-
-    c = config
-
-    try:
-        for k in range(SLC):
-            imgslab = data[:,:,:,k]
-            gmapslab = gmap[:,:,k]
-
-            H, W, T = imgslab.shape
-
-            x = np.transpose(imgslab, [2, 0, 1]).reshape([1, T, 1, H, W])
-            g = np.repeat(gmapslab[np.newaxis, np.newaxis, np.newaxis, :, :], T, axis=1)
-
-            print(f"---> running_inference, input {x.shape} for slice {k}")
-            output = _apply_model(model, x, g, scaling_factor, config, device, overlap)
-
-            output = np.transpose(output, (3, 4, 2, 1, 0))
-
-            if(k==0):
-                if config.complex_i:
-                    data_filtered = np.zeros((output.shape[0], output.shape[1], T, SLC), dtype=data.dtype)
-                else:
-                    data_filtered = np.zeros((output.shape[0], output.shape[1], T, SLC), dtype=np.float32)
-
-            if config.complex_i:
-                data_filtered[:,:,:,k] = output[:,:,0,:,0] + 1j*output[:,:,1,:,0]
+        def resize_img(im, H_2x, W_2x):
+            H, W = im.shape
+            if H < H_2x or W < W_2x:
+                res = cv2.resize(src=im, dsize=(W_2x, H_2x), interpolation=cv2.INTER_NEAREST)
+                return res
             else:
-                data_filtered[:,:,:,k] = output.squeeze()
+                return im
 
-    except Exception as e:
-        print(e)
-        data_filtered = copy.deepcopy(data)
+        max_col = 16
+        if B>max_col:
+            num_row = B//max_col
+            if max_col*num_row < B: 
+                num_row += 1
+            composed_res = np.zeros((T, 5*H*num_row, max_col*W))
+            for b in range(B):
+                r = b//max_col
+                c = b - r*max_col
+                for t in range(T):
+                    S = 5*r
+                    composed_res[t, S*H:(S+1)*H, c*W:(c+1)*W] = resize_img(save_x[b,t,:,:].squeeze(), H, W)
+                    composed_res[t, (S+1)*H:(S+2)*H, c*W:(c+1)*W] = resize_img(save_p[b,t,:,:].squeeze(), H, W)
+                    composed_res[t, (S+2)*H:(S+3)*H, c*W:(c+1)*W] = resize_img(save_p_1st_net[b,t,:,:].squeeze(), H, W)
+                    composed_res[t, (S+3)*H:(S+4)*H, c*W:(c+1)*W] = resize_img(save_y[b,t,:,:].squeeze(), H, W)
+                    composed_res[t, (S+4)*H:(S+5)*H, c*W:(c+1)*W] = resize_img(save_y_2x[b,t,:,:].squeeze(), H, W)
 
-    t1 = time()
-    print(f"---> apply_model took {t1-t0} seconds ")
-
-    return data_filtered
-
-# -------------------------------------------------------------------------------------------------
-
-def apply_model_3D(data, model, gmap, config, scaling_factor, device='cpu', overlap=None, verbose=False):
-    '''
-    Input 
-        data : [H W SLC], remove any extra scaling
-        gmap : [H W SLC], no scaling added
-        scaling_factor : scaling factor to adjust denoising strength, smaller value is for higher strength (0.5 is more smoothing than 1.0)
-    Output
-        res : [H W SLC]
-    '''
-
-    t0 = time()
-
-    H, W, SLC = data.shape
-
-    if(gmap.shape[0]!=H or gmap.shape[1]!=W or gmap.shape[2]!=SLC):
-        gmap = np.ones(H, W, SLC)
-
-    if verbose:
-        print(f"---> apply_model_3D, preparation took {time()-t0} seconds ")
-        print(f"---> apply_model_3D, input array {data.shape}")
-        print(f"---> apply_model_3D, gmap array {gmap.shape}")
-        print(f"---> apply_model_3D, pad_time {config.pad_time}")
-        print(f"---> apply_model_3D, height and width {config.height, config.width}")
-        print(f"---> apply_model_3D, complex_i {config.complex_i}")
-        print(f"---> apply_model_3D, scaling_factor {scaling_factor}")
-
-    c = config
-
-    try:
-        x = np.transpose(data, [2, 0, 1]).reshape([1, SLC, 1, H, W])
-        g = np.transpose(gmap, [2, 0, 1]).reshape([1, SLC, 1, H, W])
-
-        print(f"---> running_inference, input {x.shape} for volume")
-        output = _apply_model(model, x, g, scaling_factor, config, device, overlap)
-
-        output = np.transpose(output, (3, 4, 2, 1, 0)) # [H, W, Cout, SLC, 1]
-
-        if config.complex_i:
-            data_filtered = output[:,:,0,:,0] + 1j*output[:,:,1,:,0]
-        else:
-            data_filtered = output
-
-        data_filtered = np.reshape(data_filtered, (H, W, SLC))
-
-    except Exception as e:
-        print(e)
-        data_filtered = copy.deepcopy(data)
-
-    t1 = time()
-    print(f"---> apply_model_3D took {t1-t0} seconds ")
-
-    return data_filtered
-
-# -------------------------------------------------------------------------------------------------
-
-def apply_model_2D(data, model, gmap, config, scaling_factor, device='cpu', overlap=None, verbose=False):
-    '''
-    Input 
-        data : [H W SLC], remove any extra scaling
-        gmap : [H W SLC], no scaling added
-        scaling_factor : scaling factor to adjust denoising strength, smaller value is for higher strength (0.5 is more smoothing than 1.0)
-    Output
-        res : [H W SLC]
+                a_composed_res = composed_res[:,:,c*W:(c+1)*W]
+                a_composed_res = np.clip(a_composed_res, a_min=0.5*np.median(a_composed_res), a_max=np.percentile(a_composed_res, 90))
+                temp = np.zeros_like(a_composed_res)
+                composed_res[:,:,c*W:(c+1)*W] = cv2.normalize(a_composed_res, temp, 0, 255, norm_type=cv2.NORM_MINMAX)
         
-    Attention is performed within every 2D image.
-    '''
+        elif B>2:
+            composed_res = np.zeros((T, 5*H, B*W))
+            for b in range(B):
+                for t in range(T):
+                    composed_res[t, :H, b*W:(b+1)*W] = resize_img(save_x[b,t,:,:].squeeze(), H, W)
+                    composed_res[t, H:2*H, b*W:(b+1)*W] = resize_img(save_p[b,t,:,:].squeeze(), H, W)
+                    composed_res[t, 2*H:3*H, b*W:(b+1)*W] = resize_img(save_p_1st_net[b,t,:,:].squeeze(), H, W)
+                    composed_res[t, 3*H:4*H, b*W:(b+1)*W] = resize_img(save_y[b,t,:,:].squeeze(), H, W)
+                    composed_res[t, 4*H:5*H, b*W:(b+1)*W] = resize_img(save_y_2x[b,t,:,:].squeeze(), H, W)
 
-    t0 = time()
-
-    H, W, SLC = data.shape
-
-    if(gmap.shape[0]!=H or gmap.shape[1]!=W or gmap.shape[2]!=SLC):
-        gmap = np.ones(H, W, SLC)
-
-    if verbose:
-        print(f"---> apply_model_2D, preparation took {time()-t0} seconds ")
-        print(f"---> apply_model_2D, input array {data.shape}")
-        print(f"---> apply_model_2D, gmap array {gmap.shape}")
-        print(f"---> apply_model_2D, pad_time {config.pad_time}")
-        print(f"---> apply_model_2D, height and width {config.height, config.width}")
-        print(f"---> apply_model_2D, complex_i {config.complex_i}")
-        print(f"---> apply_model_2D, scaling_factor {scaling_factor}")
-
-    c = config
-
-    try:
-        x = np.transpose(data, [2, 0, 1]).reshape([SLC, 1, 1, H, W])
-        g = np.transpose(gmap, [2, 0, 1]).reshape([SLC, 1, 1, H, W])
-
-        output = np.zeros([SLC, 1, 1, H, W])
-
-        print(f"---> running_inference, input {x.shape} for 2D")
-        for slc in range(SLC):
-            output[slc] = _apply_model(model, x[slc], g[slc], scaling_factor, config, device, overlap)
-
-        output = np.transpose(output, (3, 4, 2, 1, 0)) # [H, W, Cout, 1, SLC]
-
-        if config.complex_i:
-            data_filtered = output[:,:,0,:,:] + 1j*output[:,:,1,:,:]
+                a_composed_res = composed_res[:,:,b*W:(b+1)*W]
+                a_composed_res = np.clip(a_composed_res, a_min=0.5*np.median(a_composed_res), a_max=np.percentile(a_composed_res, 90))
+                temp = np.zeros_like(a_composed_res)
+                composed_res[:,:,b*W:(b+1)*W] = cv2.normalize(a_composed_res, temp, 0, 255, norm_type=cv2.NORM_MINMAX)
         else:
-            data_filtered = output
+            composed_res = np.zeros((T, B*H, 5*W))
+            for b in range(B):
+                for t in range(T):
+                    composed_res[t, b*H:(b+1)*H, :W] = resize_img(save_x[b,t,:,:].squeeze(), H, W)
+                    composed_res[t, b*H:(b+1)*H, W:2*W] = resize_img(save_p[b,t,:,:].squeeze(), H, W)
+                    composed_res[t, b*H:(b+1)*H, 2*W:3*W] = resize_img(save_p_1st_net[b,t,:,:].squeeze(), H, W)
+                    composed_res[t, b*H:(b+1)*H, 3*W:4*W] = resize_img(save_y[b,t,:,:].squeeze(), H, W)
+                    composed_res[t, b*H:(b+1)*H, 4*W:5*W] = resize_img(save_y_2x[b,t,:,:].squeeze(), H, W)
 
-        data_filtered = np.reshape(data_filtered, (H, W, SLC))
+                a_composed_res = composed_res[:,b*H:(b+1)*H,:]
+                a_composed_res = np.clip(a_composed_res, a_min=0.5*np.median(a_composed_res), a_max=np.percentile(a_composed_res, 90))
+                temp = np.zeros_like(a_composed_res)
+                composed_res[:,b*H:(b+1)*H,:] = cv2.normalize(a_composed_res, temp, 0, 255, norm_type=cv2.NORM_MINMAX)
 
-    except Exception as e:
-        print(e)
-        data_filtered = copy.deepcopy(data)
+        # composed_res = np.clip(composed_res, a_min=0.5*np.median(composed_res), a_max=np.percentile(composed_res, 90))
+        # temp = np.zeros_like(composed_res)
+        # composed_res = cv2.normalize(composed_res, temp, 0, 255, norm_type=cv2.NORM_MINMAX)
 
-    t1 = time()
-    print(f"---> apply_model_2D took {t1-t0} seconds ")
+        return np.repeat(composed_res[:,np.newaxis,:,:].astype('uint8'), 3, axis=1)
 
-    return data_filtered
-
-# -------------------------------------------------------------------------------------------------
-
-def compare_model(config, model, model_jit, model_onnx, device='cpu', x=None):
-    """
-    Compare onnx, pts and pt models
-    """
-    c = config
-
-    C = 3 if config.complex_i else 2
-
-    if x is None:
-        x = np.random.randn(1, 12, C, 128, 128).astype(np.float32)
-
-    B, T, C, H, W = x.shape
-
-    model.to(device=device)
-    model.eval()
-
-    cutout_in = (c.time, c.height[-1], c.width[-1])
-    overlap_in = (c.time//2, c.height[-1]//2, c.width[-1]//2)
-
-    tm = start_timer(enable=True)    
-    y, y_model = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device=device)
-    end_timer(enable=True, t=tm, msg="torch model took")
-
-    tm = start_timer(enable=True)
-    y_onnx, y_model_onnx = running_inference(model_onnx, x, cutout=cutout_in, overlap=overlap_in, device=device)
-    end_timer(enable=True, t=tm, msg="onnx model took")
-
-    diff = np.linalg.norm(y-y_onnx)
-    print(f"--> {Fore.GREEN}Onnx model difference is {diff} ... {Style.RESET_ALL}", flush=True)
-
-    tm = start_timer(enable=True)
-    y_jit, y_model_jit = running_inference(model_jit, x, cutout=cutout_in, overlap=overlap_in, device=device)
-    end_timer(enable=True, t=tm, msg="torch script model took")
-
-    diff = np.linalg.norm(y-y_jit)
-    print(f"--> {Fore.GREEN}Jit model difference is {diff} ... {Style.RESET_ALL}", flush=True)
-
-    diff = np.linalg.norm(y_onnx-y_jit)
-    print(f"--> {Fore.GREEN}Jit - onnx model difference is {diff} ... {Style.RESET_ALL}", flush=True)
 
 # -------------------------------------------------------------------------------------------------
-
-def load_model(saved_model_path, saved_model_config=None, model_type=None):
-    """
-    load a ".pt" or ".pts" model
-    @rets:
-        - model (torch model): the model ready for inference
-    """
-
-    config = []
-
-    config_file = saved_model_config
-    if config_file is not None and os.path.isfile(config_file):
-        print(f"{Fore.YELLOW}Load in config file - {config_file}{Style.RESET_ALL}")
-        with open(config_file, 'rb') as f:
-            config = pickle.load(f)
-
-    if saved_model_path.endswith(".pt") or saved_model_path.endswith(".pth"):
-
-        #status = torch.load(saved_model_path, map_location=get_device())
-        status = torch.load(saved_model_path)
-        config = status['config']
-
-        if not torch.cuda.is_available():
-            config.device = torch.device('cpu')
-
-        if model_type is not None:
-            config.model_type = model_type
-            print(f"Use the input model type - {model_type}")
-
-        model = create_model(config, config.model_type, total_steps=-1)
-
-        if 'model' in status:
-            print(f"{Fore.YELLOW}Load in model {Style.RESET_ALL}")
-            model.load_state_dict(status['model'])
-        elif 'model_state' in status:
-            print(f"{Fore.YELLOW}Load in model_state {Style.RESET_ALL}")
-            model.load_state_dict(status['model_state'])
-        elif 'backbone_state' in status:
-            print(f"{Fore.YELLOW}Load in pre/backbone/post states{Style.RESET_ALL}")
-            model.pre.load_state_dict(status['pre_state'])
-            model.backbone.load_state_dict(status['backbone_state'])
-            model.post.load_state_dict(status['post_state'])
-            model.a = status['a']
-            model.b = status['b']
-
-    elif saved_model_path.endswith(".pts"):
-        model = torch.jit.load(saved_model_path, map_location=get_device())
-    else:
-        model, _ = load_model_onnx(model_dir="", model_file=saved_model_path, use_cpu=True)
-    return model, config
-
-# -------------------------------------------------------------------------------------------------
-
 def tests():
     pass    
 

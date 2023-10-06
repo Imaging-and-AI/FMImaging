@@ -43,6 +43,7 @@ from optim.optim_utils import compute_total_steps
 # Default functions
 from setup.setup_base import parse_config_and_setup_run
 from optim.optim_base import OptimManager
+from utils.status import get_device
 
 # Custom functions
 from mri_parser import mri_parser
@@ -51,48 +52,32 @@ from mri_loss import mri_loss
 from mri_model import STCNNT_MRI, MRI_hrnet, MRI_double_net
 from LSUV import LSUVinit
 from mri_metrics import MriMetricManager
-from mri_trainer import MRITrainManager
+from mri_trainer import MRITrainManager, get_rank_str
 
 # -------------------------------------------------------------------------------------------------
 
 def create_model(config, model_type):
+    config_copy = copy.deepcopy(config)
     if model_type == "STCNNT_MRI":
-        model = STCNNT_MRI(config=config)
+        model = STCNNT_MRI(config=config_copy)
     elif model_type == "MRI_hrnet":
-        model = MRI_hrnet(config=config)
+        model = MRI_hrnet(config=config_copy)
     else:
-        model = MRI_double_net(config=config)
+        model = MRI_double_net(config=config_copy)
 
     return model
-
-# -------------------------------------------------------------------------------------------------
-
-def get_rank_str(rank):
-    if rank == 0:
-        return f"{Fore.BLUE}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
-    if rank == 1:
-        return f"{Fore.GREEN}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
-    if rank == 2:
-        return f"{Fore.YELLOW}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
-    if rank == 3:
-        return f"{Fore.MAGENTA}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
-    if rank == 4:
-        return f"{Fore.LIGHTYELLOW_EX}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
-    if rank == 5:
-        return f"{Fore.LIGHTBLUE_EX}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
-    if rank == 6:
-        return f"{Fore.LIGHTRED_EX}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
-    if rank == 7:
-        return f"{Fore.LIGHTCYAN_EX}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
-
-    return f"{Fore.WHITE}{Style.BRIGHT}rank {rank} {Style.RESET_ALL}"
-    
+   
 # -------------------------------------------------------------------------------------------------
 def main():
            
     # -----------------------------------------------
-    
+
     config = parse_config_and_setup_run(mri_parser) 
+
+    if config.complex_i:
+        config.no_in_channel = 3
+    else:
+        config.no_in_channel = 2
 
     if config.ddp:
         rank = int(os.environ["LOCAL_RANK"])
@@ -105,6 +90,7 @@ def main():
     else:
         rank = -1
         global_rank = -1
+        device = get_device()
 
     rank_str = get_rank_str(rank)
 
@@ -131,7 +117,7 @@ def main():
 
     num_epochs = config.num_epochs
     batch_size = config.batch_size
-    lr = config.global_lr
+    lr = config.optim.lr
     optim = config.optim
     scheduler_type = config.scheduler_type
     losses = config.losses
@@ -139,10 +125,12 @@ def main():
     weighted_loss_snr = config.weighted_loss_snr
     weighted_loss_temporal = config.weighted_loss_temporal
     weighted_loss_added_noise = config.weighted_loss_added_noise
-    save_samples = config.save_samples
+    save_train_samples = config.save_train_samples
+    save_val_samples = config.save_val_samples
+    save_test_samples = config.save_test_samples
     num_saved_samples = config.num_saved_samples
-    height = config.height
-    width = config.width
+    height = config.mri_height
+    width = config.mri_width
     c_time = config.time
     use_amp = config.use_amp
     num_workers = config.num_workers
@@ -150,13 +138,10 @@ def main():
     lr_backbone = config.lr_backbone
     lr_post = config.lr_post
     continued_training = config.continued_training
-    disable_pre = config.disable_pre
-    disable_backbone = config.disable_backbone
-    disable_post = config.disable_post
+    freeze_pre = config.freeze_pre
+    freeze_backbone = config.freeze_backbone
+    freeze_post = config.freeze_post
     model_type = config.model_type
-    not_load_pre = config.not_load_pre
-    not_load_backbone = config.not_load_backbone
-    not_load_post = config.not_load_post
     run_name = config.run_name
     run_notes = config.run_notes
     disable_LSUV = config.disable_LSUV
@@ -196,7 +181,9 @@ def main():
         config.weighted_loss_snr = weighted_loss_snr
         config.weighted_loss_temporal = weighted_loss_temporal
         config.weighted_loss_added_noise = weighted_loss_added_noise
-        config.save_samples = save_samples
+        config.save_train_samples = save_train_samples
+        config.save_val_samples = save_val_samples
+        config.save_test_samples = save_test_samples
         config.num_saved_samples = num_saved_samples
         config.height = height
         config.width = width
@@ -206,12 +193,9 @@ def main():
         config.lr_pre = lr_pre
         config.lr_backbone = lr_backbone
         config.lr_post = lr_post
-        config.disable_pre = disable_pre
-        config.disable_backbone = disable_backbone
-        config.disable_post = disable_post
-        config.not_load_pre = not_load_pre
-        config.not_load_backbone = not_load_backbone
-        config.not_load_post = not_load_post
+        config.freeze_pre = freeze_pre
+        config.freeze_backbone = freeze_backbone
+        config.freeze_post = freeze_post
         config.model_type = model_type
         config.run_name = run_name
         config.run_notes = run_notes
@@ -243,7 +227,7 @@ def main():
         config.load_optim_and_sched = False
 
     # -----------------------------------------------
-    model = create_model(config=config) 
+    model = create_model(config=config, model_type=config.model_type) 
 
     # -----------------------------------------------
     print(f"{rank_str}, load saved model, continued_training - {continued_training}")
@@ -301,26 +285,26 @@ def main():
 
     model = model.to(device)
 
-    optim_manager = OptimManager(config=config, model=model, train_set=train_set)
+    optim_manager = OptimManager(config=config, model_manager=model, train_set=train_set)
 
     config.ddp = ddp
 
-    print(f"{rank_str}, after load saved model, the config for running - {config}")
-    print(f"{rank_str}, after load saved model, config.use_amp for running - {config.use_amp}")
-    print(f"{rank_str}, after load saved model, config.optim for running - {config.optim}")
-    print(f"{rank_str}, after load saved model, config.scheduler_type for running - {config.scheduler_type}")
-    print(f"{rank_str}, after load saved model, config.weighted_loss_snr for running - {config.weighted_loss_snr}")
-    print(f"{rank_str}, after load saved model, config.weighted_loss_temporal for running - {config.weighted_loss_temporal}")
-    print(f"{rank_str}, after load saved model, config.weighted_loss_added_noise for running - {config.weighted_loss_added_noise}")
-    print(f"{rank_str}, after load saved model, config.num_workers for running - {config.num_workers}")
-    print(f"{rank_str}, after load saved model, config.super_resolution for running - {config.super_resolution}")
-    print(f"{rank_str}, after load saved model, config.post_backbone for running - {config.post_backbone}")
-    print(f"{rank_str}, after load saved model, config.post_hrnet for running - {config.post_hrnet}")
-    print(f"{rank_str}, after load saved model, config.post_mixed_unetr for running - {config.post_mixed_unetr}")
+    print(f"{rank_str}, after initializing model, the config for running - {config}")
+    print(f"{rank_str}, after initializing model, config.use_amp for running - {config.use_amp}")
+    print(f"{rank_str}, after initializing model, config.optim for running - {config.optim}")
+    print(f"{rank_str}, after initializing model, config.scheduler_type for running - {config.scheduler_type}")
+    print(f"{rank_str}, after initializing model, config.weighted_loss_snr for running - {config.weighted_loss_snr}")
+    print(f"{rank_str}, after initializing model, config.weighted_loss_temporal for running - {config.weighted_loss_temporal}")
+    print(f"{rank_str}, after initializing model, config.weighted_loss_added_noise for running - {config.weighted_loss_added_noise}")
+    print(f"{rank_str}, after initializing model, config.num_workers for running - {config.num_workers}")
+    print(f"{rank_str}, after initializing model, config.super_resolution for running - {config.super_resolution}")
+    print(f"{rank_str}, after initializing model, config.post_backbone for running - {config.post_backbone}")
+    print(f"{rank_str}, after initializing model, config.post_hrnet for running - {config.post_hrnet}")
+    print(f"{rank_str}, after initializing model, config.post_mixed_unetr for running - {config.post_mixed_unetr}")
 
-    print(f"{rank_str}, after load saved model, model.curr_epoch for running - {model.curr_epoch}")
-    print(f"{rank_str}, {Fore.GREEN}after load saved model, model type - {config.model_type}{Style.RESET_ALL}")
-    print(f"{rank_str}, {Fore.RED}after load saved model, model.device - {model.device}{Style.RESET_ALL}")
+    print(f"{rank_str}, after initializing model, optim_manager.curr_epoch for running - {optim_manager.curr_epoch}")
+    print(f"{rank_str}, {Fore.GREEN}after initializing model, model type - {config.model_type}{Style.RESET_ALL}")
+    print(f"{rank_str}, {Fore.RED}after initializing model, model.device - {model.device}{Style.RESET_ALL}")
     print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
 
     if config.ddp:

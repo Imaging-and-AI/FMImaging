@@ -147,7 +147,7 @@ class TrainManager(object):
                 if c.ddp: [train_loader.sampler.set_epoch(epoch) for train_loader in train_loaders]
                 self.metric_manager.on_train_epoch_start()
                 train_loader_iters = [iter(train_loader) for train_loader in train_loaders]
-                
+
                 with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
                     for idx in range(total_iters):
 
@@ -160,7 +160,7 @@ class TrainManager(object):
                             loader_outputs = next(train_loader_iters[loader_ind], None)
                         inputs, labels, ids = loader_outputs
                         end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
-                        
+
                         tm = start_timer(enable=c.with_timer)
                         inputs = inputs.to(device)
                         labels = labels.to(device)
@@ -170,24 +170,24 @@ class TrainManager(object):
                             loss = loss_f(output, labels)
                             loss = loss / c.iters_to_accumulate
                         end_timer(enable=c.with_timer, t=tm, msg="---> forward pass took ")
-                        
+
                         tm = start_timer(enable=c.with_timer)  
                         scaler.scale(loss).backward()
                         end_timer(enable=c.with_timer, t=tm, msg="---> backward pass took ")
-                        
+
                         tm = start_timer(enable=c.with_timer)
                         if (idx + 1) % c.iters_to_accumulate == 0 or (idx + 1 == total_iters):
                             if(c.clip_grad_norm>0):
                                 scaler.unscale_(optim)
                                 nn.utils.clip_grad_norm_(model_manager.parameters(), c.clip_grad_norm)
-                            
-                            scaler.step(optim)                    
+
+                            scaler.step(optim)
                             optim.zero_grad(set_to_none=True)
                             scaler.update()
-                        
+
                             if c.scheduler_type == "OneCycleLR": sched.step()
                         end_timer(enable=c.with_timer, t=tm, msg="---> other steps took ")
-                                        
+
                         tm = start_timer(enable=c.with_timer)
                         curr_lr = optim.param_groups[0]['lr']
 
@@ -218,7 +218,7 @@ class TrainManager(object):
                         logging.getLogger("file_only").info(pbar_str)
 
                     end_timer(enable=c.with_timer, t=tm, msg="---> epoch end logging and measuring took ")                
-                
+
                 if epoch % c.eval_frequency==0 or epoch==c.num_epochs:
                     self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="", split="val", final_eval=False)
 
@@ -226,9 +226,8 @@ class TrainManager(object):
                     if c.scheduler_type == "ReduceLROnPlateau":
                         sched.step(loss.item())
                     elif c.scheduler_type == "StepLR":
-                        sched.step()                        
+                        sched.step()
 
-        
             # Load the best model from training
             if self.config.eval_train_set or self.config.eval_val_set or self.config.eval_test_set:
                 logging.info(f"{Fore.CYAN}Loading the best models from training for final evaluation...{Style.RESET_ALL}")
@@ -236,7 +235,7 @@ class TrainManager(object):
                 self.model_manager.load_backbone(os.path.join(self.config.log_dir,self.config.run_name,'best_checkpoint_backbone.pth'))
                 self.model_manager.load_post(os.path.join(self.config.log_dir,self.config.run_name,'best_checkpoint_post.pth'))
         else: epoch = 0
-        
+
         # Evaluate models of each split
         if self.config.eval_train_set: 
             logging.info(f"{Fore.CYAN}Evaluating train set...{Style.RESET_ALL}")
@@ -383,7 +382,7 @@ class TrainManager(object):
         # -------------------------------------------------------
         # if ddp is used, broadcast the parameters from rank0 to all other ranks (originally used for sweep, kept to make sure unified params)
 
-        if self.config.ddp:                                        
+        if self.config.ddp:
 
             if rank<=0:
                 c_list = [self.config]
@@ -399,7 +398,7 @@ class TrainManager(object):
             if rank>0:
                 self.config = c_list[0]
 
-            print(f"---> config synced for the local rank {rank}")                        
+            print(f"---> config synced for the local rank {rank}")
             if world_size > 1: dist.barrier()
 
             print(f"{Fore.RED}---> Ready to run on local rank {rank}, {self.config.run_name}{Style.RESET_ALL}", flush=True)
@@ -426,7 +425,7 @@ class TrainManager(object):
 
         # -------------------------------------------------------
         # after the run, release the process groups
-        if self.config.ddp:         
+        if self.config.ddp:
             if dist.is_initialized():
                 print(f"---> dist.destory_process_group on local rank {rank}", flush=True)
                 dist.destroy_process_group()

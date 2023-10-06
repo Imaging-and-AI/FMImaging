@@ -147,11 +147,13 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
         with torch.inference_mode():
             for i in range(0, image_batch.shape[0], batch_size):
                 x_in = torch.from_numpy(image_batch[i:i+batch_size]).to(device=device, dtype=torch_dtype)
+                x_in = torch.permute(x_in, (0, 2, 1, 3, 4))
 
                 with torch.autocast(device_type='cuda', dtype=dtype, enabled=(not is_script_model)):
                     res, res_1st_net = model(x_in)
 
                 res = res.cpu().detach().to(dtype=torch.float32).numpy()
+                res = np.transpose(res, (0, 2, 1, 3, 4))
 
                 if image_batch_pred is None:
                     image_batch_pred = np.empty((image_batch.shape[0], Tc, res.shape[2], res.shape[-2], res.shape[-1]), dtype=d_type)

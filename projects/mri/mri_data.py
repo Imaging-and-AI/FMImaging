@@ -396,6 +396,11 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
             else:
                 clean_im_2x = torch.clone(clean_im)
 
+        noisy_im = np.transpose(noisy_im, (1, 0, 2, 3))
+        clean_im = np.transpose(clean_im, (1, 0, 2, 3))
+        clean_im_degraded = np.transpose(clean_im_degraded, (1, 0, 2, 3))
+        clean_im_2x = np.transpose(clean_im_2x, (1, 0, 2, 3))
+
         return noisy_im.contiguous(), clean_im.contiguous(), clean_im_degraded.contiguous(), clean_im_2x.contiguous(), gmaps_median, noise_sigmas
 
     def get_cutout_range(self, data):
@@ -626,6 +631,10 @@ class MRIDenoisingDatasetTest(torch.utils.data.Dataset):
         gmaps_median = torch.tensor(np.median(gmap))
         noise_sigmas = torch.tensor(noise_sigma)
 
+        noisy_im = torch.permute(noisy_im, (1, 0, 2, 3))
+        clean_im = torch.permute(clean_im, (1, 0, 2, 3))
+        clean_resized_im = torch.permute(clean_resized_im, (1, 0, 2, 3))
+
         return noisy_im, clean_im, clean_im, clean_resized_im, gmaps_median, noise_sigmas
 
     def __len__(self):
@@ -661,8 +670,8 @@ def load_mri_data(config):
         - train_data_types ("2d"|"2dt"|"3d" list): type of each train data file
         - test_data_types ("2d"|"2dt"|"3d" list): type of each test data file
         - time (int): cutout size in time dimension
-        - height (int list): different height cutouts
-        - width (int list): different width cutouts
+        - mri_height (int list): different height cutouts
+        - mri_width (int list): different width cutouts
         - complex_i (bool): whether to use complex image
         - min_noise_level (float): minimal noise sigma to add. Defaults to 1.0
         - max_noise_level (float): maximal noise sigma to add. Defaults to 6.0
@@ -752,18 +761,18 @@ def load_mri_data(config):
     for (i, h_file) in enumerate(h5files):
         logging.info(f"--> loading data from file: {h_file} for {len(train_keys[i])} entries ...")
         images = load_images_from_h5file([h_file], [train_keys[i]], max_load=c.max_load)
-        for hw in zip(c.height, c.width):        
+        for hw in zip(c.mri_height, c.mri_width):        
             train_set.append(MRIDenoisingDatasetTrain(h5file=[h_file], keys=[train_keys[i]], max_load=-1, data_type=c.train_data_types[i], cutout_shape=hw, **kwargs))
             train_set[-1].images = images
 
     kwargs["snr_perturb_prob"] = 0
     val_set = [MRIDenoisingDatasetTrain(h5file=[h_file], keys=[val_keys[i]], max_load=c.max_load, 
-                                        data_type=c.train_data_types[i], cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
+                                        data_type=c.train_data_types[i], cutout_shape=[c.mri_height[-1], c.mri_width[-1]], **kwargs)
                                             for (i,h_file) in enumerate(h5files)]
 
     if c.test_files is None or c.test_files[0] is None: # no test case given so use some from train data
         test_set = [MRIDenoisingDatasetTrain(h5file=[h_file], keys=[test_keys[i]], max_load=c.max_load, 
-                                             data_type=c.train_data_types[i], cutout_shape=[c.height[-1], c.width[-1]], **kwargs)
+                                             data_type=c.train_data_types[i], cutout_shape=[c.mri_height[-1], c.mri_width[-1]], **kwargs)
                                                 for (i,h_file) in enumerate(h5files)]
     else: # test case is given. take part of it as val set
         test_set, test_h5files = load_mri_test_data(config, ratio_test=ratio[2])
@@ -783,7 +792,7 @@ def load_mri_test_data(config, ratio_test=1.0):
     test_h5files = []
     test_paths = [os.path.join(c.data_root, path_x) for path_x in c.test_files]
 
-    cutout_shape=[c.height[-1], c.width[-1]]
+    cutout_shape=[c.mri_height[-1], c.mri_width[-1]]
 
     for i, file in enumerate(test_paths):
         if not os.path.exists(file):
@@ -812,7 +821,7 @@ if __name__ == '__main__':
 
     saved_path = "/export/Lab-Xue/projects/mri/results/loader_test"
     os.makedirs(saved_path, exist_ok=True)
-           
+
     # -----------------------------------------------------------------
     
     file = "/data/mri/data/BARTS_RetroCine_1p5T_2023_with_2x_resized.h5"
@@ -821,18 +830,15 @@ if __name__ == '__main__':
 
     images = load_images_from_h5file([h5file], [keys], max_load=-1)
 
-    tra_data = MRIDenoisingDatasetTrain([h5file], [keys], data_type='2DT', load_2x_resolution=True, ignore_gmap=True, only_white_noise=True)
-
-    saved_path = "/export/Lab-Xue/projects/mri/results/loader_test"
-    os.makedirs(saved_path, exist_ok=True)
+    tra_data = MRIDenoisingDatasetTrain([h5file], [keys], data_type='2DT', load_2x_resolution=True, ignore_gmap=False, only_white_noise=True)
 
     for k in range(10):
         noisy_im, clean_im, clean_im_degraded, clean_im_2x, gmaps_median, noise_sigmas = tra_data[np.random.randint(len(tra_data))]
 
-        noisy_im = np.transpose(noisy_im.numpy(), (2, 3, 1, 0))
-        clean_im = np.transpose(clean_im.numpy(), (2, 3, 1, 0))
-        clean_im_degraded = np.transpose(clean_im_degraded.numpy(), (2, 3, 1, 0))
-        clean_im_2x = np.transpose(clean_im_2x.numpy(), (2, 3, 1, 0))
+        noisy_im = np.transpose(noisy_im.numpy(), (2, 3, 0, 1)) # H, W, C, T
+        clean_im = np.transpose(clean_im.numpy(), (2, 3, 0, 1))
+        clean_im_degraded = np.transpose(clean_im_degraded.numpy(), (2, 3, 0, 1))
+        clean_im_2x = np.transpose(clean_im_2x.numpy(), (2, 3, 0, 1))
 
         gmap = noisy_im[:,:,2,:]
         noisy_im = noisy_im[:,:,0,:] + 1j * noisy_im[:,:,1,:]

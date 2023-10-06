@@ -50,7 +50,7 @@ class MriMetricManager(MetricManager):
         self.ssim_loss_func = SSIM_Loss(complex_i=self.config.complex_i, device=device)
         self.ssim3D_loss_func = SSIM3D_Loss(complex_i=self.config.complex_i, device=device)
         self.psnr_func = PSNR(range=2048)
-        self.psnr_loss_func = PSNR_Loss(range=2048)    
+        self.psnr_loss_func = PSNR_Loss(range=2048)
         self.perp_func = Perpendicular_Loss()
         self.gaussian_func = GaussianDeriv_Loss(sigmas=[0.5, 1.0, 1.5], complex_i=self.config.complex_i, device=device)
         self.gaussian3D_func = GaussianDeriv3D_Loss(sigmas=[0.5, 1.0, 1.5], sigmas_T=[0.5, 0.5, 0.5], complex_i=self.config.complex_i, device=device)
@@ -292,14 +292,14 @@ class MriMetricManager(MetricManager):
         np.save(os.path.join(saved_path, f"{fname}_y_2x.npy"), y_2x)
         if pred_im_1st_net is not None: np.save(os.path.join(saved_path, f"{fname}_y_1st_net.npy"), pred_im_1st_net)
 
-        B, T, C, H, W = x.shape
+        B, C, T, H, W = x.shape
 
-        noisy_im = np.transpose(noisy_im, [3, 4, 2, 1, 0])
-        clean_im = np.transpose(clean_im, [3, 4, 2, 1, 0])
-        pred_im = np.transpose(pred_im, [3, 4, 2, 1, 0])
-        y_degraded = np.transpose(y_degraded, [3, 4, 2, 1, 0])
-        y_2x = np.transpose(y_2x, [3, 4, 2, 1, 0])
-        if pred_im_1st_net is not None: pred_im_1st_net = np.transpose(pred_im_1st_net, [3, 4, 2, 1, 0])
+        noisy_im = np.transpose(noisy_im, [3, 4, 1, 2, 0])
+        clean_im = np.transpose(clean_im, [3, 4, 1, 2, 0])
+        pred_im = np.transpose(pred_im, [3, 4, 1, 2, 0])
+        y_degraded = np.transpose(y_degraded, [3, 4, 1, 2, 0])
+        y_2x = np.transpose(y_2x, [3, 4, 1, 2, 0])
+        if pred_im_1st_net is not None: pred_im_1st_net = np.transpose(pred_im_1st_net, [3, 4, 1, 2, 0])
 
         hdr = nib.Nifti1Header()
         hdr.set_data_shape((H, W, T, B))
