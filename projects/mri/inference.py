@@ -403,54 +403,29 @@ def compare_model(config, model, model_jit, model_onnx, device='cpu', x=None):
 
 # -------------------------------------------------------------------------------------------------
 
-def load_model(saved_model_path, saved_model_config=None, model_type=None):
+def load_model(saved_model_path):
     """
-    load a ".pt" or ".pts" model
+    load a ".pth"model
     @rets:
         - model (torch model): the model ready for inference
     """
 
-    config = []
-
-    config_file = saved_model_config
-    if config_file is not None and os.path.isfile(config_file):
-        print(f"{Fore.YELLOW}Load in config file - {config_file}{Style.RESET_ALL}")
-        with open(config_file, 'rb') as f:
-            config = pickle.load(f)
+    model = None
+    config = None
 
     if saved_model_path.endswith(".pt") or saved_model_path.endswith(".pth"):
 
-        #status = torch.load(saved_model_path, map_location=get_device())
         status = torch.load(saved_model_path)
         config = status['config']
 
         if not torch.cuda.is_available():
             config.device = torch.device('cpu')
 
-        if model_type is not None:
-            config.model_type = model_type
-            print(f"Use the input model type - {model_type}")
-
         model = create_model(config)
 
-        if 'model' in status:
-            print(f"{Fore.YELLOW}Load in model {Style.RESET_ALL}")
-            model.load_state_dict(status['model'])
-        elif 'model_state' in status:
-            print(f"{Fore.YELLOW}Load in model_state {Style.RESET_ALL}")
-            model.load_state_dict(status['model_state'])
-        elif 'backbone_state' in status:
-            print(f"{Fore.YELLOW}Load in pre/backbone/post states{Style.RESET_ALL}")
-            model.pre.load_state_dict(status['pre_state'])
-            model.backbone.load_state_dict(status['backbone_state'])
-            model.post.load_state_dict(status['post_state'])
-            model.a = status['a']
-            model.b = status['b']
+        print(f"{Fore.YELLOW}Load in model {Style.RESET_ALL}")
+        model.load_state_dict(status['model_state'])
 
-    elif saved_model_path.endswith(".pts"):
-        model = torch.jit.load(saved_model_path, map_location=get_device())
-    else:
-        model, _ = load_model_onnx(model_dir="", model_file=saved_model_path, use_cpu=True)
     return model, config
 
 # -------------------------------------------------------------------------------------------------

@@ -247,7 +247,7 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
         
         self.with_timer = config.with_timer
 
-        c = copy.deepcopy(config)
+        c = copy.copy(config)
 
         # window partition layer
         H = c.height

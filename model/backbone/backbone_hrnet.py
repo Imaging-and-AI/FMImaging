@@ -154,7 +154,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
 
         self.use_interpolation = use_interpolation
 
-        c = copy.deepcopy(config)
+        c = copy.copy(config)
 
         # compute number of windows and patches
         self.num_wind = [c.height//c.window_size[0], c.width//c.window_size[1]]

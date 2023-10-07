@@ -15,14 +15,23 @@ from torch.utils.data.dataloader import DataLoader
 
 import sys
 from pathlib import Path
+import sys
+from pathlib import Path
 
-Project_DIR = Path(__file__).parents[1].resolve()
-sys.path.insert(1, str(Project_DIR))
+Current_DIR = Path(__file__).parents[0].resolve()
+sys.path.append(str(Current_DIR))
+
+MRI_DIR = Path(__file__).parents[1].resolve()
+sys.path.append(str(MRI_DIR))
+
+Project_DIR = Path(__file__).parents[2].resolve()
+sys.path.append(str(Project_DIR))
+
+REPO_DIR = Path(__file__).parents[3].resolve()
+sys.path.append(str(REPO_DIR))
 
 from utils import *
-from model_base.losses import *
-from model_mri import STCNNT_MRI
-from trainer_mri import apply_model, load_model
+from inference import apply_model, load_model, apply_model_3D
 from noise_augmentation import *
 
 import nibabel as nib
@@ -69,7 +78,7 @@ def check_args(args):
 
     # get the args path
     fname = os.path.splitext(args.saved_model_path)[0]
-    args.saved_model_config  = fname + '.config'
+    args.saved_model_config  = fname + '.yaml'
 
     return args
 
@@ -85,7 +94,7 @@ def main():
     # load model
     # -------------------------------------------------------------------------
     print(f"{Fore.YELLOW}Load in model file - {args.saved_model_path}")
-    model, config = load_model(args.saved_model_path, args.saved_model_config)
+    model, config = load_model(args.saved_model_path)
 
     patch_size_inference = args.patch_size_inference
 

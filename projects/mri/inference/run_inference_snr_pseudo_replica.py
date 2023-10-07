@@ -1,9 +1,7 @@
 """
 Run MRI inference data
 """
-import json
-import wandb
-import logging
+import os
 import argparse
 import copy
 from time import time
@@ -13,15 +11,23 @@ from tqdm import tqdm
 from torch.utils.data.dataloader import DataLoader
 
 import sys
+import sys
 from pathlib import Path
 
-Project_DIR = Path(__file__).parents[1].resolve()
-sys.path.insert(1, str(Project_DIR))
+Current_DIR = Path(__file__).parents[0].resolve()
+sys.path.append(str(Current_DIR))
+
+MRI_DIR = Path(__file__).parents[1].resolve()
+sys.path.append(str(MRI_DIR))
+
+Project_DIR = Path(__file__).parents[2].resolve()
+sys.path.append(str(Project_DIR))
+
+REPO_DIR = Path(__file__).parents[3].resolve()
+sys.path.append(str(REPO_DIR))
 
 from utils import *
-from model_base.losses import *
-from model_mri import STCNNT_MRI
-from trainer_mri import apply_model, load_model, apply_model_3D
+from inference import apply_model, load_model, apply_model_3D
 
 # -------------------------------------------------------------------------------------------------
 # setup for testing from cmd
@@ -68,7 +74,7 @@ def check_args(args):
 
     # get the args path
     fname = os.path.splitext(args.saved_model_path)[0]
-    args.saved_model_config  = fname + '.config'
+    args.saved_model_config  = fname + '.yaml'
 
     return args
 
@@ -83,7 +89,7 @@ def main():
     print(f"---> support bfloat16 is {support_bfloat16(device=get_device())}")
     
     print(f"{Fore.YELLOW}Load in model file - {args.saved_model_path}")
-    model, config = load_model(args.saved_model_path, args.saved_model_config, args.model_type)
+    model, config = load_model(args.saved_model_path)
 
     patch_size_inference = args.patch_size_inference
     config.pad_time = args.pad_time

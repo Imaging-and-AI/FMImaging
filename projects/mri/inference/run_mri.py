@@ -2,19 +2,26 @@
 Python script to run bash scripts in batches
 """
 
+import os
 import sys
+import itertools
 from pathlib import Path
 
-Project_DIR = Path(__file__).parents[0].resolve()
-sys.path.insert(1, str(Project_DIR))
+Current_DIR = Path(__file__).parents[0].resolve()
+sys.path.append(str(Current_DIR))
 
-Project_DIR = Path(__file__).parents[1].resolve()
-sys.path.insert(1, str(Project_DIR))
+MRI_DIR = Path(__file__).parents[1].resolve()
+sys.path.append(str(MRI_DIR))
 
-from trainer_base import *
+Project_DIR = Path(__file__).parents[2].resolve()
+sys.path.append(str(Project_DIR))
+
+REPO_DIR = Path(__file__).parents[3].resolve()
+sys.path.append(str(REPO_DIR))
 
 import time
 from datetime import datetime
+from ddp_base import run_ddp_base
 
 # -------------------------------------------------------------
 
@@ -38,7 +45,7 @@ class mri_ddp_base(run_ddp_base):
         #"--global_lr", "0.0001",
 
         "--clip_grad_norm", "1.0",
-        "--weight_decay", "1",
+        "--optim.weight_decay", "1",
 
         "--dropout_p", "0.1",
 
@@ -54,40 +61,8 @@ class mri_ddp_base(run_ddp_base):
         "--scheduler_type", "ReduceLROnPlateau",
         #"--scheduler_type", "OneCycleLR",
 
-        "--scheduler.ReduceLROnPlateau.patience", "0",
-        "--scheduler.ReduceLROnPlateau.cooldown", "0",
-        "--scheduler.ReduceLROnPlateau.factor", "0.9",
-
-        "--scheduler.OneCycleLR.pct_start", "0.2",
-
-        # hrnet
-        "--backbone_hrnet.num_resolution_levels", "2",
-
-        # mixed_unetr
-        "--backbone_mixed_unetr.num_resolution_levels", "2", 
-        "--backbone_mixed_unetr.use_unet_attention", "1", 
-        "--backbone_mixed_unetr.use_interpolation", "1", 
-        "--backbone_mixed_unetr.with_conv", "0", 
-        "--backbone_mixed_unetr.min_T", "16", 
-        "--backbone_mixed_unetr.encoder_on_skip_connection", "1", 
-        "--backbone_mixed_unetr.encoder_on_input", "1", 
-        "--backbone_mixed_unetr.transformer_for_upsampling", "0", 
-        "--backbone_mixed_unetr.n_heads", "32", "32", "32", 
-        "--backbone_mixed_unetr.use_conv_3d", "1",
-        "--backbone_mixed_unetr.use_window_partition", "0",
-    
-        # unet
-        "--backbone_unet.num_resolution_levels", "2",
-
-        # LLMs
-        "--backbone_LLM.num_stages", "3",
-
-        # small unet
-        "--backbone_small_unet.channels", "16", "32", "64",   
-        "--backbone_small_unet.block_str", "T1L1G1", "T1L1G1", "T1L1G1",
-
-        #"--post_backbone", "mixed_unetr", 
-        #"--post_backbone", "hrnet", 
+        #"--post_backbone", "STCNNT_mUNET", 
+        #"--post_backbone", "STCNNT_HRNET", 
 
         #"--min_noise_level", "2.0",
         #"--max_noise_level", "24.0",
@@ -95,8 +70,8 @@ class mri_ddp_base(run_ddp_base):
         #"--residual",
         #"--losses", "mse", "l1",
         #"--loss_weights", "1.0", "1.0",
-        "--height", "32", "64",
-        "--width", "32", "64",
+        "--mri_height", "32", "64",
+        "--mri_width", "32", "64",
         "--time", "12",
         "--num_uploaded", "12",
         #"--snr_perturb_prob", "0.25",
@@ -156,12 +131,6 @@ class mri_ddp_base(run_ddp_base):
 
         self.cmd.extend(["--max_load", f"{int(config.max_load)}"])
 
-        self.cmd.extend(["--global_lr", f"{config.global_lr}"])
-
-        self.cmd.extend(["--lr_pre", f"{config.lr_pre}"])
-        self.cmd.extend(["--lr_backbone", f"{config.lr_backbone}"])
-        self.cmd.extend(["--lr_post", f"{config.lr_post}"])
-
         self.cmd.extend(["--model_type", f"{config.model_type}"])
 
         if config.super_resolution:
@@ -205,20 +174,6 @@ class mri_ddp_base(run_ddp_base):
                             "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "3d",
                             "--test_data_types", "3d", "2dt", "2d", "2dt",
                         ])
-
-        if config.not_load_pre:
-            self.cmd.extend(["--not_load_pre"])
-        if config.not_load_backbone:
-            self.cmd.extend(["--not_load_backbone"])
-        if config.not_load_post:
-            self.cmd.extend(["--not_load_post"])
-
-        if config.disable_pre:
-            self.cmd.extend(["--disable_pre"])
-        if config.disable_backbone:
-            self.cmd.extend(["--disable_backbone"])
-        if config.disable_post:
-            self.cmd.extend(["--disable_post"])
 
         self.cmd.extend(["--snr_perturb_prob", f"{config.snr_perturb_prob}"])
 
@@ -384,8 +339,8 @@ class mri_ddp_base(run_ddp_base):
         return cmd_runs
 
     def create_cmd_run(self, cmd_run, config, 
-                        optim='adamw',
-                        bk='hrnet', 
+                        optim='sophia',
+                        bk='STCNNT_HRNET', 
                         a_type='conv', 
                         cell_type='sequential', 
                         norm_mode='batch2d', 
@@ -513,8 +468,7 @@ class mri_ddp_base(run_ddp_base):
         parser.add_argument("--max_load", type=int, default=-1, help="number of max loaded samples into the RAM")
 
         parser.add_argument("--model_type", type=str, default="STCNNT_MRI", help="STCNNT_MRI or MRI_hrnet or MRI_double_net")
-
-        parser.add_argument('--model_backbone', type=str, default="hrnet", help="which backbone model to use, 'hrnet', 'unet' ")
+        parser.add_argument('--model_backbone', type=str, default="STCNNT_HRNET", help="which backbone model to use, 'STCNNT_HRNET', 'STCNNT_UNET' ")
 
         parser.add_argument('--model_block_str', nargs='+', type=str, default=None, help="block string to define the attention layers in blocks; if multiple strings are given, each is for a resolution level.")
 
@@ -524,20 +478,6 @@ class mri_ddp_base(run_ddp_base):
         parser.add_argument("--min_noise_level", type=float, default=1.0, help='minimal noise level')
         parser.add_argument("--max_noise_level", type=float, default=24.0, help='maximal noise level')
 
-        parser.add_argument("--global_lr", type=float, default=0.0001, help='global learning rate')
-
-        parser.add_argument("--lr_pre", type=float, default=-1, help='learning rate for pre network')
-        parser.add_argument("--lr_backbone", type=float, default=-1, help='learning rate for backbone network')
-        parser.add_argument("--lr_post", type=float, default=-1, help='learning rate for post network')
-
-        parser.add_argument("--not_load_pre", action="store_true", help='if set, pre module will not be loaded.')
-        parser.add_argument("--not_load_backbone", action="store_true", help='if set, backbone module will not be loaded.')
-        parser.add_argument("--not_load_post", action="store_true", help='if set, pre module will not be loaded.')
-
-        parser.add_argument("--disable_pre", action="store_true", help='if set, pre module will have require_grad_(False).')
-        parser.add_argument("--disable_backbone", action="store_true", help='if set, backbone module will have require_grad_(False).')
-        parser.add_argument("--disable_post", action="store_true", help='if set, post module will have require_grad_(False).')
-
         parser.add_argument("--disable_LSUV", action="store_true", help='if set, do not perform LSUV init.')
 
         parser.add_argument("--super_resolution", action="store_true", help='if set, training with 2x upsampling in spatial resolution.')
@@ -545,7 +485,7 @@ class mri_ddp_base(run_ddp_base):
         parser.add_argument("--not_add_noise", action="store_true", help='if set, will not add noise to images.')
         parser.add_argument("--with_data_degrading", action="store_true", help='if set, degrade image before adding noise.')
 
-        parser.add_argument('--post_backbone', type=str, default="hrnet", help="model for post module, 'hrnet', 'mixed_unetr' ")
+        parser.add_argument('--post_backbone', type=str, default="STCNNT_HRNET", help="model for post module, 'STCNNT_HRNET', 'STCNNT_mUNET' ")
 
         parser.add_argument("--only_white_noise", action="store_true", help='if set, only add white noise.')
         parser.add_argument("--ignore_gmap", action="store_true", help='if set, do not use gmap for training.')
@@ -563,7 +503,7 @@ def main():
 
     os.system("ulimit -n 65536")
 
-    ddp_run = mri_ddp_base(project="mri-main", script_to_run='./mri/main_mri.py')
+    ddp_run = mri_ddp_base(project="mri-main", script_to_run='./projects/mri/run.py')
     ddp_run.run()
 
 # -------------------------------------------------------------

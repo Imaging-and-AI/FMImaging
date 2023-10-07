@@ -69,7 +69,7 @@ class TrainManager(object):
                 self.cast_type = torch.float16
         else:
             self.cast_type = torch.float32
-            
+
     def _train_model(self, rank, global_rank):
         """
         The training loop. Allows training on cpu/single gpu/multiple gpu (ddp)

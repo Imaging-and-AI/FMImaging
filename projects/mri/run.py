@@ -57,7 +57,7 @@ from mri_trainer import MRITrainManager, get_rank_str
 # -------------------------------------------------------------------------------------------------
 
 def create_model(config, model_type):
-    config_copy = copy.deepcopy(config)
+    config_copy = copy.copy(config)
     if model_type == "STCNNT_MRI":
         model = STCNNT_MRI(config=config_copy)
     elif model_type == "MRI_hrnet":
@@ -101,13 +101,13 @@ def main():
     print(f"load_mri_data took {time() - start} seconds ...")
 
     if not config.disable_LSUV:
-        if (config.load_path is None) or (not config.continued_training):
+        if (config.pre_model_load_path is None and config.backbone_model_load_path is None and config.post_model_load_path is None) or (not config.continued_training):
             t0 = time()
             num_samples = len(train_set[-1])
             sampled_picked = np.random.randint(0, num_samples, size=32)
             input_data  = torch.stack([train_set[-1][i][0] for i in sampled_picked])
-            print(f"{rank_str}, LSUV prep data took {time()-t0 : .2f} seconds ...")
-            
+            print(f"{rank_str}, prepared data {input_data.shape}, LSUV prep data took {time()-t0 : .2f} seconds ...")
+
     # -----------------------------------------------
 
     loss_f = mri_loss(config=config)
@@ -117,6 +117,7 @@ def main():
 
     num_epochs = config.num_epochs
     batch_size = config.batch_size
+    global_lr = config.optim.global_lr
     lr = config.optim.lr
     optim = config.optim
     scheduler_type = config.scheduler_type
@@ -134,9 +135,6 @@ def main():
     c_time = config.time
     use_amp = config.use_amp
     num_workers = config.num_workers
-    lr_pre = config.lr_pre
-    lr_backbone = config.lr_backbone
-    lr_post = config.lr_post
     continued_training = config.continued_training
     freeze_pre = config.freeze_pre
     freeze_backbone = config.freeze_backbone
@@ -175,7 +173,8 @@ def main():
         config.loss_weights = loss_weights
         config.optim = optim
         config.scheduler_type = scheduler_type
-        config.global_lr = lr
+        config.optim.lr = lr
+        config.optim.global_lr = global_lr
         config.num_epochs = num_epochs
         config.batch_size = batch_size
         config.weighted_loss_snr = weighted_loss_snr
@@ -185,14 +184,11 @@ def main():
         config.save_val_samples = save_val_samples
         config.save_test_samples = save_test_samples
         config.num_saved_samples = num_saved_samples
-        config.height = height
-        config.width = width
+        config.mri_height = height
+        config.mri_width = width
         config.time = c_time
         config.use_amp = use_amp
         config.num_workers = num_workers
-        config.lr_pre = lr_pre
-        config.lr_backbone = lr_backbone
-        config.lr_post = lr_post
         config.freeze_pre = freeze_pre
         config.freeze_backbone = freeze_backbone
         config.freeze_post = freeze_post

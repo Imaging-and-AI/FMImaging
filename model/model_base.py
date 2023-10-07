@@ -20,6 +20,7 @@ Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.append(str(Project_DIR))
 
 from optim.optim_utils import divide_optim_into_groups
+from setup import config_to_yaml
 
 # -------------------------------------------------------------------------------------------------
 
@@ -332,6 +333,57 @@ class ModelManager(nn.Module):
         self.save_backbone(model_save_name+"_backbone", epoch, optim, sched)
         self.save_post(model_save_name+"_post", epoch, optim, sched)
 
+    def save_entire_model(self, epoch, save_file_name=None):
+        """
+        Save entire model
+        @args:
+            - epoch (int): current epoch of the training cycle
+        @args (from config):
+            - save_path (str): saved model full path and name
+            - save_file_name (str): saved model file name
+        """
+        run_name = self.config.run_name.replace(" ", "_")
+
+        if save_file_name is None:
+            save_file_name = f"{run_name}_epoch-{epoch}"
+            
+        save_path = os.path.join(self.config.log_dir, run_name)
+        os.makedirs(save_path, exist_ok=True)
+
+        model_file = os.path.join(save_path, f"{save_file_name}.pth")
+        logging.info(f"{Fore.YELLOW}Saving model status at {model_file}{Style.RESET_ALL}")
+        
+        torch.save({
+            "epoch":epoch,
+            "model_state": self.state_dict(), 
+            "config": self.config,
+        }, model_file)
+
+        yaml_file = config_to_yaml(self.config, save_path, save_name=save_file_name)
+        logging.info(f"{Fore.YELLOW}Saving model config at {yaml_file}{Style.RESET_ALL}")
+
+        return save_path, save_file_name, yaml_file
+
+    def load_entire_model(self, save_path, save_file_name, device=torch.device('cpu')):
+        """
+        Load a saved model
+        @args:
+            - save_path (str): path to load model
+            - save_file_name (str): model file name
+            - device (torch.device): device to setup the model on
+        """
+        
+        model_full_path = os.path.join(save_path, save_file_name)
+        logging.info(f"{Fore.YELLOW}Loading model from {model_full_path}{Style.RESET_ALL}")
+
+        if os.path.isfile(model_full_path):
+            status = torch.load(model_full_path, map_location=device)
+            self.config = status['config']
+            self.config.device = device
+            self.load_state_dict(status['model_state'])
+        else:
+            logging.warning(f"{Fore.YELLOW}{model_full_path} does not exist .... {Style.RESET_ALL}")
+            
     def forward(self, x):
         """
         @args:

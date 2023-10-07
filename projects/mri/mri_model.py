@@ -489,7 +489,7 @@ class MRI_double_net(STCNNT_MRI):
             self.post["o_conv"] = Conv2DExt(backbone_C_out, backbone_C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True, channel_fist=False)
 
         if config.post_backbone == 'STCNNT_HRNET':
-            config_post = copy.deepcopy(config)
+            config_post = copy.copy(config)
             config_post.backbone_hrnet.block_str = config.post_hrnet.block_str
             config_post.separable_conv = config.post_hrnet.separable_conv
 
@@ -504,7 +504,7 @@ class MRI_double_net(STCNNT_MRI):
 
             C_out = int(config_post.backbone_hrnet.C * sum([np.power(2, k) for k in range(config_post.backbone_hrnet.num_resolution_levels)]))
         else:
-            config_post = copy.deepcopy(config)
+            config_post = copy.copy(config)
             config_post.separable_conv = config.post_mixed_unetr.separable_conv
 
             config_post.backbone_mixed_unetr.block_str = config.post_mixed_unetr.block_str
@@ -589,7 +589,7 @@ class MRI_double_net(STCNNT_MRI):
             y_hat = self.post["o_conv"](y_hat) # channel_fist is False
             y_hat = self.permute(y_hat) # channel_fist is True
             
-        if self.config.post_backbone == 'hrnet':
+        if self.config.post_backbone == 'STCNNT_HRNET':
             res, _ = self.post['post_main'](y_hat)
         else:
             res = self.post['post_main'](y_hat) # channel_fist is True

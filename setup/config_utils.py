@@ -36,16 +36,19 @@ def get_nestedspace_loader():
   loader.add_constructor("tag:yaml.org,2002:python/object:config.config.Nestedspace", nestedspace_constructor)
   return loader
 
-def config_to_yaml(config, save_path):
+def config_to_yaml(config, save_path, save_name=None):
     """Save nestedspace config to yaml file."""
     if not os.path.exists(save_path): os.makedirs(save_path)
-    yaml_file = os.path.join(save_path,'config.yaml')
-    print(f"--> save config as yaml at {yaml_file}")
-    with open(yaml_file, "w", encoding = "utf-8") as yaml_file:
+    if save_name is None:
+        yaml_file_name = os.path.join(save_path,'config.yaml')
+    else:
+        yaml_file_name = os.path.join(save_path,f"{save_name}.yaml")
+    print(f"--> save config as yaml at {yaml_file_name}")
+    with open(yaml_file_name, "w", encoding = "utf-8") as yaml_file:
         dump = yaml.dump(config, default_flow_style = False, allow_unicode = True, encoding = None)
         yaml_file.write(dump)
         
-    return yaml_file
+    return yaml_file_name
 
 def yaml_to_config(yaml_path, new_log_dir, new_run_name):
     """Load yaml into nestedspace config"""

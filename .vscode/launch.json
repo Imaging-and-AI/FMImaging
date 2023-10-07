@@ -4,7 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-
+        // -----------------------------------------------------------------------------------------
         {
             "name": "Python: Current File",
             "type": "python",
@@ -13,6 +13,7 @@
             "console": "integratedTerminal",
             "justMyCode": true
         },
+        // -----------------------------------------------------------------------------------------
         {
             "name": "mri, run",
             "type": "python",
@@ -24,6 +25,94 @@
             "args": [
                 "--data_root", "/data/mri/data", "--log_dir", "/export/Lab-Xue/projects/mri/logs", "--data_dir", "/export/Lab-Xue/projects/mri/results", "--summary_depth", "6", "--device", "cuda", "--project", "mri", "--num_epochs", "1", "--batch_size", "2", "--window_size", "8", "8", "--patch_size", "2", "2", "--optim.lr", "0.0001", "--optim.weight_decay", "1", "--use_amp", "--iters_to_accumulate", "1", "--num_workers", "48", "--prefetch_factor", "4", "--scheduler_type", "ReduceLROnPlateau", "--scheduler.patience", "0", "--scheduler.cooldown", "0", "--scheduler.factor", "0.95", "--min_noise_level", "2.0", "--max_noise_level", "14.0", "--mri_height", "32", "64", "--mri_width", "32", "64", "--time", "12", "--num_uploaded", "12", "--snr_perturb", "0.15", "--train_files", "BWH_RTCine_3T_2021_with_2x_resized.h5", "--train_data_types", "2dt", "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test_with_2x_resized.h5", "train_3D_3T_retro_cine_2020_small_2DT_test_with_2x_resized.h5", "train_3D_3T_retro_cine_2020_small_2D_test_with_2x_resized.h5", "train_3D_3T_retro_cine_2020_500_samples_with_2x_resized.h5", "--test_data_types", "3d", "2dt", "2d", "2dt", "--ratio", "1", "5", "100", "--optim_type", "sophia", "--a_type", "conv", "--cell_type", "parallel", "--cosine_att", "1", "--att_with_relative_postion_bias", "0", "--norm_mode", "instance2d", "--mixer_type", "conv", "--shuffle_in_window", "0", "--scale_ratio_in_mixer", "1.0", "--mixer_kernel_size", "3", "--mixer_padding", "1", "--mixer_stride", "1", "--normalize_Q_K", "--backbone_hrnet.block_str", "T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1", "--complex_i", "--run_name", "test_mixed_unetr", "--run_notes", "test_mixed_unetr", "--snr_perturb_prob", "0.0", "--n_head", "32", "--weighted_loss_snr", "--weighted_loss_temporal", "--weighted_loss_added_noise", "--residual", "--readout_resolution_ratio", "0.85", "0.7", "0.65", "0.55", "--phase_resolution_ratio", "0.85", "0.7", "0.65", "0.55", "--kspace_filter_sigma", "1.5", "2.0", "2.5", "3.0", "--kspace_T_filter_sigma", "1.0", "1.25", "1.5",  "--losses", "mse", "perpendicular", "l1", "--loss_weights", "1.0", "1.0", "1.0", "1.0", "10.0", "10.0", "--post_hrnet.separable_conv", "--backbone_model", "STCNNT_HRNET", "--model_type", "STCNNT_MRI", "--disable_LSUV", "--separable_conv", "--super_resolution", "--post_backbone", "STCNNT_mUNET", "--not_add_noise", "--with_data_degrading", "--upsample_method", "NN", "--override", "--clip_grad_norm",  "1.0", "--optim.weight_decay", "0.1"
             ]
-        }
+        },
+        // -----------------------------------------------------------------------------------------
+        {
+            "name": "run_mri",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/mri/inference/run_mri.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "7"},
+            "args": [
+                "--standalone", "--nproc_per_node", "1", "--data_root", "/data/mri/data", "--tra_ratio", "5", "--run_extra_note", "refactor_v1", "--run_list", "0", "--model_type", "MRI_hrnet", "--min_noise_level", "12.0", "--losses", "mse", "perpendicular", "psnr", "l1", "gradient", "gradient3D", "ssim", "--loss_weights", "0.1", "1.0", "1.0", "1.0", "10.0", "10.0", "1.0", "--model_backbone", "STCNNT_UNET", "--model_block_str", "T1T1T1", "T1T1T1", "--lr_pre", "1e-5", "--lr_backbone", "1e-4", "--lr_post", "1e-4"
+            ]
+        },
+        // -----------------------------------------------------------------------------------------
+        {
+            "name": "run.py, mri",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/mri/run.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "7"},
+            "args": [
+                "--data_dir", "/data/mri/data", 
+                "--log_dir", "/export/Lab-Xue/projects/mri-main/logs", 
+                "--summary_depth", "6", 
+                "--device", "cuda", 
+                "--ddp", 
+                "--project", "mri-main", 
+                "--window_size", "8", "8", "--patch_size", "2", "2", 
+                "--clip_grad_norm", "1.0", 
+                "--optim.weight_decay", "1", 
+                "--dropout_p", "0.1", 
+                "--activation_func", "prelu", 
+                "--iters_to_accumulate", "1", 
+                "--prefetch_factor", "8", 
+                "--scheduler_type", "ReduceLROnPlateau", 
+                "--mri_height", "32", "64", 
+                "--mri_width", "32", "64", 
+                "--time", "12", 
+                "--num_uploaded", "12", 
+                "--snr_perturb", "10.0", 
+                "--post_hrnet.block_str", "T1L1G1", "T1L1G1", 
+                "--ratio", "5", "10", "100", 
+                "--max_load", "-1", 
+                "--model_type", "MRI_hrnet", 
+                "--train_files", "train_3D_3T_retro_cine_2018.h5", "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5", "BARTS_RetroCine_3T_2023.h5", "BARTS_RetroCine_1p5T_2023.h5", "MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", "MINNESOTA_UHVC_RetroCine_1p5T_2022.h5", 
+                "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", "train_3D_3T_retro_cine_2020_small_2DT_test.h5", "train_3D_3T_retro_cine_2020_small_2D_test.h5", "train_3D_3T_retro_cine_2020_500_samples.h5", 
+                "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "3d", 
+                "--test_data_types", "3d", "2dt", "2d", "2dt", 
+                "--snr_perturb_prob", "0.0", 
+                "--optim_type", "sophia", 
+                "--backbone_model", "STCNNT_HRNET", 
+                "--a_type", "conv", 
+                "--cell_type", "parallel", 
+                "--cosine_att", "1", 
+                "--att_with_relative_postion_bias", "0", 
+                "--block_dense_connection", "1", 
+                "--norm_mode", "instance2d", 
+                "--mixer_type", "conv", 
+                "--shuffle_in_window", "0", 
+                "--scale_ratio_in_mixer", "1.0", 
+                "--stride_s", "1", "--stride_t", "2", 
+                "--wandb_dir", "/export/Lab-Xue/projects/mri/wandb", 
+                "--backbone_hrnet.C", "32", 
+                "--backbone_hrnet.num_resolution_levels", "2", 
+                "--backbone_hrnet.block_str", "T1T1T1", "T1T1T1", 
+                "--mixer_kernel_size", "3", 
+                "--mixer_padding", "1", 
+                "--mixer_stride", "1", 
+                "--normalize_Q_K", 
+                "--complex_i", 
+                "--residual", 
+                "--num_epochs", "50", 
+                "--batch_size", "8", 
+                "--post_backbone", "STCNNT_HRNET", 
+                "--losses", "mse", "perpendicular", "psnr", "l1", "gaussian", "gaussian3D", "ssim", 
+                "--loss_weights", "0.1", "1.0", "1.0", "1.0", "10.0", "10.0", "1.0", 
+                "--min_noise_level", "12.0", "--max_noise_level", "24.0", 
+                "--run_name", "mri-main-refactor_v1_STCNNT_UNET_T1T1T1_T1T1T1_20231006_182731_113195_MRI_hrnet_C-32-1_amp-False_complex_residual-T1T1T1_T1T1T1", 
+                "--run_notes", "mri-main-refactor_v1_STCNNT_UNET_T1T1T1_T1T1T1_20231006_182731_113195_MRI_hrnet_C-32-1_amp-False_complex_residual-T1T1T1_T1T1T1", 
+                "--n_head", "32",
+                "--override", "--disable_LSUV"
+            ]
+        },
+        // -----------------------------------------------------------------------------------------
     ]
 }
+
+

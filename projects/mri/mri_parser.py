@@ -32,8 +32,8 @@ class mri_parser(object):
         self.parser.add_argument("--test_data_types", type=str, nargs='+', default=["2dt"], help='the type of each test file: "2d", "2dt", "3d"')
         self.parser.add_argument("--max_load", type=int, default=-1, help='number of samples to load into the disk, if <0, samples will be read from the disk while training')
 
-        self.parser.add_argument("--mri_height", nargs='+', type=int, default=[64, 128], help='heights of the training images')
-        self.parser.add_argument("--mri_width", nargs='+', type=int, default=[64, 128], help='widths of the training images')
+        self.parser.add_argument("--mri_height", nargs='+', type=int, default=[32, 64], help='heights of the training images')
+        self.parser.add_argument("--mri_width", nargs='+', type=int, default=[32, 64], help='widths of the training images')
 
         # dataset arguments
         self.parser.add_argument("--ratio", nargs='+', type=float, default=[90,10,100], help='Ratio (as a percentage) for train/val/test divide of given data. Does allow for using partial dataset')    

@@ -149,13 +149,13 @@ class MRITrainManager(TrainManager):
 
         post_block_str = None
         if c.model_type == "MRI_double_net":
-            if c.post_backbone == "hrnet":
+            if c.post_backbone == "STCNNT_HRNET":
                 post_block_str = c.post_hrnet.block_str
-            if c.post_backbone == "mixed_unetr":
+            if c.post_backbone == "STCNNT_mUNET":
                 post_block_str = c.post_mixed_unetr.block_str
 
         logging.info(f"{rank_str}, {Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.backbone_model}, {c.a_type}, {c.cell_type}, {c.optim_type}, {c.optim}, {c.scheduler_type}, {c.losses}, {c.loss_weights}, weighted loss - snr {c.weighted_loss_snr} - temporal {c.weighted_loss_temporal} - added_noise {c.weighted_loss_added_noise}, data degrading {c.with_data_degrading}, snr perturb {c.snr_perturb_prob}, {c.norm_mode}, scale_ratio_in_mixer {c.scale_ratio_in_mixer}, amp {c.use_amp}, super resolution {c.super_resolution}, stride_s {c.stride_s}, separable_conv {c.separable_conv}, upsample method {c.upsample_method}, batch_size {c.batch_size}, {model_str}{Style.RESET_ALL}")
-        logging.info(f"{rank_str}, {Fore.RED}Local Rank:{rank}, global rank: {global_rank}, block_str, {block_str}, post_block_str, {post_block_str}{Style.RESET_ALL}")
+        logging.info(f"{rank_str}, {Fore.RED}Local Rank:{rank}, global rank: {global_rank}, block_str, {block_str}, post_block_str, {post_block_str}, use_amp {c.use_amp}, cast_type {self.cast_type}{Style.RESET_ALL}")
 
         # -----------------------------------------------
 
@@ -487,6 +487,16 @@ class MRITrainManager(TrainManager):
             self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.test_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="test", final_eval=True, scaling_factor=1)
 
         # -----------------------------------------------
+        
+        save_path, save_file_name = self.model_manager.save_entire_model(epoch=self.config.num_epochs)
+        model_full_path = os.path.join(save_path, save_file_name)
+        logging.info(f"{Fore.YELLOW}Entire model is saved at {model_full_path} ...{Style.RESET_ALL}")
+        
+        if wandb_run is not None:
+            wandb_run.save(model_full_path)
+                    
+        # -----------------------------------------------
+        
         # Finish up training
         self.metric_manager.on_training_end(rank, epoch, model_manager, optim, sched, self.config.train_model)
 

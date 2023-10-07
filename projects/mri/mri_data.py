@@ -664,7 +664,7 @@ def load_mri_data(config):
     @args (from config):
         - ratio (int list): ratio to divide the given train dataset
             3 integers for ratio between train, val and test. Can be [100,0,0]
-        - data_root (str): main folder of the data
+        - data_dir (str): main folder of the data
         - train_files (str list): names of h5files in dataroot for training
         - test_files (str list): names of h5files in dataroot for testing
         - train_data_types ("2d"|"2dt"|"3d" list): type of each train data file
@@ -693,7 +693,7 @@ def load_mri_data(config):
 
     train_paths = []
     for path_x in c.train_files:
-        train_paths.append(os.path.join(c.data_root, path_x))
+        train_paths.append(os.path.join(c.data_dir, path_x))
 
     # check file
     for file in train_paths:
@@ -790,7 +790,7 @@ def load_mri_data(config):
 def load_mri_test_data(config, ratio_test=1.0):
     c = config
     test_h5files = []
-    test_paths = [os.path.join(c.data_root, path_x) for path_x in c.test_files]
+    test_paths = [os.path.join(c.data_dir, path_x) for path_x in c.test_files]
 
     cutout_shape=[c.mri_height[-1], c.mri_width[-1]]
 

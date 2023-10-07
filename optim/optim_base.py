@@ -122,14 +122,14 @@ class OptimManager(object):
         If all_w_decay is False (default), then this function further splits up each group into params w/ and w/o weight decay
         """
         if not self.config.optim.all_w_decay:
-            pre_optim_groups = self.split_decay_optim_groups(self.model_manager.pre, lr=self.config.optim.lr, wd=self.config.optim.weight_decay)
-            backbone_optim_groups = self.split_decay_optim_groups(self.model_manager.backbone, lr=self.config.optim.lr, wd=self.config.optim.weight_decay)
-            post_optim_groups = self.split_decay_optim_groups(self.model_manager.post, lr=self.config.optim.lr, wd=self.config.optim.weight_decay)
+            pre_optim_groups = self.split_decay_optim_groups(self.model_manager.pre, lr=self.config.optim.lr[0], wd=self.config.optim.weight_decay)
+            backbone_optim_groups = self.split_decay_optim_groups(self.model_manager.backbone, lr=self.config.optim.lr[1], wd=self.config.optim.weight_decay)
+            post_optim_groups = self.split_decay_optim_groups(self.model_manager.post, lr=self.config.optim.lr[2], wd=self.config.optim.weight_decay)
 
         else:
-            pre_optim_groups = [{"params": list(self.model_manager.pre.parameters()), "lr": self.config.optim.lr, "weight_decay": self.config.optim.weight_decay}]
-            backbone_optim_groups = [{"params": list(self.model_manager.backbone.parameters()), "lr": self.config.optim.lr, "weight_decay": self.config.optim.weight_decay}]
-            post_optim_groups = [{"params": list(self.model_manager.post.parameters()), "lr": self.config.optim.lr, "weight_decay": self.config.optim.weight_decay}]
+            pre_optim_groups = [{"params": list(self.model_manager.pre.parameters()), "lr": self.config.optim.lr[0], "weight_decay": self.config.optim.weight_decay}]
+            backbone_optim_groups = [{"params": list(self.model_manager.backbone.parameters()), "lr": self.config.optim.lr[1], "weight_decay": self.config.optim.weight_decay}]
+            post_optim_groups = [{"params": list(self.model_manager.post.parameters()), "lr": self.config.optim.lr[2], "weight_decay": self.config.optim.weight_decay}]
 
         optim_groups = pre_optim_groups + backbone_optim_groups + post_optim_groups
 
@@ -162,15 +162,15 @@ class OptimManager(object):
         optim_groups = self.configure_optim_groups() 
 
         if c.optim_type == "adam":
-            self.optim = optim.Adam(optim_groups, lr=c.optim.lr, betas=(c.optim.beta1, c.optim.beta2), weight_decay=c.optim.weight_decay)
+            self.optim = optim.Adam(optim_groups, lr=c.optim.global_lr, betas=(c.optim.beta1, c.optim.beta2), weight_decay=c.optim.weight_decay)
         elif c.optim_type == "adamw":
-            self.optim = optim.AdamW(optim_groups, lr=c.optim.lr, betas=(c.optim.beta1, c.optim.beta2), weight_decay=c.optim.weight_decay)
+            self.optim = optim.AdamW(optim_groups, lr=c.optim.global_lr, betas=(c.optim.beta1, c.optim.beta2), weight_decay=c.optim.weight_decay)
         elif c.optim_type == "sgd":
-            self.optim = optim.SGD(optim_groups, lr=c.optim.lr, momentum=0.9, weight_decay=c.optim.weight_decay)
+            self.optim = optim.SGD(optim_groups, lr=c.optim.global_lr, momentum=0.9, weight_decay=c.optim.weight_decay)
         elif c.optim_type == "nadam":
-            self.optim = optim.NAdam(optim_groups, lr=c.optim.lr, betas=(c.optim.beta1, c.optim.beta2), weight_decay=c.optim.weight_decay)
+            self.optim = optim.NAdam(optim_groups, lr=c.optim.global_lr, betas=(c.optim.beta1, c.optim.beta2), weight_decay=c.optim.weight_decay)
         elif c.optim_type == "sophia":
-            self.optim = SophiaG(optim_groups, lr=c.optim.lr, betas=(0.965, 0.99), rho = 0.01, weight_decay=c.optim.weight_decay)
+            self.optim = SophiaG(optim_groups, lr=c.optim.global_lr, betas=(0.965, 0.99), rho = 0.01, weight_decay=c.optim.weight_decay)
         else:
             raise NotImplementedError(f"Optimizer not implemented: {c.optim_type}")
 
@@ -187,7 +187,7 @@ class OptimManager(object):
                                                    last_epoch=-1,
                                                    verbose=True)
         elif c.scheduler_type == "OneCycleLR":
-            self.sched = optim.lr_scheduler.OneCycleLR(self.optim, max_lr=c.optim.lr, total_steps=total_steps,
+            self.sched = optim.lr_scheduler.OneCycleLR(self.optim, max_lr=c.optim.global_lr, total_steps=total_steps,
                                                             pct_start=c.scheduler.pct_start, anneal_strategy="cos", verbose=False)
         elif c.scheduler_type is None:
             self.sched = None
