@@ -1,4 +1,6 @@
+import sys
 import logging
+from abc import ABC, abstractmethod
 from functools import lru_cache, reduce
 from operator import mul
 from typing import List
@@ -9,147 +11,197 @@ import torch.nn.functional as F
 from timm.models.layers import DropPath, trunc_normal_
 from einops import rearrange
 
+from pathlib import Path
+from argparse import Namespace
+
+Current_DIR = Path(__file__).parents[0].resolve()
+sys.path.insert(1, str(Current_DIR))
+
+Model_DIR = Path(__file__).parents[1].resolve()
+sys.path.insert(1, str(Model_DIR))
+
+Project_DIR = Path(__file__).parents[2].resolve()
+sys.path.insert(1, str(Project_DIR))
+
+from backbone_base import STCNNT_Base_Runtime
+
 """
 CODE FROM OMNIVORE GITHUB https://github.com/facebookresearch/omnivore/
 """
 
 #-------------------------------------------------------------------------------------
-def omnivore_tiny(config, pre_feature_channels):
-    """
-    Simple function to set up and return omnivore tiny model.
-    Additionally, function computes feature_channels, a list of ints containing the number of channels in each feature returned by the model.
-    """
-    embed_dim=96
-    l_depths=4
-    model = SwinTransformer3D(pretrained=None,
-                        pretrained2d=None,
-                        pretrained3d=None,
-                        pretrained_model_key="base_model",
-                        patch_size=(2, 4, 4),
-                        in_chans=pre_feature_channels[-1],
-                        embed_dim=embed_dim,
-                        depths=[2, 2, 6, 2],
-                        num_heads=[3, 6, 12, 24],
-                        window_size=(8, 7, 7),
-                        mlp_ratio=4.0,
-                        qkv_bias=False,
-                        qk_scale=None,
-                        drop_rate=0.0,
-                        attn_drop_rate=0.0,
-                        drop_path_rate=0.0,
-                        norm_layer=nn.LayerNorm,
-                        patch_norm=False,
-                        frozen_stages=-1,
-                        depth_mode=None,
-                        depth_patch_embed_separate_params=True,
-                        out_feat_keys=config.omnivore.out_feat_keys
-                    )
-    feature_channels=[embed_dim * 2 ** (l_depths-i) for i in range(l_depths-1,0,-1)]+[embed_dim * 2 ** (l_depths)]
-    return model, feature_channels
+
+class omnivore_base_class(STCNNT_Base_Runtime, ABC):
+
+    def __init__(self, config, pre_feature_channels) -> None:
+        """
+        @args:
+            - config (Namespace): runtime namespace for setup
+        """
+        super().__init__(config)
+        self.model, self.feature_channels = self.create_model(pre_feature_channels)
+
+    def permute(self, x):
+        return torch.permute(x, (0,2,1,3,4))
+
+    @abstractmethod
+    def create_model(self, pre_feature_channels):
+        pass
+
+    def forward(self, x):
+        if self.config.channel_first:
+            res = self.model(x)
+        else:
+            x = self.permute(x)
+            res = self.model(x)
+            res = [self.permute(a) for a in res]
+        return res
 
 #-------------------------------------------------------------------------------------
-def omnivore_small(config, pre_feature_channels):
-    """
-    Simple function to set up and return omnivore small model.
-    Additionally, function computes feature_channels, a list of ints containing the number of channels in each feature returned by the model.
-    """
-    embed_dim=96
-    l_depths=4
-    model = SwinTransformer3D(pretrained=None,
-                        pretrained2d=None,
-                        pretrained3d=None,
-                        pretrained_model_key="base_model",
-                        patch_size=(2, 4, 4),
-                        in_chans=pre_feature_channels[-1],
-                        embed_dim=embed_dim,
-                        depths=[2, 2, 18, 2],
-                        num_heads=[3, 6, 12, 24],
-                        window_size=(8, 7, 7),
-                        mlp_ratio=4.0,
-                        qkv_bias=False,
-                        qk_scale=None,
-                        drop_rate=0.0,
-                        attn_drop_rate=0.0,
-                        drop_path_rate=0.0,
-                        norm_layer=nn.LayerNorm,
-                        patch_norm=False,
-                        frozen_stages=-1,
-                        depth_mode=None,
-                        depth_patch_embed_separate_params=True,
-                        out_feat_keys=config.omnivore.out_feat_keys
-                    )
-    feature_channels=[embed_dim * 2 ** (l_depths-i) for i in range(l_depths-1,0,-1)]+[embed_dim * 2 ** (l_depths)]
-    return model, feature_channels
+
+class omnivore_tiny(omnivore_base_class):
+
+    def __init__(self, config, pre_feature_channels) -> None:
+        super().__init__(config, pre_feature_channels)
+
+    def create_model(self, pre_feature_channels):
+        embed_dim=96
+        l_depths=4
+        model = SwinTransformer3D(pretrained=None,
+                            pretrained2d=None,
+                            pretrained3d=None,
+                            pretrained_model_key="base_model",
+                            patch_size=(2, 4, 4),
+                            in_chans=pre_feature_channels[-1],
+                            embed_dim=embed_dim,
+                            depths=[2, 2, 6, 2],
+                            num_heads=[3, 6, 12, 24],
+                            window_size=(8, 7, 7),
+                            mlp_ratio=4.0,
+                            qkv_bias=False,
+                            qk_scale=None,
+                            drop_rate=0.0,
+                            attn_drop_rate=0.0,
+                            drop_path_rate=0.0,
+                            norm_layer=nn.LayerNorm,
+                            patch_norm=False,
+                            frozen_stages=-1,
+                            depth_mode=None,
+                            depth_patch_embed_separate_params=True,
+                            out_feat_keys=self.config.omnivore.out_feat_keys
+                        )
+        feature_channels=[embed_dim * 2 ** (l_depths-i) for i in range(l_depths-1,0,-1)]+[embed_dim * 2 ** (l_depths)]
+        return model, feature_channels
 
 #-------------------------------------------------------------------------------------
-def omnivore_base(config, pre_feature_channels):
-    """
-    Simple function to set up and return omnivore base model.
-    Additionally, function computes feature_channels, a list of ints containing the number of channels in each feature returned by the model.
-    """
-    embed_dim=128
-    l_depths=4
-    model = SwinTransformer3D( # Base
-                        pretrained=None,
-                        pretrained2d=None,
-                        pretrained3d=None,
-                        pretrained_model_key="base_model",
-                        patch_size=(2, 4, 4),
-                        in_chans=pre_feature_channels[-1],
-                        embed_dim=embed_dim,
-                        depths=[2, 2, 18, 2],
-                        num_heads=[4,8,16,32],
-                        window_size=(8, 7, 7),
-                        mlp_ratio=4.0,
-                        qkv_bias=False,
-                        qk_scale=None,
-                        drop_rate=0.0,
-                        attn_drop_rate=0.0,
-                        drop_path_rate=0.0,
-                        norm_layer=nn.LayerNorm,
-                        patch_norm=False,
-                        frozen_stages=-1,
-                        depth_mode=None,
-                        depth_patch_embed_separate_params=True,
-                        out_feat_keys=config.omnivore.out_feat_keys
-                    )
-    feature_channels=[embed_dim * 2 ** (l_depths-i) for i in range(l_depths-1,0,-1)]+[embed_dim * 2 ** (l_depths)]
 
-    return model, feature_channels
+class omnivore_small(omnivore_base_class):
+
+    def __init__(self, config, pre_feature_channels) -> None:
+        super().__init__(config, pre_feature_channels)
+
+    def create_model(self, pre_feature_channels):
+        embed_dim=96
+        l_depths=4
+        model = SwinTransformer3D(pretrained=None,
+                            pretrained2d=None,
+                            pretrained3d=None,
+                            pretrained_model_key="base_model",
+                            patch_size=(2, 4, 4),
+                            in_chans=pre_feature_channels[-1],
+                            embed_dim=embed_dim,
+                            depths=[2, 2, 18, 2],
+                            num_heads=[3, 6, 12, 24],
+                            window_size=(8, 7, 7),
+                            mlp_ratio=4.0,
+                            qkv_bias=False,
+                            qk_scale=None,
+                            drop_rate=0.0,
+                            attn_drop_rate=0.0,
+                            drop_path_rate=0.0,
+                            norm_layer=nn.LayerNorm,
+                            patch_norm=False,
+                            frozen_stages=-1,
+                            depth_mode=None,
+                            depth_patch_embed_separate_params=True,
+                            out_feat_keys=self.config.omnivore.out_feat_keys
+                        )
+        feature_channels=[embed_dim * 2 ** (l_depths-i) for i in range(l_depths-1,0,-1)]+[embed_dim * 2 ** (l_depths)]
+        return model, feature_channels
 
 #-------------------------------------------------------------------------------------
-def omnivore_large(config, pre_feature_channels):
-    """
-    Simple function to set up and return omnivore large model.
-    Additionally, function computes feature_channels, a list of ints containing the number of channels in each feature returned by the model.
-    """
-    embed_dim=192
-    l_depths=4
-    model = SwinTransformer3D(pretrained=None,
-                        pretrained2d=None,
-                        pretrained3d=None,
-                        pretrained_model_key="base_model",
-                        patch_size=(2, 4, 4),
-                        in_chans=pre_feature_channels[-1],
-                        embed_dim=embed_dim,
-                        depths=[2, 2, 18, 2],
-                        num_heads=[6, 12, 24, 48],
-                        window_size=(8, 7, 7),
-                        mlp_ratio=4.0,
-                        qkv_bias=False,
-                        qk_scale=None,
-                        drop_rate=0.0,
-                        attn_drop_rate=0.0,
-                        drop_path_rate=0.0,
-                        norm_layer=nn.LayerNorm,
-                        patch_norm=False,
-                        frozen_stages=-1,
-                        depth_mode=None,
-                        depth_patch_embed_separate_params=True,
-                        out_feat_keys=config.omnivore.out_feat_keys
-                    )
-    feature_channels=[embed_dim * 2 ** (l_depths-i) for i in range(l_depths-1,0,-1)]+[embed_dim * 2 ** (l_depths)]
-    return model, feature_channels
+
+class omnivore_base(omnivore_base_class):
+
+    def __init__(self, config, pre_feature_channels) -> None:
+        super().__init__(config, pre_feature_channels)
+
+    def create_model(self, pre_feature_channels):
+        embed_dim=128
+        l_depths=4
+        model = SwinTransformer3D( # Base
+                            pretrained=None,
+                            pretrained2d=None,
+                            pretrained3d=None,
+                            pretrained_model_key="base_model",
+                            patch_size=(2, 4, 4),
+                            in_chans=pre_feature_channels[-1],
+                            embed_dim=embed_dim,
+                            depths=[2, 2, 18, 2],
+                            num_heads=[4,8,16,32],
+                            window_size=(8, 7, 7),
+                            mlp_ratio=4.0,
+                            qkv_bias=False,
+                            qk_scale=None,
+                            drop_rate=0.0,
+                            attn_drop_rate=0.0,
+                            drop_path_rate=0.0,
+                            norm_layer=nn.LayerNorm,
+                            patch_norm=False,
+                            frozen_stages=-1,
+                            depth_mode=None,
+                            depth_patch_embed_separate_params=True,
+                            out_feat_keys=self.config.omnivore.out_feat_keys
+                        )
+        feature_channels=[embed_dim * 2 ** (l_depths-i) for i in range(l_depths-1,0,-1)]+[embed_dim * 2 ** (l_depths)]
+
+        return model, feature_channels
+
+#-------------------------------------------------------------------------------------
+
+class omnivore_large(omnivore_base_class):
+
+    def __init__(self, config, pre_feature_channels) -> None:
+        super().__init__(config, pre_feature_channels)
+
+    def create_model(self, pre_feature_channels):
+        embed_dim=192
+        l_depths=4
+        model = SwinTransformer3D(pretrained=None,
+                            pretrained2d=None,
+                            pretrained3d=None,
+                            pretrained_model_key="base_model",
+                            patch_size=(2, 4, 4),
+                            in_chans=pre_feature_channels[-1],
+                            embed_dim=embed_dim,
+                            depths=[2, 2, 18, 2],
+                            num_heads=[6, 12, 24, 48],
+                            window_size=(8, 7, 7),
+                            mlp_ratio=4.0,
+                            qkv_bias=False,
+                            qk_scale=None,
+                            drop_rate=0.0,
+                            attn_drop_rate=0.0,
+                            drop_path_rate=0.0,
+                            norm_layer=nn.LayerNorm,
+                            patch_norm=False,
+                            frozen_stages=-1,
+                            depth_mode=None,
+                            depth_patch_embed_separate_params=True,
+                            out_feat_keys=self.config.omnivore.out_feat_keys
+                        )
+        feature_channels=[embed_dim * 2 ** (l_depths-i) for i in range(l_depths-1,0,-1)]+[embed_dim * 2 ** (l_depths)]
+        return model, feature_channels
 
 #-------------------------------------------------------------------------------------
 

@@ -40,6 +40,10 @@ class MriMetricManager(MetricManager):
     def __init__(self, config):
         super().__init__(config)  
 
+        self.best_pre_model_file = None
+        self.best_backbone_model_file = None
+        self.best_post_model_file = None
+
     # ---------------------------------------------------------------------------------------
     def setup_wandb_and_metrics(self, rank):
 
@@ -244,14 +248,14 @@ class MriMetricManager(MetricManager):
 
                 # Determine whether to checkpoint this model
                 model_epoch = model_manager.module if self.config.ddp else model_manager 
-                checkpoint_model = False    
+                checkpoint_model = False
                 if average_metrics['loss'] < self.best_val_loss:
                     self.best_val_loss = average_metrics['loss']
                     checkpoint_model = True
 
                 # Save model and update best metrics
                 if checkpoint_model:
-                    model_epoch.save(f"best_checkpoint_epoch_{epoch}", epoch, optim, sched)   
+                    self.best_pre_model_file, self.best_backbone_model_file, self.best_post_model_file = model_epoch.save(f"best_checkpoint_epoch_{epoch}", epoch, optim, sched)   
                     self.wandb_run.log({"epoch":epoch, "best_val_loss":self.best_val_loss})
 
                 # Update wandb with eval metrics
@@ -260,7 +264,7 @@ class MriMetricManager(MetricManager):
 
             # Save the average metrics for this epoch into self.average_eval_metrics
             self.average_eval_metrics = average_metrics
-        
+
     # ---------------------------------------------------------------------------------------
     def on_training_end(self, rank, epoch, model_manager, optim, sched, ran_training):
         """

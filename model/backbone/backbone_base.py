@@ -526,13 +526,11 @@ class STCNNT_Base_Runtime(nn.Module):
         super().__init__()
         self.config = config
 
-        self.permute = torchvision.ops.misc.Permute([0,2,1,3,4])
-
-    # def permute(self, x):
-    #     if self.config.Channel_as_1st_dim: # input is [B, C, T, H, W]
-    #         return self.torch_permute(x)
-    #     else:
-    #         x
+    def permute(self, x):
+        if self.config.channel_first:
+            return torch.permute(x, (0,2,1,3,4))
+        else:
+            return x
 
     @property
     def device(self):

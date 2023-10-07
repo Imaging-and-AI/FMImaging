@@ -107,8 +107,8 @@ def create_activation_func(name="gelu"):
 
 class Conv2DExt(nn.Module):
     # Extends torch 2D conv to support 5D inputs
-    # if channel_as_1st_dim is True, input x is [B, C, T, H, W]
-    # if channel_as_1st_dim is False, input x is [B, T, C, H, W]
+    # if channel_first is True, input x is [B, C, T, H, W]
+    # if channel_first is False, input x is [B, T, C, H, W]
     def __init__(self, in_channels, out_channels, kernel_size=[3,3], stride=[1,1], padding=[1,1], bias=False, separable_conv=False, channel_fist=False):
         super().__init__()
         self.separable_conv = separable_conv

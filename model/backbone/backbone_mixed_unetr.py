@@ -1170,7 +1170,7 @@ def test2():
         from setup.setup_base import parse_config
     
         config = parse_config()
-        
+        config.channel_first = True
         config.no_in_channel = num_channels
         config.C_out = num_classes
         config.time = img_depth

@@ -40,8 +40,14 @@ class ModelManager(nn.Module):
 
         # Create models
         self.create_pre()
-        self.create_backbone()
+        self.create_backbone(channel_first=self.backbone_requires_channel_first())
         self.create_post()
+
+    def backbone_requires_channel_first(self): 
+        """
+        Whether backbone requires channel_first
+        """
+        return True
 
     @property
     def device(self):
@@ -89,8 +95,10 @@ class ModelManager(nn.Module):
             "pre_optimizer_state": pre_optim_state_dict, 
             "config": self.config,
         }
+
         if sched is not None: save_dict["scheduler_state"] = sched.state_dict()
         torch.save(save_dict, save_path)
+        return save_path
 
     def load_pre(self, load_path, device=None):
         """
@@ -120,7 +128,7 @@ class ModelManager(nn.Module):
         for param in self.pre.parameters():
             param.requires_grad = False
 
-    def create_backbone(self): 
+    def create_backbone(self, channel_first = True): 
         """
         Sets up the backbone model architecture
         Rules these models should abide by: 
@@ -134,16 +142,26 @@ class ModelManager(nn.Module):
             - self.feature_channels: list of ints specifying number of channels returned from the backbone
         """
 
+        self.config.channel_first = channel_first
+
         if self.config.backbone_model=='Identity':
             self.backbone, self.feature_channels = identity_model(self.config, self.pre_feature_channels)
         elif self.config.backbone_model=='omnivore_tiny':
-            self.backbone, self.feature_channels = omnivore_tiny(self.config, self.pre_feature_channels)
+            self.omnivore = omnivore_tiny(self.config, self.pre_feature_channels)
+            self.backbone = self.omnivore.model
+            self.feature_channels = self.omnivore.feature_channels
         elif self.config.backbone_model=='omnivore_small':
-            self.backbone, self.feature_channels = omnivore_small(self.config, self.pre_feature_channels)
+            self.omnivore = omnivore_small(self.config, self.pre_feature_channels)
+            self.backbone = self.omnivore.model
+            self.feature_channels = self.omnivore.feature_channels
         elif self.config.backbone_model=='omnivore_base':
-            self.backbone, self.feature_channels = omnivore_base(self.config, self.pre_feature_channels)
+            self.omnivore = omnivore_base(self.config, self.pre_feature_channels)
+            self.backbone = self.omnivore.model
+            self.feature_channels = self.omnivore.feature_channels
         elif self.config.backbone_model=='omnivore_large':
-            self.backbone, self.feature_channels = omnivore_large(self.config, self.pre_feature_channels)
+            self.omnivore = omnivore_large(self.config, self.pre_feature_channels)
+            self.backbone = self.omnivore.model
+            self.feature_channels = self.omnivore.feature_channels
         elif self.config.backbone_model=='STCNNT_HRNET':
             self.backbone, self.feature_channels = STCNNT_HRnet_model(self.config, self.pre_feature_channels)
         elif self.config.backbone_model=='STCNNT_UNET':
@@ -177,6 +195,7 @@ class ModelManager(nn.Module):
         }
         if sched is not None: save_dict["scheduler_state"] = sched.state_dict()
         torch.save(save_dict, save_path)
+        return save_path
 
     def load_backbone(self, load_path, device=None):
         """
@@ -260,6 +279,7 @@ class ModelManager(nn.Module):
         }
         if sched is not None: save_dict["scheduler_state"] = sched.state_dict()
         torch.save(save_dict, save_path)
+        return save_path
 
     def load_post(self, load_path, device=None):
         """
@@ -329,9 +349,10 @@ class ModelManager(nn.Module):
         self.load_post(model_save_name+"_post.pth")
 
     def save(self, model_save_name, epoch, optim, sched):
-        self.save_pre(model_save_name+"_pre", epoch, optim, sched)
-        self.save_backbone(model_save_name+"_backbone", epoch, optim, sched)
-        self.save_post(model_save_name+"_post", epoch, optim, sched)
+        pre_model_file = self.save_pre(model_save_name+"_pre", epoch, optim, sched)
+        backbone_model_file = self.save_backbone(model_save_name+"_backbone", epoch, optim, sched)
+        post_model_file = self.save_post(model_save_name+"_post", epoch, optim, sched)
+        return pre_model_file, backbone_model_file, post_model_file
 
     def save_entire_model(self, epoch, save_file_name=None):
         """

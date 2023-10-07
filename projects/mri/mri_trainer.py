@@ -468,40 +468,41 @@ class MRITrainManager(TrainManager):
             # Load the best model from training
             if self.config.eval_train_set or self.config.eval_val_set or self.config.eval_test_set:
                 logging.info(f"{Fore.CYAN}Loading the best models from training for final evaluation...{Style.RESET_ALL}")
-                self.model_manager.load_pre(os.path.join(self.config.log_dir,self.config.run_name,'best_checkpoint_pre.pth'))
-                self.model_manager.load_backbone(os.path.join(self.config.log_dir,self.config.run_name,'best_checkpoint_backbone.pth'))
-                self.model_manager.load_post(os.path.join(self.config.log_dir,self.config.run_name,'best_checkpoint_post.pth'))
+                if self.metric_manager.best_pre_model_file is not None: self.model_manager.load_pre(self.metric_manager.best_pre_model_file)
+                if self.metric_manager.best_backbone_model_file is not None: self.model_manager.load_backbone(self.metric_manager.best_backbone_model_file)
+                if self.metric_manager.best_post_model_file is not None: self.model_manager.load_post(self.metric_manager.best_post_model_file)
 
                 if wandb_run is not None:
-                    wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'best_checkpoint_pre.pth'))
-                    wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'best_checkpoint_backbone.pth'))
-                    wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'best_checkpoint_post.pth'))
+                    if self.metric_manager.best_pre_model_file is not None: wandb_run.save(self.metric_manager.best_pre_model_file)
+                    if self.metric_manager.best_backbone_model_file is not None: wandb_run.save(self.metric_manager.best_backbone_model_file)
+                    if self.metric_manager.best_post_model_file is not None: wandb_run.save(self.metric_manager.best_post_model_file)
         else: 
             epoch = 0
 
         # -----------------------------------------------
         # Evaluate models of each split
         if self.config.eval_train_set: 
-            logging.info(f"{Fore.CYAN}Evaluating train set...{Style.RESET_ALL}")
+            logging.info(f"{Fore.CYAN}Evaluating the best model on the train set ... {Style.RESET_ALL}")
             self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.train_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="train", final_eval=True, scaling_factor=1)
         if self.config.eval_val_set: 
-            logging.info(f"{Fore.CYAN}Evaluating val set...{Style.RESET_ALL}")
+            logging.info(f"{Fore.CYAN}Evaluating the best model on the val set ... {Style.RESET_ALL}")
             self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="val", final_eval=True, scaling_factor=1)
         if self.config.eval_test_set: 
-            logging.info(f"{Fore.CYAN}Evaluating test set...{Style.RESET_ALL}")
+            logging.info(f"{Fore.CYAN}Evaluating the best model on the test set ... {Style.RESET_ALL}")
             self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.test_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="test", final_eval=True, scaling_factor=1)
 
         # -----------------------------------------------
-        
-        save_path, save_file_name = self.model_manager.save_entire_model(epoch=self.config.num_epochs)
+
+        save_path, save_file_name, config_yaml_file = self.model_manager.save_entire_model(epoch=self.config.num_epochs)
         model_full_path = os.path.join(save_path, save_file_name)
         logging.info(f"{Fore.YELLOW}Entire model is saved at {model_full_path} ...{Style.RESET_ALL}")
-        
+
         if wandb_run is not None:
             wandb_run.save(model_full_path)
-                    
+            wandb_run.save(config_yaml_file)
+
         # -----------------------------------------------
-        
+
         # Finish up training
         self.metric_manager.on_training_end(rank, epoch, model_manager, optim, sched, self.config.train_model)
 
@@ -509,7 +510,7 @@ class MRITrainManager(TrainManager):
             dist.barrier()
         print(f"--> run finished ...")
 
-    # -------------------------------------------------------------------------------------------------
+    # =============================================================================================================================
 
     def _eval_model(self, rank, model_manager, data_sets, epoch, device, optim, sched, id, split, final_eval, scaling_factor=1):
 
@@ -545,7 +546,11 @@ class MRITrainManager(TrainManager):
             data_loaders = [DataLoader(dataset=data_sets, batch_size=batch_size, shuffle=False, sampler=samplers,
                                     num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor, drop_last=True,
                                     persistent_workers=c.num_workers>0) ]
-            
+
+        # ------------------------------------------------------------------------
+
+        loss_f = self.loss_f
+
         # ------------------------------------------------------------------------
         self.metric_manager.on_eval_epoch_start()
 
@@ -610,6 +615,9 @@ class MRITrainManager(TrainManager):
                             cutout_in = (T, c.mri_height[-1], c.mri_width[-1])
                             overlap_in = (0, c.mri_height[-1]//2, c.mri_width[-1]//2)
 
+                        if scaling_factor > 0:
+                            x *= scaling_factor
+
                         try:
                             _, output = running_inference(self.model_manager, x, cutout=cutout_in, overlap=overlap_in, device=device)
                             output_1st_net = None
@@ -621,12 +629,14 @@ class MRITrainManager(TrainManager):
                         x = torch.permute(x, (0, 2, 1, 3, 4))
                         output = torch.permute(output, (0, 2, 1, 3, 4))
 
-                    if scaling_factor > 0:
-                        output /= scaling_factor
-                        if output_1st_net is not None: output_1st_net /= scaling_factor
+                        if scaling_factor > 0:
+                            output /= scaling_factor
+
+                    with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
+                        loss = loss_f(output, y)
 
                     # Update evaluation metrics
-                    self.metric_manager.on_eval_step_end(-1, output, loader_outputs, f"{idx}", rank, save_samples, split)
+                    self.metric_manager.on_eval_step_end(loss.item(), output, loader_outputs, f"{idx}", rank, save_samples, split)
 
                     if rank<=0 and images_logged < self.config.num_uploaded and wandb_run is not None:
                         images_logged += 1
@@ -648,7 +658,7 @@ class MRITrainManager(TrainManager):
                                                 -1,
                                                 self.metric_manager,
                                                 curr_lr, 
-                                                "val")
+                                                split)
                     
                     pbar.set_description(log_str)
 
@@ -664,7 +674,7 @@ class MRITrainManager(TrainManager):
                                                 -1,
                                                 self.metric_manager,
                                                 curr_lr, 
-                                                "val")
+                                                split)
 
                 pbar_str = f"{log_str}"
                 if hasattr(self.metric_manager, 'average_eval_metrics'):
@@ -675,9 +685,11 @@ class MRITrainManager(TrainManager):
 
                             # Save final evaluation metrics to a text file
                             if final_eval and rank<=0:
-                                with open(os.path.join(self.config.log_dir,self.config.run_name,f'{split}_metrics.txt'), 'a') as f:
+                                metric_file = os.path.join(self.config.log_dir,self.config.run_name, f'{split}_metrics.txt')
+                                with open(metric_file, 'a') as f:
                                     try: f.write(f"{split}_{metric_name}: {metric_value:.4f}, ")
                                     except: pass
+                                wandb_run.save(metric_file)
 
                 pbar_str += f"{Style.RESET_ALL}"
                 pbar.set_description(pbar_str)
