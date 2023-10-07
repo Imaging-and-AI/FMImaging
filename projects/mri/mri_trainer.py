@@ -85,7 +85,10 @@ class MRITrainManager(TrainManager):
         config = self.config
         
         self.metric_manager.setup_wandb_and_metrics(rank)
-        wandb_run = self.metric_manager.wandb_run
+        if rank<=0:
+            wandb_run = self.metric_manager.wandb_run
+        else:
+            wandb_run = None
 
         rank_str = get_rank_str(rank)
         # -----------------------------------------------
@@ -167,7 +170,9 @@ class MRITrainManager(TrainManager):
             num_workers_per_loader = num_workers_per_loader // local_world_size
             num_workers_per_loader = 1 if num_workers_per_loader<1 else num_workers_per_loader
 
-        logging.info(f"{rank_str}, {Fore.YELLOW}Local_world_size {local_world_size}, number of datasets {len(self.train_sets)}, cpu {os.cpu_count()}, number of workers per loader is {num_workers_per_loader}, yaml file for this run is {self.config.yaml_file}{Style.RESET_ALL}")
+        logging.info(f"{rank_str}, {Fore.YELLOW}Local_world_size {local_world_size}, number of datasets {len(self.train_sets)}, cpu {os.cpu_count()}, number of workers per loader is {num_workers_per_loader}{Style.RESET_ALL}")
+        if rank <=0:
+            logging.info(f"{rank_str}, {Fore.YELLOW}Yaml file for this run is {self.config.yaml_file}{Style.RESET_ALL}")
 
         if isinstance(self.train_sets,list):
             train_loaders = [DataLoader(dataset=train_set, batch_size=c.batch_size, shuffle=shuffle, sampler=samplers[ind],

@@ -38,7 +38,7 @@ def get_nestedspace_loader():
 
 def config_to_yaml(config, save_path, save_name=None):
     """Save nestedspace config to yaml file."""
-    if not os.path.exists(save_path): os.makedirs(save_path)
+    if not os.path.exists(save_path): os.makedirs(save_path, exist_ok=True)
     if save_name is None:
         yaml_file_name = os.path.join(save_path,'config.yaml')
     else:

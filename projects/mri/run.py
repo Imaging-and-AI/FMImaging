@@ -41,7 +41,7 @@ from setup import setup_logger, Nestedspace
 from optim.optim_utils import compute_total_steps
 
 # Default functions
-from setup.setup_base import parse_config_and_setup_run
+from setup import parse_config_and_setup_run, config_to_yaml
 from optim.optim_base import OptimManager
 from utils.status import get_device
 
@@ -69,7 +69,7 @@ def create_model(config, model_type):
    
 # -------------------------------------------------------------------------------------------------
 def main():
-           
+
     # -----------------------------------------------
 
     config = parse_config_and_setup_run(mri_parser) 
@@ -78,6 +78,8 @@ def main():
         config.no_in_channel = 3
     else:
         config.no_in_channel = 2
+
+    # -----------------------------------------------
 
     if config.ddp:
         rank = int(os.environ["LOCAL_RANK"])
@@ -93,6 +95,13 @@ def main():
         device = get_device()
 
     rank_str = get_rank_str(rank)
+
+    # -----------------------------------------------
+
+    # Save config to yaml file
+    if rank<=0:
+        yaml_file = config_to_yaml(config,os.path.join(config.log_dir, config.run_name))
+        config.yaml_file = yaml_file
 
     # -----------------------------------------------
 

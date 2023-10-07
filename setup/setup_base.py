@@ -74,14 +74,14 @@ def parse_config_and_setup_run(custom_parser=None):
 
     # Check args 
     check_args(full_config)
-    
-    # Save config to yaml file
-    yaml_file = config_to_yaml(full_config,os.path.join(full_config.log_dir,full_config.run_name))
+
+    # # Save config to yaml file
+    # yaml_file = config_to_yaml(full_config,os.path.join(full_config.log_dir,full_config.run_name))
 
     ############################### RUN SETUP FUNCTIONS ###############################
     # Run a few setup training functions that are used for the remainder of training...
     setup_run(full_config)
 
-    full_config.yaml_file = yaml_file
+    #full_config.yaml_file = yaml_file
 
     return full_config
