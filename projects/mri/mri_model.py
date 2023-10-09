@@ -131,7 +131,7 @@ class STCNNT_MRI(ModelManager):
 
         res_pre = self.pre["in_conv"](x)
 
-        B, C, T, H, W = res_pre.shape
+        B, T, C, H, W = res_pre.shape
 
         if self.config.backbone_model=="STCNNT_HRNET":
             y_hat, _ = self.backbone(res_pre)
