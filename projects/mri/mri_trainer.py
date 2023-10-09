@@ -524,12 +524,12 @@ class MRITrainManager(TrainManager):
         elif split=='test': save_samples = final_eval and self.config.save_test_samples
         else: raise ValueError(f"Unknown split {split} specified, should be in [train, val, test]")
 
+        loss_f = self.loss_f
+
         if c.ddp:
-            loss_f = self.module.loss_f
             if isinstance(data_sets, list): samplers = [DistributedSampler(data_set) for data_set in data_sets]
-            else: samplers = DistributedSampler(data_sets)    
+            else: samplers = DistributedSampler(data_sets)
         else:
-            loss_f = self.loss_f
             if isinstance(data_sets, list): samplers = [None] * len(data_sets)
             else: samplers = None
 
@@ -546,10 +546,6 @@ class MRITrainManager(TrainManager):
             data_loaders = [DataLoader(dataset=data_sets, batch_size=batch_size, shuffle=False, sampler=samplers,
                                     num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor, drop_last=True,
                                     persistent_workers=c.num_workers>0) ]
-
-        # ------------------------------------------------------------------------
-
-        loss_f = self.loss_f
 
         # ------------------------------------------------------------------------
         self.metric_manager.on_eval_epoch_start()
