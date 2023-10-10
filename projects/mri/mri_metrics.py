@@ -174,7 +174,7 @@ class MriMetricManager(MetricManager):
             self.wandb_run.log({"lr": curr_lr})
             for metric_name in self.train_metrics.keys():
                 if metric_name=='loss':
-                    self.wandb_run.log({"running_train_loss": loss.item()})
+                    self.wandb_run.log({"running_train_loss": loss})
                 else:
                     self.wandb_run.log({f"running_train_{metric_name}": self.train_metrics[metric_name].avg})
 
