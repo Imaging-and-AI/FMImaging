@@ -76,6 +76,9 @@ class MRITrainManager(TrainManager):
     def __init__(self, config, train_sets, val_sets, test_sets, loss_f, model_manager, optim_manager, metric_manager):  
         super().__init__(config, train_sets, val_sets, test_sets, loss_f, model_manager, optim_manager, metric_manager)
 
+        self.config.height = self.config.mri_height[-1]
+        self.config.width = self.config.mri_width[-1]
+
     # -------------------------------------------------------------------------------------------------
             
     def _train_model(self, rank, global_rank):
@@ -554,7 +557,6 @@ class MRITrainManager(TrainManager):
         
         # ------------------------------------------------------------------------
         model_manager.eval()
-
         # ------------------------------------------------------------------------
         if rank <= 0 and epoch < 1:
             logging.info(f"Eval height and width is {c.mri_height[-1]}, {c.mri_width[-1]}")
