@@ -722,9 +722,9 @@ class MRITrainManager(TrainManager):
             snr_str = ""
 
         if role == 'tra':
-            loss, mse, l1, ssim, ssim3D, ssim_loss, ssim3D_loss, psnr_loss, psnr, perp, gaussian, gaussian3D = loss_meters.get_tra_loss()
+            loss, mse, l1, ssim, ssim3D, ssim_loss, ssim3D_loss, psnr, psnr_loss, perp, gaussian, gaussian3D = loss_meters.get_tra_loss()
         else:
-            loss, mse, l1, ssim, ssim3D, ssim_loss, ssim3D_loss, psnr_loss, psnr, perp, gaussian, gaussian3D = loss_meters.get_eval_loss()
+            loss, mse, l1, ssim, ssim3D, ssim_loss, ssim3D_loss, psnr, psnr_loss, perp, gaussian, gaussian3D = loss_meters.get_eval_loss()
 
         str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.WHITE}{Back.LIGHTBLUE_EX}{Style.NORMAL}gmap {gmap_median:.2f}, sigma {noise_sigma:.2f}{snr_str}{Style.RESET_ALL} {C}mse {mse:.4f}, l1 {l1:.4f}, perp {perp:.4f}, ssim {ssim:.4f}, ssim3D {ssim3D:.4f}, gaussian {gaussian:.4f}, gaussian3D {gaussian3D:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}{Style.RESET_ALL}{lr_str}"
 
