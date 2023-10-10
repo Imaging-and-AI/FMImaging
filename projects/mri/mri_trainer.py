@@ -486,13 +486,13 @@ class MRITrainManager(TrainManager):
         # Evaluate models of each split
         if self.config.eval_train_set: 
             logging.info(f"{Fore.CYAN}Evaluating the best model on the train set ... {Style.RESET_ALL}")
-            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.train_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="train", final_eval=True, scaling_factor=1)
+            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.train_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="train", split="train", final_eval=True, scaling_factor=1)
         if self.config.eval_val_set: 
             logging.info(f"{Fore.CYAN}Evaluating the best model on the val set ... {Style.RESET_ALL}")
-            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="val", final_eval=True, scaling_factor=1)
+            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="val", split="val", final_eval=True, scaling_factor=1)
         if self.config.eval_test_set: 
             logging.info(f"{Fore.CYAN}Evaluating the best model on the test set ... {Style.RESET_ALL}")
-            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.test_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="test", final_eval=True, scaling_factor=1)
+            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.test_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="test", split="test", final_eval=True, scaling_factor=1)
 
         # -----------------------------------------------
 
