@@ -112,6 +112,19 @@
             ]
         },
         // -----------------------------------------------------------------------------------------
+        {
+            "name": "create_hdf5_from_mat",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/qperf/data/create_hdf5_from_mat.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "7"},
+            "args": [
+                "--output", "/export/Lab-Xue/data/qperf/h5file/qperf_tra.h5", "--test_output", "/export/Lab-Xue/data/qperf/h5file/qperf_test.h5", "--test_fraction", "0.1", "/export/Lab-Xue/data/qperf/mat"
+            ]
+        },
+        // -----------------------------------------------------------------------------------------
     ]
 }
 

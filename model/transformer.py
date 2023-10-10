@@ -1,19 +1,8 @@
 """
-Spatio-Temporal Convolutional Neural Net Transformer (STCNNT)
+Standard model for transformer
 
-A novel structure that combines the ideas behind CNNs and Transformers.
-STCNNT is able to utilize the spatial and temporal correlation 
-while keeping the computations efficient.
-
-Attends across complete temporal dimension and
-across spatial dimension in restricted local and diluted global methods.
-
-Provides implementation of following modules (in order of increasing complexity):
-    - SpatialLocalAttention: Local windowed spatial attention
-    - SpatialGlobalAttention: Global grided spatial attention
-    - TemporalCnnAttention: Complete temporal attention
-    - CnnTransformer: A CNNT cell that wraps above attention with norms and mixers
-    - CNNTBlock: A stack of CnnTransformer cells
+Input : [B, T, D]
+Output : [B, T, D]
 
 """
 
