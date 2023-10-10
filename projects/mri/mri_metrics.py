@@ -240,7 +240,7 @@ class MriMetricManager(MetricManager):
 
         # Otherwise aggregate the measurements over the steps
         if self.config.ddp:
-            average_metrics = {metric_name: torch.tensor(self.val_metrics[metric_name].avg).to(device=self.device) for metric_name in self.eval_metrics.keys()}
+            average_metrics = {metric_name: torch.tensor(self.eval_metrics[metric_name].avg).to(device=self.device) for metric_name in self.eval_metrics.keys()}
             average_metrics = {avg_metric_name: dist.all_reduce(avg_metric_val, op=torch.distributed.ReduceOp.AVG) for avg_metric_name, avg_metric_val in average_metrics.items()}
 
         else:
