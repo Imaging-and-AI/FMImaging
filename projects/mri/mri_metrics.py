@@ -254,7 +254,7 @@ class MriMetricManager(MetricManager):
                 # Determine whether to checkpoint this model
                 model_epoch = model_manager.module if self.config.ddp else model_manager 
                 checkpoint_model = False
-                if average_metrics['loss'] < self.best_val_loss:
+                if average_metrics['loss'] is not None and average_metrics['loss'] < self.best_val_loss:
                     self.best_val_loss = average_metrics['loss']
                     checkpoint_model = True
 
