@@ -553,7 +553,10 @@ class MRITrainManager(TrainManager):
         # ------------------------------------------------------------------------
         self.metric_manager.on_eval_epoch_start()
 
-        wandb_run = self.metric_manager.wandb_run
+        if rank<=0:
+            wandb_run = self.metric_manager.wandb_run
+        else:
+            wandb_run = None
         
         # ------------------------------------------------------------------------
         model_manager.eval()
