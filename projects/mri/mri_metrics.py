@@ -162,7 +162,7 @@ class MriMetricManager(MetricManager):
                 
         y_hat = y_hat.to(torch.float32)
         y_for_loss = y_for_loss.to(device=y_hat.device, dtype=torch.float32)
-        
+
         for metric_name in self.train_metrics.keys():
             if metric_name=='loss':
                 self.train_metrics[metric_name].update(loss, n=x.shape[0])
@@ -172,7 +172,12 @@ class MriMetricManager(MetricManager):
 
         if rank<=0: 
             self.wandb_run.log({"lr": curr_lr})
-            
+            for metric_name in self.train_metrics.keys():
+                if metric_name=='loss':
+                    self.wandb_run.log({"running_train_loss": loss.item()})
+                else:
+                    self.wandb_run.log({f"running_train_{metric_name}": self.train_metrics[metric_name].avg})
+
         # Save outputs if desired
         if save_samples and rank<=0:
             save_path = os.path.join(self.config.log_dir,self.config.run_name,'saved_samples', 'tra')
