@@ -120,9 +120,9 @@ class MRITrainManager(TrainManager):
             model_manager = self.model_manager.to(device)
             model_manager = DDP(model_manager, device_ids=[rank], find_unused_parameters=True)
             if isinstance(self.train_sets,list): 
-                samplers = [DistributedSampler(train_set) for train_set in self.train_sets]
+                samplers = [DistributedSampler(train_set, shuffle=True) for train_set in self.train_sets]
             else: 
-                samplers = DistributedSampler(self.train_sets)
+                samplers = DistributedSampler(self.train_sets, shuffle=True)
             shuffle = False
         else:
             device = c.device
@@ -180,11 +180,11 @@ class MRITrainManager(TrainManager):
         if isinstance(self.train_sets,list):
             train_loaders = [DataLoader(dataset=train_set, batch_size=c.batch_size, shuffle=shuffle, sampler=samplers[ind],
                                         num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor, drop_last=True,
-                                        persistent_workers=c.num_workers>0) for ind, train_set in enumerate(self.train_sets)]
+                                        persistent_workers=c.num_workers>0, pin_memory=False) for ind, train_set in enumerate(self.train_sets)]
         else:
             train_loaders = [DataLoader(dataset=self.train_sets, batch_size=c.batch_size, shuffle=shuffle, sampler=samplers,
                                         num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor, drop_last=True,
-                                        persistent_workers=c.num_workers>0)]
+                                        persistent_workers=c.num_workers>0, pin_memory=False)]
 
         train_set_type = [train_set_x.data_type for train_set_x in self.train_sets]
 
