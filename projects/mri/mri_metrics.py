@@ -260,8 +260,10 @@ class MriMetricManager(MetricManager):
 
                 # Save model and update best metrics
                 if checkpoint_model:
-                    self.best_pre_model_file, self.best_backbone_model_file, self.best_post_model_file = model_epoch.save(f"best_checkpoint_epoch_{epoch}", epoch, optim, sched)   
+                    save_path = os.path.join(self.config.log_dir, self.config.run_name)
+                    self.best_pre_model_file, self.best_backbone_model_file, self.best_post_model_file = model_epoch.save(os.path.join(save_path, f"best_checkpoint_epoch_{epoch}"), epoch, optim, sched) 
                     self.wandb_run.log({"epoch":epoch, "best_val_loss":self.best_val_loss})
+                    print(f"--> val loss {self.best_val_loss}, save best model for epoch {epoch} to {self.best_pre_model_file}, {self.best_pre_model_file, self.best_backbone_model_file}, {self.best_post_model_file}")
 
                 # Update wandb with eval metrics
                 for metric_name, avg_metric_eval in average_metrics.items():

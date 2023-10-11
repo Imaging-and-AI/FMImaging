@@ -246,6 +246,10 @@ class MriMetricManager(MetricManager):
         else:
             average_metrics = {metric_name: self.eval_metrics[metric_name].avg for metric_name in self.eval_metrics.keys()}
 
+        if rank<=0: 
+            for metric_name in average_metrics.keys():
+                self.wandb_run.log({f"val_{metric_name}": average_metrics[metric_name]})
+
         # Checkpoint best models during training
         if rank<=0: 
 
