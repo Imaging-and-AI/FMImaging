@@ -193,13 +193,14 @@ class run_ddp_base(object):
         self.cmd.extend(["--optim.lr", f"{config.lr_pre} {config.lr_backbone} {config.lr_post}"])
 
         if config.scheduler_type=='ReduceLROnPlateau': 
-            self.cmd.extend(["--scheduler.ReduceLROnPlateau.patience", "0",
-                            "--scheduler.ReduceLROnPlateau.cooldown", "0",
-                            "--scheduler.ReduceLROnPlateau.factor", "0.9"
+            self.cmd.extend(["--scheduler.patience", "0",
+                            "--scheduler.cooldown", "0",
+                            "--scheduler.factor", "0.9",
+                            "--scheduler.min_lr", "1e-7"
                         ])
                        
         if config.scheduler_type=='OneCycleLR': 
-            self.cmd.extend(["--scheduler.OneCycleLR.pct_start", "0.2"
+            self.cmd.extend(["--scheduler.pct_start", "0.2"
                         ])
 
         if config.seed is not None:

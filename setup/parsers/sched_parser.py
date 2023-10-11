@@ -26,8 +26,8 @@ class sched_parser(object):
             self.add_cycle_sched_args()
         
     def add_plateau_sched_args(self):
-        self.parser.add_argument('--scheduler.patience', type=int, default=10, help="Number of epochs to wait for further LR adjustment")
-        self.parser.add_argument('--scheduler.cooldown', type=int, default=0, help="After adjusting the LR, number of epochs to wait before tracking loss")
+        self.parser.add_argument('--scheduler.patience', type=int, default=1, help="Number of epochs to wait for further LR adjustment")
+        self.parser.add_argument('--scheduler.cooldown', type=int, default=1, help="After adjusting the LR, number of epochs to wait before tracking loss")
         self.parser.add_argument('--scheduler.min_lr', type=float, default=1e-7, help="Minimum LR")
         self.parser.add_argument('--scheduler.factor', type=float, default=0.9, help="LR reduction factor, multiplication")
         

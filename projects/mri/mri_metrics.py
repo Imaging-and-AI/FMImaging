@@ -239,12 +239,19 @@ class MriMetricManager(MetricManager):
                     self.eval_metrics[metric_name].update(metric_value, n=self.all_preds.shape[0])
 
         # Otherwise aggregate the measurements over the steps
-        if self.config.ddp:
-            average_metrics = {metric_name: torch.tensor(self.eval_metrics[metric_name].avg).to(device=self.device) for metric_name in self.eval_metrics.keys()}
-            average_metrics = {avg_metric_name: dist.all_reduce(avg_metric_val, op=torch.distributed.ReduceOp.AVG) for avg_metric_name, avg_metric_val in average_metrics.items()}
+        # for metric_name in self.eval_metrics.keys():
+        #     print(f"--> epoch {epoch}, rank {rank}, {metric_name} {self.eval_metrics[metric_name].avg}")
 
+        average_metrics = dict()
+        if self.config.ddp:
+            for metric_name in self.eval_metrics.keys():
+                v = torch.tensor(self.eval_metrics[metric_name].avg).to(device=self.device)
+                dist.all_reduce(v, op=torch.distributed.ReduceOp.AVG)
+                average_metrics[metric_name] = v
         else:
             average_metrics = {metric_name: self.eval_metrics[metric_name].avg for metric_name in self.eval_metrics.keys()}
+
+        #print(f"--> epoch {epoch}, average_metrics {average_metrics}")
 
         # Checkpoint best models during training
         if rank<=0: 
@@ -269,6 +276,7 @@ class MriMetricManager(MetricManager):
 
             # Save the average metrics for this epoch into self.average_eval_metrics
             self.average_eval_metrics = average_metrics
+            #print(f"--> epoch {epoch}, average_eval_metrics {self.average_eval_metrics}")
 
     # ---------------------------------------------------------------------------------------
     def on_training_end(self, rank, epoch, model_manager, optim, sched, ran_training):
