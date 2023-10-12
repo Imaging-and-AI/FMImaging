@@ -131,10 +131,15 @@ class QPerfDataSet(torch.utils.data.Dataset):
         y = self.myo[i]
         params = self.params[i]
         p = params[:5]
+        aif_p = np.zeros(4)
+        aif_p[:3] = params[5:]
+
+        foot = int(aif_p[0])
+
+        N = aif.shape[0]
 
         if self.add_noise[0]:
             # add noise to aif
-            N = aif.shape[0]
             sigma = np.random.uniform(self.min_noise_level[0], self.max_noise_level[0])
             nn = np.random.standard_normal(size=N) * sigma
 
@@ -146,7 +151,6 @@ class QPerfDataSet(torch.utils.data.Dataset):
 
         if self.add_noise[1]:
             # add noise to myo
-            N = y.shape[0]
             sigma = np.random.uniform(self.min_noise_level[1], self.max_noise_level[1])
             nn = np.random.standard_normal(size=N) * sigma
 
@@ -159,7 +163,30 @@ class QPerfDataSet(torch.utils.data.Dataset):
 
         x = np.concatenate((aif[:, np.newaxis], myo[:, np.newaxis]), axis=1)
 
-        return x, y[:, np.newaxis], p[np.newaxis, :]
+        if self.foot_to_end:
+            x = x[foot:, :]
+            y = y[foot:]
+            N = x.shape[0]
+
+        if N > self.T:
+            x = x[:self.T, :]
+            y = y[:self.T]
+            N = x.shape[0]
+        else:
+            x_T = np.zeros(self.T, 2)
+            x_T[:N, :] = x
+            x_T[N:, :] = x[N-1, :]
+
+            y_T = np.zeros(self.T)
+            y_T[:N, :] = y
+            y_T[N:, :] = y[N-1]
+
+            x = x_T
+            y = y_T
+
+        aif_p[3] = N
+
+        return x, y[:, np.newaxis], p[np.newaxis, :], aif_p[np.newaxis, :]
 
     def __len__(self):
         """
@@ -227,7 +254,7 @@ if __name__ == '__main__':
 
     # -----------------------------------------------------------------
 
-    qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat', 
+    qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/tra', 
                         max_load=-1,
                         T=80, 
                         foot_to_end=True, 
@@ -236,8 +263,29 @@ if __name__ == '__main__':
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
                         only_white_noise=False,
                         add_noise=[True, True],
-                        cache_folder='/data/qperf')
+                        cache_folder='/data/qperf/cache/tra')
 
+    qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/val', 
+                        max_load=-1,
+                        T=80, 
+                        foot_to_end=True, 
+                        min_noise_level=[0.01, 0.01], 
+                        max_noise_level=[0.4, 0.15],
+                        filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
+                        only_white_noise=False,
+                        add_noise=[True, True],
+                        cache_folder='/data/qperf/cache/val')
+
+    qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/test', 
+                        max_load=-1,
+                        T=80, 
+                        foot_to_end=True, 
+                        min_noise_level=[0.01, 0.01], 
+                        max_noise_level=[0.4, 0.15],
+                        filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
+                        only_white_noise=False,
+                        add_noise=[True, True],
+                        cache_folder='/data/qperf/cache/test')
 
     ind = np.arange(len(qperf_dataset))
     case_lists = np.random.permutation(ind)

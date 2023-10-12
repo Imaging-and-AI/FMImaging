@@ -88,7 +88,7 @@ def main():
     # -----------------------------------------------
 
     start = time()
-    train_set = QPerfDataSet(data_folder=os.path.join(config.data_root, 'tra'), 
+    train_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, 'tra'), 
                         max_load=-1,
                         T=80, 
                         foot_to_end=True, 
@@ -97,9 +97,9 @@ def main():
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
                         only_white_noise=False,
                         add_noise=[True, True],
-                        cache_folder=os.path.join(config.cache_root, 'tra'))
+                        cache_folder=os.path.join(config.log_dir, 'tra'))
 
-    val_set = QPerfDataSet(data_folder=os.path.join(config.data_root, 'val'),
+    val_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, 'val'),
                         max_load=-1,
                         T=80, 
                         foot_to_end=True, 
@@ -108,9 +108,9 @@ def main():
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
                         only_white_noise=False,
                         add_noise=[True, True],
-                        cache_folder=os.path.join(config.cache_root, 'val'))
+                        cache_folder=os.path.join(config.log_dir, 'val'))
 
-    test_set = QPerfDataSet(data_folder=os.path.join(config.data_root, 'test'),
+    test_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, 'test'),
                         max_load=-1,
                         T=80, 
                         foot_to_end=True, 
@@ -119,7 +119,7 @@ def main():
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
                         only_white_noise=False,
                         add_noise=[True, True],
-                        cache_folder=os.path.join(config.cache_root, 'test'))
+                        cache_folder=os.path.join(config.log_dir, 'test'))
 
     print(f"load_mri_data took {time() - start} seconds ...")
 
@@ -134,7 +134,7 @@ def main():
                        input_D=2, 
                        output_myo_D=1, 
                        num_params=5, 
-                       T=config.T, 
+                       T=config.qperf_T, 
                        is_causal=False, 
                        use_pos_embedding=config.use_pos_embedding, 
                        n_embd=config.n_embd, 
@@ -183,5 +183,5 @@ def main():
     trainer.train()
 
 # -------------------------------------------------------------------------------------------------
-if __name__=="__main__":    
+if __name__=="__main__":
     main()

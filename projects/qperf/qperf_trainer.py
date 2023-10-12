@@ -224,7 +224,7 @@ class QPerfTrainManager(TrainManager):
                             loader_ind = idx % len(train_loader_iters)
                             loader_outputs = next(train_loader_iters[loader_ind], None)
                         data_type = train_set_type[loader_ind]
-                        x, y, p = loader_outputs
+                        x, y, p, aif_p = loader_outputs
                         end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
 
                         # -------------------------------------------------------
@@ -242,7 +242,7 @@ class QPerfTrainManager(TrainManager):
                             if torch.isnan(torch.sum(y_hat)):
                                 continue
 
-                            loss = loss_f(model_output, (y, p))
+                            loss = loss_f(model_output, (y, p, aif_p))
 
                             loss = loss / c.iters_to_accumulate
 
@@ -278,7 +278,7 @@ class QPerfTrainManager(TrainManager):
                         tm = start_timer(enable=c.with_timer)
                         curr_lr = optim.param_groups[0]['lr']
 
-                        self.metric_manager.on_train_step_end(loss.item(), model_output, loader_outputs, rank, curr_lr, tra_save_images, epoch, images_saved)
+                        self.metric_manager.on_train_step_end(loss.item(), model_output, loader_outputs, rank, curr_lr, False, epoch, False)
 
                         # -------------------------------------------------------
                         pbar.update(1)
@@ -311,7 +311,7 @@ class QPerfTrainManager(TrainManager):
                     if rank<=0: 
                         logging.getLogger("file_only").info(log_str)
 
-                    end_timer(enable=c.with_timer, t=tm, msg="---> epoch end logging and measuring took ")                
+                    end_timer(enable=c.with_timer, t=tm, msg="---> epoch end logging and measuring took ")
                 # ------------------------------------------------------------------------------------------------------
 
                 if epoch % c.eval_frequency==0 or epoch==c.num_epochs:
@@ -405,7 +405,7 @@ class QPerfTrainManager(TrainManager):
         # Set up data loader to evaluate
         batch_size = c.batch_size if isinstance(data_sets[0], QPerfDataSet) else 1
         num_workers_per_loader = c.num_workers // (2 * len(data_sets))
-        
+
         if isinstance(data_sets, list):
             data_loaders = [DataLoader(dataset=data_set, batch_size=batch_size, shuffle=False, sampler=samplers[ind],
                                     num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor, drop_last=True,
@@ -426,13 +426,6 @@ class QPerfTrainManager(TrainManager):
         # ------------------------------------------------------------------------
         model_manager.eval()
         # ------------------------------------------------------------------------
-        if rank <= 0 and epoch < 1:
-            logging.info(f"Eval height and width is {c.mri_height[-1]}, {c.mri_width[-1]}")
-
-        cutout = (c.time, c.mri_height[-1], c.mri_width[-1])
-        overlap = (c.time//2, c.mri_height[-1]//4, c.mri_width[-1]//4)
-
-        # ------------------------------------------------------------------------
 
         data_loader_iters = [iter(data_loader) for data_loader in data_loaders]
         total_iters = sum([len(data_loader) for data_loader in data_loaders]) if not c.debug else 3
@@ -450,7 +443,7 @@ class QPerfTrainManager(TrainManager):
                         del data_loader_iters[loader_ind]
                         loader_ind = idx % len(data_loader_iters)
                         loader_outputs = next(data_loader_iters[loader_ind], None)
-                    x, y, p = loader_outputs
+                    x, y, p, aif_p = loader_outputs
 
                     B = x.shape[0]
 
@@ -462,7 +455,7 @@ class QPerfTrainManager(TrainManager):
                     y_hat, p_estimated = output
 
                     with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
-                        loss = loss_f(output, (y, p))
+                        loss = loss_f(output, (y, p, aif_p))
 
                     # Update evaluation metrics
                     self.metric_manager.on_eval_step_end(loss.item(), output, loader_outputs, f"{idx}", rank, save_samples, split)

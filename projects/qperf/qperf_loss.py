@@ -19,14 +19,12 @@ import torch.nn as nn
 
 class qperf_loss:
 
-    def __init__(self, losses, loss_weights, device="cpu"):
-        assert len(losses)>0, f"At least one loss is required to setup"
-        assert len(losses)<=len(loss_weights), f"Each loss should have its weight"
+    def __init__(self, config):
 
-        self.device = device
+        self.config = config
 
-        losses = [self.str_to_loss(loss) for loss in losses]
-        self.losses = list(zip(losses, loss_weights))
+        losses = [self.str_to_loss(loss) for loss in config.losses]
+        self.losses = list(zip(losses, config.loss_weights))
 
     def str_to_loss(self, loss_name):
 
@@ -39,17 +37,19 @@ class qperf_loss:
 
         return loss_f
     
-    def __call__(self, outputs, targets, weights=[2.0, 1.0, 1.0, 1.0, 1.0, 2.0]):
+    def __call__(self, outputs, targets):
 
         y_hat, params_estimated = outputs
-        y, params = targets
+        y, params, aif_p = targets
+
+        valid_N = aif_p[-1]
 
         combined_loss = 0
         for loss_f, weight in self.losses:
-            v = weight*loss_f(y_hat, y)
+            v = weight*loss_f(y_hat[:valid_N, :], y[:valid_N, :])
             if not torch.isnan(v):
                 combined_loss += v
 
-        combined_loss += torch.sum(weights*torch.abs(params_estimated-params))
+        combined_loss += torch.sum(self.config.loss_weights_params * torch.abs(params_estimated-params))
 
         return combined_loss

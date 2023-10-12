@@ -125,6 +125,23 @@
             ]
         },
         // -----------------------------------------------------------------------------------------
+        {
+            "name": "run.py, qperf",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/qperf/run.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "0"},
+            "args": [
+                "--data_dir", "/data/qperf/mat", 
+                "--log_dir", "/data/qperf/cache", 
+                "--n_embd", "512",
+                "--n_layer", "8",
+                "--use_pos_embedding",
+                "--residual_dropout_p", "0.1"
+            ]
+        }
     ]
 }
 
