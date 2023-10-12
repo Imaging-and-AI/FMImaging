@@ -6,10 +6,10 @@ import os
 import sys
 import scipy
 import shutil
-import cv2
-import h5py
+import pickle
 import torch
 from tqdm import tqdm
+import time
 import numpy as np
 from pathlib import Path
 from skimage.util import view_as_blocks
@@ -31,6 +31,7 @@ class QPerfDataSet(torch.utils.data.Dataset):
     Every sample includes aif ([B, T, D]), myo ([B, T, D]) and parameters (Fp, Vp, PS, Visf, delay, foot, peak, valley)
     """
     def __init__(self, data_folder, 
+                        cache_folder=None,
                         max_load=-1,
                         T=80, 
                         foot_to_end=True, 
@@ -59,6 +60,11 @@ class QPerfDataSet(torch.utils.data.Dataset):
         self.only_white_noise = only_white_noise
         self.add_noise = add_noise
 
+        if cache_folder is None:
+            self.cache_folder = data_folder
+        else:
+            self.cache_folder = cache_folder
+
         all_data_files = []
 
         site_dirs = os.listdir(self.data_folder)
@@ -69,40 +75,46 @@ class QPerfDataSet(torch.utils.data.Dataset):
         N = len(all_data_files)
         print(f"--> {N} cases found for data folder : {self.data_folder}")
 
-        self.aif = []
-        self.myo = []
-        self.params = []
+        if self.load_cached_dataset(self.cache_folder):
+            print(self.__str__())
+            return
+        else:
+            self.aif = []
+            self.myo = []
+            self.params = []
 
-        cases_loaded = 0
-        for ind in range(N):
-            if self.max_load> 0 and cases_loaded > self.max_load:
-                break
+            cases_loaded = 0
+            for ind in range(N):
+                if self.max_load> 0 and cases_loaded > self.max_load:
+                    break
 
-            a_case = all_data_files[ind]
-            if os.path.isfile(a_case):
-                mat = scipy.io.loadmat(a_case)
+                a_case = all_data_files[ind]
+                if os.path.isfile(a_case):
+                    mat = scipy.io.loadmat(a_case)
 
-                N = mat['out'].shape[1]
-                print(f"--> case {ind} loaded from {N} cases - {a_case} ... ")
+                    N = mat['out'].shape[1]
+                    print(f"--> case {ind} loaded from {N} cases - {a_case} ... ")
 
-                #pbar = tqdm(total=N)
-                for ind in range(mat['out'].shape[1]):
-                        params = mat['out'][0,ind]['params'][0,0].flatten()
-                        aif = mat['out'][0,ind]['aif'][0,0].flatten().astype(np.float16)
-                        myo = mat['out'][0,ind]['myo'][0,0].flatten().astype(np.float16)
+                    pbar = tqdm(total=N)
+                    for ind in range(mat['out'].shape[1]):
+                            params = mat['out'][0,ind]['params'][0,0].flatten()
+                            aif = mat['out'][0,ind]['aif'][0,0].flatten().astype(np.float16)
+                            myo = mat['out'][0,ind]['myo'][0,0].flatten().astype(np.float16)
 
-                        self.aif.append(aif)
-                        self.myo.append(myo)
-                        self.params.append(params)
+                            self.aif.append(aif)
+                            self.myo.append(myo)
+                            self.params.append(params)
 
-                        # if ind % 10000 == 0:
-                        #     pbar.update(10000)
-                        #     pbar.set_description_str(f"{a_case}, {ind} out of {N}, {aif.shape[0]}, {params[0]:.4f}")
+                            if ind % 10000 == 0:
+                                pbar.update(10000)
+                                pbar.set_description_str(f"{a_case}, {ind} out of {N}, {aif.shape[0]}, {params[0]:.4f}")
 
-                cases_loaded += 1
-                print(f"--> {len(self.aif)} samples loaded from {cases_loaded} cases - {a_case} ... ")
+                    cases_loaded += 1
+                    print(f"--> {len(self.aif)} samples loaded from {cases_loaded} cases - {a_case} ... ")
 
-        print(f"--> {len(self.aif)} samples loaded from {cases_loaded} cases ... ")
+            print(f"--> {len(self.aif)} samples loaded from {cases_loaded} cases ... ")
+
+            self.cache_dataset(self.cache_folder)
 
     def load_one_sample(self, i):
         """
@@ -160,6 +172,49 @@ class QPerfDataSet(torch.utils.data.Dataset):
         Gets the item given index
         """
         return self.load_one_sample(index)
+    
+    def __str__(self):
+        str = "QPerf, Dataset\n"
+        str += "  Number of aif: %d" % len(self.aif) + "\n"
+        str += "  Number of myo: %d" % len(self.myo) + "\n"
+        str += "  Number of params: %d" % len(self.params) + "\n"
+
+        return str
+        
+    # --------------------------------------------------------
+
+    def cache_dataset(self, cache_data_dir):
+        """
+        Cache the loaded dataset to speed up process.
+        """
+        print(cache_data_dir)
+
+        t0 = time.time()
+        os.makedirs(cache_data_dir, exist_ok=True)
+        internal_status = [self.aif, self.myo, self.params]
+        pickle.dump(internal_status, open(os.path.join(cache_data_dir, 'full_data_set_internal_status.p'), 'wb'))
+        t1 = time.time()
+        print("Saving dataset images takes %.2f ..." % (t1-t0))
+
+    # --------------------------------------------------------
+    def load_cached_dataset(self, cache_data_dir):
+        """
+        Load cached dataset to speed up.
+        """
+
+        fname = os.path.join(cache_data_dir, 'full_data_set_internal_status.p')
+        if os.path.exists(fname):
+            t0 = time.time()
+            internal_status = pickle.load( open(os.path.join(cache_data_dir, 'full_data_set_internal_status.p'), "rb" ) )
+            self.aif = internal_status[0]
+            self.myo = internal_status[1]
+            self.params = internal_status[2]
+            t1 = time.time()
+            print("Load dataset images takes %.2f ..." % (t1-t0))
+            
+            return True
+        else:
+            return False
 
 # -------------------------------------------------------------------------------------------------
 
@@ -173,14 +228,15 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------
 
     qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat', 
-                        max_load=1,
+                        max_load=-1,
                         T=80, 
                         foot_to_end=True, 
                         min_noise_level=[0.01, 0.01], 
                         max_noise_level=[0.4, 0.15],
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
                         only_white_noise=False,
-                        add_noise=[True, True])
+                        add_noise=[True, True],
+                        cache_folder='/data/qperf')
 
 
     ind = np.arange(len(qperf_dataset))

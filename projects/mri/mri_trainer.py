@@ -110,7 +110,7 @@ class MRITrainManager(TrainManager):
             logging.info(f"Configuration for this run:\n{c}") # Commenting out, prints a lot of info
             logging.info(f"Model Summary:\n{str(model_summary)}") # Commenting out, prints a lot of info
             logging.info(f"Wandb name:\n{wandb_run.name}")
-            wandb_run.watch(self.model_manager)
+            #wandb_run.watch(self.model_manager)
             wandb_run.log_code(".")
 
         # -----------------------------------------------

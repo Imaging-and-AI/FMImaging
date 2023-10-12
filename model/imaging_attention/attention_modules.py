@@ -109,10 +109,10 @@ class Conv2DExt(nn.Module):
     # Extends torch 2D conv to support 5D inputs
     # if channel_first is True, input x is [B, C, T, H, W]
     # if channel_first is False, input x is [B, T, C, H, W]
-    def __init__(self, in_channels, out_channels, kernel_size=[3,3], stride=[1,1], padding=[1,1], bias=False, separable_conv=False, channel_fist=False):
+    def __init__(self, in_channels, out_channels, kernel_size=[3,3], stride=[1,1], padding=[1,1], bias=False, separable_conv=False, channel_first=False):
         super().__init__()
         self.separable_conv = separable_conv
-        self.channel_fist = channel_fist
+        self.channel_first = channel_first
         if separable_conv:
             self.convA = nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias, groups=in_channels)
             self.convB = nn.Conv2d(in_channels, out_channels, kernel_size=[1,1], stride=[1,1], padding=[0,0], bias=bias)
@@ -121,7 +121,7 @@ class Conv2DExt(nn.Module):
 
     def forward(self, input):
         # requires input to have 5 dimensions
-        if self.channel_fist:
+        if self.channel_first:
             B, C, T, H, W = input.shape
             x = torch.permute(input, [0, 2, 1, 3, 4])
         else:
@@ -135,7 +135,7 @@ class Conv2DExt(nn.Module):
 
         y = y.reshape([B, T, *y.shape[1:]])
         
-        if self.channel_fist:
+        if self.channel_first:
             y = torch.permute(y, [0, 2, 1, 3, 4])
         
         return y

@@ -15,11 +15,11 @@ import math
 import logging
 from pathlib import Path
 
-Project_DIR = Path(__file__).parents[0].resolve()
-sys.path.insert(1, str(Project_DIR))
+Current_DIR = Path(__file__).parents[0].resolve()
+sys.path.append(str(Current_DIR))
 
 Project_DIR = Path(__file__).parents[1].resolve()
-sys.path.insert(1, str(Project_DIR))
+sys.path.append(str(Project_DIR))
 
 from utils import get_device, model_info, get_gpu_ram_usage
 from setup import create_generic_class_str
