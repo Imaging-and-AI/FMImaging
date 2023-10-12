@@ -87,7 +87,7 @@ class QPerfModel(ModelManager):
         self.pre["drop"] = nn.Dropout(self.dropout_p)
 
     def create_backbone(self, channel_first=True): 
-        self.backbone = nn.Sequential(*[Cell(T=self.T, n_embd=self.n_embd, is_causal=self.is_causal, n_head=self.n_head, att_dropout_p=self.att_dropout_p, residual_dropout_p=self.residual_dropout_p) for _ in range(self.n_layer)])
+        self.backbone = nn.Sequential(*[Cell(T=self.T, n_embd=self.n_embd, is_causal=self.is_causal, n_head=self.n_head, attn_dropout_p=self.att_dropout_p, residual_dropout_p=self.residual_dropout_p) for _ in range(self.n_layer)])
         self.feature_channels = self.n_embd
         
     def create_post(self): 

@@ -88,38 +88,38 @@ def main():
     # -----------------------------------------------
 
     start = time()
-    train_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, 'tra'), 
+    train_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, 'tra_small'), 
                         max_load=-1,
                         T=80, 
-                        foot_to_end=True, 
+                        foot_to_end=config.foot_to_end, 
                         min_noise_level=[0.01, 0.01], 
                         max_noise_level=[0.4, 0.15],
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
                         only_white_noise=False,
                         add_noise=[True, True],
-                        cache_folder=os.path.join(config.log_dir, 'tra'))
+                        cache_folder=os.path.join(config.log_dir, 'tra_small'))
 
-    val_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, 'val'),
+    val_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, 'val_small'),
                         max_load=-1,
                         T=80, 
-                        foot_to_end=True, 
+                        foot_to_end=config.foot_to_end, 
                         min_noise_level=[0.01, 0.01], 
                         max_noise_level=[0.4, 0.15],
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
                         only_white_noise=False,
                         add_noise=[True, True],
-                        cache_folder=os.path.join(config.log_dir, 'val'))
+                        cache_folder=os.path.join(config.log_dir, 'val_small'))
 
-    test_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, 'test'),
+    test_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, 'test_small'),
                         max_load=-1,
                         T=80, 
-                        foot_to_end=True, 
+                        foot_to_end=config.foot_to_end, 
                         min_noise_level=[0.01, 0.01], 
                         max_noise_level=[0.4, 0.15],
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
                         only_white_noise=False,
                         add_noise=[True, True],
-                        cache_folder=os.path.join(config.log_dir, 'test'))
+                        cache_folder=os.path.join(config.log_dir, 'test_small'))
 
     print(f"load_mri_data took {time() - start} seconds ...")
 
@@ -156,7 +156,6 @@ def main():
     print(f"{rank_str}, after initializing model, config.num_workers for running - {config.num_workers}")
 
     print(f"{rank_str}, after initializing model, optim_manager.curr_epoch for running - {optim_manager.curr_epoch}")
-    print(f"{rank_str}, {Fore.GREEN}after initializing model, model type - {config.model_type}{Style.RESET_ALL}")
     print(f"{rank_str}, {Fore.RED}after initializing model, model.device - {model.device}{Style.RESET_ALL}")
     print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
 
@@ -170,9 +169,9 @@ def main():
     # -----------------------------------------------
 
     trainer = QPerfTrainManager(config=config,
-                            train_sets=train_set,
-                            val_sets=val_set,
-                            test_sets=test_set,
+                            train_sets=[train_set],
+                            val_sets=[val_set],
+                            test_sets=[test_set],
                             loss_f=loss_f,
                             model_manager=model,
                             optim_manager=optim_manager,

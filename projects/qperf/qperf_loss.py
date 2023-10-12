@@ -17,6 +17,22 @@ sys.path.append(str(REPO_DIR))
 import torch
 import torch.nn as nn
 
+class qperf_mse(object):
+    def __init__(self, config):
+        self.config = config
+
+    def __call__(self, y, y_hat, mask, N):
+        v = torch.sum(mask* ( (y_hat-y)**2 ))/N
+        return v
+
+class qperf_l1(object):
+    def __init__(self, config):
+        self.config = config
+
+    def __call__(self, y, y_hat, mask, N):
+        v = torch.sum(mask* torch.abs(y_hat-y))/N
+        return v
+
 class qperf_loss:
 
     def __init__(self, config):
@@ -29,9 +45,9 @@ class qperf_loss:
     def str_to_loss(self, loss_name):
 
         if loss_name=="mse":
-            loss_f = nn.MSELoss(reduction='mean')
+            loss_f = qperf_mse(self.config)
         elif loss_name=="l1":
-            loss_f = nn.L1Loss(reduction='mean')
+            loss_f = qperf_l1(self.config)
         else:
             raise NotImplementedError(f"Loss type not implemented: {loss_name}")
 
@@ -42,14 +58,24 @@ class qperf_loss:
         y_hat, params_estimated = outputs
         y, params, aif_p = targets
 
-        valid_N = aif_p[-1]
+        valid_N = aif_p[:, 0, -1]
+
+        B, T, C = y.shape
+
+        mask = torch.ones((B, T, 1), dtype=y.dtype).to(device=y.device)
+        for b in range(B):
+            mask[b, int(valid_N[b]):T, 0] = 0
+
+        N = torch.sum(valid_N)
 
         combined_loss = 0
         for loss_f, weight in self.losses:
-            v = weight*loss_f(y_hat[:valid_N, :], y[:valid_N, :])
+            v = weight*loss_f(y, y_hat, mask, N)
             if not torch.isnan(v):
                 combined_loss += v
 
-        combined_loss += torch.sum(self.config.loss_weights_params * torch.abs(params_estimated-params))
+        num_params = params.shape[2]
+        for n in range(num_params):
+            combined_loss += self.config.loss_weights_params[n] * torch.sum(torch.abs(params_estimated[:, n]-params[:, :, n]))/B
 
         return combined_loss

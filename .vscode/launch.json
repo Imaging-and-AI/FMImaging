@@ -139,7 +139,8 @@
                 "--n_embd", "512",
                 "--n_layer", "8",
                 "--use_pos_embedding",
-                "--residual_dropout_p", "0.1"
+                "--residual_dropout_p", "0.1",
+                "--project", "QPerf"
             ]
         }
     ]

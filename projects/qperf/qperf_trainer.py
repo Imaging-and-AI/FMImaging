@@ -36,8 +36,10 @@ sys.path.append(str(Project_DIR))
 REPO_DIR = Path(__file__).parents[2].resolve()
 sys.path.append(str(REPO_DIR))
 
+from torchinfo import summary
+
 from trainer import *
-from utils.status import model_info, start_timer, end_timer, support_bfloat16
+from utils.status import start_timer, end_timer, support_bfloat16
 from metrics.metrics_utils import AverageMeter
 from optim.optim_utils import compute_total_steps
 
@@ -64,6 +66,28 @@ def get_rank_str(rank):
         return f"{Fore.LIGHTCYAN_EX}{Back.WHITE}rank {rank} {Style.RESET_ALL}"
 
     return f"{Fore.WHITE}{Style.BRIGHT}rank {rank} {Style.RESET_ALL}"
+
+# -------------------------------------------------------------------------------------------------
+
+def qpref_model_info(model, config):
+    c = config
+    input_size = (c.batch_size, c.qperf_T, 2)
+    col_names=("num_params", "params_percent", "mult_adds", "input_size", "output_size", "trainable")
+    row_settings=["var_names", "depth"]
+    dtypes=[torch.float32]
+
+    model_summary = summary(model, verbose=0, mode="train", depth=c.summary_depth,\
+                            input_size=input_size, col_names=col_names,\
+                            row_settings=row_settings, dtypes=dtypes,\
+                            device=config.device)
+
+    c.trainable_params = model_summary.trainable_params
+    c.total_params = model_summary.total_params
+    c.total_mult_adds = model_summary.total_mult_adds
+
+    torch.cuda.empty_cache()
+
+    return model_summary
 
 # -------------------------------------------------------------------------------------------------
 
@@ -98,7 +122,7 @@ class QPerfTrainManager(TrainManager):
 
         # -----------------------------------------------
         if rank<=0:
-            model_summary = model_info(self.model_manager, c)
+            model_summary = qpref_model_info(self.model_manager, c)
             logging.info(f"Configuration for this run:\n{c}") # Commenting out, prints a lot of info
             logging.info(f"Model Summary:\n{str(model_summary)}") # Commenting out, prints a lot of info
             logging.info(f"Wandb name:\n{wandb_run.name}")
@@ -134,7 +158,7 @@ class QPerfTrainManager(TrainManager):
 
         # -----------------------------------------------
 
-        logging.info(f"{rank_str}, {Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.n_layer}, {c.T}, {c.use_pos_embedding}, {c.optim_type}, {c.optim}, {c.scheduler_type}, {c.losses}, {c.loss_weights}{Style.RESET_ALL}")
+        logging.info(f"{rank_str}, {Fore.RED}Local Rank:{rank}, global rank: {global_rank}, {c.n_layer}, {c.qperf_T}, {c.use_pos_embedding}, {c.optim_type}, {c.optim}, {c.scheduler_type}, {c.losses}, {c.loss_weights}{Style.RESET_ALL}")
 
         # -----------------------------------------------
 
@@ -159,8 +183,6 @@ class QPerfTrainManager(TrainManager):
                                         num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor, drop_last=True,
                                         persistent_workers=c.num_workers>0, pin_memory=False)]
 
-        train_set_type = [train_set_x.data_type for train_set_x in self.train_sets]
-
         # -----------------------------------------------
 
         if rank<=0: # main or master process
@@ -176,8 +198,24 @@ class QPerfTrainManager(TrainManager):
 
             # log a few training examples
             for i, train_set_x in enumerate(self.train_sets):
-                ind = np.random.randint(0, len(train_set_x), 4)
-                x, y, p = train_set_x[ind[0]]
+                ind = np.random.randint(0, len(train_set_x), 16)
+                for ii in ind:
+                    x, y, p, aif_p = train_set_x[ii]
+
+                    Fp = p[0, 0]
+                    Vp = p[0, 1]
+                    Visf = p[0, 2]
+                    PS = p[0, 3]
+                    Delay = int(p[0, 4])
+
+                    N = x.shape[0]
+
+                    wandb.log({f"tra {ii}" : wandb.plot.line_series(
+                                xs=list(np.arange(N)),
+                                ys=[list(x[:,0]), list(x[:,1]), list(y.flatten())],
+                                keys=["aif", "myo", "myo_clean"],
+                                title=f"Fp={Fp:.2f},Vp={Vp:.2f},Visf={Visf:.2f},PS={PS:.2f},Delay={Delay}",
+                                xname="T")})
 
         # -----------------------------------------------
 
@@ -223,7 +261,6 @@ class QPerfTrainManager(TrainManager):
                             del train_loader_iters[loader_ind]
                             loader_ind = idx % len(train_loader_iters)
                             loader_outputs = next(train_loader_iters[loader_ind], None)
-                        data_type = train_set_type[loader_ind]
                         x, y, p, aif_p = loader_outputs
                         end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
 
@@ -232,6 +269,11 @@ class QPerfTrainManager(TrainManager):
                         x = x.to(device=device)
                         y = y.to(device)
                         p = p.to(device)
+
+                        if not c.use_amp:
+                            x = x.to(dtype=torch.float32)
+                            y = y.to(dtype=torch.float32)
+                            p = p.to(dtype=torch.float32)
 
                         B, T, D = x.shape
 

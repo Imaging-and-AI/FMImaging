@@ -163,6 +163,8 @@ class QPerfDataSet(torch.utils.data.Dataset):
 
         x = np.concatenate((aif[:, np.newaxis], myo[:, np.newaxis]), axis=1)
 
+        N = x.shape[0]
+
         if self.foot_to_end:
             x = x[foot:, :]
             y = y[foot:]
@@ -173,13 +175,13 @@ class QPerfDataSet(torch.utils.data.Dataset):
             y = y[:self.T]
             N = x.shape[0]
         else:
-            x_T = np.zeros(self.T, 2)
+            x_T = np.zeros((self.T, 2))
             x_T[:N, :] = x
             x_T[N:, :] = x[N-1, :]
 
             y_T = np.zeros(self.T)
-            y_T[:N, :] = y
-            y_T[N:, :] = y[N-1]
+            y_T[:N] = y
+            y_T[N:] = y[N-1]
 
             x = x_T
             y = y_T
@@ -231,6 +233,7 @@ class QPerfDataSet(torch.utils.data.Dataset):
 
         fname = os.path.join(cache_data_dir, 'full_data_set_internal_status.p')
         if os.path.exists(fname):
+            print(f"--> loading from the cache {fname} ...")
             t0 = time.time()
             internal_status = pickle.load( open(os.path.join(cache_data_dir, 'full_data_set_internal_status.p'), "rb" ) )
             self.aif = internal_status[0]
@@ -253,6 +256,39 @@ if __name__ == '__main__':
     os.makedirs(saved_path, exist_ok=True)
 
     # -----------------------------------------------------------------
+
+    qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/tra_small', 
+                        max_load=-1,
+                        T=80, 
+                        foot_to_end=True, 
+                        min_noise_level=[0.01, 0.01], 
+                        max_noise_level=[0.4, 0.15],
+                        filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
+                        only_white_noise=False,
+                        add_noise=[True, True],
+                        cache_folder='/data/qperf/cache/tra_small')
+
+    qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/val_small', 
+                        max_load=-1,
+                        T=80, 
+                        foot_to_end=True, 
+                        min_noise_level=[0.01, 0.01], 
+                        max_noise_level=[0.4, 0.15],
+                        filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
+                        only_white_noise=False,
+                        add_noise=[True, True],
+                        cache_folder='/data/qperf/cache/val_small')
+
+    qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/test_small', 
+                        max_load=-1,
+                        T=80, 
+                        foot_to_end=True, 
+                        min_noise_level=[0.01, 0.01], 
+                        max_noise_level=[0.4, 0.15],
+                        filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
+                        only_white_noise=False,
+                        add_noise=[True, True],
+                        cache_folder='/data/qperf/cache/test_small')
 
     qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/tra', 
                         max_load=-1,
@@ -291,7 +327,7 @@ if __name__ == '__main__':
     case_lists = np.random.permutation(ind)
 
     for t in range(20):
-        x, y, params = qperf_dataset[case_lists[t]]
+        x, y, params, aif_p = qperf_dataset[case_lists[t]]
         print(f"x - {x.shape}, y - {y.shape}, params - {params.shape}")
         np.save(os.path.join(saved_path, f"case_{case_lists[t]}_x.npy"), x.astype(np.float32))
         np.save(os.path.join(saved_path, f"case_{case_lists[t]}_y.npy"), y.astype(np.float32))

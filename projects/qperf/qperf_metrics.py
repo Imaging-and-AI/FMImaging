@@ -30,7 +30,6 @@ sys.path.append(str(REPO_DIR))
 
 from utils import *
 from metrics import MetricManager, get_metric_function, AverageMeter
-from ignite.metrics import Accuracy, Loss
 
 # -------------------------------------------------------------------------------------------------
 class QPerfMetricManager(MetricManager):
@@ -116,10 +115,12 @@ class QPerfMetricManager(MetricManager):
     # ---------------------------------------------------------------------------------------
     def on_train_step_end(self, loss, output, labels, rank, curr_lr, save_samples, epoch, ids):
 
-        y, params = labels
+        x, y, params, aif_p = labels
         y_hat, params_est = output
 
         B = y.shape[0]
+
+        y = y.to(y_hat.device)
 
         self.train_metrics['loss'].update(loss, n=B)
 
@@ -142,9 +143,10 @@ class QPerfMetricManager(MetricManager):
     # ---------------------------------------------------------------------------------------
     def on_eval_step_end(self, loss, output, labels, ids, rank, save_samples, split):
 
-        y, params = labels
+        x, y, params, aif_p = labels
         y_hat, params_est = output
         B = y.shape[0]
+        y = y.to(y_hat.device)
 
         for metric_name in ['mse', 'l1']:
             metric_value = self.eval_metric_functions[metric_name](y_hat, y)
