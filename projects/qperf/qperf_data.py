@@ -40,7 +40,8 @@ class QPerfDataSet(torch.utils.data.Dataset):
                         max_noise_level=[1.0, 0.25],
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
                         only_white_noise=False,
-                        add_noise=[True, True]):
+                        add_noise=[True, True],
+                        load_cache=True):
         """
         @args:
             - data_folder : folder to store the mat files
@@ -77,7 +78,7 @@ class QPerfDataSet(torch.utils.data.Dataset):
         N = len(all_data_files)
         print(f"--> {N} cases found for data folder : {self.data_folder}")
 
-        if self.load_cached_dataset(self.cache_folder):
+        if load_cache and self.load_cached_dataset(self.cache_folder):
             print(self.__str__())
             return
         else:
@@ -92,7 +93,11 @@ class QPerfDataSet(torch.utils.data.Dataset):
 
                 a_case = all_data_files[ind]
                 if os.path.isfile(a_case):
+
+                    t0 = time.time()
                     mat = scipy.io.loadmat(a_case)
+                    t1 = time.time()
+                    print(f"Load mat file {a_case} takes {(t1-t0):.2f}s ...")
 
                     N = mat['out'].shape[1]
                     print(f"--> case {ind} loaded from {N} cases - {a_case} ... ")
@@ -103,21 +108,70 @@ class QPerfDataSet(torch.utils.data.Dataset):
                             aif = mat['out'][0,ind]['aif'][0,0].flatten().astype(np.float32)
                             myo = mat['out'][0,ind]['myo'][0,0].flatten().astype(np.float32)
 
-                            if aif.shape[0] >= T:
-                                self.aif.append(aif)
-                                self.myo.append(myo)
-                                self.params.append(params)
+                            #if aif.shape[0] >= T:
+                            self.aif.append(aif)
+                            self.myo.append(myo)
+                            self.params.append(params)
 
-                                if ind % 10000 == 0:
-                                    pbar.update(10000)
-                                    pbar.set_description_str(f"{a_case}, {ind} out of {N}, {aif.shape[0]}, {params[0]:.4f}")
+                            if ind % 10000 == 0:
+                                pbar.update(10000)
+                                pbar.set_description_str(f"{a_case}, {ind} out of {N}, {aif.shape[0]}, {params[0]:.4f}")
 
                     cases_loaded += 1
                     print(f"--> {len(self.aif)} samples loaded from {cases_loaded} cases - {a_case} ... ")
 
             print(f"--> {len(self.aif)} samples loaded from {cases_loaded} cases ... ")
 
+            # use numpy to save
+            N = len(self.aif)
+
+            self.x = np.zeros((N, self.T), dtype=np.float16)
+            self.y = np.zeros((N, self.T), dtype=np.float16)
+            self.p = np.zeros((N, 9), dtype=np.float16)
+
+            pbar = tqdm(total=N)
+            for k in range(N):
+                self.x[k, :], self.y[k, :], self.p[k, :] = self.pre_load_one_sample(k)
+                if k % 10000 == 0:
+                    pbar.update(10000)
+                    pbar.set_description_str(f" --> {k} out of {N} ...")
+
             self.cache_dataset(self.cache_folder)
+
+    def pre_load_one_sample(self, i):
+        """
+        Loads one sample from the loaded data images
+        @args:
+            - i (int): index of the file to load
+        @rets:
+            - x : [T, 2] for aif and myo
+            - y : [T] for clean myo
+            - p : [9] for parameters (Fp, Vp, PS, Visf, delay, foot, peak, valley, N)
+        """
+
+        T = self.T
+
+        x = self.aif[i]
+        y = self.myo[i]
+        params = self.params[i]
+
+        N = x.shape[0]
+        foot = int(params[5])
+
+        if self.foot_to_end and foot < N/2:
+            x = x[foot:]
+            y = y[foot:]
+            N = x.shape[0]
+
+        if N > self.T:
+            x = x[:self.T]
+            y = y[:self.T]
+            N = x.shape[0]
+        elif N < self.T:
+            x = np.append(x, x[N-1] * np.ones((self.T-N)), axis=0)
+            y = np.append(y, y[N-1] * np.ones(self.T-N), axis=0)
+
+        return x, y, np.append(params, [N], axis=0)
 
     def load_one_sample(self, i):
         """
@@ -127,21 +181,19 @@ class QPerfDataSet(torch.utils.data.Dataset):
         @rets:
             - x : [T, 2] for aif and myo
             - y : [T] for clean myo
-            - p : [5] for parameters (Fp, Vp, PS, Visf, delay)
-            - aif_p : [4], (foot, peak, valley, N)
+            - p : [9] for parameters (Fp, Vp, PS, Visf, delay, foot, peak, valley, N)
         """
 
         T = self.T
 
-        aif = self.aif[i]
-        y = self.myo[i]
-        params = self.params[i]
+        x = self.x[i, :]
+        y = self.y[i, :]
+        p = self.p[i, :]
 
-        N = aif.shape[0]
-        foot = int(params[5])
+        N = x.shape[0]
+        assert N == self.T
 
         if self.add_noise[0]:
-            # add noise to aif
             sigma = np.random.uniform(self.min_noise_level[0], self.max_noise_level[0])
             nn = np.random.standard_normal(size=N) * sigma
 
@@ -149,7 +201,7 @@ class QPerfDataSet(torch.utils.data.Dataset):
                 fs = self.filter_sigma[np.random.randint(0, len(self.filter_sigma))]
                 nn = scipy.ndimage.gaussian_filter1d(nn, fs, axis=0)
 
-            aif += nn
+            x += nn
 
         if self.add_noise[1]:
             # add noise to myo
@@ -162,30 +214,15 @@ class QPerfDataSet(torch.utils.data.Dataset):
 
             myo = y + nn
 
-        x = np.concatenate((aif[:, np.newaxis], myo[:, np.newaxis]), axis=1)
+        x = np.concatenate((x[:, np.newaxis], myo[:, np.newaxis]), axis=1)
 
-        N = x.shape[0]
-
-        if self.foot_to_end and foot < N/2:
-            x = x[foot:, :]
-            y = y[foot:]
-            N = x.shape[0]
-
-        if N > self.T:
-            x = x[:self.T, :]
-            y = y[:self.T]
-            N = x.shape[0]
-        elif N < self.T:
-            x = np.append(x, x[N-1, :] * np.ones((self.T-N, 2)), axis=0)
-            y = np.append(y, y[N-1] * np.ones(self.T-N), axis=0)
-
-        return x, y, np.append(params, [N], axis=0)
+        return x, y, p
 
     def __len__(self):
         """
         Length of dataset
         """
-        if self.max_samples>0 and len(self.aif)>self.max_samples:
+        if self.max_samples>0 and self.x.shape[0]>self.max_samples:
             return self.max_samples
         else:
             return len(self.aif)
@@ -198,9 +235,9 @@ class QPerfDataSet(torch.utils.data.Dataset):
     
     def __str__(self):
         str = "QPerf, Dataset\n"
-        str += "  Number of aif: %d" % len(self.aif) + "\n"
-        str += "  Number of myo: %d" % len(self.myo) + "\n"
-        str += "  Number of params: %d" % len(self.params) + "\n"
+        str += "  Number of aif: %d" % self.x.shape[0] + "\n"
+        str += "  Number of myo: %d" % self.y.shape[0] + "\n"
+        str += "  Number of params: %d" % self.p.shape[0] + "\n"
 
         return str
         
@@ -214,8 +251,9 @@ class QPerfDataSet(torch.utils.data.Dataset):
 
         t0 = time.time()
         os.makedirs(cache_data_dir, exist_ok=True)
-        internal_status = [self.aif, self.myo, self.params]
-        pickle.dump(internal_status, open(os.path.join(cache_data_dir, 'full_data_set_internal_status.p'), 'wb'))
+        np.save(os.path.join(cache_data_dir, 'aif.npy'), self.x)
+        np.save(os.path.join(cache_data_dir, 'myo.npy'), self.y)
+        np.save(os.path.join(cache_data_dir, 'params.npy'), self.p)
         t1 = time.time()
         print("Saving dataset images takes %.2f ..." % (t1-t0))
 
@@ -225,14 +263,13 @@ class QPerfDataSet(torch.utils.data.Dataset):
         Load cached dataset to speed up.
         """
 
-        fname = os.path.join(cache_data_dir, 'full_data_set_internal_status.p')
+        fname = os.path.join(cache_data_dir, 'aif.npy')
         if os.path.exists(fname):
             print(f"--> loading from the cache {fname} ...")
             t0 = time.time()
-            internal_status = pickle.load( open(os.path.join(cache_data_dir, 'full_data_set_internal_status.p'), "rb" ) )
-            self.aif = internal_status[0]
-            self.myo = internal_status[1]
-            self.params = internal_status[2]
+            self.x = np.load(os.path.join(cache_data_dir, 'aif.npy'))
+            self.y = np.load(os.path.join(cache_data_dir, 'myo.npy'))
+            self.p = np.load(os.path.join(cache_data_dir, 'params.npy'))
             t1 = time.time()
             print("Load dataset images takes %.2f ..." % (t1-t0))
             
@@ -251,6 +288,8 @@ if __name__ == '__main__':
 
     # -----------------------------------------------------------------
 
+    load_cache = False
+
     qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/tra_small', 
                         max_load=-1,
                         T=80, 
@@ -260,62 +299,68 @@ if __name__ == '__main__':
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
                         only_white_noise=False,
                         add_noise=[True, True],
-                        cache_folder='/data/qperf/cache/tra_small')
+                        cache_folder='/data/qperf/cache/tra_small',
+                        load_cache=load_cache)
 
-    # qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/val_small', 
-    #                     max_load=-1,
-    #                     T=80, 
-    #                     foot_to_end=True, 
-    #                     min_noise_level=[0.01, 0.01], 
-    #                     max_noise_level=[0.4, 0.15],
-    #                     filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
-    #                     only_white_noise=False,
-    #                     add_noise=[True, True],
-    #                     cache_folder='/data/qperf/cache/val_small')
+    qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/val_small', 
+                        max_load=-1,
+                        T=80, 
+                        foot_to_end=True, 
+                        min_noise_level=[0.01, 0.01], 
+                        max_noise_level=[0.4, 0.15],
+                        filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
+                        only_white_noise=False,
+                        add_noise=[True, True],
+                        cache_folder='/data/qperf/cache/val_small',
+                        load_cache=load_cache)
 
-    # qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/test_small', 
-    #                     max_load=-1,
-    #                     T=80, 
-    #                     foot_to_end=True, 
-    #                     min_noise_level=[0.01, 0.01], 
-    #                     max_noise_level=[0.4, 0.15],
-    #                     filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
-    #                     only_white_noise=False,
-    #                     add_noise=[True, True],
-    #                     cache_folder='/data/qperf/cache/test_small')
+    qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/test_small', 
+                        max_load=-1,
+                        T=80, 
+                        foot_to_end=True, 
+                        min_noise_level=[0.01, 0.01], 
+                        max_noise_level=[0.4, 0.15],
+                        filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
+                        only_white_noise=False,
+                        add_noise=[True, True],
+                        cache_folder='/data/qperf/cache/test_small',
+                        load_cache=load_cache)
 
-    # qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/tra', 
-    #                     max_load=-1,
-    #                     T=80, 
-    #                     foot_to_end=True, 
-    #                     min_noise_level=[0.01, 0.01], 
-    #                     max_noise_level=[0.4, 0.15],
-    #                     filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
-    #                     only_white_noise=False,
-    #                     add_noise=[True, True],
-    #                     cache_folder='/data/qperf/cache/tra')
+    qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/tra', 
+                        max_load=-1,
+                        T=80, 
+                        foot_to_end=True, 
+                        min_noise_level=[0.01, 0.01], 
+                        max_noise_level=[0.4, 0.15],
+                        filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
+                        only_white_noise=False,
+                        add_noise=[True, True],
+                        cache_folder='/data/qperf/cache/tra',
+                        load_cache=load_cache)
 
-    # qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/val', 
-    #                     max_load=-1,
-    #                     T=80, 
-    #                     foot_to_end=True, 
-    #                     min_noise_level=[0.01, 0.01], 
-    #                     max_noise_level=[0.4, 0.15],
-    #                     filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
-    #                     only_white_noise=False,
-    #                     add_noise=[True, True],
-    #                     cache_folder='/data/qperf/cache/val')
+    qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/val', 
+                        max_load=-1,
+                        T=80, 
+                        foot_to_end=True, 
+                        min_noise_level=[0.01, 0.01], 
+                        max_noise_level=[0.4, 0.15],
+                        filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
+                        only_white_noise=False,
+                        add_noise=[True, True],
+                        cache_folder='/data/qperf/cache/val',
+                        load_cache=load_cache)
 
-    # qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/test', 
-    #                     max_load=-1,
-    #                     T=80, 
-    #                     foot_to_end=True, 
-    #                     min_noise_level=[0.01, 0.01], 
-    #                     max_noise_level=[0.4, 0.15],
-    #                     filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
-    #                     only_white_noise=False,
-    #                     add_noise=[True, True],
-    #                     cache_folder='/data/qperf/cache/test')
+    qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/test', 
+                        max_load=-1,
+                        T=80, 
+                        foot_to_end=True, 
+                        min_noise_level=[0.01, 0.01], 
+                        max_noise_level=[0.4, 0.15],
+                        filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
+                        only_white_noise=False,
+                        add_noise=[True, True],
+                        cache_folder='/data/qperf/cache/test',
+                        load_cache=load_cache)
 
     ind = np.arange(len(qperf_dataset))
     case_lists = np.random.permutation(ind)
