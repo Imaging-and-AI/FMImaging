@@ -97,7 +97,7 @@ class STCNNT_MRI(ModelManager):
             self.pre_feature_channels = [config.backbone_unet.C]
 
         self.pre = nn.ModuleDict()
-        self.pre["in_conv"] = Conv2DExt(config.no_in_channel, self.pre_feature_channels[0], kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True, channel_fist=False)
+        self.pre["in_conv"] = Conv2DExt(config.no_in_channel, self.pre_feature_channels[0], kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True, channel_first=False)
         self.paras = torch.nn.ParameterDict()
         self.paras["a"] = torch.nn.Parameter(torch.tensor(5.0))
         self.paras["b"] = torch.nn.Parameter(torch.tensor(4.0))
@@ -113,9 +113,9 @@ class STCNNT_MRI(ModelManager):
             #self.post.add_module("post_conv", Conv2DExt(self.feature_channels//4, config.no_out_channel, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True))
             self.post["o_upsample"] = UpSample(N=1, C_in=self.feature_channels[0], C_out=self.feature_channels[0]//2, method='bspline', with_conv=True)
             self.post["o_nl"] = nn.GELU(approximate="tanh")
-            self.post["o_conv"] = Conv2DExt(self.feature_channels[0]//2, config.no_out_channel, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True, channel_fist=False)
+            self.post["o_conv"] = Conv2DExt(self.feature_channels[0]//2, config.no_out_channel, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True, channel_first=False)
         else:
-            self.post = Conv2DExt(self.feature_channels[0], config.no_out_channel, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True, channel_fist=False)
+            self.post = Conv2DExt(self.feature_channels[0], config.no_out_channel, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True, channel_first=False)
 
 
     def forward(self, x, snr=None, base_snr_t=None):
@@ -375,13 +375,13 @@ class MRI_hrnet(STCNNT_MRI):
         if self.config.super_resolution:
             self.post["o_upsample"] = UpSample(N=1, C_in=hrnet_C_out, C_out=hrnet_C_out//2, method='bspline', with_conv=True)
             self.post["o_nl"] = nn.GELU(approximate="tanh")
-            self.post["o_conv"] = Conv2DExt(hrnet_C_out//2, hrnet_C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True, channel_fist=False)
+            self.post["o_conv"] = Conv2DExt(hrnet_C_out//2, hrnet_C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True, channel_first=False)
             # self.post["output_ps"] = PixelShuffle2DExt(2)
             # hrnet_C_out = hrnet_C_out // 4
             # self.post["o_conv"] = Conv2DExt(hrnet_C_out, 4*hrnet_C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
             # hrnet_C_out = 4*hrnet_C_out
 
-        self.post["output_conv"] = Conv2DExt(hrnet_C_out, config.no_out_channel, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True, channel_fist=False)
+        self.post["output_conv"] = Conv2DExt(hrnet_C_out, config.no_out_channel, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True, channel_first=False)
 
     def forward(self, x, snr=-1, base_snr_t=None):
         """
@@ -399,7 +399,7 @@ class MRI_hrnet(STCNNT_MRI):
         if self.residual:
             res_backbone[1][0] = res_pre + res_backbone[1][0]
 
-        # now, channel_fist is False
+        # now, channel_first is False
         num_resolution_levels = self.config.backbone_hrnet.num_resolution_levels
         if num_resolution_levels == 1:
             res_0, _ = self.post["P0"](res_backbone[1][0])
@@ -490,7 +490,7 @@ class MRI_double_net(STCNNT_MRI):
         backbone_C_out = self.get_backbone_C_out()
 
         # original post
-        self.post_1st = Conv2DExt(backbone_C_out, config.no_out_channel, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True, channel_fist=False)
+        self.post_1st = Conv2DExt(backbone_C_out, config.no_out_channel, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True, channel_first=False)
 
         self.post = torch.nn.ModuleDict()
 
@@ -506,7 +506,7 @@ class MRI_double_net(STCNNT_MRI):
 
             self.post["o_upsample"] = UpSample(N=1, C_in=backbone_C_out, C_out=backbone_C_out, method='bspline', with_conv=False)
             self.post["o_nl"] = nn.GELU(approximate="tanh")
-            self.post["o_conv"] = Conv2DExt(backbone_C_out, backbone_C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True, channel_fist=False)
+            self.post["o_conv"] = Conv2DExt(backbone_C_out, backbone_C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True, channel_first=False)
 
         if config.post_backbone == 'STCNNT_HRNET':
             config_post = copy.copy(config)
@@ -562,7 +562,7 @@ class MRI_double_net(STCNNT_MRI):
         #     self.post["o_nl"] = nn.GELU(approximate="tanh")
         #     self.post["o_conv"] = Conv2DExt(C_out//2, C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True)
 
-        self.post["output_conv"] = Conv2DExt(C_out, config_post.no_out_channel, kernel_size=config_post.kernel_size, stride=config_post.stride, padding=config_post.padding, bias=True, channel_fist=False)
+        self.post["output_conv"] = Conv2DExt(C_out, config_post.no_out_channel, kernel_size=config_post.kernel_size, stride=config_post.stride, padding=config_post.padding, bias=True, channel_first=False)
 
     def load_post_1st_net(self, load_path, device=None):
         logging.info(f"{Fore.YELLOW}Loading post in the 1st network from {load_path}{Style.RESET_ALL}")
@@ -607,7 +607,7 @@ class MRI_double_net(STCNNT_MRI):
         if self.config.super_resolution:
             y_hat = self.post["o_upsample"](y_hat)
             y_hat = self.post["o_nl"](y_hat)
-            y_hat = self.post["o_conv"](y_hat) # channel_fist is False
+            y_hat = self.post["o_conv"](y_hat) # channel_first is False
             
         if self.config.post_backbone == 'STCNNT_HRNET':
             res, _ = self.post['post_main'](y_hat)

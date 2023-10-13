@@ -1,19 +1,8 @@
 """
-Spatio-Temporal Convolutional Neural Net Transformer (STCNNT)
+Standard model for transformer
 
-A novel structure that combines the ideas behind CNNs and Transformers.
-STCNNT is able to utilize the spatial and temporal correlation 
-while keeping the computations efficient.
-
-Attends across complete temporal dimension and
-across spatial dimension in restricted local and diluted global methods.
-
-Provides implementation of following modules (in order of increasing complexity):
-    - SpatialLocalAttention: Local windowed spatial attention
-    - SpatialGlobalAttention: Global grided spatial attention
-    - TemporalCnnAttention: Complete temporal attention
-    - CnnTransformer: A CNNT cell that wraps above attention with norms and mixers
-    - CNNTBlock: A stack of CnnTransformer cells
+Input : [B, T, D]
+Output : [B, T, D]
 
 """
 
@@ -26,11 +15,11 @@ import math
 import logging
 from pathlib import Path
 
-Project_DIR = Path(__file__).parents[0].resolve()
-sys.path.insert(1, str(Project_DIR))
+Current_DIR = Path(__file__).parents[0].resolve()
+sys.path.append(str(Current_DIR))
 
 Project_DIR = Path(__file__).parents[1].resolve()
-sys.path.insert(1, str(Project_DIR))
+sys.path.append(str(Project_DIR))
 
 from utils import get_device, model_info, get_gpu_ram_usage
 from setup import create_generic_class_str

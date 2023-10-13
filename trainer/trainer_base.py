@@ -228,6 +228,9 @@ class TrainManager(object):
                     elif c.scheduler_type == "StepLR":
                         sched.step()
 
+                    if c.ddp:
+                        self.distribute_learning_rates(rank, optim, src=0)
+
             # Load the best model from training
             if self.config.eval_train_set or self.config.eval_val_set or self.config.eval_test_set:
                 logging.info(f"{Fore.CYAN}Loading the best models from training for final evaluation...{Style.RESET_ALL}")
@@ -429,6 +432,21 @@ class TrainManager(object):
             if dist.is_initialized():
                 print(f"---> dist.destory_process_group on local rank {rank}", flush=True)
                 dist.destroy_process_group()
+
+    # -------------------------------------------------------------------------------------------------
+
+    def distribute_learning_rates(self, rank, optim, src=0):
+
+        N = len(optim.param_groups)
+        new_lr = torch.zeros(N).to(rank)
+        for ind in range(N):
+            new_lr[ind] = optim.param_groups[ind]["lr"]
+
+        dist.broadcast(new_lr, src=src)
+
+        if rank != src:
+            for ind in range(N):
+                optim.param_groups[ind]["lr"] = new_lr[ind].item()
 # -------------------------------------------------------------------------------------------------
 
 def tests():

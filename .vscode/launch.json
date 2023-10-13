@@ -112,6 +112,40 @@
             ]
         },
         // -----------------------------------------------------------------------------------------
+        {
+            "name": "create_hdf5_from_mat",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/qperf/data/create_hdf5_from_mat.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "7"},
+            "args": [
+                "--output", "/export/Lab-Xue/data/qperf/h5file/qperf_tra.h5", "--test_output", "/export/Lab-Xue/data/qperf/h5file/qperf_test.h5", "--test_fraction", "0.1", "/export/Lab-Xue/data/qperf/mat"
+            ]
+        },
+        // -----------------------------------------------------------------------------------------
+        {
+            "name": "run.py, qperf",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/qperf/run.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "0"},
+            "args": [
+                "--data_dir", "/data/qperf/mat", 
+                "--log_dir", "/data/qperf/cache", 
+                "--n_embd", "512",
+                "--n_layer", "8",
+                "--use_pos_embedding",
+                "--residual_dropout_p", "0.1",
+                "--project", "QPerf",
+                "--num_uploaded", "16",
+                "--clip_grad_norm", "0.1",
+                "--batch_size", "128", "--num_epochs", "1", "--use_amp", "--max_samples", "2048"
+            ]
+        }
     ]
 }
 
