@@ -6,5 +6,5 @@ torchrun --standalone --nproc_per_node 8 ./projects/qperf/run.py --batch_size 51
 ```
 
 ```
-torchrun --standalone --nproc_per_node 8 ./projects/qperf/run.py --batch_size 1024 --data_dir /data/qperf/mat --log_dir /data/qperf/cache --n_layer 8 --use_pos_embedding --project QPerf --clip_grad_norm 0.1 --override --ddp --optim.weight_decay 0.1 --num_epochs 10 --use_amp
+torchrun --standalone --nproc_per_node 8 ./projects/qperf/run.py --batch_size 1024 --data_dir /data/qperf/mat --log_dir /data/qperf/cache --n_layer 8 --use_pos_embedding --project QPerf --clip_grad_norm 0.1 --override --ddp --optim.weight_decay 0.1 --num_epochs 10 --prefetch_factor 64 --use_amp
 ```

@@ -56,17 +56,17 @@ class qperf_loss:
     def __call__(self, outputs, targets):
 
         y_hat, params_estimated = outputs
-        y, params, aif_p = targets
+        y, params = targets
 
-        valid_N = aif_p[:, 0, -1]
+        valid_N = params[:, -1]
 
-        B, T, C = y.shape
+        B, T = y.shape
 
-        y_hat = y_hat.to(dtype=y.dtype)
+        y_hat = y_hat.to(dtype=y.dtype).squeeze()
 
-        mask = torch.ones((B, T, 1), dtype=y.dtype).to(device=y.device)
+        mask = torch.ones((B, T), dtype=y.dtype).to(device=y.device)
         for b in range(B):
-            mask[b, int(valid_N[b]):T, 0] = 0
+            mask[b, int(valid_N[b]):T] = 0
 
         N = torch.sum(valid_N)
 
@@ -76,8 +76,8 @@ class qperf_loss:
             if not torch.isnan(v):
                 combined_loss += v
 
-        num_params = params.shape[2]
+        num_params = params_estimated.shape[1]
         for n in range(num_params):
-            combined_loss += self.config.loss_weights_params[n] * torch.sum(torch.abs(params_estimated[:, n]-params[:, :, n]))/B
+            combined_loss += self.config.loss_weights_params[n] * torch.sum(torch.abs(params_estimated[:, n]-params[:, n]))/B
 
         return combined_loss

@@ -40,3 +40,5 @@ class qperf_parser(object):
         self.parser.add_argument('--add_noise', nargs='+', type=str_to_bool, default=[True, True], help='max noise level added to aif and myo')
 
         self.parser.add_argument('--num_uploaded', type=int, default=16, help='number of samples uploaded to wandb')
+
+        self.parser.add_argument("--max_samples", type=int, default=-1, help='max number of samples used in training')

@@ -9,6 +9,7 @@ from time import time
 import os
 import sys
 import logging
+import gc
 
 from colorama import Fore, Back, Style
 import nibabel as nib
@@ -200,13 +201,13 @@ class QPerfTrainManager(TrainManager):
             for i, train_set_x in enumerate(self.train_sets):
                 ind = np.random.randint(0, len(train_set_x), 16)
                 for ii in ind:
-                    x, y, p, aif_p = train_set_x[ii]
+                    x, y, p = train_set_x[ii]
 
-                    Fp = p[0, 0]
-                    Vp = p[0, 1]
-                    Visf = p[0, 2]
-                    PS = p[0, 3]
-                    Delay = int(p[0, 4])
+                    Fp = p[0]
+                    Vp = p[1]
+                    Visf = p[2]
+                    PS = p[3]
+                    Delay = int(p[4])
 
                     N = x.shape[0]
 
@@ -227,6 +228,10 @@ class QPerfTrainManager(TrainManager):
 
         # Compute total iters
         total_iters = sum([len(train_loader) for train_loader in train_loaders])if not c.debug else 3
+
+        dtype = torch.float32
+        if config.use_amp:
+            dtype=torch.bfloat16
 
         # ----------------------------------------------------------------------------
         # Training loop
@@ -258,36 +263,43 @@ class QPerfTrainManager(TrainManager):
 
                         # -------------------------------------------------------
                         tm = start_timer(enable=c.with_timer)
+
                         loader_ind = idx % len(train_loader_iters)
                         loader_outputs = next(train_loader_iters[loader_ind], None)
+
                         while loader_outputs is None:
                             del train_loader_iters[loader_ind]
                             loader_ind = idx % len(train_loader_iters)
                             loader_outputs = next(train_loader_iters[loader_ind], None)
-                        x, y, p, aif_p = loader_outputs
-                        end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
 
-                        # -------------------------------------------------------
-                        tm = start_timer(enable=c.with_timer)
+                        x, y, p = loader_outputs
+
                         x = x.to(device=device)
                         y = y.to(device)
                         p = p.to(device)
 
-                        if not c.use_amp:
-                            x = x.to(dtype=torch.float32)
-                            y = y.to(dtype=torch.float32)
-                            p = p.to(dtype=torch.float32)
+                        end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
+
+                        # del loader_outputs
+                        # if idx % 100 == 0:
+                        #     gc.collect()
+                        # pbar.update(1)
+
+                        # continue
+
+                        # -------------------------------------------------------
+                        tm = start_timer(enable=c.with_timer)
 
                         B, T, D = x.shape
 
-                        with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
-                            model_output = self.model_manager(x)
+                        with torch.autocast(device_type='cuda', dtype=dtype, enabled=c.use_amp):
+                            model_output = self.model_manager(x.to(dtype=dtype))
                             y_hat, p_estimated = model_output
 
                             if torch.isnan(torch.sum(y_hat)):
                                 continue
 
-                            loss = loss_f(model_output, (y, p, aif_p))
+                            loss = loss_f(model_output, (y, p))
 
                             loss = loss / c.iters_to_accumulate
 
@@ -323,12 +335,18 @@ class QPerfTrainManager(TrainManager):
                         tm = start_timer(enable=c.with_timer)
                         curr_lr = optim.param_groups[0]['lr']
 
-                        self.metric_manager.on_train_step_end(loss.item(), model_output, loader_outputs, rank, curr_lr, False, epoch, False)
+                        loss_value = loss.detach().item()
+
+                        self.metric_manager.on_train_step_end(loss_value, model_output, loader_outputs, rank, curr_lr, False, epoch, False)
 
                         # -------------------------------------------------------
+
+                        if idx % 100 == 0:
+                            gc.collect()
+
                         pbar.update(1)
                         log_str = self.create_log_str(config, epoch, rank, 
-                                         x.shape, 
+                                         None, 
                                          self.metric_manager,
                                          curr_lr, 
                                          "tra")
@@ -336,6 +354,9 @@ class QPerfTrainManager(TrainManager):
                         pbar.set_description_str(log_str)
 
                         end_timer(enable=c.with_timer, t=tm, msg="---> epoch step logging and measuring took ")
+
+                        del x, y, p, loss, model_output, loader_outputs, y_hat, p_estimated
+                        torch.cuda.empty_cache()
                     # ------------------------------------------------------------------------------------------------------
 
                     # Run metric logging for each epoch 
@@ -345,7 +366,7 @@ class QPerfTrainManager(TrainManager):
 
                     # Print out metrics from this epoch
                     log_str = self.create_log_str(config, epoch, rank, 
-                                                x.shape, 
+                                                None, 
                                                 self.metric_manager,
                                                 curr_lr, 
                                                 "tra")
@@ -364,7 +385,7 @@ class QPerfTrainManager(TrainManager):
 
                 if c.scheduler_type != "OneCycleLR":
                     if c.scheduler_type == "ReduceLROnPlateau":
-                        sched.step(loss.item())
+                        sched.step(loss_value)
                     elif c.scheduler_type == "StepLR":
                         sched.step()
 
@@ -476,6 +497,10 @@ class QPerfTrainManager(TrainManager):
         data_loader_iters = [iter(data_loader) for data_loader in data_loaders]
         total_iters = sum([len(data_loader) for data_loader in data_loaders]) if not c.debug else 3
 
+        dtype=torch.float32
+        if c.use_amp:
+            dtype=torch.bfloat16
+
         # ------------------------------------------------------------------------
         # Evaluation loop
         with torch.inference_mode():
@@ -491,7 +516,7 @@ class QPerfTrainManager(TrainManager):
                         del data_loader_iters[loader_ind]
                         loader_ind = idx % len(data_loader_iters)
                         loader_outputs = next(data_loader_iters[loader_ind], None)
-                    x, y, p, aif_p = loader_outputs
+                    x, y, p = loader_outputs
 
                     # ----------------------------------------------------------------------
 
@@ -501,16 +526,15 @@ class QPerfTrainManager(TrainManager):
                     y = y.to(device)
                     p = p.to(device)
 
-                    if not c.use_amp:
-                        x = x.to(dtype=torch.float32)
-                        y = y.to(dtype=torch.float32)
-                        p = p.to(dtype=torch.float32)
+                    x = x.to(dtype=dtype)
+                    y = y.to(dtype=dtype)
+                    p = p.to(dtype=dtype)
 
                     # ----------------------------------------------------------------------
 
-                    with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
+                    with torch.autocast(device_type='cuda', dtype=dtype, enabled=c.use_amp):
                         output = self.model_manager(x)
-                        loss = loss_f(output, (y, p, aif_p))
+                        loss = loss_f(output, (y, p))
 
                     # Update evaluation metrics
                     self.metric_manager.on_eval_step_end(loss.item(), output, loader_outputs, f"{idx}", rank, save_samples, split)
@@ -521,11 +545,11 @@ class QPerfTrainManager(TrainManager):
                         samples_logged += 1
                         title = f"{id.upper()}_{samples_logged}_{x.shape}"
 
-                        Fp = p[idx, 0, 0]
-                        Vp = p[idx, 0, 1]
-                        Visf = p[idx, 0, 2]
-                        PS = p[idx, 0, 3]
-                        Delay = int(p[idx, 0, 4])
+                        Fp = p[idx, 0]
+                        Vp = p[idx, 1]
+                        Visf = p[idx, 2]
+                        PS = p[idx, 3]
+                        Delay = int(p[idx, 4])
 
                         y_hat, p_estimated = output
                         Fp_est = p_estimated[idx, 0]
@@ -536,9 +560,13 @@ class QPerfTrainManager(TrainManager):
 
                         N = x.shape[0]
 
+                        x = x.to(dtype=torch.float32).detach().cpu().numpy()
+                        y = y.to(dtype=torch.float32).detach().cpu().numpy()
+                        y_hat = y_hat.to(dtype=torch.float32).detach().cpu().numpy()
+
                         wandb.log({title : wandb.plot.line_series(
                                     xs=list(np.arange(N)),
-                                    ys=[list(x[:,0]), list(x[:,1]), list(y.flatten()), list(y_hat.flatten())],
+                                    ys=[list(x[idx,:,0]), list(x[idx,:,1]), list(y[idx,:].flatten()), list(y_hat[idx,:].flatten())],
                                     keys=["aif", "myo", "myo_clean", "myo_model"],
                                     title=f"Fp={Fp:.2f}, Vp={Vp:.2f}, Visf={Visf:.2f}, PS={PS:.2f}, Delay={Delay} - Fp={Fp_est:.2f}, Vp={Vp_est:.2f}, Visf={Visf_est:.2f}, PS={PS_est:.2f}, Delay={Delay_est}",
                                     xname="T")})
@@ -613,7 +641,7 @@ class QPerfTrainManager(TrainManager):
         else:
             loss, mse, l1, Fp, Vp, Visf, PS, Delay = loss_meters.get_eval_loss()
 
-        str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {C}mse {mse:.4f}, Fp {Fp:.4f}, Vp {Vp:.4f}, Visf {Visf:.4f}, PS {PS:.4f}, Delay {Delay:.4f}{Style.RESET_ALL}{lr_str}"
+        str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {C}mse {mse:.4f}, l1 {l1:.4f}, Fp {Fp:.4f}, Vp {Vp:.4f}, Visf {Visf:.4f}, PS {PS:.4f}, Delay {Delay:.4f}{Style.RESET_ALL}{lr_str}"
 
         return str
 

@@ -115,21 +115,22 @@ class QPerfMetricManager(MetricManager):
     # ---------------------------------------------------------------------------------------
     def on_train_step_end(self, loss, output, labels, rank, curr_lr, save_samples, epoch, ids):
 
-        x, y, params, aif_p = labels
+        x, y, params = labels
         y_hat, params_est = output
 
         B = y.shape[0]
 
         y = y.to(y_hat.device)
+        params = params.to(params_est.device)
 
         self.train_metrics['loss'].update(loss, n=B)
 
         for metric_name in ['mse', 'l1']:
-            metric_value = self.train_metric_functions[metric_name](y_hat, y)
+            metric_value = self.train_metric_functions[metric_name](y_hat.flatten(), y.flatten())
             self.train_metrics[metric_name].update(metric_value.item(), n=B)
 
-        for metric_name in ['Fp', 'Vp', 'PS', 'Visf', 'Delay']:
-            metric_value = self.train_metric_functions[metric_name](y_hat, y)
+        for ii, metric_name in enumerate(['Fp', 'Vp', 'PS', 'Visf', 'Delay']):
+            metric_value = self.train_metric_functions[metric_name](params[:, ii], params_est[:, ii])
             self.train_metrics[metric_name].update(metric_value.item(), n=B)
 
         if rank<=0: 
@@ -143,19 +144,22 @@ class QPerfMetricManager(MetricManager):
     # ---------------------------------------------------------------------------------------
     def on_eval_step_end(self, loss, output, labels, ids, rank, save_samples, split):
 
-        x, y, params, aif_p = labels
+        x, y, params = labels
         y_hat, params_est = output
+
         B = y.shape[0]
+
         y = y.to(y_hat.device)
+        params = params.to(params_est.device)
 
         self.eval_metrics['loss'].update(loss, n=B)
 
         for metric_name in ['mse', 'l1']:
-            metric_value = self.eval_metric_functions[metric_name](y_hat, y)
+            metric_value = self.eval_metric_functions[metric_name](y_hat.flatten(), y.flatten())
             self.eval_metrics[metric_name].update(metric_value.item(), n=B)
 
-        for metric_name in ['Fp', 'Vp', 'PS', 'Visf', 'Delay']:
-            metric_value = self.eval_metric_functions[metric_name](y_hat, y)
+        for ii, metric_name in enumerate(['Fp', 'Vp', 'PS', 'Visf', 'Delay']):
+            metric_value = self.eval_metric_functions[metric_name](params[:, ii], params_est[:, ii])
             self.eval_metrics[metric_name].update(metric_value.item(), n=B)
 
     # ---------------------------------------------------------------------------------------        

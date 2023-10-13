@@ -97,7 +97,7 @@ def main():
 
     start = time()
     train_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, tra_dir), 
-                        max_load=-1,
+                        max_load=-1, max_samples=config.max_samples,
                         T=config.qperf_T, 
                         foot_to_end=config.foot_to_end, 
                         min_noise_level=config.min_noise_level, 
@@ -108,7 +108,7 @@ def main():
                         cache_folder=os.path.join(config.log_dir, tra_dir))
 
     val_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, val_dir),
-                        max_load=-1,
+                        max_load=-1, max_samples=config.max_samples,
                         T=config.qperf_T, 
                         foot_to_end=config.foot_to_end, 
                         min_noise_level=config.min_noise_level, 
@@ -119,7 +119,7 @@ def main():
                         cache_folder=os.path.join(config.log_dir, val_dir))
 
     test_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, test_dir),
-                        max_load=-1,
+                        max_load=-1, max_samples=config.max_samples,
                         T=config.qperf_T, 
                         foot_to_end=config.foot_to_end, 
                         min_noise_level=config.min_noise_level, 
