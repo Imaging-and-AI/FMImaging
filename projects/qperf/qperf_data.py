@@ -127,12 +127,11 @@ class QPerfDataSet(torch.utils.data.Dataset):
             - p : [1, 5] for parameters (Fp, Vp, PS, Visf, delay)
         """
 
-        aif = self.aif[i]
-        y = self.myo[i]
-        params = self.params[i]
+        aif = np.copy(self.aif[i])
+        y = np.copy(self.myo[i])
+        params = np.copy(self.params[i])
         p = params[:5]
-        aif_p = np.zeros(4)
-        aif_p[:3] = params[5:]
+        aif_p = params[5:]
 
         foot = int(aif_p[0])
 
