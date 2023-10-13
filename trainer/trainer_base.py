@@ -228,6 +228,9 @@ class TrainManager(object):
                     elif c.scheduler_type == "StepLR":
                         sched.step()
 
+                    if c.ddp:
+                        self.distribute_learning_rates(rank, optim, src=0)
+
             # Load the best model from training
             if self.config.eval_train_set or self.config.eval_val_set or self.config.eval_test_set:
                 logging.info(f"{Fore.CYAN}Loading the best models from training for final evaluation...{Style.RESET_ALL}")

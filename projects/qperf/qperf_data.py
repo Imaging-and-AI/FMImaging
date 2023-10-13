@@ -134,7 +134,7 @@ class QPerfDataSet(torch.utils.data.Dataset):
                 self.x[k, :], self.y[k, :], self.p[k, :] = self.pre_load_one_sample(k)
                 if k % 10000 == 0:
                     pbar.update(10000)
-                    pbar.set_description_str(f" --> {k} out of {N} ...")
+                    pbar.set_description_str(f" --> {k} out of {N}, {self.x.shape}, {self.y.shape}, {self.p.shape} ...")
 
             self.cache_dataset(self.cache_folder)
 
@@ -225,7 +225,7 @@ class QPerfDataSet(torch.utils.data.Dataset):
         if self.max_samples>0 and self.x.shape[0]>self.max_samples:
             return self.max_samples
         else:
-            return len(self.aif)
+            return self.x.shape[0]
 
     def __getitem__(self, index):
         """
@@ -290,10 +290,12 @@ if __name__ == '__main__':
 
     load_cache = False
 
+    foot_to_end = False
+
     qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/tra_small', 
                         max_load=-1,
                         T=80, 
-                        foot_to_end=True, 
+                        foot_to_end=foot_to_end, 
                         min_noise_level=[0.01, 0.01], 
                         max_noise_level=[0.4, 0.15],
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
@@ -305,7 +307,7 @@ if __name__ == '__main__':
     qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/val_small', 
                         max_load=-1,
                         T=80, 
-                        foot_to_end=True, 
+                        foot_to_end=foot_to_end, 
                         min_noise_level=[0.01, 0.01], 
                         max_noise_level=[0.4, 0.15],
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
@@ -317,7 +319,7 @@ if __name__ == '__main__':
     qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/test_small', 
                         max_load=-1,
                         T=80, 
-                        foot_to_end=True, 
+                        foot_to_end=foot_to_end, 
                         min_noise_level=[0.01, 0.01], 
                         max_noise_level=[0.4, 0.15],
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
@@ -329,7 +331,7 @@ if __name__ == '__main__':
     qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/tra', 
                         max_load=-1,
                         T=80, 
-                        foot_to_end=True, 
+                        foot_to_end=foot_to_end, 
                         min_noise_level=[0.01, 0.01], 
                         max_noise_level=[0.4, 0.15],
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
@@ -341,7 +343,7 @@ if __name__ == '__main__':
     qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/val', 
                         max_load=-1,
                         T=80, 
-                        foot_to_end=True, 
+                        foot_to_end=foot_to_end, 
                         min_noise_level=[0.01, 0.01], 
                         max_noise_level=[0.4, 0.15],
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
@@ -353,7 +355,7 @@ if __name__ == '__main__':
     qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/test', 
                         max_load=-1,
                         T=80, 
-                        foot_to_end=True, 
+                        foot_to_end=foot_to_end, 
                         min_noise_level=[0.01, 0.01], 
                         max_noise_level=[0.4, 0.15],
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
