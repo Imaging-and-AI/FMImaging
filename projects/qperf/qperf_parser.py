@@ -15,7 +15,7 @@ sys.path.append(str(Project_DIR))
 REPO_DIR = Path(__file__).parents[2].resolve()
 sys.path.append(str(REPO_DIR))
 
-from setup import none_or_str
+from setup import none_or_str, str_to_bool
 
 class qperf_parser(object):
 
@@ -33,3 +33,10 @@ class qperf_parser(object):
         self.parser.add_argument("--losses", nargs='+', type=str, default=["mse", "l1"], help='Any combination of "mse", "l1" ')
         self.parser.add_argument('--loss_weights', nargs='+', type=float, default=[1.0, 1.0], help='to balance multiple losses, weights can be supplied')
         self.parser.add_argument('--loss_weights_params', nargs='+', type=float, default=[0.2, 0.1, 0.1, 0.1, 0.2], help='weights for Fp, Vp, Visf, PS, Delay')
+
+        self.parser.add_argument('--min_noise_level', nargs='+', type=float, default=[0.01, 0.01], help='min noise level added to aif and myo')
+        self.parser.add_argument('--max_noise_level', nargs='+', type=float, default=[0.2, 0.1], help='max noise level added to aif and myo')
+
+        self.parser.add_argument('--add_noise', nargs='+', type=str_to_bool, default=[True, True], help='max noise level added to aif and myo')
+
+        self.parser.add_argument('--num_uploaded', type=int, default=16, help='number of samples uploaded to wandb')

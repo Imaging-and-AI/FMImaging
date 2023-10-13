@@ -460,6 +460,9 @@ class MRITrainManager(TrainManager):
                     elif c.scheduler_type == "StepLR":
                         sched.step()
 
+                    if c.ddp:
+                        self.distribute_learning_rates(rank, optim, src=0)
+
             # ----------------------------------------------------------------------------
 
             self.model_manager.save(os.path.join(self.config.log_dir, self.config.run_name, 'last_checkpoint'), epoch, optim, sched)

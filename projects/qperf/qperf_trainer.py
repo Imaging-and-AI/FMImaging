@@ -253,6 +253,9 @@ class QPerfTrainManager(TrainManager):
                 with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
                     for idx in range(total_iters):
 
+                        # if idx > 20:
+                        #     break
+
                         # -------------------------------------------------------
                         tm = start_timer(enable=c.with_timer)
                         loader_ind = idx % len(train_loader_iters)
@@ -365,7 +368,8 @@ class QPerfTrainManager(TrainManager):
                     elif c.scheduler_type == "StepLR":
                         sched.step()
 
-                    self.distribute_learning_rates(rank, optim, src=0)
+                    if c.ddp:
+                        self.distribute_learning_rates(rank, optim, src=0)
 
             # ----------------------------------------------------------------------------
 
@@ -445,7 +449,7 @@ class QPerfTrainManager(TrainManager):
 
         # ------------------------------------------------------------------------
         # Set up data loader to evaluate
-        batch_size = c.batch_size if isinstance(data_sets[0], QPerfDataSet) else 1
+        batch_size = c.batch_size
         num_workers_per_loader = c.num_workers // (2 * len(data_sets))
 
         if isinstance(data_sets, list):
@@ -477,6 +481,8 @@ class QPerfTrainManager(TrainManager):
         with torch.inference_mode():
             with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
 
+                samples_logged = 0
+
                 for idx in range(total_iters):
 
                     loader_ind = idx % len(data_loader_iters)
@@ -487,21 +493,57 @@ class QPerfTrainManager(TrainManager):
                         loader_outputs = next(data_loader_iters[loader_ind], None)
                     x, y, p, aif_p = loader_outputs
 
+                    # ----------------------------------------------------------------------
+
                     B = x.shape[0]
 
                     x = x.to(device)
                     y = y.to(device)
-                    p = y.to(device)
+                    p = p.to(device)
 
-                    output = self.model_manager(x)
-                    y_hat, p_estimated = output
+                    if not c.use_amp:
+                        x = x.to(dtype=torch.float32)
+                        y = y.to(dtype=torch.float32)
+                        p = p.to(dtype=torch.float32)
+
+                    # ----------------------------------------------------------------------
 
                     with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
+                        output = self.model_manager(x)
                         loss = loss_f(output, (y, p, aif_p))
 
                     # Update evaluation metrics
                     self.metric_manager.on_eval_step_end(loss.item(), output, loader_outputs, f"{idx}", rank, save_samples, split)
 
+                    # ----------------------------------------------------------------------
+                    # if required, upload samples
+                    if rank<=0 and samples_logged < self.config.num_uploaded and wandb_run is not None:
+                        samples_logged += 1
+                        title = f"{id.upper()}_{samples_logged}_{x.shape}"
+
+                        Fp = p[idx, 0, 0]
+                        Vp = p[idx, 0, 1]
+                        Visf = p[idx, 0, 2]
+                        PS = p[idx, 0, 3]
+                        Delay = int(p[idx, 0, 4])
+
+                        y_hat, p_estimated = output
+                        Fp_est = p_estimated[idx, 0]
+                        Vp_est = p_estimated[idx, 1]
+                        Visf_est = p_estimated[idx, 2]
+                        PS_est = p_estimated[idx, 3]
+                        Delay_est = int(p_estimated[idx, 4])
+
+                        N = x.shape[0]
+
+                        wandb.log({title : wandb.plot.line_series(
+                                    xs=list(np.arange(N)),
+                                    ys=[list(x[:,0]), list(x[:,1]), list(y.flatten()), list(y_hat.flatten())],
+                                    keys=["aif", "myo", "myo_clean", "myo_model"],
+                                    title=f"Fp={Fp:.2f}, Vp={Vp:.2f}, Visf={Visf:.2f}, PS={PS:.2f}, Delay={Delay} - Fp={Fp_est:.2f}, Vp={Vp_est:.2f}, Visf={Visf_est:.2f}, PS={PS_est:.2f}, Delay={Delay_est}",
+                                    xname="T")})
+
+                    # ----------------------------------------------------------------------
                     # Print evaluation metrics to terminal
                     pbar.update(1)
 
@@ -510,9 +552,9 @@ class QPerfTrainManager(TrainManager):
                                                 self.metric_manager,
                                                 curr_lr, 
                                                 split)
-                    
-                    pbar.set_description(log_str)
 
+                    pbar.set_description(log_str)
+                # -----------------------------------------------------------------------------------------------------------
 
                 # Update evaluation metrics 
                 self.metric_manager.on_eval_epoch_end(rank, epoch, model_manager, optim, sched, split, final_eval)
@@ -524,8 +566,8 @@ class QPerfTrainManager(TrainManager):
                                                 curr_lr, 
                                                 split)
 
-                pbar_str = f"{log_str}"
                 if hasattr(self.metric_manager, 'average_eval_metrics'):
+                    pbar_str = f"--> rank {rank}, {split}, epoch {epoch}"
                     if isinstance(self.metric_manager.average_eval_metrics, dict):
                         for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
                             try: pbar_str += f", {Fore.CYAN} {metric_name} {metric_value:.4f}"
@@ -539,7 +581,10 @@ class QPerfTrainManager(TrainManager):
                                     except: pass
                                 wandb_run.save(metric_file)
 
-                pbar_str += f"{Style.RESET_ALL}"
+                    pbar_str += f"{Style.RESET_ALL}"
+                else:
+                    pbar_str = log_str
+
                 pbar.set_description(pbar_str)
 
                 if rank<=0: 
@@ -568,24 +613,9 @@ class QPerfTrainManager(TrainManager):
         else:
             loss, mse, l1, Fp, Vp, Visf, PS, Delay = loss_meters.get_eval_loss()
 
-        str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {C}mse {mse:.4f}, Fp {Fp:.4f}, Vp {Vp:.4f}, Vusf {Visf:.4f}, PS {PS:.4f}, Delay {Delay:.4f}{Style.RESET_ALL}{lr_str}"
+        str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {C}mse {mse:.4f}, Fp {Fp:.4f}, Vp {Vp:.4f}, Visf {Visf:.4f}, PS {PS:.4f}, Delay {Delay:.4f}{Style.RESET_ALL}{lr_str}"
 
         return str
-
-    # -------------------------------------------------------------------------------------------------
-
-    def distribute_learning_rates(self, rank, optim, src=0):
-
-        N = len(optim.param_groups)
-        new_lr = torch.zeros(N).to(rank)
-        for ind in range(N):
-            new_lr[ind] = optim.param_groups[ind]["lr"]
-
-        dist.broadcast(new_lr, src=src)
-
-        if rank != src:
-            for ind in range(N):
-                optim.param_groups[ind]["lr"] = new_lr[ind].item()
 
 # -------------------------------------------------------------------------------------------------
 def tests():

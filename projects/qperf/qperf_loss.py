@@ -62,6 +62,8 @@ class qperf_loss:
 
         B, T, C = y.shape
 
+        y_hat = y_hat.to(dtype=y.dtype)
+
         mask = torch.ones((B, T, 1), dtype=y.dtype).to(device=y.device)
         for b in range(B):
             mask[b, int(valid_N[b]):T, 0] = 0

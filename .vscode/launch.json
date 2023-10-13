@@ -140,7 +140,10 @@
                 "--n_layer", "8",
                 "--use_pos_embedding",
                 "--residual_dropout_p", "0.1",
-                "--project", "QPerf"
+                "--project", "QPerf",
+                "--num_uploaded", "16",
+                "--clip_grad_norm", "0.1",
+                "--batch_size", "512", "--num_epochs", "1", "--use_amp"
             ]
         }
     ]

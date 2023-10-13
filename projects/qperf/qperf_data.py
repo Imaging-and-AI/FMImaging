@@ -188,7 +188,7 @@ class QPerfDataSet(torch.utils.data.Dataset):
 
         aif_p[3] = N
 
-        return x, y[:, np.newaxis], p[np.newaxis, :], aif_p[np.newaxis, :]
+        return x.astype(np.float32), y[:, np.newaxis].astype(np.float32), p[np.newaxis, :].astype(np.float32), aif_p[np.newaxis, :].astype(np.float32)
 
     def __len__(self):
         """

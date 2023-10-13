@@ -87,39 +87,47 @@ def main():
 
     # -----------------------------------------------
 
+    tra_dir = 'tra_small'
+    val_dir = 'val_small'
+    test_dir = 'test_small'
+
+    tra_dir = 'tra'
+    val_dir = 'val'
+    test_dir = 'test'
+
     start = time()
-    train_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, 'tra_small'), 
+    train_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, tra_dir), 
                         max_load=-1,
-                        T=80, 
+                        T=config.qperf_T, 
                         foot_to_end=config.foot_to_end, 
-                        min_noise_level=[0.01, 0.01], 
-                        max_noise_level=[0.4, 0.15],
+                        min_noise_level=config.min_noise_level, 
+                        max_noise_level=config.max_noise_level,
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
                         only_white_noise=False,
-                        add_noise=[True, True],
-                        cache_folder=os.path.join(config.log_dir, 'tra_small'))
+                        add_noise=config.add_noise,
+                        cache_folder=os.path.join(config.log_dir, tra_dir))
 
-    val_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, 'val_small'),
+    val_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, val_dir),
                         max_load=-1,
-                        T=80, 
+                        T=config.qperf_T, 
                         foot_to_end=config.foot_to_end, 
-                        min_noise_level=[0.01, 0.01], 
-                        max_noise_level=[0.4, 0.15],
+                        min_noise_level=config.min_noise_level, 
+                        max_noise_level=config.max_noise_level,
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
                         only_white_noise=False,
-                        add_noise=[True, True],
-                        cache_folder=os.path.join(config.log_dir, 'val_small'))
+                        add_noise=config.add_noise,
+                        cache_folder=os.path.join(config.log_dir, val_dir))
 
-    test_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, 'test_small'),
+    test_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, test_dir),
                         max_load=-1,
-                        T=80, 
+                        T=config.qperf_T, 
                         foot_to_end=config.foot_to_end, 
-                        min_noise_level=[0.01, 0.01], 
-                        max_noise_level=[0.4, 0.15],
+                        min_noise_level=config.min_noise_level, 
+                        max_noise_level=config.max_noise_level,
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
                         only_white_noise=False,
-                        add_noise=[True, True],
-                        cache_folder=os.path.join(config.log_dir, 'test_small'))
+                        add_noise=config.add_noise,
+                        cache_folder=os.path.join(config.log_dir, test_dir))
 
     print(f"load_mri_data took {time() - start} seconds ...")
 

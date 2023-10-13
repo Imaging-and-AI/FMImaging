@@ -148,6 +148,8 @@ class QPerfMetricManager(MetricManager):
         B = y.shape[0]
         y = y.to(y_hat.device)
 
+        self.eval_metrics['loss'].update(loss, n=B)
+
         for metric_name in ['mse', 'l1']:
             metric_value = self.eval_metric_functions[metric_name](y_hat, y)
             self.eval_metrics[metric_name].update(metric_value.item(), n=B)
@@ -156,7 +158,6 @@ class QPerfMetricManager(MetricManager):
             metric_value = self.eval_metric_functions[metric_name](y_hat, y)
             self.eval_metrics[metric_name].update(metric_value.item(), n=B)
 
-            
     # ---------------------------------------------------------------------------------------        
     def on_eval_epoch_end(self, rank, epoch, model_manager, optim, sched, split, final_eval):
         """
@@ -164,6 +165,7 @@ class QPerfMetricManager(MetricManager):
         """
 
         # Otherwise aggregate the measurements over the steps
+        average_metrics = dict()
         if self.config.ddp:
             for metric_name in self.eval_metrics.keys():
                 v = torch.tensor(self.eval_metrics[metric_name].avg).to(device=self.device)
