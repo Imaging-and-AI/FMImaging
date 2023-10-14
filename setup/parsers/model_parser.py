@@ -22,6 +22,8 @@ class model_parser(object):
 
         if 'omnivore' in model_type: 
             self.add_omnivore_args()
+            self.add_shared_STCNNT_args()
+            self.add_hrnet_STCNNT_args()
         else:
         #if 'STCNNT' in model_type: 
             self.add_shared_STCNNT_args()

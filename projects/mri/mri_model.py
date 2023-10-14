@@ -31,6 +31,7 @@ from model.model_base import ModelManager
 from model.backbone import identity_model, omnivore_tiny, omnivore_small, omnivore_base, omnivore_large, STCNNT_HRnet_model, STCNNT_Unet_model, STCNNT_Mixed_Unetr_model
 from model.backbone import STCNNT_HRnet, STCNNT_Mixed_Unetr, UpSample, set_window_patch_sizes_keep_num_window, set_window_patch_sizes_keep_window_size, STCNNT_Block
 from model.imaging_attention import *
+from model.task_heads import *
 
 from setup import get_device
 from utils import model_info, get_gpu_ram_usage, start_timer, end_timer
@@ -160,6 +161,93 @@ class STCNNT_MRI(ModelManager):
     def compute_weights(self, snr, base_snr_t):
         weights = self.pre["paras"]["a"] - self.pre["paras"]["b"] * torch.sigmoid(snr-base_snr_t)
         return weights
+
+# -------------------------------------------------------------------------------------------------
+# MRI model
+
+class omnivore_MRI(STCNNT_MRI):
+    """
+    omnivore for MRI data
+    Just the base CNNT with care to complex_i and residual
+    """
+    def __init__(self, config):
+        super().__init__(config)
+
+    def create_backbone(self, channel_first=True):
+
+        self.config.channel_first = channel_first
+
+        self.backbone = nn.ModuleDict()
+
+        if self.config.backbone_model=='omnivore_tiny':
+            self.omnivore = omnivore_tiny(self.config, self.pre_feature_channels)
+            self.backbone["omnivore"] = self.omnivore
+            self.feature_channels = self.omnivore.feature_channels
+        elif self.config.backbone_model=='omnivore_small':
+            self.omnivore = omnivore_small(self.config, self.pre_feature_channels)
+            self.backbone["omnivore"] = self.omnivore
+            self.feature_channels = self.omnivore.feature_channels
+        elif self.config.backbone_model=='omnivore_base':
+            self.omnivore = omnivore_base(self.config, self.pre_feature_channels)
+            self.backbone["omnivore"] = self.omnivore
+            self.feature_channels = self.omnivore.feature_channels
+        elif self.config.backbone_model=='omnivore_large':
+            self.omnivore = omnivore_large(self.config, self.pre_feature_channels)
+            self.backbone["omnivore"] = self.omnivore
+            self.feature_channels = self.omnivore.feature_channels
+        else:
+            raise NotImplementedError(f"Backbone model not implemented: {self.config.backbone_model}")
+
+        #self.backbone["mixer"] = UperNet3D(self.config, feature_channels=self.feature_channels)
+
+        # upsample 3D along T, H, W
+        self.backbone["upsample_3d"] = UpSample(N=1, C_in=self.feature_channels[0], C_out=self.feature_channels[0], method='linear', with_conv=True, is_3D=True)
+
+        self.backbone["o_nl"] = nn.GELU(approximate="tanh")
+
+        # upsample 2D, along H, W
+        self.backbone["upsample_2d"] = UpSample(N=2, C_in=self.feature_channels[0], C_out=self.feature_channels[0], method='linear', with_conv=True, is_3D=False)
+
+    def create_post(self):
+        config = self.config
+        self.post = Conv2DExt(self.feature_channels[0], config.no_out_channel, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True, channel_first=False)
+
+    def forward(self, x, snr=None, base_snr_t=None):
+        """
+        @args:
+            - x (5D torch.Tensor): input image
+        @rets:
+            - output (5D torch.Tensor): output image (denoised)
+        """
+        # input x is [B, C, T, H, W]
+        x = self.permute(x)
+        # now, x is [B, T, C, H, W]
+
+        res_pre = self.pre["in_conv"](x)
+
+        B, T, C, H, W = res_pre.shape
+        res_backbone = self.backbone["omnivore"](res_pre)
+        #res_backbone_p = [torch.permute(x, [0,2,1,3,4]) for x in res_backbone]
+        #res_backbone_mixed = self.backbone["mixer"](res_backbone_p)
+        #y_hat = self.backbone["upsample_3d"](res_backbone_mixed[0])
+
+        y_hat = self.backbone["upsample_3d"](res_backbone[0])
+        y_hat = self.backbone["o_nl"](y_hat)
+        y_hat = self.backbone["upsample_2d"](y_hat)
+
+        if self.residual:
+            y_hat[:, :, :C, :, :] = res_pre + y_hat[:, :, :C, :, :]
+
+        # channel first is True here
+        logits = self.post(y_hat)
+
+        logits = self.permute(logits)
+
+        if base_snr_t is not None:
+            weights = self.compute_weights(snr=snr, base_snr_t=base_snr_t)
+            return logits, weights, None
+        else:
+            return logits, None
 
 # -------------------------------------------------------------------------------------------------
 # MRI hrnet model

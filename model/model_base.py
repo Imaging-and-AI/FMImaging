@@ -148,19 +148,19 @@ class ModelManager(nn.Module):
             self.backbone, self.feature_channels = identity_model(self.config, self.pre_feature_channels)
         elif self.config.backbone_model=='omnivore_tiny':
             self.omnivore = omnivore_tiny(self.config, self.pre_feature_channels)
-            self.backbone = self.omnivore.model
+            self.backbone = self.omnivore
             self.feature_channels = self.omnivore.feature_channels
         elif self.config.backbone_model=='omnivore_small':
             self.omnivore = omnivore_small(self.config, self.pre_feature_channels)
-            self.backbone = self.omnivore.model
+            self.backbone = self.omnivore
             self.feature_channels = self.omnivore.feature_channels
         elif self.config.backbone_model=='omnivore_base':
             self.omnivore = omnivore_base(self.config, self.pre_feature_channels)
-            self.backbone = self.omnivore.model
+            self.backbone = self.omnivore
             self.feature_channels = self.omnivore.feature_channels
         elif self.config.backbone_model=='omnivore_large':
             self.omnivore = omnivore_large(self.config, self.pre_feature_channels)
-            self.backbone = self.omnivore.model
+            self.backbone = self.omnivore
             self.feature_channels = self.omnivore.feature_channels
         elif self.config.backbone_model=='STCNNT_HRNET':
             self.backbone, self.feature_channels = STCNNT_HRnet_model(self.config, self.pre_feature_channels)

@@ -76,8 +76,10 @@ class MRITrainManager(TrainManager):
     def __init__(self, config, train_sets, val_sets, test_sets, loss_f, model_manager, optim_manager, metric_manager):  
         super().__init__(config, train_sets, val_sets, test_sets, loss_f, model_manager, optim_manager, metric_manager)
 
-        self.config.height = self.config.mri_height[-1]
-        self.config.width = self.config.mri_width[-1]
+        # self.config.height = self.config.mri_height[-1]
+        # self.config.width = self.config.mri_width[-1]
+        self.config.height = self.config.mri_height[0]
+        self.config.width = self.config.mri_width[0]
 
     # -------------------------------------------------------------------------------------------------
             
@@ -142,6 +144,7 @@ class MRITrainManager(TrainManager):
 
         # -----------------------------------------------
 
+        model_str = None
         block_str = None
         if c.backbone_model == 'STCNNT_HRNET':
             model_str = f"heads {c.n_head}, {c.backbone_hrnet}"

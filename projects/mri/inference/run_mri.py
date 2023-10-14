@@ -473,7 +473,7 @@ class mri_ddp_base(run_ddp_base):
         parser.add_argument("--max_load", type=int, default=-1, help="number of max loaded samples into the RAM")
 
         parser.add_argument("--model_type", type=str, default="STCNNT_MRI", help="STCNNT_MRI or MRI_hrnet or MRI_double_net")
-        parser.add_argument('--model_backbone', type=str, default="STCNNT_HRNET", help="which backbone model to use, 'STCNNT_HRNET', 'STCNNT_UNET' ")
+        parser.add_argument('--model_backbone', type=str, default="STCNNT_HRNET", help="which backbone model to use, 'STCNNT_HRNET', 'STCNNT_UNET', 'omnivore_tiny', 'omnivore_base', 'omnivore_small' ")
 
         parser.add_argument('--model_block_str', nargs='+', type=str, default=None, help="block string to define the attention layers in blocks; if multiple strings are given, each is for a resolution level.")
 
