@@ -173,7 +173,8 @@ def main():
 
     # -----------------------------------------------
 
-    model.load_pre(pre_model_load_path, device=device)
+    if pre_model_load_path is not None:
+        model.load_pre(pre_model_load_path, device=device)
 
     if backbone_model_load_path is not None:
         model.load_backbone(backbone_model_load_path, device=device)

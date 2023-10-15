@@ -133,14 +133,15 @@ class QPerfModel(ModelManager):
         # project outputs to output_size channel        
         x = self.post["layer_norm"](x)
         x = F.gelu(x, approximate='tanh')
-        
+
         y_myo = self.post["output_proj1_myo"](x)
         y_myo = self.post["output_proj2_myo"](y_myo)
         
         y_params = self.post["output_proj1_params"](x)
         y_params = torch.flatten(y_params, start_dim=1, end_dim=2)
         y_params = self.post["output_proj2_params"](y_params)
-        
+        #y_params = F.relu(y_params) # parameter can only be positive
+
         return y_myo, y_params
     
 # -------------------------------------------------------------------------------------------------

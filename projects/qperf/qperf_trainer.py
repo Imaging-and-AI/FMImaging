@@ -211,14 +211,19 @@ class QPerfTrainManager(TrainManager):
                     Visf = p[2]
                     PS = p[3]
                     Delay = int(p[4])
+                    foot = int(p[5])
+                    peak = int(p[6])
+                    valley = int(p[7])
+                    used_n = int(p[8])
 
                     N = x.shape[0]
 
+                    print(f"--> upload tra {ii} ...")
                     wandb.log({f"tra {ii}" : wandb.plot.line_series(
                                 xs=list(np.arange(N)),
                                 ys=[list(x[:,0]), list(x[:,1]), list(y.flatten())],
                                 keys=["aif", "myo", "myo_clean"],
-                                title=f"Fp={Fp:.2f},Vp={Vp:.2f},Visf={Visf:.2f},PS={PS:.2f},Delay={Delay}",
+                                title=f"Tra, Fp={Fp:.2f},Vp={Vp:.2f},Visf={Visf:.2f},PS={PS:.2f},Delay={Delay},foot={foot},peak={peak},valley={valley},used_n={used_n}",
                                 xname="T")})
 
         # -----------------------------------------------
@@ -258,6 +263,10 @@ class QPerfTrainManager(TrainManager):
                 self.metric_manager.on_train_epoch_start()
                 train_loader_iters = [iter(train_loader) for train_loader in train_loaders]
 
+                if epoch > 0:
+                    for tra in self.train_sets:
+                        tra.generate_picked_samples()
+
                 # ----------------------------------------------------------------------------
                 with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
                     for idx in range(total_iters):
@@ -273,6 +282,7 @@ class QPerfTrainManager(TrainManager):
 
                         while loader_outputs is None:
                             del train_loader_iters[loader_ind]
+                            self.train_sets[loader_ind].generate_picked_samples()
                             loader_ind = idx % len(train_loader_iters)
                             loader_outputs = next(train_loader_iters[loader_ind], None)
 
@@ -360,7 +370,7 @@ class QPerfTrainManager(TrainManager):
                         end_timer(enable=c.with_timer, t=tm, msg="---> epoch step logging and measuring took ")
 
                         del x, y, p, loss, model_output, loader_outputs, y_hat, p_estimated
-                        torch.cuda.empty_cache()
+                        #torch.cuda.empty_cache()
                     # ------------------------------------------------------------------------------------------------------
 
                     # Run metric logging for each epoch 
@@ -572,7 +582,7 @@ class QPerfTrainManager(TrainManager):
                                     xs=list(np.arange(N)),
                                     ys=[list(x[idx,:,0]), list(x[idx,:,1]), list(y[idx,:].flatten()), list(y_hat[idx,:].flatten())],
                                     keys=["aif", "myo", "myo_clean", "myo_model"],
-                                    title=f"Fp={Fp:.2f}, Vp={Vp:.2f}, Visf={Visf:.2f}, PS={PS:.2f}, Delay={Delay} - Fp={Fp_est:.2f}, Vp={Vp_est:.2f}, Visf={Visf_est:.2f}, PS={PS_est:.2f}, Delay={Delay_est}",
+                                    title=f"Val, Fp={Fp:.2f}, Vp={Vp:.2f}, Visf={Visf:.2f}, PS={PS:.2f}, Delay={Delay} - Fp={Fp_est:.2f}, Vp={Vp_est:.2f}, Visf={Visf_est:.2f}, PS={PS_est:.2f}, Delay={Delay_est}",
                                     xname="T")})
 
                     # ----------------------------------------------------------------------
@@ -645,7 +655,7 @@ class QPerfTrainManager(TrainManager):
         else:
             loss, mse, l1, Fp, Vp, Visf, PS, Delay = loss_meters.get_eval_loss()
 
-        str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.8f},{Style.RESET_ALL} {C}mse {mse:.8f}, l1 {l1:.8f}, Fp {Fp:.4f}, Vp {Vp:.4f}, Visf {Visf:.4f}, PS {PS:.4f}, Delay {Delay:.4f}{Style.RESET_ALL}{lr_str}"
+        str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.8f},{Style.RESET_ALL} {C}mse {mse:.8f}, l1 {l1:.8f}, Fp {Fp:.8f}, Vp {Vp:.8f}, Visf {Visf:.8f}, PS {PS:.8f}, Delay {Delay:.8f}{Style.RESET_ALL}{lr_str}"
 
         return str
 

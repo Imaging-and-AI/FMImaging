@@ -24,6 +24,9 @@ class qperf_mse(object):
 
     def __call__(self, y, y_hat, mask, N):
         v = torch.sum(mask* ( (y_hat-y)**2 ))/N
+        if(torch.any(torch.isnan(v))):
+            raise NotImplementedError(f"nan in qperf_mse")
+            v = torch.mean(0.0 * y_hat)
         return v
 
 class qperf_l1(object):
@@ -32,6 +35,9 @@ class qperf_l1(object):
 
     def __call__(self, y, y_hat, mask, N):
         v = torch.sum(mask* torch.abs(y_hat-y))/N
+        if(torch.any(torch.isnan(v))):
+            raise NotImplementedError(f"nan in qperf_l1")
+            v = torch.mean(0.0 * y_hat)
         return v
 
 class qperf_loss:
@@ -86,7 +92,20 @@ class qperf_loss:
             #combined_loss += self.config.loss_weights_params[n] * torch.sum(v)/B
 
             v1 = torch.mean(torch.abs(params_estimated[:, n] - params[:, n]))
-            v2 = self.msle(params_estimated[:, n], params[:, n])
-            combined_loss += self.config.loss_weights_params[n] * (v1+v2)
+            if(torch.any(torch.isnan(v1))):
+                raise NotImplementedError(f"nan in v1 = torch.mean(torch.abs(params_estimated[:, n] - params[:, n]))")
+                v1 = torch.mean(0.0 * params_estimated[:, n])
+
+            v2 = torch.mean( ( torch.log(1 + torch.abs(params_estimated[:, n])) - torch.log(1 + torch.abs(params[:, n])) ) ** 2)
+            if(torch.any(torch.isnan(v2))):
+                raise NotImplementedError(f"nan in v2 = torch.mean( ( torch.log(1+params_estimated[:, n]) - torch.log(1+params[:, n]) ) ** 2)")
+                v2 = torch.mean(0.0 * params_estimated[:, n])
+
+            v3 = torch.mean( (params_estimated[:, n] - params[:, n]) ** 2)
+            if(torch.any(torch.isnan(v3))):
+                raise NotImplementedError(f"nan in v3 = torch.mean( (params_estimated[:, n] - params[:, n]) ** 2)")
+                v3 = torch.mean(0.0 * params_estimated[:, n])
+
+            combined_loss += self.config.loss_weights_params[n] * (v1+v2+v3)
 
         return combined_loss

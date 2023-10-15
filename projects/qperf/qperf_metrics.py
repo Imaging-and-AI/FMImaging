@@ -70,7 +70,7 @@ class QPerfMetricManager(MetricManager):
                               'PS':AverageMeter(),
                               'Delay':AverageMeter(),
                             }
-            
+
         self.train_metric_functions = {
                               'mse':self.mse_loss_func,
                               'l1':self.l1_loss_func,
@@ -84,7 +84,7 @@ class QPerfMetricManager(MetricManager):
         self.eval_metric_functions = copy.deepcopy(self.train_metric_functions)
 
         if rank<=0:
-            self.wandb_run.define_metric("epoch")    
+            self.wandb_run.define_metric("epoch")
             for metric_name in self.train_metrics.keys():
                 self.wandb_run.define_metric('train_'+metric_name, step_metric='epoch')
             for metric_name in self.eval_metrics.keys():
@@ -101,7 +101,7 @@ class QPerfMetricManager(MetricManager):
                 self.train_metrics['Visf'].avg, \
                 self.train_metrics['PS'].avg, \
                 self.train_metrics['Delay'].avg
-                
+
     def get_eval_loss(self):
         return self.eval_metrics['loss'].avg, \
                 self.eval_metrics['mse'].avg, \
@@ -210,7 +210,7 @@ class QPerfMetricManager(MetricManager):
         Runs once when training finishes
         """
         if rank<=0: # main or master process
-            
+
             if ran_training:
                 # Log the best loss and metrics from the run and save final model
                 self.wandb_run.summary["best_val_loss"] = self.best_val_loss
@@ -220,7 +220,7 @@ class QPerfMetricManager(MetricManager):
 
             # Finish the wandb run
             self.wandb_run.finish() 
-        
+
 
 # ---------------------------------------------------------------------------------------
 

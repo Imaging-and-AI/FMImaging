@@ -134,8 +134,8 @@
             "console": "integratedTerminal",
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "0"},
             "args": [
-                "--data_dir", "/data/qperf/mat", 
-                "--log_dir", "/data/qperf/cache", 
+                "--data_dir", "/data/qperf/new_data", 
+                "--log_dir", "/data/qperf/new_data/cache", 
                 "--n_embd", "512",
                 "--n_layer", "8",
                 "--use_pos_embedding",
@@ -143,11 +143,13 @@
                 "--project", "QPerf",
                 "--num_uploaded", "16",
                 "--clip_grad_norm", "0.1",
-                "--batch_size", "128", "--num_epochs", "1", "--use_amp", "--max_samples", "2048",
-                "--pre_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_pre.pth",
-                "--backbone_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_backbone.pth",
-                "--post_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_post.pth",
-                "--load_optim_and_sched", "True"
+                "--batch_size", "128", "--num_epochs", "12", "--use_amp", "--max_samples", "256",
+                "--foot_to_end", 
+                "--optim_type", "sophia", "--optim.weight_decay", "0.1"
+                // "--pre_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_pre.pth",
+                // "--backbone_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_backbone.pth",
+                // "--post_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_post.pth",
+                // "--load_optim_and_sched", "True"
             ]
         }
     ]
