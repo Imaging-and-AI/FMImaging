@@ -95,6 +95,8 @@ def main():
     val_dir = 'val'
     test_dir = 'test'
 
+    only_white_noise = True
+
     start = time()
     train_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, tra_dir), 
                         max_load=-1, max_samples=config.max_samples,
@@ -103,7 +105,7 @@ def main():
                         min_noise_level=config.min_noise_level, 
                         max_noise_level=config.max_noise_level,
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
-                        only_white_noise=False,
+                        only_white_noise=only_white_noise,
                         add_noise=config.add_noise,
                         cache_folder=os.path.join(config.log_dir, tra_dir))
 
@@ -114,7 +116,7 @@ def main():
                         min_noise_level=config.min_noise_level, 
                         max_noise_level=config.max_noise_level,
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
-                        only_white_noise=False,
+                        only_white_noise=only_white_noise,
                         add_noise=config.add_noise,
                         cache_folder=os.path.join(config.log_dir, val_dir))
 
@@ -125,7 +127,7 @@ def main():
                         min_noise_level=config.min_noise_level, 
                         max_noise_level=config.max_noise_level,
                         filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
-                        only_white_noise=False,
+                        only_white_noise=only_white_noise,
                         add_noise=config.add_noise,
                         cache_folder=os.path.join(config.log_dir, test_dir))
 
@@ -137,19 +139,47 @@ def main():
 
     # -----------------------------------------------
 
-    model = QPerfModel(config=config, 
-                       n_layer=config.n_layer, 
+    ddp = config.ddp
+
+    # -----------------------------------------------
+
+    pre_model_load_path = config.pre_model_load_path
+    backbone_model_load_path = config.backbone_model_load_path
+    post_model_load_path = config.post_model_load_path
+
+    if config.pre_model_load_path is not None:
+        status = torch.load(config.pre_model_load_path)
+        config_for_model = status['config']
+        config_for_model.device = device
+        config_for_model.ddp = ddp
+    else:
+        config_for_model = config
+
+    # -----------------------------------------------
+
+    model = QPerfModel(config=config_for_model, 
+                       n_layer=config_for_model.n_layer, 
                        input_D=2, 
                        output_myo_D=1, 
                        num_params=5, 
                        T=config.qperf_T, 
                        is_causal=False, 
-                       use_pos_embedding=config.use_pos_embedding, 
-                       n_embd=config.n_embd, 
-                       n_head=config.n_head, 
+                       use_pos_embedding=config_for_model.use_pos_embedding, 
+                       n_embd=config_for_model.n_embd, 
+                       n_head=config_for_model.n_head, 
                        dropout_p=config.dropout_p, 
                        att_dropout_p=config.att_dropout_p, 
                        residual_dropout_p=config.residual_dropout_p)
+
+    # -----------------------------------------------
+
+    model.load_pre(pre_model_load_path, device=device)
+
+    if backbone_model_load_path is not None:
+        model.load_backbone(backbone_model_load_path, device=device)
+
+    if post_model_load_path is not None:
+        model.load_post(post_model_load_path, device=device)
 
     # -----------------------------------------------
 

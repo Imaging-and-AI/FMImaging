@@ -143,7 +143,11 @@
                 "--project", "QPerf",
                 "--num_uploaded", "16",
                 "--clip_grad_norm", "0.1",
-                "--batch_size", "128", "--num_epochs", "1", "--use_amp", "--max_samples", "2048"
+                "--batch_size", "128", "--num_epochs", "1", "--use_amp", "--max_samples", "2048",
+                "--pre_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_pre.pth",
+                "--backbone_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_backbone.pth",
+                "--post_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_post.pth",
+                "--load_optim_and_sched", "True"
             ]
         }
     ]

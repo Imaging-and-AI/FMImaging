@@ -97,7 +97,7 @@ class QPerfTrainManager(TrainManager):
         super().__init__(config, train_sets, val_sets, test_sets, loss_f, model_manager, optim_manager, metric_manager)
 
     # -------------------------------------------------------------------------------------------------
-            
+
     def _train_model(self, rank, global_rank):
 
         # -----------------------------------------------
@@ -127,7 +127,10 @@ class QPerfTrainManager(TrainManager):
             logging.info(f"Configuration for this run:\n{c}") # Commenting out, prints a lot of info
             logging.info(f"Model Summary:\n{str(model_summary)}") # Commenting out, prints a lot of info
             logging.info(f"Wandb name:\n{wandb_run.name}")
-            wandb_run.watch(self.model_manager)
+            try:
+                wandb_run.watch(self.model_manager)
+            except:
+                pass
             wandb_run.log_code(".")
 
         # -----------------------------------------------
@@ -246,6 +249,7 @@ class QPerfTrainManager(TrainManager):
                 model_manager.check_model_learnable_status(rank_str)
 
             # ----------------------------------------------------------------------------
+            epoch = curr_epoch
             for epoch in range(curr_epoch, c.num_epochs):
                 logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank} {'-'*20}{Style.RESET_ALL}")
 
@@ -598,14 +602,14 @@ class QPerfTrainManager(TrainManager):
                     pbar_str = f"--> rank {rank}, {split}, epoch {epoch}"
                     if isinstance(self.metric_manager.average_eval_metrics, dict):
                         for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
-                            try: pbar_str += f", {Fore.CYAN} {metric_name} {metric_value:.4f}"
+                            try: pbar_str += f", {Fore.CYAN} {metric_name} {metric_value:.8f}"
                             except: pass
 
                             # Save final evaluation metrics to a text file
                             if final_eval and rank<=0:
                                 metric_file = os.path.join(self.config.log_dir,self.config.run_name, f'{split}_metrics.txt')
                                 with open(metric_file, 'a') as f:
-                                    try: f.write(f"{split}_{metric_name}: {metric_value:.4f}, ")
+                                    try: f.write(f"{split}_{metric_name}: {metric_value:.8f}, ")
                                     except: pass
                                 wandb_run.save(metric_file)
 
@@ -641,7 +645,7 @@ class QPerfTrainManager(TrainManager):
         else:
             loss, mse, l1, Fp, Vp, Visf, PS, Delay = loss_meters.get_eval_loss()
 
-        str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {C}mse {mse:.4f}, l1 {l1:.4f}, Fp {Fp:.4f}, Vp {Vp:.4f}, Visf {Visf:.4f}, PS {PS:.4f}, Delay {Delay:.4f}{Style.RESET_ALL}{lr_str}"
+        str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.8f},{Style.RESET_ALL} {C}mse {mse:.8f}, l1 {l1:.8f}, Fp {Fp:.4f}, Vp {Vp:.4f}, Visf {Visf:.4f}, PS {PS:.4f}, Delay {Delay:.4f}{Style.RESET_ALL}{lr_str}"
 
         return str
 

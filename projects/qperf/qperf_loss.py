@@ -78,12 +78,14 @@ class qperf_loss:
             if not torch.isnan(v):
                 combined_loss += v
 
+        self.msle.to(device=params.device)
+
         num_params = params_estimated.shape[1]
         for n in range(num_params):
             #v = torch.abs(params_estimated[:, n]-params[:, n])
             #combined_loss += self.config.loss_weights_params[n] * torch.sum(v)/B
 
-            v1 = torch.abs(params_estimated[:, n] - params[:, n])
+            v1 = torch.mean(torch.abs(params_estimated[:, n] - params[:, n]))
             v2 = self.msle(params_estimated[:, n], params[:, n])
             combined_loss += self.config.loss_weights_params[n] * (v1+v2)
 

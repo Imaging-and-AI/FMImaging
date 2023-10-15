@@ -235,11 +235,11 @@ class omnivore_MRI(STCNNT_MRI):
         y_hat = self.backbone["o_nl"](y_hat)
         y_hat = self.backbone["upsample_2d"](y_hat)
 
-        if self.residual:
-            y_hat[:, :, :C, :, :] = res_pre + y_hat[:, :, :C, :, :]
+        # if self.residual:
+        #     y_hat[:, :, :C, :, :] = res_pre + y_hat[:, :, :C, :, :]
 
         # channel first is True here
-        logits = self.post(y_hat)
+        logits = self.post(y_hat) + x[:, :, :self.config.no_out_channel, :, :]
 
         logits = self.permute(logits)
 

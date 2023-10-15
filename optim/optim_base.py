@@ -217,7 +217,7 @@ class OptimManager(object):
 
                 full_optimizer_state = {'state': {**current_pre_optimizer_state['state'],**current_backbone_optimizer_state['state'],**current_post_optimizer_state['state']},
                                         'param_groups': current_pre_optimizer_state['param_groups']+current_backbone_optimizer_state['param_groups']+current_post_optimizer_state['param_groups'],
-                                        'curr_epoch': current_pre_optimizer_state['curr_epoch']}
+                                        'curr_epoch': status['epoch']}
 
                 # Load modified optimizer state into self.optim
                 self.optim.load_state_dict(full_optimizer_state)

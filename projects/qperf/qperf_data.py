@@ -158,7 +158,7 @@ class QPerfDataSet(torch.utils.data.Dataset):
         N = x.shape[0]
         foot = int(params[5])
 
-        if self.foot_to_end and foot < N/2:
+        if self.foot_to_end and foot < N/2 and foot > 3:
             x = x[foot:]
             y = y[foot:]
             N = x.shape[0]
@@ -290,9 +290,12 @@ if __name__ == '__main__':
 
     load_cache = False
 
-    foot_to_end = False
+    foot_to_end = True
 
-    qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/tra_small', 
+    data_folder='/data/qperf/mat'
+    data_folder='/data/qperf/new_data'
+
+    qperf_dataset = QPerfDataSet(data_folder=os.path.join(data_folder, 'tra_small'), 
                         max_load=-1,
                         T=80, 
                         foot_to_end=foot_to_end, 
@@ -304,7 +307,7 @@ if __name__ == '__main__':
                         cache_folder='/data/qperf/cache/tra_small',
                         load_cache=load_cache)
 
-    qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/val_small', 
+    qperf_dataset = QPerfDataSet(data_folder=os.path.join(data_folder, 'val_small'), 
                         max_load=-1,
                         T=80, 
                         foot_to_end=foot_to_end, 
@@ -316,7 +319,7 @@ if __name__ == '__main__':
                         cache_folder='/data/qperf/cache/val_small',
                         load_cache=load_cache)
 
-    qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/test_small', 
+    qperf_dataset = QPerfDataSet(data_folder=os.path.join(data_folder, 'test_small'), 
                         max_load=-1,
                         T=80, 
                         foot_to_end=foot_to_end, 
@@ -328,7 +331,7 @@ if __name__ == '__main__':
                         cache_folder='/data/qperf/cache/test_small',
                         load_cache=load_cache)
 
-    qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/tra', 
+    qperf_dataset = QPerfDataSet(data_folder=os.path.join(data_folder, 'tra'), 
                         max_load=-1,
                         T=80, 
                         foot_to_end=foot_to_end, 
@@ -340,7 +343,7 @@ if __name__ == '__main__':
                         cache_folder='/data/qperf/cache/tra',
                         load_cache=load_cache)
 
-    qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/val', 
+    qperf_dataset = QPerfDataSet(data_folder=os.path.join(data_folder, 'val'), 
                         max_load=-1,
                         T=80, 
                         foot_to_end=foot_to_end, 
@@ -352,7 +355,7 @@ if __name__ == '__main__':
                         cache_folder='/data/qperf/cache/val',
                         load_cache=load_cache)
 
-    qperf_dataset = QPerfDataSet(data_folder='/data/qperf/mat/test', 
+    qperf_dataset = QPerfDataSet(data_folder=os.path.join(data_folder, 'test'), 
                         max_load=-1,
                         T=80, 
                         foot_to_end=foot_to_end, 
