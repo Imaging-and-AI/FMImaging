@@ -91,7 +91,7 @@ def main():
     val_dir = 'val_small'
     test_dir = 'test_small'
 
-    tra_dir = 'tra'
+    tra_dir = 'val'
     val_dir = 'val'
     test_dir = 'test'
 

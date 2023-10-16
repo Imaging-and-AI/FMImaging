@@ -34,6 +34,7 @@ class QPerfDataSet(torch.utils.data.Dataset):
                         cache_folder=None,
                         max_load=-1,
                         max_samples=-1,
+                        max_samples_per_file=-1,
                         T=80, 
                         foot_to_end=True, 
                         min_noise_level=[0.01, 0.01], 
@@ -55,6 +56,7 @@ class QPerfDataSet(torch.utils.data.Dataset):
         self.data_folder = data_folder
         self.max_load = max_load
         self.max_samples = max_samples
+        self.max_samples_per_file = max_samples_per_file
         self.T = T
         self.foot_to_end = foot_to_end
         self.min_noise_level = min_noise_level
@@ -81,9 +83,9 @@ class QPerfDataSet(torch.utils.data.Dataset):
         if load_cache and self.load_cached_dataset(self.cache_folder):
             print(self.__str__())
         else:
-            self.aif = []
-            self.myo = []
-            self.params = []
+            self.x = None
+            self.y = None
+            self.p = None
 
             cases_loaded = 0
             for ind in range(N):
@@ -93,87 +95,108 @@ class QPerfDataSet(torch.utils.data.Dataset):
                 a_case = all_data_files[ind]
                 if os.path.isfile(a_case):
 
-                    t0 = time.time()
-                    mat = scipy.io.loadmat(a_case)
-                    t1 = time.time()
-                    print(f"Load mat file {a_case} takes {(t1-t0):.2f}s ...")
+                    a_case_fname, mat_ext = os.path.splitext(a_case)
 
-                    N = mat['out'].shape[1]
+                    aif_fname = f"{a_case_fname}_aif.npy"
+                    myo_fname = f"{a_case_fname}_myo.npy"
+                    params_fname = f"{a_case_fname}_params.npy"
+
+                    if not os.path.exists(aif_fname):
+                        continue
+
+                    t0 = time.time()
+                    aif = np.load(aif_fname)
+                    myo = np.load(myo_fname)
+                    params = np.load(params_fname)
+
+                    aif = aif.astype(np.float16)
+                    myo = myo.astype(np.float16)
+                    params = params.astype(np.float16)
+                    t1 = time.time()
+                    print(f"Load {a_case_fname} takes {t1-t0}s ...")
+
+                    # t0 = time.time()
+                    # mat = scipy.io.loadmat(a_case)
+                    # t1 = time.time()
+                    # print(f"Load mat file {a_case} takes {(t1-t0):.2f}s ...")
+
+                    # N = mat['out'].shape[1]
+                    M = aif.shape[0]
+                    if self.max_samples_per_file > 0 and M > self.max_samples_per_file:
+                        samples_ind = np.random.default_rng().choice(M, self.max_samples_per_file, replace=False)
+                        aif = aif[samples_ind, :]
+                        myo = myo[samples_ind, :]
+                        params = params[samples_ind, :]
+                        M = aif.shape[0]
+                        assert M == self.max_samples_per_file
+
                     print(f"--> case {ind} loaded from {N} cases - {a_case} ... ")
 
-                    pbar = tqdm(total=N)
-                    for ind in range(mat['out'].shape[1]):
-                            params = mat['out'][0,ind]['params'][0,0].flatten()
-                            aif = mat['out'][0,ind]['aif'][0,0].flatten().astype(np.float32)
-                            myo = mat['out'][0,ind]['myo'][0,0].flatten().astype(np.float32)
+                    t0 = time.time()
+                    if self.x is None:
+                        self.x = aif
+                        self.y = myo
+                        self.p = params
+                    else:
+                        self.x = np.vstack((self.x, aif))
+                        self.y = np.vstack((self.y, myo))
+                        self.p = np.vstack((self.p, params))
 
-                            #if aif.shape[0] >= T:
-                            self.aif.append(aif)
-                            self.myo.append(myo)
-                            self.params.append(params)
-
-                            if ind % 10000 == 0:
-                                pbar.update(10000)
-                                pbar.set_description_str(f"{a_case}, {ind} out of {N}, {aif.shape[0]}, {params[0]:.4f}")
+                    t1 = time.time()
+                    print(f"Concatenate {a_case_fname} takes {t1-t0}s ...")
 
                     cases_loaded += 1
-                    print(f"--> {len(self.aif)} samples loaded from {cases_loaded} cases - {a_case} ... ")
+                    print(f"--> {self.x.shape[0]} samples loaded from {cases_loaded} cases - {a_case} ... ")
 
-            print(f"--> {len(self.aif)} samples loaded from {cases_loaded} cases ... ")
-
-            # use numpy to save
-            N = len(self.aif)
-
-            self.x = np.zeros((N, self.T), dtype=np.float16)
-            self.y = np.zeros((N, self.T), dtype=np.float16)
-            self.p = np.zeros((N, 9), dtype=np.float16)
-
-            pbar = tqdm(total=N)
-            for k in range(N):
-                self.x[k, :], self.y[k, :], self.p[k, :] = self.pre_load_one_sample(k)
-                if k % 10000 == 0:
-                    pbar.update(10000)
-                    pbar.set_description_str(f" --> {k} out of {N}, {self.x.shape}, {self.y.shape}, {self.p.shape} ...")
+            print(f"--> {self.x.shape[0]} samples loaded from {cases_loaded} cases ... ")
 
             self.cache_dataset(self.cache_folder)
+
+        for k in range(self.x.shape[0]):
+            a_x = self.x[k, :]
+            a_y = self.y[k, :]
+            a_p = self.p[k,:]
+            assert np.linalg.norm(a_x) > 1e-3
+            assert np.linalg.norm(a_y) > 1e-3
+            assert np.linalg.norm(a_p) > 1e-3
 
         self.picked_samples = None
         self.generate_picked_samples()
 
-    def pre_load_one_sample(self, i):
-        """
-        Loads one sample from the loaded data images
-        @args:
-            - i (int): index of the file to load
-        @rets:
-            - x : [T, 2] for aif and myo
-            - y : [T] for clean myo
-            - p : [9] for parameters (Fp, Vp, PS, Visf, delay, foot, peak, valley, N)
-        """
+    # def pre_load_one_sample(self, i):
+    #     """
+    #     Loads one sample from the loaded data images
+    #     @args:
+    #         - i (int): index of the file to load
+    #     @rets:
+    #         - x : [T, 2] for aif and myo
+    #         - y : [T] for clean myo
+    #         - p : [9] for parameters (Fp, Vp, PS, Visf, delay, foot, peak, valley, N)
+    #     """
 
-        T = self.T
+    #     T = self.T
 
-        x = self.aif[i]
-        y = self.myo[i]
-        params = self.params[i]
+    #     x = self.aif[i]
+    #     y = self.myo[i]
+    #     params = self.params[i]
 
-        N = x.shape[0]
-        foot = int(params[5])
+    #     N = x.shape[0]
+    #     foot = int(params[5])
 
-        if self.foot_to_end and foot < N/2 and foot > 3:
-            x = x[foot:]
-            y = y[foot:]
-            N = x.shape[0]
+    #     if self.foot_to_end and foot < N/2 and foot > 3:
+    #         x = x[foot:]
+    #         y = y[foot:]
+    #         N = x.shape[0]
 
-        if N > self.T:
-            x = x[:self.T]
-            y = y[:self.T]
-            N = x.shape[0]
-        elif N < self.T:
-            x = np.append(x, x[N-1] * np.ones((self.T-N)), axis=0)
-            y = np.append(y, y[N-1] * np.ones(self.T-N), axis=0)
+    #     if N > self.T:
+    #         x = x[:self.T]
+    #         y = y[:self.T]
+    #         N = x.shape[0]
+    #     elif N < self.T:
+    #         x = np.append(x, x[N-1] * np.ones((self.T-N)), axis=0)
+    #         y = np.append(y, y[N-1] * np.ones(self.T-N), axis=0)
 
-        return x, y, np.append(params, [N], axis=0)
+    #     return x, y, np.append(params, [N], axis=0)
 
     def load_one_sample(self, i):
         """
@@ -193,7 +216,6 @@ class QPerfDataSet(torch.utils.data.Dataset):
         p = self.p[i, :]
 
         N = x.shape[0]
-        assert N == self.T
 
         if self.add_noise[0]:
             sigma = np.random.uniform(self.min_noise_level[0], self.max_noise_level[0])
@@ -217,6 +239,26 @@ class QPerfDataSet(torch.utils.data.Dataset):
             myo = y + nn
 
         x = np.concatenate((x[:, np.newaxis], myo[:, np.newaxis]), axis=1)
+
+        foot = int(p[5]) - 5
+
+        if self.foot_to_end and foot < N/2 and foot > 3:
+            x = x[foot:]
+            y = y[foot:]
+            N = x.shape[0]
+            p[5] = 0
+            p[6] -= foot
+            p[7] -= foot
+
+        if N > self.T:
+            x = x[:self.T]
+            y = y[:self.T]
+            N = x.shape[0]
+        elif N < self.T:
+            x = np.append(x, x[N-1] * np.ones((self.T-N)), axis=0)
+            y = np.append(y, y[N-1] * np.ones(self.T-N), axis=0)
+
+        p[8] = N
 
         return x, y, p
 
@@ -340,20 +382,11 @@ if __name__ == '__main__':
     #                     cache_folder=os.path.join(data_folder, 'cache/test_small'),
                         # load_cache=load_cache)
 
-    qperf_dataset = QPerfDataSet(data_folder=os.path.join(data_folder, 'tra'), 
-                        max_load=-1,
-                        T=80, 
-                        foot_to_end=foot_to_end, 
-                        min_noise_level=[0.01, 0.01], 
-                        max_noise_level=[0.4, 0.15],
-                        filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
-                        only_white_noise=False,
-                        add_noise=[True, True],
-                        cache_folder=os.path.join(data_folder, 'cache/tra'),
-                        load_cache=load_cache)
+    max_samples_per_file = int(1000000/10)
 
     qperf_dataset = QPerfDataSet(data_folder=os.path.join(data_folder, 'val'), 
                         max_load=-1,
+                        max_samples_per_file=max_samples_per_file,
                         T=80, 
                         foot_to_end=foot_to_end, 
                         min_noise_level=[0.01, 0.01], 
@@ -366,6 +399,7 @@ if __name__ == '__main__':
 
     qperf_dataset = QPerfDataSet(data_folder=os.path.join(data_folder, 'test'), 
                         max_load=-1,
+                        max_samples_per_file=max_samples_per_file,
                         T=80, 
                         foot_to_end=foot_to_end, 
                         min_noise_level=[0.01, 0.01], 
@@ -375,6 +409,19 @@ if __name__ == '__main__':
                         add_noise=[True, True],
                         cache_folder=os.path.join(data_folder, 'cache/test'),
                         load_cache=load_cache)
+
+    qperf_dataset = QPerfDataSet(data_folder=os.path.join(data_folder, 'tra'), 
+                            max_load=-1,
+                            max_samples_per_file=max_samples_per_file,
+                            T=80, 
+                            foot_to_end=foot_to_end, 
+                            min_noise_level=[0.01, 0.01], 
+                            max_noise_level=[0.4, 0.15],
+                            filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
+                            only_white_noise=False,
+                            add_noise=[True, True],
+                            cache_folder=os.path.join(data_folder, 'cache/tra'),
+                            load_cache=load_cache)
 
     ind = np.arange(len(qperf_dataset))
     case_lists = np.random.permutation(ind)

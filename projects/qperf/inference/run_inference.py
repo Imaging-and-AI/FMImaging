@@ -131,7 +131,7 @@ def main():
         else:
             a_x = np.append(a_x, a_x[L-1: 2] * np.ones( (T-N, 2)), axis=0)
 
-        x[ind] = a_x
+        x[ind, :, :] = a_x
 
     # run inference
     device = get_device()
