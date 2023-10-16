@@ -75,8 +75,8 @@ class mri_ddp_base(run_ddp_base):
         #"--residual",
         #"--losses", "mse", "l1",
         #"--loss_weights", "1.0", "1.0",
-        "--mri_height", "32", "64",
-        "--mri_width", "32", "64",
+        # "--mri_height", "32", "64",
+        # "--mri_width", "32", "64",
         "--time", "12",
         "--num_uploaded", "12",
         #"--snr_perturb_prob", "0.25",
@@ -459,6 +459,12 @@ class mri_ddp_base(run_ddp_base):
         cmd_run.extend(["--min_noise_level", f"{config.min_noise_level}"])
         cmd_run.extend(["--max_noise_level", f"{config.max_noise_level}"])
 
+        cmd_run.extend(["--mri_height"])
+        cmd_run.extend([f"{h}" for h in config.mri_height])
+
+        cmd_run.extend(["--mri_width"])
+        cmd_run.extend([f"{w}" for w in config.mri_width])
+
         cmd_run.extend([
             "--run_name", f"{config.project}-{run_str}",
             "--run_notes", f"{config.project}-{run_str}",
@@ -486,6 +492,9 @@ class mri_ddp_base(run_ddp_base):
         parser.add_argument("--disable_LSUV", action="store_true", help='if set, do not perform LSUV init.')
 
         parser.add_argument("--super_resolution", action="store_true", help='if set, training with 2x upsampling in spatial resolution.')
+
+        parser.add_argument("--mri_height", nargs='+', type=int, default=[32, 64], help='heights of the training images')
+        parser.add_argument("--mri_width", nargs='+', type=int, default=[32, 64], help='widths of the training images')
 
         parser.add_argument("--not_add_noise", action="store_true", help='if set, will not add noise to images.')
         parser.add_argument("--with_data_degrading", action="store_true", help='if set, degrade image before adding noise.')

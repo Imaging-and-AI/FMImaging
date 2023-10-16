@@ -198,15 +198,17 @@ class omnivore_MRI(STCNNT_MRI):
         else:
             raise NotImplementedError(f"Backbone model not implemented: {self.config.backbone_model}")
 
-        #self.backbone["mixer"] = UperNet3D(self.config, feature_channels=self.feature_channels)
+        config = copy.copy(self.config)
+        config.no_out_channel = self.feature_channels[0]
+        self.backbone["mixer"] = UperNet3D(config, feature_channels=self.feature_channels)
 
-        # upsample 3D along T, H, W
-        self.backbone["upsample_3d"] = UpSample(N=1, C_in=self.feature_channels[0], C_out=self.feature_channels[0], method='linear', with_conv=True, is_3D=True)
+        # # upsample 3D along T, H, W
+        # self.backbone["upsample_3d"] = UpSample(N=1, C_in=self.feature_channels[0], C_out=self.feature_channels[0], method='linear', with_conv=True, is_3D=True)
 
-        self.backbone["o_nl"] = nn.GELU(approximate="tanh")
+        # self.backbone["o_nl"] = nn.GELU(approximate="tanh")
 
-        # upsample 2D, along H, W
-        self.backbone["upsample_2d"] = UpSample(N=2, C_in=self.feature_channels[0], C_out=self.feature_channels[0], method='linear', with_conv=True, is_3D=False)
+        # # upsample 2D, along H, W
+        # self.backbone["upsample_2d"] = UpSample(N=2, C_in=self.feature_channels[0], C_out=self.feature_channels[0], method='linear', with_conv=True, is_3D=False)
 
     def create_post(self):
         config = self.config
@@ -221,25 +223,28 @@ class omnivore_MRI(STCNNT_MRI):
         """
         # input x is [B, C, T, H, W]
         x = self.permute(x)
-        # now, x is [B, T, C, H, W]
 
+        # now, x is [B, T, C, H, W]
         res_pre = self.pre["in_conv"](x)
 
         B, T, C, H, W = res_pre.shape
         res_backbone = self.backbone["omnivore"](res_pre)
-        #res_backbone_p = [torch.permute(x, [0,2,1,3,4]) for x in res_backbone]
-        #res_backbone_mixed = self.backbone["mixer"](res_backbone_p)
-        #y_hat = self.backbone["upsample_3d"](res_backbone_mixed[0])
+        res_backbone_p = [torch.permute(x, [0,2,1,3,4]) for x in res_backbone]
+        y_hat = self.backbone["mixer"](res_backbone_p, output_size=(T, H, W))
 
-        y_hat = self.backbone["upsample_3d"](res_backbone[0])
-        y_hat = self.backbone["o_nl"](y_hat)
-        y_hat = self.backbone["upsample_2d"](y_hat)
+        # y_hat = self.backbone["upsample_3d"](res_backbone_mixed[0])
 
-        # if self.residual:
-        #     y_hat[:, :, :C, :, :] = res_pre + y_hat[:, :, :C, :, :]
+        # #y_hat = self.backbone["upsample_3d"](res_backbone[0])
+        # y_hat = self.backbone["o_nl"](y_hat)
+        # y_hat = self.backbone["upsample_2d"](y_hat)
+
+        y_hat = torch.permute(y_hat, [0,2,1,3,4])
+
+        if self.residual:
+            y_hat[:, :, :C, :, :] = res_pre + y_hat[:, :, :C, :, :]
 
         # channel first is True here
-        logits = self.post(y_hat) + x[:, :, :self.config.no_out_channel, :, :]
+        logits = self.post(y_hat) # + x[:, :, :self.config.no_out_channel, :, :]
 
         logits = self.permute(logits)
 

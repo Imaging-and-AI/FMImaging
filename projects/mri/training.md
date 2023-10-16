@@ -51,7 +51,7 @@ python3 ./mri/run_mri.py --standalone --node_rank 0 --nproc_per_node 8 --use_amp
 
 python3 ./mri/run_mri.py --standalone --nproc_per_node 4 --use_amp --num_epochs 50 --batch_size 16 --data_root /data/mri/data/ --run_extra_note 1st_main_branch --num_workers 32
 
-python3 ./mri/run_mri.py --standalone --nproc_per_node 4 --use_amp --num_epochs 50 --batch_size 16 --data_root /data/mri --run_extra_note 1st --num_workers 32 --model_backbone omnivore_base --model_type omnivore_MRI --model_block_str omnivore_base
+python3 ./mri/run_mri.py --standalone --nproc_per_node 4 --use_amp --num_epochs 50 --batch_size 16 --data_root /data/mri --run_extra_note 1st --num_workers 32 --model_backbone omnivore_base --model_type omnivore_MRI --model_block_str omnivore_base --mri_height 64 128 --mri_width 64 128 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4
 
 python3 ./mri/run_mri.py --standalone --nproc_per_node 4 --use_amp --num_epochs 50 --batch_size 16 --data_root /data/mri/data/ --wandb_dir /export/Lab-Xue/project/mri/wandb --run_extra_note 1st_main_branch --num_workers 32 --run_list 0 1 
 

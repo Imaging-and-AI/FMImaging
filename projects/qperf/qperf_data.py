@@ -104,6 +104,8 @@ class QPerfDataSet(torch.utils.data.Dataset):
                     if not os.path.exists(aif_fname):
                         continue
 
+                    print(f"{Fore.RED}--> case {ind} loaded from {N} cases - {a_case} ... {Style.RESET_ALL}")
+
                     t0 = time.time()
                     aif = np.load(aif_fname)
                     myo = np.load(myo_fname)
@@ -113,7 +115,7 @@ class QPerfDataSet(torch.utils.data.Dataset):
                     myo = myo.astype(np.float16)
                     params = params.astype(np.float16)
                     t1 = time.time()
-                    print(f"Load {a_case_fname} takes {t1-t0}s ...")
+                    print(f"{Fore.YELLOW}Load {a_case_fname} takes {t1-t0}s ...{Style.RESET_ALL}")
 
                     # t0 = time.time()
                     # mat = scipy.io.loadmat(a_case)
@@ -130,8 +132,6 @@ class QPerfDataSet(torch.utils.data.Dataset):
                         M = aif.shape[0]
                         assert M == self.max_samples_per_file
 
-                    print(f"--> case {ind} loaded from {N} cases - {a_case} ... ")
-
                     t0 = time.time()
                     if self.x is None:
                         self.x = aif
@@ -143,7 +143,7 @@ class QPerfDataSet(torch.utils.data.Dataset):
                         self.p = np.vstack((self.p, params))
 
                     t1 = time.time()
-                    print(f"Concatenate {a_case_fname} takes {t1-t0}s ...")
+                    print(f"{Fore.YELLOW}Concatenate {a_case_fname} takes {t1-t0}s ...{Style.RESET_ALL}")
 
                     cases_loaded += 1
                     print(f"--> {self.x.shape[0]} samples loaded from {cases_loaded} cases - {a_case} ... ")

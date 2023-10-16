@@ -205,10 +205,13 @@ class UperNet3D(nn.Module):
         self.FPN = FPN_fuse3D(feature_channels, fpn_out=self.fpn_out)
         self.head = nn.Conv3d(self.fpn_out, self.config.no_out_channel, kernel_size=3, padding=1)
 
-    def forward(self, features):
+    def forward(self, features, output_size=None):
         features[-1] = self.PPN(features[-1])
         x = self.head(self.FPN(features))
-        x = F.interpolate(x, size=self.input_size, mode='trilinear')
+        if output_size is None:
+            x = F.interpolate(x, size=self.input_size, mode='trilinear')
+        else:
+            x = F.interpolate(x, size=output_size, mode='trilinear')
         return x
 
     def freeze_bn(self):
