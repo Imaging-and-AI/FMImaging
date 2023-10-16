@@ -23,6 +23,7 @@ sys.path.insert(1, str(Model_DIR))
 Project_DIR = Path(__file__).parents[2].resolve()
 sys.path.insert(1, str(Project_DIR))
 
+from imaging_attention import Conv3DExt
 from backbone_base import STCNNT_Base_Runtime
 
 """
@@ -646,6 +647,31 @@ class PatchMerging(nn.Module):
         return x
 
 
+class LinearMerging(nn.Module):
+
+    def __init__(self, dim, norm_layer=nn.LayerNorm):
+        super().__init__()
+        self.dim = dim
+        self.expansion = nn.Linear(dim, 4 * dim, bias=False)
+        self.reduction = nn.Linear(4 * dim, 2 * dim, bias=False)
+        self.norm = norm_layer(4 * dim)
+
+    def forward(self, x, H=None, W=None):
+        """Forward function.
+
+        Args:
+            x: Input feature, tensor size (B, D, H, W, C).
+        """
+        if H is None:
+            B, D, H, W, C = x.shape
+
+        x = self.expansion(x)
+        x = self.norm(x)
+        x = self.reduction(x)
+
+        return x
+
+
 # cache each stage results
 @lru_cache()
 def compute_mask(D, H, W, window_size, shift_size, device):
@@ -1051,7 +1077,7 @@ class SwinTransformer3D(nn.Module):
                 attn_drop=attn_drop_rate,
                 drop_path=dpr[sum(depths[:i_layer]) : sum(depths[: i_layer + 1])],
                 norm_layer=norm_layer,
-                downsample=PatchMerging #if i_layer < self.num_layers - 1 else None,
+                downsample=LinearMerging #PatchMerging #if i_layer < self.num_layers - 1 else None,
             )
             self.layers.append(layer)
 

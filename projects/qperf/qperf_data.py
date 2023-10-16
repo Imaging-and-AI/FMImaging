@@ -83,9 +83,9 @@ class QPerfDataSet(torch.utils.data.Dataset):
         if load_cache and self.load_cached_dataset(self.cache_folder):
             print(self.__str__())
         else:
-            self.x = None
-            self.y = None
-            self.p = None
+            self.x = []
+            self.y = []
+            self.p = []
 
             cases_loaded = 0
             for ind in range(N):
@@ -133,32 +133,40 @@ class QPerfDataSet(torch.utils.data.Dataset):
                         assert M == self.max_samples_per_file
 
                     t0 = time.time()
-                    if self.x is None:
-                        self.x = aif
-                        self.y = myo
-                        self.p = params
-                    else:
-                        self.x = np.vstack((self.x, aif))
-                        self.y = np.vstack((self.y, myo))
-                        self.p = np.vstack((self.p, params))
+                    self.x.append(aif)
+                    self.y.append(myo)
+                    self.p.append(params)
+
+                    # if self.x is None:
+                    #     self.x = aif
+                    #     self.y = myo
+                    #     self.p = params
+                    # else:
+                    #     self.x = np.vstack((self.x, aif))
+                    #     self.y = np.vstack((self.y, myo))
+                    #     self.p = np.vstack((self.p, params))
 
                     t1 = time.time()
                     print(f"{Fore.YELLOW}Concatenate {a_case_fname} takes {t1-t0}s ...{Style.RESET_ALL}")
 
                     cases_loaded += 1
-                    print(f"--> {self.x.shape[0]} samples loaded from {cases_loaded} cases - {a_case} ... ")
+                    print(f"--> {aif.shape[0]} samples loaded from {cases_loaded} cases - {a_case} ... ")
+
+            self.x = np.vstack(self.x)
+            self.y = np.vstack(self.y)
+            self.p = np.vstack(self.p)
 
             print(f"--> {self.x.shape[0]} samples loaded from {cases_loaded} cases ... ")
 
             self.cache_dataset(self.cache_folder)
 
-        for k in range(self.x.shape[0]):
-            a_x = self.x[k, :]
-            a_y = self.y[k, :]
-            a_p = self.p[k,:]
-            assert np.linalg.norm(a_x) > 1e-3
-            assert np.linalg.norm(a_y) > 1e-3
-            assert np.linalg.norm(a_p) > 1e-3
+        # for k in range(self.x.shape[0]):
+        #     a_x = self.x[k, :]
+        #     a_y = self.y[k, :]
+        #     a_p = self.p[k,:]
+        #     assert np.linalg.norm(a_x) > 1e-3
+        #     assert np.linalg.norm(a_y) > 1e-3
+        #     assert np.linalg.norm(a_p) > 1e-3
 
         self.picked_samples = None
         self.generate_picked_samples()
@@ -243,7 +251,7 @@ class QPerfDataSet(torch.utils.data.Dataset):
         foot = int(p[5]) - 5
 
         if self.foot_to_end and foot < N/2 and foot > 3:
-            x = x[foot:]
+            x = x[foot:, :]
             y = y[foot:]
             N = x.shape[0]
             p[5] = 0
@@ -251,11 +259,11 @@ class QPerfDataSet(torch.utils.data.Dataset):
             p[7] -= foot
 
         if N > self.T:
-            x = x[:self.T]
+            x = x[:self.T, :]
             y = y[:self.T]
             N = x.shape[0]
         elif N < self.T:
-            x = np.append(x, x[N-1] * np.ones((self.T-N)), axis=0)
+            x = np.append(x, x[N-1,:] * np.ones((self.T-N, 2)), axis=0)
             y = np.append(y, y[N-1] * np.ones(self.T-N), axis=0)
 
         p[8] = N
