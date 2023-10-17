@@ -109,6 +109,9 @@ def main():
                         add_noise=config.add_noise,
                         cache_folder=os.path.join(config.log_dir, tra_dir))
 
+    print(f"{Fore.RED}----> Info for the training set ...{Style.RESET_ALL}")
+    print(train_set)
+
     val_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, val_dir),
                         max_load=-1, max_samples=config.max_samples,
                         T=config.qperf_T, 
@@ -120,6 +123,9 @@ def main():
                         add_noise=config.add_noise,
                         cache_folder=os.path.join(config.log_dir, val_dir))
 
+    print(f"{Fore.RED}----> Info for the val set ...{Style.RESET_ALL}")
+    print(val_set)
+
     test_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, test_dir),
                         max_load=-1, max_samples=config.max_samples,
                         T=config.qperf_T, 
@@ -130,6 +136,9 @@ def main():
                         only_white_noise=only_white_noise,
                         add_noise=config.add_noise,
                         cache_folder=os.path.join(config.log_dir, test_dir))
+
+    print(f"{Fore.RED}----> Info for the test set ...{Style.RESET_ALL}")
+    print(test_set)
 
     print(f"load_mri_data took {time() - start} seconds ...")
 

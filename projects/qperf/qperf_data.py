@@ -297,6 +297,9 @@ class QPerfDataSet(torch.utils.data.Dataset):
         str += "  Number of myo: %d" % self.y.shape[0] + "\n"
         str += "  Number of params: %d" % self.p.shape[0] + "\n"
         str += "  max_samples: %d" % self.max_samples + "\n"
+        str += f"  foot_to_end: {self.foot_to_end}" + "\n"
+        str += f"  add_noise: {self.add_noise}" + "\n"
+        str += f"  T: {self.T}" + "\n"
 
         return str
         
@@ -354,47 +357,47 @@ if __name__ == '__main__':
     data_folder='/data/qperf/mat'
     data_folder='/data/qperf/new_data'
 
-    # qperf_dataset = QPerfDataSet(data_folder=os.path.join(data_folder, 'tra_small'), 
-    #                     max_load=-1,
-    #                     T=80, 
-    #                     foot_to_end=foot_to_end, 
-    #                     min_noise_level=[0.01, 0.01], 
-    #                     max_noise_level=[0.4, 0.15],
-    #                     filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
-    #                     only_white_noise=False,
-    #                     add_noise=[True, True],
-    #                     cache_folder=os.path.join(data_folder, 'cache/tra_small'),
-    #                     load_cache=load_cache)
+    qperf_dataset = QPerfDataSet(data_folder=os.path.join(data_folder, 'tra_small'), 
+                        max_load=-1,
+                        T=80, 
+                        foot_to_end=foot_to_end, 
+                        min_noise_level=[0.01, 0.01], 
+                        max_noise_level=[0.4, 0.15],
+                        filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
+                        only_white_noise=False,
+                        add_noise=[True, True],
+                        cache_folder=os.path.join(data_folder, 'cache/tra_small'),
+                        load_cache=load_cache)
 
-    # qperf_dataset = QPerfDataSet(data_folder=os.path.join(data_folder, 'val_small'), 
-    #                     max_load=-1,
-    #                     T=80, 
-    #                     foot_to_end=foot_to_end, 
-    #                     min_noise_level=[0.01, 0.01], 
-    #                     max_noise_level=[0.4, 0.15],
-    #                     filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
-    #                     only_white_noise=False,
-    #                     add_noise=[True, True],
-    #                     cache_folder=os.path.join(data_folder, 'cache/val_small'),
-    #                     load_cache=load_cache)
+    qperf_dataset = QPerfDataSet(data_folder=os.path.join(data_folder, 'val_small'), 
+                        max_load=-1,
+                        T=80, 
+                        foot_to_end=foot_to_end, 
+                        min_noise_level=[0.01, 0.01], 
+                        max_noise_level=[0.4, 0.15],
+                        filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
+                        only_white_noise=False,
+                        add_noise=[True, True],
+                        cache_folder=os.path.join(data_folder, 'cache/val_small'),
+                        load_cache=load_cache)
 
-    # qperf_dataset = QPerfDataSet(data_folder=os.path.join(data_folder, 'test_small'), 
-    #                     max_load=-1,
-    #                     T=80, 
-    #                     foot_to_end=foot_to_end, 
-    #                     min_noise_level=[0.01, 0.01], 
-    #                     max_noise_level=[0.4, 0.15],
-    #                     filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
-    #                     only_white_noise=False,
-    #                     add_noise=[True, True],
-    #                     cache_folder=os.path.join(data_folder, 'cache/test_small'),
-                        # load_cache=load_cache)
+    qperf_dataset = QPerfDataSet(data_folder=os.path.join(data_folder, 'test_small'), 
+                        max_load=-1,
+                        T=80, 
+                        foot_to_end=foot_to_end, 
+                        min_noise_level=[0.01, 0.01], 
+                        max_noise_level=[0.4, 0.15],
+                        filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
+                        only_white_noise=False,
+                        add_noise=[True, True],
+                        cache_folder=os.path.join(data_folder, 'cache/test_small'),
+                        load_cache=load_cache)
 
     max_samples_per_file = int(1000000/10)
 
     qperf_dataset = QPerfDataSet(data_folder=os.path.join(data_folder, 'val'), 
                         max_load=-1,
-                        max_samples_per_file=max_samples_per_file,
+                        max_samples_per_file=-1,
                         T=80, 
                         foot_to_end=foot_to_end, 
                         min_noise_level=[0.01, 0.01], 
@@ -407,7 +410,7 @@ if __name__ == '__main__':
 
     qperf_dataset = QPerfDataSet(data_folder=os.path.join(data_folder, 'test'), 
                         max_load=-1,
-                        max_samples_per_file=max_samples_per_file,
+                        max_samples_per_file=-1,
                         T=80, 
                         foot_to_end=foot_to_end, 
                         min_noise_level=[0.01, 0.01], 

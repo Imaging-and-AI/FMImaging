@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-__all__ = ['create_window_2d', 'create_window_3d']
+__all__ = ['create_window_1d', 'create_window_2d', 'create_window_3d']
 
 # -------------------------------------------------------------------------------------------------
 
@@ -54,6 +54,18 @@ def gaussian_fucntion(kernelSamplePoints, sigma):
     DD = DD / np.sum(np.abs(DD))
 
     return G, D, DD
+
+# -------------------------------------------------------------------------------------------------
+
+def create_window_1d(sigma=1.25, halfwidth=3, voxelsize=1.0, order=1):
+    """
+    Creates a 1D gauss kernel
+    """
+    k_0 = get_gaussionand_derivatives_1D(sigma, halfwidth, voxelsize)
+    window = k_0[order+1]
+    window /= np.sum(np.abs(window))
+
+    return window
 
 # -------------------------------------------------------------------------------------------------
 
@@ -109,16 +121,16 @@ def tests():
     import nibabel as nib
     from pathlib import Path
 
-    Project_DIR = Path(__file__).parents[1].resolve()
-    sys.path.insert(1, str(Project_DIR))
+    Project_DIR = Path(__file__).parents[2].resolve()
+    sys.path.insert(2, str(Project_DIR))
 
-    noisy = np.load(str(Project_DIR) + '/data/loss/noisy_real.npy') + 1j * np.load(str(Project_DIR) + '/data/loss/noisy_imag.npy')
+    noisy = np.load(str(Project_DIR) + '/ut/data/loss/noisy_real.npy') + 1j * np.load(str(Project_DIR) + '/ut/data/loss/noisy_imag.npy')
     print(noisy.shape)
 
-    clean = np.load(str(Project_DIR) + '/data/loss/clean_real.npy') + 1j * np.load(str(Project_DIR) + '/data/loss/clean_imag.npy')
+    clean = np.load(str(Project_DIR) + '/ut/data/loss/clean_real.npy') + 1j * np.load(str(Project_DIR) + '/ut/data/loss/clean_imag.npy')
     print(clean.shape)
 
-    pred = np.load(str(Project_DIR) + '/data/loss/pred_real.npy') + 1j * np.load(str(Project_DIR) + '/data/loss/pred_imag.npy')
+    pred = np.load(str(Project_DIR) + '/ut/data/loss/pred_real.npy') + 1j * np.load(str(Project_DIR) + '/ut/data/loss/pred_imag.npy')
     print(pred.shape)
 
     # -------------------------------------------------

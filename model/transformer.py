@@ -23,6 +23,7 @@ sys.path.append(str(Project_DIR))
 
 from utils import get_device, model_info, get_gpu_ram_usage
 from setup import create_generic_class_str
+from imaging_attention import create_activation_func
 
 def position_encoding(
     seq_len: int,
@@ -134,22 +135,23 @@ class Cell(nn.Module):
     
     x-> LayerNorm -> attention -> + -> LayerNorm -> LinearLayers -> + -> logits
     |-----------------------------| |-------------------------------|
-    
+
     """
 
-    def __init__(self, T=128, n_embd=128, is_causal=False, n_head=8, attn_dropout_p=0.0, residual_dropout_p=0.1):
+    def __init__(self, T=128, n_embd=128, is_causal=False, n_head=8, attn_dropout_p=0.0, residual_dropout_p=0.1, activation_func="prelu"):
         super().__init__()
         self.ln1 = nn.LayerNorm(n_embd)
         self.ln2 = nn.LayerNorm(n_embd)
         self.attn = StandardAttention(T=T, n_embd=n_embd, is_causal=is_causal, n_head=n_head, attn_dropout_p=attn_dropout_p, residual_dropout_p=residual_dropout_p)
         self.mlp = nn.Sequential(
             nn.Linear(n_embd, 4 * n_embd),
-            nn.GELU(approximate='tanh'),
+            create_activation_func(name=activation_func),
+            #nn.GELU(approximate='tanh'),
             nn.Linear(4 * n_embd, n_embd),
             nn.Dropout(residual_dropout_p),
         )
 
-    def forward(self, x):        
+    def forward(self, x):
         x = x + self.attn(self.ln1(x))
         x = x + self.mlp(self.ln2(x))
         return x
@@ -157,11 +159,11 @@ class Cell(nn.Module):
     @property
     def device(self):
         return next(self.parameters()).device
-    
+
     def __str__(self):
         res = create_generic_class_str(self)
         return res
-    
+
 # -------------------------------------------------------------------------------------------------
 
 def tests():

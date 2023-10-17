@@ -1,6 +1,8 @@
 """
 Set up the metrics for qperf
 """
+
+import os
 import copy
 import numpy as np
 from time import time
@@ -30,6 +32,7 @@ sys.path.append(str(REPO_DIR))
 
 from utils import *
 from metrics import MetricManager, get_metric_function, AverageMeter
+from qperf_loss import qperf_gaussian, qperf_max_absolute_error
 
 # -------------------------------------------------------------------------------------------------
 class QPerfMetricManager(MetricManager):
@@ -40,12 +43,14 @@ class QPerfMetricManager(MetricManager):
         self.best_pre_model_file = None
         self.best_backbone_model_file = None
         self.best_post_model_file = None
+        self.gauss_loss_func = qperf_gaussian(config)
+        self.mae_loss_func = qperf_max_absolute_error(config)
 
     # ---------------------------------------------------------------------------------------
     def setup_wandb_and_metrics(self, rank):
 
         self.best_val_loss = np.inf
-        
+
         device = self.config.device
 
         self.mse_loss_func = nn.MSELoss()
@@ -53,6 +58,8 @@ class QPerfMetricManager(MetricManager):
 
         self.train_metrics = {'loss': AverageMeter(),
                               'mse':AverageMeter(),
+                              'gauss':AverageMeter(),
+                              'mae':AverageMeter(),
                               'l1':AverageMeter(),
                               'Fp':AverageMeter(),
                               'Vp':AverageMeter(),
@@ -63,6 +70,8 @@ class QPerfMetricManager(MetricManager):
 
         self.eval_metrics = {'loss': AverageMeter(),
                               'mse':AverageMeter(),
+                              'gauss':AverageMeter(),
+                              'mae':AverageMeter(),
                               'l1':AverageMeter(),
                               'Fp':AverageMeter(),
                               'Vp':AverageMeter(),
@@ -74,6 +83,8 @@ class QPerfMetricManager(MetricManager):
         self.train_metric_functions = {
                               'mse':self.mse_loss_func,
                               'l1':self.l1_loss_func,
+                              'gauss':self.gauss_loss_func,
+                              'mae':self.mae_loss_func,
                               'Fp':self.l1_loss_func,
                               'Vp':self.l1_loss_func,
                               'Visf':self.l1_loss_func,
@@ -95,6 +106,8 @@ class QPerfMetricManager(MetricManager):
     def get_tra_loss(self):
         return self.train_metrics['loss'].avg, \
                 self.train_metrics['mse'].avg, \
+                self.train_metrics['gauss'].avg, \
+                self.train_metrics['mae'].avg, \
                 self.train_metrics['l1'].avg, \
                 self.train_metrics['Fp'].avg, \
                 self.train_metrics['Vp'].avg, \
@@ -105,6 +118,8 @@ class QPerfMetricManager(MetricManager):
     def get_eval_loss(self):
         return self.eval_metrics['loss'].avg, \
                 self.eval_metrics['mse'].avg, \
+                self.eval_metrics['gauss'].avg, \
+                self.eval_metrics['mae'].avg, \
                 self.eval_metrics['l1'].avg, \
                 self.eval_metrics['Fp'].avg, \
                 self.eval_metrics['Vp'].avg, \
@@ -125,8 +140,8 @@ class QPerfMetricManager(MetricManager):
 
         self.train_metrics['loss'].update(loss, n=B)
 
-        for metric_name in ['mse', 'l1']:
-            metric_value = self.train_metric_functions[metric_name](y_hat.flatten(), y.flatten())
+        for metric_name in ['mse', 'l1', 'gauss', 'mae']:
+            metric_value = self.train_metric_functions[metric_name](y_hat.reshape(y.shape), y)
             self.train_metrics[metric_name].update(metric_value.item(), n=B)
 
         for ii, metric_name in enumerate(['Fp', 'Vp', 'PS', 'Visf', 'Delay']):
@@ -154,13 +169,22 @@ class QPerfMetricManager(MetricManager):
 
         self.eval_metrics['loss'].update(loss, n=B)
 
-        for metric_name in ['mse', 'l1']:
-            metric_value = self.eval_metric_functions[metric_name](y_hat.flatten(), y.flatten())
+        for metric_name in ['mse', 'l1', 'gauss', 'mae']:
+            metric_value = self.eval_metric_functions[metric_name](y_hat.reshape(y.shape), y)
             self.eval_metrics[metric_name].update(metric_value.item(), n=B)
 
         for ii, metric_name in enumerate(['Fp', 'Vp', 'PS', 'Visf', 'Delay']):
             metric_value = self.eval_metric_functions[metric_name](params[:, ii], params_est[:, ii])
             self.eval_metrics[metric_name].update(metric_value.item(), n=B)
+
+        if save_samples:
+            res_dir = self.config.log_dir + "/saved"
+            os.makedirs(res_dir, exist_ok=True)
+            fname = f"{ids}"
+            np.save(res_dir + "/" + fname + "_x.npy", x.detach().to(dtype=torch.float32).cpu().numpy().astype(np.float32))
+            np.save(res_dir + "/" + fname + "_y.npy", y.detach().to(dtype=torch.float32).cpu().numpy().astype(np.float32))
+            np.save(res_dir + "/" + fname + "_y_hat.npy", y_hat.detach().to(dtype=torch.float32).cpu().numpy().astype(np.float32))
+            np.save(res_dir + "/" + fname + "_params.npy", params.detach().to(dtype=torch.float32).cpu().numpy().astype(np.float32))
 
     # ---------------------------------------------------------------------------------------        
     def on_eval_epoch_end(self, rank, epoch, model_manager, optim, sched, split, final_eval):

@@ -40,12 +40,12 @@ from model.transformer import *
 class QPerfModel(ModelManager):
     """
         QPerf mapping model
-        
+
         Input: aif and myo Gd curves
         Output: clean myo curves, Fp, Vp, Visf, PS, and delay
-        
+
         The architecture is quite straight-forward :
-        
+
         x -> input_proj --> + --> drop_out --> attention layers one after another --> LayerNorm --> output_proj_myo --> logits
                             |                                                                    |--> output_proj_params --> logits
         pos_embedding-------|
@@ -87,16 +87,16 @@ class QPerfModel(ModelManager):
         self.pre["drop"] = nn.Dropout(self.dropout_p)
 
     def create_backbone(self, channel_first=True): 
-        self.backbone = nn.Sequential(*[Cell(T=self.T, n_embd=self.n_embd, is_causal=self.is_causal, n_head=self.n_head, attn_dropout_p=self.att_dropout_p, residual_dropout_p=self.residual_dropout_p) for _ in range(self.n_layer)])
+        self.backbone = nn.Sequential(*[Cell(T=self.T, n_embd=self.n_embd, is_causal=self.is_causal, n_head=self.n_head, attn_dropout_p=self.att_dropout_p, residual_dropout_p=self.residual_dropout_p, activation_func=self.config.activation_func) for _ in range(self.n_layer)])
         self.feature_channels = self.n_embd
-        
+
     def create_post(self): 
         self.post = nn.ModuleDict()
         n_embd = self.n_embd
         self.post["layer_norm"] = nn.LayerNorm(n_embd)
         self.post["output_proj1_myo"] = nn.Linear(n_embd, n_embd//2, bias=True)
         self.post["output_proj2_myo"] = nn.Linear(n_embd//2, self.output_myo_D, bias=True)
-        
+
         self.post["output_proj1_params"] = nn.Linear(n_embd, n_embd//2, bias=True)
         self.post["output_proj2_params"] = nn.Linear(self.T*n_embd//2, self.num_params, bias=True)
 
@@ -113,37 +113,37 @@ class QPerfModel(ModelManager):
             logits_myo: [B, T, output_D]
             logits_params: [B, 5]
         """
-        
+
         B, T, C = x.size()
         assert T <= self.T, "The positional embedding is used, so the maximal series length is %d" % self.T
-                       
+
         # project input from C channels to n_embd channels
         x_proj = self.pre["input_proj"](x)
-        
+
         if self.use_pos_embedding:
             x = x_proj + self.pre["pos_emb"][0][:, :T, :]
             x = self.pre["drop"](x)
         else:
             x = x_proj + position_encoding(seq_len=T, dim_model=C, device=self.device)
             x = self.pre["drop"](x)
-            
+
         # go through all layers of attentions
         x = self.backbone(x)
-        
-        # project outputs to output_size channel        
+
+        # project outputs to output_size channel
         x = self.post["layer_norm"](x)
         x = F.gelu(x, approximate='tanh')
 
         y_myo = self.post["output_proj1_myo"](x)
         y_myo = self.post["output_proj2_myo"](y_myo)
-        
+
         y_params = self.post["output_proj1_params"](x)
         y_params = torch.flatten(y_params, start_dim=1, end_dim=2)
         y_params = self.post["output_proj2_params"](y_params)
         #y_params = F.relu(y_params) # parameter can only be positive
 
         return y_myo, y_params
-    
+
 # -------------------------------------------------------------------------------------------------
 
 if __name__ == '__main__':

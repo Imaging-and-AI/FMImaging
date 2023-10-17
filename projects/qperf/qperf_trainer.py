@@ -288,9 +288,9 @@ class QPerfTrainManager(TrainManager):
 
                         x, y, p = loader_outputs
 
-                        x = x.to(device=device)
-                        y = y.to(device)
-                        p = p.to(device)
+                        x = x.to(device=device, dtype=dtype)
+                        y = y.to(device, dtype=dtype)
+                        p = p.to(device, dtype=dtype)
 
                         end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
 
@@ -395,7 +395,7 @@ class QPerfTrainManager(TrainManager):
                 # ------------------------------------------------------------------------------------------------------
 
                 if epoch % c.eval_frequency==0 or epoch==c.num_epochs:
-                    self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="", split="val", final_eval=False, scaling_factor=1)
+                    self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="val_in_training", split="val", final_eval=True, scaling_factor=1)
 
                 if c.scheduler_type != "OneCycleLR":
                     if c.scheduler_type == "ReduceLROnPlateau":
@@ -433,9 +433,15 @@ class QPerfTrainManager(TrainManager):
         if self.config.eval_train_set: 
             logging.info(f"{Fore.CYAN}Evaluating the best model on the train set ... {Style.RESET_ALL}")
             self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.train_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="train", split="train", final_eval=True, scaling_factor=1)
+
         if self.config.eval_val_set: 
             logging.info(f"{Fore.CYAN}Evaluating the best model on the val set ... {Style.RESET_ALL}")
             self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="val", split="val", final_eval=True, scaling_factor=1)
+
+            logging.info(f"{Fore.CYAN}Evaluating the best model on the val set without noise ... {Style.RESET_ALL}")
+            self.val_sets[0].add_noise = [False, False]
+            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="val-clean", split="val", final_eval=True, scaling_factor=1)
+
         if self.config.eval_test_set: 
             logging.info(f"{Fore.CYAN}Evaluating the best model on the test set ... {Style.RESET_ALL}")
             self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.test_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="test", split="test", final_eval=True, scaling_factor=1)
@@ -551,7 +557,7 @@ class QPerfTrainManager(TrainManager):
                         loss = loss_f(output, (y, p))
 
                     # Update evaluation metrics
-                    self.metric_manager.on_eval_step_end(loss.item(), output, loader_outputs, f"{idx}", rank, save_samples, split)
+                    self.metric_manager.on_eval_step_end(loss.item(), output, loader_outputs, f"epoch_{epoch}_{idx}", rank, save_samples, split)
 
                     # ----------------------------------------------------------------------
                     # if required, upload samples
@@ -563,14 +569,14 @@ class QPerfTrainManager(TrainManager):
                         Vp = p[idx, 1]
                         Visf = p[idx, 2]
                         PS = p[idx, 3]
-                        Delay = int(p[idx, 4])
+                        Delay = p[idx, 4]
 
                         y_hat, p_estimated = output
                         Fp_est = p_estimated[idx, 0]
                         Vp_est = p_estimated[idx, 1]
                         Visf_est = p_estimated[idx, 2]
                         PS_est = p_estimated[idx, 3]
-                        Delay_est = int(p_estimated[idx, 4])
+                        Delay_est = p_estimated[idx, 4]
 
                         N = x.shape[0]
 
@@ -580,9 +586,13 @@ class QPerfTrainManager(TrainManager):
 
                         wandb.log({title : wandb.plot.line_series(
                                     xs=list(np.arange(N)),
-                                    ys=[list(x[idx,:,0]), list(x[idx,:,1]), list(y[idx,:].flatten()), list(y_hat[idx,:].flatten())],
-                                    keys=["aif", "myo", "myo_clean", "myo_model"],
-                                    title=f"Val, Fp={Fp:.2f}, Vp={Vp:.2f}, Visf={Visf:.2f}, PS={PS:.2f}, Delay={Delay} - Fp={Fp_est:.2f}, Vp={Vp_est:.2f}, Visf={Visf_est:.2f}, PS={PS_est:.2f}, Delay={Delay_est}",
+                                    #ys=[list(x[idx,:,0]), list(x[idx,:,1]), list(y[idx,:].flatten()), list(y_hat[idx,:].flatten())],
+                                    #keys=["aif", "myo", "myo_clean", "myo_model"],
+                                    # ys=[list(x[idx,:,1]), list(y[idx,:].flatten()), list(y_hat[idx,:].flatten())],
+                                    # keys=["myo", "myo_clean", "myo_model"],
+                                    ys=[list(y[idx,:].flatten()), list(y_hat[idx,:].flatten())],
+                                    keys=["myo_clean", "myo_model"],
+                                    title=f"{id}, Fp={Fp:.2f}, Vp={Vp:.2f}, Visf={Visf:.2f}, PS={PS:.2f}, Delay={Delay} - Fp={Fp_est:.2f}, Vp={Vp_est:.2f}, Visf={Visf_est:.2f}, PS={PS_est:.2f}, Delay={Delay_est}",
                                     xname="T")})
 
                     # ----------------------------------------------------------------------
@@ -651,11 +661,11 @@ class QPerfTrainManager(TrainManager):
             C = Fore.GREEN
 
         if role == 'tra':
-            loss, mse, l1, Fp, Vp, Visf, PS, Delay = loss_meters.get_tra_loss()
+            loss, mse, l1, gauss, mae, Fp, Vp, Visf, PS, Delay = loss_meters.get_tra_loss()
         else:
-            loss, mse, l1, Fp, Vp, Visf, PS, Delay = loss_meters.get_eval_loss()
+            loss, mse, l1, gauss, mae, Fp, Vp, Visf, PS, Delay = loss_meters.get_eval_loss()
 
-        str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.8f},{Style.RESET_ALL} {C}mse {mse:.8f}, l1 {l1:.8f}, Fp {Fp:.8f}, Vp {Vp:.8f}, Visf {Visf:.8f}, PS {PS:.8f}, Delay {Delay:.8f}{Style.RESET_ALL}{lr_str}"
+        str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.8f},{Style.RESET_ALL} {C}mse {mse:.8f}, l1 {l1:.8f}, gauss {gauss:.8f}, mae {mae:.8f}, Fp {Fp:.8f}, Vp {Vp:.8f}, Visf {Visf:.8f}, PS {PS:.8f}, Delay {Delay:.8f}{Style.RESET_ALL}{lr_str}"
 
         return str
 

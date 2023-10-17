@@ -26,7 +26,7 @@ sys.path.append(str(Current_DIR))
 
 from pytorch_ssim import SSIM, SSIM3D
 from msssim import MS_SSIM, ms_ssim
-from gaussian import create_window_2d, create_window_3d
+from gaussian import create_window_1d, create_window_2d, create_window_3d
 import piq
 
 # Imports needed for tests()
@@ -451,6 +451,70 @@ class Perpendicular_Loss:
             v = torch.mean(0.0 * outputs)
 
         return v / targets.numel()
+
+# -------------------------------------------------------------------------------------------------
+
+class GaussianDeriv1D_Loss:
+    """
+    Weighted gaussian derivative loss for 1D
+    """
+    def __init__(self, sigmas=[0.5, 1.0, 1.25], complex_i=False, device='cpu'):
+        """
+        @args:
+            - sigmas (list): sigma for every scale
+            - complex_i (bool): whether images are 2 channelled for complex data
+            - device (torch.device): device to run the loss on
+        """
+        self.complex_i = complex_i
+        self.sigmas = sigmas
+
+        # compute kernels
+        self.kernels = []
+        for sigma in sigmas:
+            k_1d = create_window_1d(sigma=sigma, halfwidth=3, voxelsize=1.0, order=1)
+            kx = k_1d.shape
+            k_1d = torch.from_numpy(np.reshape(k_1d, (1, 1, kx))).to(torch.float32)
+            self.kernels.append(k_1d.to(device=device))
+
+    def __call__(self, outputs, targets, weights=None):
+
+        B, T, C = targets.shape
+        if(self.complex_i):
+            assert C==2, f"Complex type requires image to have C=2, given C={C}"
+            outputs_im = torch.sqrt(outputs[:,:,1]*outputs[:,:,1] + outputs[:,:,0]*outputs[:,:,0])
+            targets_im = torch.sqrt(targets[:,:,1]*targets[:,:,1] + targets[:,:,0]*targets[:,:,0])
+        else:
+            outputs_im = outputs
+            targets_im = targets
+
+        B, T, C = targets_im.shape
+        outputs_im = torch.permute(outputs_im, (0, 2, 1))
+        targets_im = torch.permute(targets_im, (0, 2, 1))
+
+        loss = 0
+        for k_1d in self.kernels:
+            grad_outputs_im = F.conv1d(outputs_im, k_1d, bias=None, stride=1, padding='same', groups=C)
+            grad_targets_im = F.conv1d(targets_im, k_1d, bias=None, stride=1, padding='same', groups=C)
+            loss += torch.mean(torch.abs(grad_outputs_im-grad_targets_im), dim=(1, 2), keepdim=True)
+
+        loss /= len(self.kernels)
+
+        if weights is not None:
+
+            if weights.ndim==1:
+                weights_used = weights.reshape((B, 1))
+            else:
+                raise NotImplementedError(f"Only support 1D(Batch) weights for GaussianDeriv1D_Loss")
+
+            v = torch.sum(weights_used*loss) / (torch.sum(weights_used) + torch.finfo(torch.float32).eps)
+        else:
+            v = torch.mean(loss)
+
+        if(torch.any(torch.isnan(v))):
+            raise NotImplementedError(f"nan in GaussianDeriv1D_Loss")
+            v = torch.mean(0.0 * outputs)
+
+        return v
 
 # -------------------------------------------------------------------------------------------------
 
