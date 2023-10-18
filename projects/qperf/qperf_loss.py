@@ -28,8 +28,11 @@ class qperf_mse(object):
     def __init__(self, config):
         self.config = config
 
-    def __call__(self, y, y_hat, mask, N):
-        v = torch.sum(mask* ( (y_hat-y)**2 ))/N
+    def __call__(self, y, y_hat, mask=None, N=None):
+        if mask is not None:
+            v = torch.sum(mask* ( (y_hat-y)**2 ))/N
+        else:
+            v = torch.mean(( (y_hat-y)**2 ))
         if(torch.any(torch.isnan(v))):
             raise NotImplementedError(f"nan in qperf_mse")
             v = torch.mean(0.0 * y_hat)
@@ -57,8 +60,11 @@ class qperf_l1(object):
     def __init__(self, config):
         self.config = config
 
-    def __call__(self, y, y_hat, mask, N):
-        v = torch.sum(mask* torch.abs(y_hat-y))/N
+    def __call__(self, y, y_hat, mask=None, N=None):
+        if mask is not None:
+            v = torch.sum(mask* torch.abs(y_hat-y))/N
+        else:
+            v = torch.mean( torch.abs(y_hat-y))
         if(torch.any(torch.isnan(v))):
             raise NotImplementedError(f"nan in qperf_l1")
             v = torch.mean(0.0 * y_hat)

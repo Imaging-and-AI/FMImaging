@@ -32,7 +32,7 @@ sys.path.append(str(REPO_DIR))
 
 from utils import *
 from metrics import MetricManager, get_metric_function, AverageMeter
-from qperf_loss import qperf_gaussian, qperf_max_absolute_error
+from qperf_loss import qperf_gaussian, qperf_max_absolute_error, qperf_mse, qperf_l1
 
 # -------------------------------------------------------------------------------------------------
 class QPerfMetricManager(MetricManager):
@@ -45,6 +45,8 @@ class QPerfMetricManager(MetricManager):
         self.best_post_model_file = None
         self.gauss_loss_func = qperf_gaussian(config)
         self.mae_loss_func = qperf_max_absolute_error(config)
+        self.mse_loss_func = qperf_mse(config) #nn.MSELoss()
+        self.l1_loss_func = qperf_l1(config)
 
     # ---------------------------------------------------------------------------------------
     def setup_wandb_and_metrics(self, rank):
@@ -53,8 +55,8 @@ class QPerfMetricManager(MetricManager):
 
         device = self.config.device
 
-        self.mse_loss_func = nn.MSELoss()
-        self.l1_loss_func = nn.L1Loss()
+        # self.mse_loss_func = nn.MSELoss()
+        # self.l1_loss_func = nn.L1Loss()
 
         self.train_metrics = {'loss': AverageMeter(),
                               'mse':AverageMeter(),
@@ -177,14 +179,15 @@ class QPerfMetricManager(MetricManager):
             metric_value = self.eval_metric_functions[metric_name](params[:, ii], params_est[:, ii])
             self.eval_metrics[metric_name].update(metric_value.item(), n=B)
 
-        if save_samples:
-            res_dir = self.config.log_dir + "/saved"
-            os.makedirs(res_dir, exist_ok=True)
-            fname = f"{ids}"
-            np.save(res_dir + "/" + fname + "_x.npy", x.detach().to(dtype=torch.float32).cpu().numpy().astype(np.float32))
-            np.save(res_dir + "/" + fname + "_y.npy", y.detach().to(dtype=torch.float32).cpu().numpy().astype(np.float32))
-            np.save(res_dir + "/" + fname + "_y_hat.npy", y_hat.detach().to(dtype=torch.float32).cpu().numpy().astype(np.float32))
-            np.save(res_dir + "/" + fname + "_params.npy", params.detach().to(dtype=torch.float32).cpu().numpy().astype(np.float32))
+        if rank <=0 :
+            if save_samples:
+                res_dir = self.config.log_dir + "/saved"
+                os.makedirs(res_dir, exist_ok=True)
+                fname = f"{ids}"
+                np.save(res_dir + "/" + fname + "_x.npy", x.detach().to(dtype=torch.float32).cpu().numpy().astype(np.float32))
+                np.save(res_dir + "/" + fname + "_y.npy", y.detach().to(dtype=torch.float32).cpu().numpy().astype(np.float32))
+                np.save(res_dir + "/" + fname + "_y_hat.npy", y_hat.detach().to(dtype=torch.float32).cpu().numpy().astype(np.float32))
+                np.save(res_dir + "/" + fname + "_params.npy", params.detach().to(dtype=torch.float32).cpu().numpy().astype(np.float32))
 
     # ---------------------------------------------------------------------------------------        
     def on_eval_epoch_end(self, rank, epoch, model_manager, optim, sched, split, final_eval):
@@ -209,21 +212,19 @@ class QPerfMetricManager(MetricManager):
         # Checkpoint best models during training
         if rank<=0: 
 
-            if not final_eval:
+            model_epoch = model_manager.module if self.config.ddp else model_manager 
+            checkpoint_model = False
+            if average_metrics['loss'] is not None and average_metrics['loss'] < self.best_val_loss:
+                self.best_val_loss = average_metrics['loss']
+                checkpoint_model = True
 
-                model_epoch = model_manager.module if self.config.ddp else model_manager 
-                checkpoint_model = False
-                if average_metrics['loss'] is not None and average_metrics['loss'] < self.best_val_loss:
-                    self.best_val_loss = average_metrics['loss']
-                    checkpoint_model = True
+            if checkpoint_model:
+                self.best_pre_model_file, self.best_backbone_model_file, self.best_post_model_file = model_epoch.save(f"best_checkpoint_epoch_{epoch}", epoch, optim, sched)   
+                self.wandb_run.log({"epoch":epoch, "best_val_loss":self.best_val_loss})
 
-                if checkpoint_model:
-                    self.best_pre_model_file, self.best_backbone_model_file, self.best_post_model_file = model_epoch.save(f"best_checkpoint_epoch_{epoch}", epoch, optim, sched)   
-                    self.wandb_run.log({"epoch":epoch, "best_val_loss":self.best_val_loss})
-
-                # Update wandb with eval metrics
-                for metric_name, avg_metric_eval in average_metrics.items():
-                    self.wandb_run.log({"epoch":epoch, f"{split}_{metric_name}": avg_metric_eval})
+            # Update wandb with eval metrics
+            for metric_name, avg_metric_eval in average_metrics.items():
+                self.wandb_run.log({"epoch":epoch, f"{split}_{metric_name}": avg_metric_eval})
 
             # Save the average metrics for this epoch into self.average_eval_metrics
             self.average_eval_metrics = average_metrics

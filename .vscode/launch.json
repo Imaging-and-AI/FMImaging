@@ -143,7 +143,7 @@
                 "--project", "QPerf",
                 "--num_uploaded", "16",
                 "--clip_grad_norm", "0.1",
-                "--batch_size", "128", "--num_epochs", "12", "--use_amp", "--max_samples", "65536",
+                "--batch_size", "128", "--num_epochs", "12", "--use_amp", "--max_samples", "1024",
                 "--foot_to_end", 
                 "--optim_type", "sophia", "--optim.weight_decay", "0.1", 
                 "--save_val_samples", "True"

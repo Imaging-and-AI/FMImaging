@@ -245,6 +245,8 @@ class QPerfDataSet(torch.utils.data.Dataset):
                 nn = scipy.ndimage.gaussian_filter1d(nn, fs, axis=0)
 
             myo = y + nn
+        else:
+            myo = np.copy(y)
 
         x = np.concatenate((x[:, np.newaxis], myo[:, np.newaxis]), axis=1)
 

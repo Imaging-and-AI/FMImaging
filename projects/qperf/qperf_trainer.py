@@ -45,6 +45,7 @@ from metrics.metrics_utils import AverageMeter
 from optim.optim_utils import compute_total_steps
 
 from qperf_data import QPerfDataSet
+from projects.mri.LSUV import LSUVinit
 
 # -------------------------------------------------------------------------------------------------
 
@@ -134,10 +135,32 @@ class QPerfTrainManager(TrainManager):
             wandb_run.log_code(".")
 
         # -----------------------------------------------
+
         if c.ddp:
             dist.barrier()
             device = torch.device(f"cuda:{rank}")
             model_manager = self.model_manager.to(device)
+        else:
+            device = c.device
+            model_manager = self.model_manager.to(device)
+
+        if not config.disable_LSUV:
+            if config.pre_model_load_path is None and config.backbone_model_load_path is None and config.post_model_load_path is None:
+                t0 = time()
+                num_samples = len(self.train_sets[-1])
+                sampled_picked = np.random.randint(0, num_samples, size=1024)
+                input_data  = torch.stack([torch.from_numpy(self.train_sets[-1][i][0]) for i in sampled_picked])
+                print(f"{rank_str}, prepared data {input_data.shape}, LSUV prep data took {time()-t0 : .2f} seconds ...")
+
+                t0 = time()
+                LSUVinit(self.model_manager, input_data.to(device=device, dtype=torch.float32), verbose=True, cuda=True)
+                print(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
+
+        # -----------------------------------------------
+        if c.ddp:
+            # dist.barrier()
+            # device = torch.device(f"cuda:{rank}")
+            # model_manager = self.model_manager.to(device)
             model_manager = DDP(model_manager, device_ids=[rank], find_unused_parameters=True)
             if isinstance(self.train_sets,list): 
                 samplers = [DistributedSampler(train_set, shuffle=True) for train_set in self.train_sets]
@@ -145,8 +168,8 @@ class QPerfTrainManager(TrainManager):
                 samplers = DistributedSampler(self.train_sets, shuffle=True)
             shuffle = False
         else:
-            device = c.device
-            model_manager = self.model_manager.to(device)
+            # device = c.device
+            # model_manager = self.model_manager.to(device)
             if isinstance(self.train_sets,list): 
                 samplers = [None] * len(self.train_sets)
             else: 
@@ -247,6 +270,7 @@ class QPerfTrainManager(TrainManager):
         if self.config.train_model:
 
             logging.info(f"{rank_str}, {Fore.GREEN}----------> Start training loop <----------{Style.RESET_ALL}")
+            logging.info(f"{rank_str}, {Fore.YELLOW}len(train_loader) is {len(train_loaders[0])}, train_set size is {len(self.train_sets[0])}, batch_size {c.batch_size} {Style.RESET_ALL}")
 
             if c.ddp:
                 model_manager.module.check_model_learnable_status(rank_str)
@@ -395,7 +419,7 @@ class QPerfTrainManager(TrainManager):
                 # ------------------------------------------------------------------------------------------------------
 
                 if epoch % c.eval_frequency==0 or epoch==c.num_epochs:
-                    self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="val_in_training", split="val", final_eval=True, scaling_factor=1)
+                    self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="val_in_training", split="val", final_eval=False, scaling_factor=1)
 
                 if c.scheduler_type != "OneCycleLR":
                     if c.scheduler_type == "ReduceLROnPlateau":
