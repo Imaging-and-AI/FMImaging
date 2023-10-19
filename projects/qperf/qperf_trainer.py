@@ -44,7 +44,7 @@ from utils.status import start_timer, end_timer, support_bfloat16
 from metrics.metrics_utils import AverageMeter
 from optim.optim_utils import compute_total_steps
 
-from qperf_data import QPerfDataSet
+from qperf_data import QPerfDataSet, normalize_data, denormalize_data
 from projects.mri.LSUV import LSUVinit
 
 # -------------------------------------------------------------------------------------------------
@@ -212,6 +212,8 @@ class QPerfTrainManager(TrainManager):
 
         # -----------------------------------------------
 
+        #torch.autograd.set_detect_anomaly(True)
+
         if rank<=0: # main or master process
             if c.ddp: 
                 setup_logger(self.config) 
@@ -238,6 +240,8 @@ class QPerfTrainManager(TrainManager):
                     peak = int(p[6])
                     valley = int(p[7])
                     used_n = int(p[8])
+
+                    x, y, p = denormalize_data(x, y, p)
 
                     N = x.shape[0]
 
@@ -306,7 +310,7 @@ class QPerfTrainManager(TrainManager):
 
                         while loader_outputs is None:
                             del train_loader_iters[loader_ind]
-                            self.train_sets[loader_ind].generate_picked_samples()
+                            #self.train_sets[loader_ind].generate_picked_samples()
                             loader_ind = idx % len(train_loader_iters)
                             loader_outputs = next(train_loader_iters[loader_ind], None)
 
@@ -589,6 +593,15 @@ class QPerfTrainManager(TrainManager):
                         samples_logged += 1
                         title = f"{id.upper()}_{samples_logged}_{x.shape}"
 
+                        N = x.shape[0]
+
+                        x = x.to(dtype=torch.float32).detach().cpu().numpy()
+                        y = y.to(dtype=torch.float32).detach().cpu().numpy()
+                        y_hat = y_hat.to(dtype=torch.float32).detach().cpu().numpy()
+
+                        x, y, p = denormalize_data(x, y, p)
+                        x, y_hat, p_estimated = denormalize_data(x, y_hat, p_estimated)
+
                         Fp = p[idx, 0]
                         Vp = p[idx, 1]
                         Visf = p[idx, 2]
@@ -601,12 +614,6 @@ class QPerfTrainManager(TrainManager):
                         Visf_est = p_estimated[idx, 2]
                         PS_est = p_estimated[idx, 3]
                         Delay_est = p_estimated[idx, 4]
-
-                        N = x.shape[0]
-
-                        x = x.to(dtype=torch.float32).detach().cpu().numpy()
-                        y = y.to(dtype=torch.float32).detach().cpu().numpy()
-                        y_hat = y_hat.to(dtype=torch.float32).detach().cpu().numpy()
 
                         wandb.log({title : wandb.plot.line_series(
                                     xs=list(np.arange(N)),

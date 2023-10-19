@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+    
         // -----------------------------------------------------------------------------------------
         {
             "name": "Python: Current File",
@@ -137,7 +138,7 @@
                 "--data_dir", "/data/qperf/new_data", 
                 "--log_dir", "/data/qperf/new_data/cache", 
                 "--n_embd", "512",
-                "--n_layer", "8",
+                "--n_layer", "8", "12",
                 "--use_pos_embedding",
                 "--residual_dropout_p", "0.1",
                 "--project", "QPerf",
@@ -146,7 +147,9 @@
                 "--batch_size", "128", "--num_epochs", "12", "--use_amp", "--max_samples", "1024",
                 "--foot_to_end", 
                 "--optim_type", "sophia", "--optim.weight_decay", "0.1", 
-                "--save_val_samples", "True"
+                "--save_val_samples", "True",
+                "--qperf_model_type", "QPerfModel_double_net",
+                "--disable_LSUV"
                 // "--pre_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_pre.pth",
                 // "--backbone_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_backbone.pth",
                 // "--post_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_post.pth",

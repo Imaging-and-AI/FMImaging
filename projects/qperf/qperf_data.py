@@ -25,6 +25,35 @@ REPO_DIR = Path(__file__).parents[2].resolve()
 sys.path.append(str(REPO_DIR))
 
 # -------------------------------------------------------------------------------------------------
+def normalize_data(x, y, p):
+    # normalize data
+    x[:, 0] -= 2.0 # aif
+    x[:, 1] -= 0.5 # myo
+    y -= 0.5
+
+    # Fp, Vp, Visf, PS, delay
+    p[0] -= 1.25
+    p[1] -= 0.05
+    p[2] -= 0.15
+    p[3] -= 1.0
+    p[4] -= 2.0
+
+    return x, y, p
+
+def denormalize_data(x, y, p):
+
+    x[:, 0] += 2.0 # aif
+    x[:, 1] += 0.5 # myo
+    y += 0.5
+
+    # Fp, Vp, Visf, PS, delay
+    p[0] += 1.25
+    p[1] += 0.05
+    p[2] += 0.15
+    p[3] += 1.0
+    p[4] += 2.0
+
+    return x, y, p
 
 class QPerfDataSet(torch.utils.data.Dataset):
     """
@@ -269,6 +298,9 @@ class QPerfDataSet(torch.utils.data.Dataset):
             y = np.append(y, y[N-1] * np.ones(self.T-N), axis=0)
 
         p[8] = N
+
+        # normalize data
+        x, y, p = normalize_data(x, y, p)
 
         return x, y, p
 

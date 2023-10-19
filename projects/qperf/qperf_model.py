@@ -94,12 +94,15 @@ class QPerfModel(ModelManager):
         self.post = nn.ModuleDict()
         n_embd = self.n_embd
         self.post["layer_norm"] = nn.LayerNorm(n_embd)
-        self.post["output_proj1_myo"] = nn.Linear(n_embd, n_embd//2, bias=True)
-        self.post["output_proj2_myo"] = nn.Linear(n_embd//2, self.output_myo_D, bias=True)
+        self.post["output_proj1_myo"] = nn.Linear(n_embd, n_embd*2, bias=True)
+        self.post["output_proj2_myo"] = nn.Linear(n_embd*2, self.output_myo_D, bias=True)
 
-        self.post["output_proj1_params"] = nn.Linear(n_embd, n_embd//2, bias=True)
-        self.post["output_proj2_params"] = nn.Linear(self.T*n_embd//2, self.num_params, bias=True)
+        self.post["output_proj1_params"] = nn.Linear(n_embd, n_embd, bias=True)
+        self.post["output_proj2_params"] = nn.Linear(self.T*n_embd, self.num_params, bias=True)
 
+        # self.post["output_proj_myo"] = nn.Linear(n_embd, self.output_myo_D, bias=True)
+
+        # self.post["output_proj_params"] = nn.Linear(self.T*n_embd, self.num_params, bias=True)
 
     def forward(self, x):
         """Forward pass of detector
@@ -135,12 +138,191 @@ class QPerfModel(ModelManager):
         x = F.gelu(x, approximate='tanh')
 
         y_myo = self.post["output_proj1_myo"](x)
+        y_myo = F.gelu(y_myo, approximate='tanh')
         y_myo = self.post["output_proj2_myo"](y_myo)
+        #y_myo = F.relu(y_myo)
 
         y_params = self.post["output_proj1_params"](x)
+        y_params = F.gelu(y_params, approximate='tanh')
         y_params = torch.flatten(y_params, start_dim=1, end_dim=2)
         y_params = self.post["output_proj2_params"](y_params)
-        #y_params = F.relu(y_params) # parameter can only be positive
+        #y_params = F.relu(y_params)
+
+        # y_myo = self.post["output_proj_myo"](x)
+
+        # y_params = torch.flatten(x, start_dim=1, end_dim=2)
+        # y_params = self.post["output_proj_params"](y_params)
+
+        return y_myo, y_params
+
+# -------------------------------------------------------------------------------------------------
+
+class QPerfModel_double_net(ModelManager):
+    """
+        QPerf mapping model
+
+        Input: aif and myo Gd curves
+        Output: clean myo curves, Fp, Vp, Visf, PS, and delay
+
+        First part of network recons the Gd curves; the second part estimates parameters
+    """
+    def __init__(self, config, n_layer=[8, 8], input_D=2, output_myo_D=1, num_params=5, T=80, is_causal=False, use_pos_embedding=True, n_embd=1024, n_head=[32, 32], dropout_p=[0.1, 0.1], att_dropout_p=[0.0, 0.0], residual_dropout_p=[0.1, 0.1]):
+
+        self.n_layer = n_layer
+        self.input_D = input_D
+        self.output_myo_D = output_myo_D
+        self.num_params = num_params
+        self.T = T
+        self.is_causal = is_causal
+        self.use_pos_embedding = use_pos_embedding
+        self.n_embd = n_embd
+        self.n_head = n_head
+        self.dropout_p = dropout_p
+        self.att_dropout_p = att_dropout_p
+        self.residual_dropout_p = residual_dropout_p
+
+        super().__init__(config)
+
+        # a good trick to count how many parameters
+        logging.info("number of parameters: %d", sum(p.numel() for p in self.parameters()))
+
+    def _init_weights(self, module):
+        if isinstance(module, (nn.Linear)):
+            module.weight.data.normal_(mean=0.0, std=0.02)
+            if isinstance(module, nn.Linear) and module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, nn.LayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
+
+    def create_pre(self): 
+        self.pre = nn.ModuleDict()
+        self.pre["input_proj"] = nn.Linear(self.input_D, self.n_embd)
+        if self.use_pos_embedding:
+            self.pre["pos_emb"] = torch.nn.ParameterList([nn.Parameter(torch.zeros(1, self.T, self.n_embd))])
+        self.pre["drop"] = nn.Dropout(self.dropout_p[0])
+
+    def create_backbone(self, channel_first=True): 
+        self.backbone = nn.ModuleDict()
+
+        n_embd = self.n_embd
+
+        self.backbone["1st"] = nn.ModuleList()
+        for n in range(self.n_layer[0]):
+            t_cell = Cell(T=self.T, 
+                n_embd=self.n_embd, 
+                is_causal=self.is_causal, 
+                n_head=self.n_head[0], 
+                attn_dropout_p=self.att_dropout_p[0], 
+                residual_dropout_p=self.residual_dropout_p[0], 
+                activation_func=self.config.activation_func)
+
+            self.backbone["1st"].append(t_cell)
+
+        self.backbone["1st_layer_norm"] = nn.LayerNorm(n_embd)
+        self.backbone["1st_output_proj1_myo"] = nn.Linear(n_embd, n_embd*4, bias=True)
+        self.backbone["1st_output_proj2_myo"] = nn.Linear(n_embd*4, self.output_myo_D, bias=True)
+        #self.backbone["1st_output_proj_myo"] = nn.Linear(n_embd, self.output_myo_D, bias=True)
+
+        self.feature_channels = self.n_embd
+
+    def create_post(self): 
+        self.post = nn.ModuleDict()
+
+        n_embd = self.n_embd
+
+        self.post["input_proj_2nd"] = nn.Linear(self.input_D, self.n_embd)
+
+        self.post["2nd"] = nn.ModuleList()
+        for n in range(self.n_layer[1]):
+            t_cell = Cell(T=self.T, 
+                n_embd=self.n_embd, 
+                is_causal=self.is_causal, 
+                n_head=self.n_head[1], 
+                attn_dropout_p=self.att_dropout_p[1], 
+                residual_dropout_p=self.residual_dropout_p[1], 
+                activation_func=self.config.activation_func)
+
+            self.post["2nd"].append(t_cell)
+
+        self.post["output_proj1_params"] = nn.Linear(n_embd, n_embd*4, bias=True)
+        self.post["output_proj2_params"] = nn.Linear(self.T*n_embd*4, self.num_params, bias=True)
+        # self.post["output_proj_params"] = nn.Linear(self.T*n_embd, self.num_params, bias=True)
+
+    def forward_backbone(self, N, backbone, x_input):
+        # res_list = []
+        # for n in range(N):
+        #     if n == 0:
+        #         input_1st = x_input
+        #     else:
+        #         input_1st = torch.clone(res_list[0])
+        #         for k in range(1, n):
+        #             input_1st += res_list[k]
+
+        #     res = backbone[n](input_1st)
+        #     res_list.append(res)
+
+        for n in range(N):
+            if n == 0:
+                res = backbone[n](x_input)
+            else:
+                res = backbone[n](res)
+
+        return res
+
+    def forward(self, x):
+        """Forward pass of detector
+
+        Args:
+            x ([B, T, C]]): Input membrane waveform with B batches and T time points with C length
+
+            Due to the positional embedding is used, the input T is limited to less or equal to self.T
+
+        Returns:
+            logits_myo: [B, T, output_D]
+            logits_params: [B, 5]
+        """
+
+        B, T, C = x.size()
+        assert T <= self.T, "The positional embedding is used, so the maximal series length is %d" % self.T
+
+        # project input from C channels to n_embd channels
+        x_proj = self.pre["input_proj"](x)
+
+        if self.use_pos_embedding:
+            x_input = x_proj + self.pre["pos_emb"][0][:, :T, :]
+            x_input = self.pre["drop"](x_input)
+        else:
+            x_input = x_proj + position_encoding(seq_len=T, dim_model=C, device=self.device)
+            x_input = self.pre["drop"](x_input)
+
+        # go through all layers of attentions
+        res_1st = self.forward_backbone(self.n_layer[0], self.backbone["1st"], x_input)
+
+        # myo
+        y_myo = self.backbone["1st_output_proj1_myo"](res_1st)
+        y_myo = F.relu(y_myo)
+        y_myo = self.backbone["1st_output_proj2_myo"](y_myo)
+
+        #y_myo = self.backbone["1st_output_proj_myo"](res_1st)
+
+        # y_myo += torch.unsqueeze(x[:,:,1], dim=2)
+
+        # params
+        #p_inputs = torch.concatenate((torch.unsqueeze(x[:,:,0], dim=2), y_myo), dim=2)
+
+        #p_proj = self.post["input_proj_2nd"](p_inputs)
+        #res_2nd = self.forward_backbone(self.n_layer[1], self.post["2nd"], p_proj)
+
+        res_2nd = self.forward_backbone(self.n_layer[1], self.post["2nd"], res_1st)
+
+        y_params = self.post["output_proj1_params"](res_2nd)
+        y_params = F.relu(y_params)
+        y_params = torch.flatten(y_params, start_dim=1, end_dim=2)
+        y_params = self.post["output_proj2_params"](y_params)
+
+        #y_params = torch.flatten(res_2nd, start_dim=1, end_dim=2)
+        #y_params = self.post["output_proj_params"](y_params)
 
         return y_myo, y_params
 
@@ -152,13 +334,15 @@ if __name__ == '__main__':
     
     device = get_device()
     x = torch.rand([24, 80, 2], device=device, dtype=torch.float32)
-    
+
     config = parse_config_and_setup_run()
-    
+
+    # -------------------------------------------------
     m = QPerfModel(config, n_layer=16, input_D=2, output_myo_D=1, num_params=5, T=80, is_causal=False, use_pos_embedding=True, n_embd=512, n_head=32, dropout_p=0.1, att_dropout_p=0.0, residual_dropout_p=0.1)
-    
     m.to(device=device)
-    
     y_myo, y_params = m(x)
-    
-    
+
+    # -------------------------------------------------
+    m = QPerfModel_double_net(config, n_layer=[16, 12], input_D=2, output_myo_D=1, num_params=5, T=80, is_causal=False, use_pos_embedding=True, n_embd=512, n_head=[32, 32], dropout_p=[0.1, 0.1], att_dropout_p=[0.0, 0.0], residual_dropout_p=[0.1, 0.1])
+    m.to(device=device)
+    y_myo, y_params = m(x)

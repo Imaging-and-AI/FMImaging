@@ -49,7 +49,7 @@ from utils.status import get_device
 from qperf_parser import qperf_parser
 from qperf_data import QPerfDataSet
 from qperf_loss import qperf_loss
-from qperf_model import QPerfModel
+from qperf_model import QPerfModel, QPerfModel_double_net
 from qperf_metrics import QPerfMetricManager
 from qperf_trainer import QPerfTrainManager, get_rank_str
 
@@ -87,9 +87,9 @@ def main():
 
     # -----------------------------------------------
 
-    tra_dir = 'tra_small'
-    val_dir = 'val_small'
-    test_dir = 'test_small'
+    # tra_dir = 'tra_small'
+    # val_dir = 'val_small'
+    # test_dir = 'test_small'
 
     tra_dir = 'tra'
     val_dir = 'val'
@@ -98,7 +98,8 @@ def main():
     only_white_noise = True
 
     start = time()
-    train_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, tra_dir), 
+    data_folder=os.path.join(config.data_dir, tra_dir)
+    train_set = QPerfDataSet(data_folder=data_folder, 
                         max_load=-1, max_samples=config.max_samples,
                         T=config.qperf_T, 
                         foot_to_end=config.foot_to_end, 
@@ -109,9 +110,10 @@ def main():
                         add_noise=config.add_noise,
                         cache_folder=os.path.join(config.log_dir, tra_dir))
 
-    print(f"{Fore.RED}----> Info for the training set ...{Style.RESET_ALL}")
+    print(f"{Fore.RED}----> Info for the training set, {data_folder} ...{Style.RESET_ALL}")
     print(train_set)
 
+    data_folder=os.path.join(config.data_dir, val_dir)
     val_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, val_dir),
                         max_load=-1, max_samples=config.max_samples,
                         T=config.qperf_T, 
@@ -123,10 +125,11 @@ def main():
                         add_noise=config.add_noise,
                         cache_folder=os.path.join(config.log_dir, val_dir))
 
-    print(f"{Fore.RED}----> Info for the val set ...{Style.RESET_ALL}")
+    print(f"{Fore.RED}----> Info for the val set, {data_folder} ...{Style.RESET_ALL}")
     print(val_set)
 
-    test_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, test_dir),
+    data_folder=os.path.join(config.data_dir, test_dir)
+    test_set = QPerfDataSet(data_folder=data_folder,
                         max_load=-1, max_samples=config.max_samples,
                         T=config.qperf_T, 
                         foot_to_end=config.foot_to_end, 
@@ -137,7 +140,7 @@ def main():
                         add_noise=config.add_noise,
                         cache_folder=os.path.join(config.log_dir, test_dir))
 
-    print(f"{Fore.RED}----> Info for the test set ...{Style.RESET_ALL}")
+    print(f"{Fore.RED}----> Info for the test set, {data_folder} ...{Style.RESET_ALL}")
     print(test_set)
 
     print(f"load_mri_data took {time() - start} seconds ...")
@@ -166,19 +169,34 @@ def main():
 
     # -----------------------------------------------
 
-    model = QPerfModel(config=config_for_model, 
-                       n_layer=config_for_model.n_layer, 
-                       input_D=2, 
-                       output_myo_D=1, 
-                       num_params=5, 
-                       T=config.qperf_T, 
-                       is_causal=False, 
-                       use_pos_embedding=config_for_model.use_pos_embedding, 
-                       n_embd=config_for_model.n_embd, 
-                       n_head=config_for_model.n_head, 
-                       dropout_p=config.dropout_p, 
-                       att_dropout_p=config.att_dropout_p, 
-                       residual_dropout_p=config.residual_dropout_p)
+    if config.qperf_model_type == "QPerfModel":
+        model = QPerfModel(config=config_for_model, 
+                        n_layer=config_for_model.n_layer[0], 
+                        input_D=2, 
+                        output_myo_D=1, 
+                        num_params=5, 
+                        T=config.qperf_T, 
+                        is_causal=False, 
+                        use_pos_embedding=config_for_model.use_pos_embedding, 
+                        n_embd=config_for_model.n_embd, 
+                        n_head=config_for_model.n_head, 
+                        dropout_p=config.dropout_p, 
+                        att_dropout_p=config.att_dropout_p, 
+                        residual_dropout_p=config.residual_dropout_p)
+    else:
+        model = QPerfModel_double_net(config=config_for_model, 
+                        n_layer=config_for_model.n_layer, 
+                        input_D=2, 
+                        output_myo_D=1, 
+                        num_params=5, 
+                        T=config.qperf_T, 
+                        is_causal=False, 
+                        use_pos_embedding=config_for_model.use_pos_embedding, 
+                        n_embd=config_for_model.n_embd, 
+                        n_head=[config_for_model.n_head, config_for_model.n_head], 
+                        dropout_p=[config.dropout_p, config.dropout_p], 
+                        att_dropout_p=[config.att_dropout_p, config.att_dropout_p], 
+                        residual_dropout_p=[config.residual_dropout_p, config.residual_dropout_p])
 
     # -----------------------------------------------
 
