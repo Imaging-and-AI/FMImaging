@@ -636,6 +636,14 @@ class QPerfTrainManager(TrainManager):
                                                 split)
 
                     pbar.set_description(log_str)
+
+                    # ----------------------------------------------------------------------
+
+                    if idx % 100 == 0:
+                        del x, y, p, loss, output, loader_outputs, y_hat, p_estimated
+                        gc.collect()
+                        torch.cuda.empty_cache()
+
                 # -----------------------------------------------------------------------------------------------------------
 
                 # Update evaluation metrics 
