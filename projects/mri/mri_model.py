@@ -707,7 +707,11 @@ class MRI_double_net(STCNNT_MRI):
         else:
             res = self.post['post_main'](y_hat)
 
-        logits = self.post["output_conv"](res) + logits_1st
+        B, T, C, H, W = y_hat.shape
+        if self.residual:
+            res[:,:, :C, :, :] = res[:,:, :C, :, :] + y_hat
+
+        logits = self.post["output_conv"](res)
 
         logits = self.permute(logits)
         logits_1st = self.permute(logits_1st)

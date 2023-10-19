@@ -383,9 +383,6 @@ class QPerfTrainManager(TrainManager):
 
                         # -------------------------------------------------------
 
-                        if idx % 100 == 0:
-                            gc.collect()
-
                         pbar.update(1)
                         log_str = self.create_log_str(config, epoch, rank, 
                                          None, 
@@ -397,8 +394,10 @@ class QPerfTrainManager(TrainManager):
 
                         end_timer(enable=c.with_timer, t=tm, msg="---> epoch step logging and measuring took ")
 
-                        del x, y, p, loss, model_output, loader_outputs, y_hat, p_estimated
-                        #torch.cuda.empty_cache()
+                        if idx % 100 == 0:
+                            del x, y, p, loss, model_output, loader_outputs, y_hat, p_estimated
+                            gc.collect()
+                            torch.cuda.empty_cache()
                     # ------------------------------------------------------------------------------------------------------
 
                     # Run metric logging for each epoch 
@@ -594,6 +593,7 @@ class QPerfTrainManager(TrainManager):
                         title = f"{id.upper()}_{samples_logged}_{x.shape}"
 
                         N = x.shape[0]
+                        y_hat, p_estimated = output
 
                         x = x.to(dtype=torch.float32).detach().cpu().numpy()
                         y = y.to(dtype=torch.float32).detach().cpu().numpy()
@@ -608,7 +608,6 @@ class QPerfTrainManager(TrainManager):
                         PS = p[idx, 3]
                         Delay = p[idx, 4]
 
-                        y_hat, p_estimated = output
                         Fp_est = p_estimated[idx, 0]
                         Vp_est = p_estimated[idx, 1]
                         Visf_est = p_estimated[idx, 2]
