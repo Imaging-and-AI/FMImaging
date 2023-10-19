@@ -153,14 +153,11 @@ class QPerfTrainManager(TrainManager):
                 print(f"{rank_str}, prepared data {input_data.shape}, LSUV prep data took {time()-t0 : .2f} seconds ...")
 
                 t0 = time()
-                LSUVinit(self.model_manager, input_data.to(device=device, dtype=torch.float32), verbose=True, cuda=True)
+                LSUVinit(model_manager, input_data.to(device=device, dtype=torch.float32), verbose=True, cuda=True)
                 print(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
 
         # -----------------------------------------------
         if c.ddp:
-            # dist.barrier()
-            # device = torch.device(f"cuda:{rank}")
-            # model_manager = self.model_manager.to(device)
             model_manager = DDP(model_manager, device_ids=[rank], find_unused_parameters=True)
             if isinstance(self.train_sets,list): 
                 samplers = [DistributedSampler(train_set, shuffle=True) for train_set in self.train_sets]
@@ -168,8 +165,6 @@ class QPerfTrainManager(TrainManager):
                 samplers = DistributedSampler(self.train_sets, shuffle=True)
             shuffle = False
         else:
-            # device = c.device
-            # model_manager = self.model_manager.to(device)
             if isinstance(self.train_sets,list): 
                 samplers = [None] * len(self.train_sets)
             else: 
@@ -335,7 +330,7 @@ class QPerfTrainManager(TrainManager):
                         B, T, D = x.shape
 
                         with torch.autocast(device_type='cuda', dtype=dtype, enabled=c.use_amp):
-                            model_output = self.model_manager(x.to(dtype=dtype))
+                            model_output = model_manager(x.to(dtype=dtype))
                             y_hat, p_estimated = model_output
 
                             if torch.isnan(torch.sum(y_hat)):
@@ -362,7 +357,7 @@ class QPerfTrainManager(TrainManager):
                         if (idx + 1) % c.iters_to_accumulate == 0 or (idx + 1 == total_iters):
                             if(c.clip_grad_norm>0):
                                 scaler.unscale_(optim)
-                                nn.utils.clip_grad_norm_(self.model_manager.parameters(), c.clip_grad_norm)
+                                nn.utils.clip_grad_norm_(model_manager.parameters(), c.clip_grad_norm)
 
                             scaler.step(optim)
                             optim.zero_grad(set_to_none=True)
@@ -435,7 +430,7 @@ class QPerfTrainManager(TrainManager):
 
             # ----------------------------------------------------------------------------
 
-            self.model_manager.save(os.path.join(self.config.log_dir, self.config.run_name, 'last_checkpoint'), epoch, optim, sched)
+            model_manager.save(os.path.join(self.config.log_dir, self.config.run_name, 'last_checkpoint'), epoch, optim, sched)
             if wandb_run is not None:
                 wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_pre.pth'))
                 wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_backbone.pth'))
@@ -444,9 +439,9 @@ class QPerfTrainManager(TrainManager):
             # Load the best model from training
             if self.config.eval_train_set or self.config.eval_val_set or self.config.eval_test_set:
                 logging.info(f"{Fore.CYAN}Loading the best models from training for final evaluation...{Style.RESET_ALL}")
-                if self.metric_manager.best_pre_model_file is not None: self.model_manager.load_pre(self.metric_manager.best_pre_model_file)
-                if self.metric_manager.best_backbone_model_file is not None: self.model_manager.load_backbone(self.metric_manager.best_backbone_model_file)
-                if self.metric_manager.best_post_model_file is not None: self.model_manager.load_post(self.metric_manager.best_post_model_file)
+                if self.metric_manager.best_pre_model_file is not None: model_manager.load_pre(self.metric_manager.best_pre_model_file)
+                if self.metric_manager.best_backbone_model_file is not None: model_manager.load_backbone(self.metric_manager.best_backbone_model_file)
+                if self.metric_manager.best_post_model_file is not None: model_manager.load_post(self.metric_manager.best_post_model_file)
 
                 if wandb_run is not None:
                     if self.metric_manager.best_pre_model_file is not None: wandb_run.save(self.metric_manager.best_pre_model_file)
@@ -475,7 +470,7 @@ class QPerfTrainManager(TrainManager):
 
         # -----------------------------------------------
 
-        save_path, save_file_name, config_yaml_file = self.model_manager.save_entire_model(epoch=self.config.num_epochs)
+        save_path, save_file_name, config_yaml_file = model_manager.save_entire_model(epoch=self.config.num_epochs)
         model_full_path = os.path.join(save_path, save_file_name)
         logging.info(f"{Fore.YELLOW}Entire model is saved at {model_full_path} ...{Style.RESET_ALL}")
 
@@ -509,8 +504,8 @@ class QPerfTrainManager(TrainManager):
         loss_f = self.loss_f
 
         if c.ddp:
-            if isinstance(data_sets, list): samplers = [DistributedSampler(data_set) for data_set in data_sets]
-            else: samplers = DistributedSampler(data_sets)
+            if isinstance(data_sets, list): samplers = [DistributedSampler(data_set, shuffle=True) for data_set in data_sets]
+            else: samplers = DistributedSampler(data_sets, shuffle=True)
         else:
             if isinstance(data_sets, list): samplers = [None] * len(data_sets)
             else: samplers = None
@@ -520,14 +515,16 @@ class QPerfTrainManager(TrainManager):
         batch_size = c.batch_size
         num_workers_per_loader = c.num_workers // (2 * len(data_sets))
 
+        print(f"{Fore.YELLOW}--> num_workers_per_loader for eval i {num_workers_per_loader} ... {Style.RESET_ALL}")
+
         if isinstance(data_sets, list):
             data_loaders = [DataLoader(dataset=data_set, batch_size=batch_size, shuffle=False, sampler=samplers[ind],
                                     num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor, drop_last=True,
-                                    persistent_workers=c.num_workers>0) for ind, data_set in enumerate(data_sets)]
+                                    persistent_workers=False, pin_memory=False) for ind, data_set in enumerate(data_sets)]
         else:
             data_loaders = [DataLoader(dataset=data_sets, batch_size=batch_size, shuffle=False, sampler=samplers,
                                     num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor, drop_last=True,
-                                    persistent_workers=c.num_workers>0) ]
+                                    persistent_workers=False, pin_memory=False) ]
 
         # ------------------------------------------------------------------------
         self.metric_manager.on_eval_epoch_start()
@@ -565,26 +562,28 @@ class QPerfTrainManager(TrainManager):
                         loader_outputs = next(data_loader_iters[loader_ind], None)
                     x, y, p = loader_outputs
 
+                    # del x, y, p, loader_outputs
+                    # gc.collect()
+                    # torch.cuda.empty_cache()
+                    # pbar.update(1)
+                    # continue
+
                     # ----------------------------------------------------------------------
 
                     B = x.shape[0]
 
-                    x = x.to(device)
-                    y = y.to(device)
-                    p = p.to(device)
-
-                    x = x.to(dtype=dtype)
-                    y = y.to(dtype=dtype)
-                    p = p.to(dtype=dtype)
+                    x = x.to(device=device, dtype=dtype)
+                    y = y.to(device=device, dtype=dtype)
+                    p = p.to(device=device, dtype=dtype)
 
                     # ----------------------------------------------------------------------
 
                     with torch.autocast(device_type='cuda', dtype=dtype, enabled=c.use_amp):
-                        output = self.model_manager(x)
+                        output = model_manager(x)
                         loss = loss_f(output, (y, p))
 
                     # Update evaluation metrics
-                    self.metric_manager.on_eval_step_end(loss.item(), output, loader_outputs, f"epoch_{epoch}_{idx}", rank, save_samples, split)
+                    self.metric_manager.on_eval_step_end(loss.detach().item(), output, (x, y, p), f"epoch_{epoch}_{idx}", rank, save_samples, split)
 
                     # ----------------------------------------------------------------------
                     # if required, upload samples
@@ -640,13 +639,14 @@ class QPerfTrainManager(TrainManager):
                     # ----------------------------------------------------------------------
 
                     if idx % 100 == 0:
-                        del x, y, p, loss, output, loader_outputs, y_hat, p_estimated
+                        del x, y, p, loss, output, loader_outputs
                         gc.collect()
                         torch.cuda.empty_cache()
 
                 # -----------------------------------------------------------------------------------------------------------
 
                 # Update evaluation metrics 
+                print(f"--> self.metric_manager.on_eval_epoch_end ... ")
                 self.metric_manager.on_eval_epoch_end(rank, epoch, model_manager, optim, sched, split, final_eval)
 
                 # Print evaluation metrics to terminal
