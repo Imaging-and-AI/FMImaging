@@ -65,12 +65,6 @@ class STCNNT_MRI(ModelManager):
 
         print(f"{Fore.BLUE}{Back.WHITE}===> MRI - done <==={Style.RESET_ALL}")
 
-    def backbone_requires_channel_first(self): 
-        """
-        Whether backbone requires channel_first
-        """
-        return False
-
     def create_pre(self):
 
         config = self.config
@@ -131,14 +125,16 @@ class STCNNT_MRI(ModelManager):
         # now, x is [B, T, C, H, W]
 
         res_pre = self.pre["in_conv"](x)
-
         B, T, C, H, W = res_pre.shape
 
+        res_pre = self.permute(res_pre)
         if self.config.backbone_model=="STCNNT_HRNET":
             y_hat, _ = self.backbone(res_pre)
         else:
             y_hat = self.backbone(res_pre)
 
+        y_hat = self.permute(y_hat)
+        
         if self.residual:
             y_hat[:, :, :C, :, :] = res_pre + y_hat[:, :, :C, :, :]
 
@@ -173,9 +169,7 @@ class omnivore_MRI(STCNNT_MRI):
     def __init__(self, config):
         super().__init__(config)
 
-    def create_backbone(self, channel_first=True):
-
-        self.config.channel_first = channel_first
+    def create_backbone(self):
 
         self.backbone = nn.ModuleDict()
 
@@ -226,19 +220,18 @@ class omnivore_MRI(STCNNT_MRI):
 
         # now, x is [B, T, C, H, W]
         res_pre = self.pre["in_conv"](x)
-
         B, T, C, H, W = res_pre.shape
+        
+        res_pre = self.permute(res_pre)
         res_backbone = self.backbone["omnivore"](res_pre)
-        res_backbone_p = [torch.permute(x, [0,2,1,3,4]) for x in res_backbone]
-        y_hat = self.backbone["mixer"](res_backbone_p, output_size=(T, H, W))
+        y_hat = self.backbone["mixer"](res_backbone, output_size=(T, H, W))
+        y_hat = self.permute(y_hat)
 
         # y_hat = self.backbone["upsample_3d"](res_backbone_mixed[0])
 
         # #y_hat = self.backbone["upsample_3d"](res_backbone[0])
         # y_hat = self.backbone["o_nl"](y_hat)
         # y_hat = self.backbone["upsample_2d"](y_hat)
-
-        y_hat = torch.permute(y_hat, [0,2,1,3,4])
 
         if self.residual:
             y_hat[:, :, :C, :, :] = res_pre + y_hat[:, :, :C, :, :]
@@ -487,8 +480,10 @@ class MRI_hrnet(STCNNT_MRI):
 
         res_pre = self.pre["in_conv"](x)
 
+        res_pre = self.permute(res_pre)
         res_backbone = self.backbone(res_pre)
-
+        res_backbone = self.permute(res_backbone)
+        
         if self.residual:
             res_backbone[1][0] = res_pre + res_backbone[1][0]
 
@@ -684,13 +679,14 @@ class MRI_double_net(STCNNT_MRI):
         x = self.permute(x)
 
         res_pre = self.pre["in_conv"](x)
-
         B, T, C, H, W = res_pre.shape
 
+        res_pre = self.permute(res_pre)
         if self.config.backbone == 'STCNNT_HRNET':
             y_hat, _ = self.backbone(res_pre)
         else:
             y_hat = self.backbone(res_pre)[0]
+        y_hat = self.permute(y_hat)
 
         if self.residual:
             y_hat[:, :, :C, :, :] = res_pre + y_hat[:, :, :C, :, :]
@@ -701,11 +697,13 @@ class MRI_double_net(STCNNT_MRI):
             y_hat = self.post["o_upsample"](y_hat)
             y_hat = self.post["o_nl"](y_hat)
             y_hat = self.post["o_conv"](y_hat) # channel_first is False
-            
+
+        y_hat = self.permute(y_hat)
         if self.config.post_backbone == 'STCNNT_HRNET':
             res, _ = self.post['post_main'](y_hat)
         else:
             res = self.post['post_main'](y_hat)
+        res = self.permute(res)
 
         B, T, C, H, W = y_hat.shape
         if self.residual:

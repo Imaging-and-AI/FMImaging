@@ -455,7 +455,7 @@ class MRITrainManager(TrainManager):
                 # ------------------------------------------------------------------------------------------------------
 
                 if epoch % c.eval_frequency==0 or epoch==c.num_epochs:
-                    self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="", split="val", final_eval=False, scaling_factor=1)
+                    self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="val_in_training", split="val", final_eval=False, scaling_factor=1)
 
                 if c.scheduler_type != "OneCycleLR":
                     if c.scheduler_type == "ReduceLROnPlateau":

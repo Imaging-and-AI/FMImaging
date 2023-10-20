@@ -50,12 +50,7 @@ class omnivore_base_class(STCNNT_Base_Runtime, ABC):
         pass
 
     def forward(self, x):
-        if self.config.channel_first:
-            res = self.model(x)
-        else:
-            x = self.permute(x)
-            res = self.model(x)
-            res = [self.permute(a) for a in res]
+        res = self.model(x)
         return res
 
 #-------------------------------------------------------------------------------------

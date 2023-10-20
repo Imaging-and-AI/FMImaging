@@ -33,7 +33,6 @@ from imaging_attention import *
 from blocks import *
 from model_utils import create_generic_class_str
 
-
 __all__ = ['STCNNT_Base_Runtime', 'set_window_patch_sizes_keep_num_window', 'set_window_patch_sizes_keep_window_size', 'DownSample', 'UpSample', 'identity_model']
 
 # -------------------------------------------------------------------------------------------------
@@ -527,10 +526,7 @@ class STCNNT_Base_Runtime(nn.Module):
         self.config = config
 
     def permute(self, x):
-        if self.config.channel_first:
             return torch.permute(x, (0,2,1,3,4))
-        else:
-            return x
 
     @property
     def device(self):

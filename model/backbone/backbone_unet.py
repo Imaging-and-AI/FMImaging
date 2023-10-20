@@ -581,7 +581,6 @@ def tests():
     test_in = torch.rand(B,C,T,H,W, dtype=torch.float32, device=device)
 
     config = parse_config()
-    config.channel_first = True
     config.no_in_channel = C
     config.C_out = C
     config.height = H

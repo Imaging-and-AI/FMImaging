@@ -40,14 +40,8 @@ class ModelManager(nn.Module):
 
         # Create models
         self.create_pre()
-        self.create_backbone(channel_first=self.backbone_requires_channel_first())
+        self.create_backbone()
         self.create_post()
-
-    def backbone_requires_channel_first(self): 
-        """
-        Whether backbone requires channel_first
-        """
-        return True
 
     @property
     def device(self):
@@ -128,7 +122,7 @@ class ModelManager(nn.Module):
         for param in self.pre.parameters():
             param.requires_grad = False
 
-    def create_backbone(self, channel_first = True): 
+    def create_backbone(self): 
         """
         Sets up the backbone model architecture
         Rules these models should abide by: 
@@ -141,8 +135,6 @@ class ModelManager(nn.Module):
             - self.backbone: trunk of the model
             - self.feature_channels: list of ints specifying number of channels returned from the backbone
         """
-
-        self.config.channel_first = channel_first
 
         if self.config.backbone_model=='Identity':
             self.backbone, self.feature_channels = identity_model(self.config, self.pre_feature_channels)
