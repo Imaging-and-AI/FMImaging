@@ -328,6 +328,135 @@ class QPerfModel_double_net(ModelManager):
 
 # -------------------------------------------------------------------------------------------------
 
+class QPerfBTEXModel(ModelManager):
+    """
+        QPerf mapping model
+
+        Input: aif and parameters
+        Output: clean myo curves
+
+        The architecture is quite straight-forward :
+
+        aif -> input_proj --> + --> drop_out --> attention layers one after another --> LayerNorm --> output_proj_myo --> logits
+                            |                  |                                                 |--> output_proj_params --> logits
+        pos_embedding-------|                  | 
+                                               |
+        params -> input_proj --> norm --> nl --|
+    """
+    def __init__(self, config, n_layer=8, 
+                            input_D=1, 
+                            output_myo_D=1, 
+                            num_params=5, 
+                            T=80, 
+                            is_causal=False, 
+                            use_pos_embedding=True, 
+                            n_embd=1024, 
+                            n_head=32, 
+                            dropout_p=0.1, 
+                            att_dropout_p=0.0, 
+                            residual_dropout_p=0.1):
+
+        self.n_layer = n_layer
+        self.input_D = input_D
+        self.output_myo_D = output_myo_D
+        self.num_params = num_params
+        self.T = T
+        self.is_causal = is_causal
+        self.use_pos_embedding = use_pos_embedding
+        self.n_embd = n_embd
+        self.n_head = n_head
+        self.dropout_p = dropout_p
+        self.att_dropout_p = att_dropout_p
+        self.residual_dropout_p = residual_dropout_p
+
+        super().__init__(config)
+
+        # a good trick to count how many parameters
+        logging.info("number of parameters: %d", sum(p.numel() for p in self.parameters()))
+
+    def _init_weights(self, module):
+        if isinstance(module, (nn.Linear)):
+            module.weight.data.normal_(mean=0.0, std=0.02)
+            if isinstance(module, nn.Linear) and module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, nn.LayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
+
+    def create_pre(self): 
+        self.pre = nn.ModuleDict()
+        self.pre["input_proj"] = nn.Linear(self.input_D, self.n_embd)
+        if self.use_pos_embedding:
+            self.pre["pos_emb"] = torch.nn.ParameterList([nn.Parameter(torch.zeros(1, self.T, self.n_embd))])
+        self.pre["drop"] = nn.Dropout(self.dropout_p)
+        self.pre["nl"] = create_activation_func(name=self.config.activation_func)
+
+        self.pre["input_proj_params"] = nn.Linear(self.num_params, self.T*self.n_embd)
+
+        self.pre["nl_params"] = create_activation_func(name=self.config.activation_func)
+
+    def create_backbone(self, channel_first=True): 
+        self.backbone = nn.Sequential(*[Cell(T=self.T, n_embd=2*self.n_embd, is_causal=self.is_causal, n_head=self.n_head, attn_dropout_p=self.att_dropout_p, residual_dropout_p=self.residual_dropout_p, activation_func=self.config.activation_func) for _ in range(self.n_layer)])
+        self.feature_channels = 2*self.n_embd
+
+    def create_post(self): 
+        self.post = nn.ModuleDict()
+        n_embd = 2*self.n_embd
+        self.post["layer_norm"] = nn.LayerNorm(n_embd)
+        self.post["output_proj1_myo"] = nn.Linear(n_embd, n_embd*2, bias=True)
+        self.post["output_proj2_myo"] = nn.Linear(n_embd*2, self.output_myo_D, bias=True)
+
+        self.post["nl1"] = create_activation_func(name=self.config.activation_func)
+        self.post["nl2"] = create_activation_func(name=self.config.activation_func)
+
+    def forward(self, input):
+        """Forward pass of detector
+
+        Args:
+            x ([B, T, C]]): Input membrane waveform with B batches and T time points with C length
+            p ([B, num_params]): parameters
+
+        Returns:
+            logits_myo: [B, T, output_D]
+        """
+
+        x, p = input
+
+        B, T, C = x.size()
+        assert T <= self.T, "The positional embedding is used, so the maximal series length is %d" % self.T
+
+        # project input from C channels to n_embd channels
+        x_proj = self.pre["input_proj"](x)
+        x_proj = self.pre["nl"](x_proj)
+
+        if self.use_pos_embedding:
+            x_p = x_proj + self.pre["pos_emb"][0][:, :T, :]
+            x_p = self.pre["drop"](x_p)
+        else:
+            x_p = x_proj + position_encoding(seq_len=T, dim_model=C, device=self.device)
+            x_p = self.pre["drop"](x_p)
+
+        p_proj = self.pre["input_proj_params"](p)
+        p_proj = self.pre["nl_params"](p_proj)
+        p_proj = torch.reshape(p_proj, [B, T, self.n_embd])
+
+        input_backbone = torch.concatenate((x_p, p_proj), dim=2)
+
+        # go through all layers of attentions
+        output_backbone = self.backbone(input_backbone)
+
+        # project outputs to output_size channel
+        y_myo = self.post["layer_norm"](output_backbone)
+        y_myo = self.post["nl1"](y_myo) 
+
+        y_myo = self.post["output_proj1_myo"](y_myo)
+        y_myo = self.post["nl2"](y_myo) 
+        y_myo = self.post["output_proj2_myo"](y_myo)
+
+        return y_myo
+
+# -------------------------------------------------------------------------------------------------
+
 if __name__ == '__main__':
     
     from setup import parse_config_and_setup_run, config_to_yaml
@@ -337,12 +466,20 @@ if __name__ == '__main__':
 
     config = parse_config_and_setup_run()
 
-    # -------------------------------------------------
-    m = QPerfModel(config, n_layer=16, input_D=2, output_myo_D=1, num_params=5, T=80, is_causal=False, use_pos_embedding=True, n_embd=512, n_head=32, dropout_p=0.1, att_dropout_p=0.0, residual_dropout_p=0.1)
-    m.to(device=device)
-    y_myo, y_params = m(x)
+    # # -------------------------------------------------
+    # m = QPerfModel(config, n_layer=16, input_D=2, output_myo_D=1, num_params=5, T=80, is_causal=False, use_pos_embedding=True, n_embd=512, n_head=32, dropout_p=0.1, att_dropout_p=0.0, residual_dropout_p=0.1)
+    # m.to(device=device)
+    # y_myo, y_params = m(x)
+
+    # # -------------------------------------------------
+    # m = QPerfModel_double_net(config, n_layer=[16, 12], input_D=2, output_myo_D=1, num_params=5, T=80, is_causal=False, use_pos_embedding=True, n_embd=512, n_head=[32, 32], dropout_p=[0.1, 0.1], att_dropout_p=[0.0, 0.0], residual_dropout_p=[0.1, 0.1])
+    # m.to(device=device)
+    # y_myo, y_params = m(x)
 
     # -------------------------------------------------
-    m = QPerfModel_double_net(config, n_layer=[16, 12], input_D=2, output_myo_D=1, num_params=5, T=80, is_causal=False, use_pos_embedding=True, n_embd=512, n_head=[32, 32], dropout_p=[0.1, 0.1], att_dropout_p=[0.0, 0.0], residual_dropout_p=[0.1, 0.1])
+    m = QPerfBTEXModel(config, n_layer=16, input_D=1, output_myo_D=1, num_params=5, T=80, is_causal=False, use_pos_embedding=True, n_embd=512, n_head=32, dropout_p=0.1, att_dropout_p=0.0, residual_dropout_p=0.1)
     m.to(device=device)
-    y_myo, y_params = m(x)
+    x = torch.rand([24, 80, 1], device=device, dtype=torch.float32)
+    p = torch.rand([24, 5], device=device, dtype=torch.float32)
+    y_myo = m((x, p))
+    print(f"y_myo is {y_myo.shape}")

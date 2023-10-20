@@ -183,4 +183,56 @@ class qperf_loss:
             combined_loss += self.config.loss_weights_params[n] * (v1)
 
         return combined_loss
+
+# --------------------------------------------------------
+
+class qperf_btex_loss:
+
+    def __init__(self, config):
+
+        self.config = config
+
+        losses = [self.str_to_loss(loss) for loss in config.losses]
+        self.losses = list(zip(losses, config.loss_weights))
+
+    def str_to_loss(self, loss_name):
+
+        if loss_name=="mse":
+            loss_f = qperf_mse(self.config)
+        elif loss_name=="max_ae":
+            loss_f = qperf_max_absolute_error(self.config)
+        elif loss_name=="l1":
+            loss_f = qperf_l1(self.config)
+        elif loss_name=="gauss":
+            loss_f = qperf_gaussian(self.config)
+        else:
+            raise NotImplementedError(f"Loss type not implemented: {loss_name}")
+
+        return loss_f
+
+    def __call__(self, outputs, targets):
+
+        y_hat = outputs
+        y, params = targets
+
+        valid_N = params[:, -1]
+
+        B, T = y.shape
+
+        y_hat = y_hat.to(dtype=y.dtype).squeeze()
+
+        mask = torch.ones((B, T), dtype=y.dtype).to(device=y.device)
+        for b in range(B):
+            mask[b, int(valid_N[b]):T] = 0
+
+        N = torch.sum(valid_N)
+
+        combined_loss = 0
+        for loss_f, weight in self.losses:
+            v = weight*loss_f(y, y_hat, mask, N)
+            if not torch.isnan(v):
+                combined_loss += v
+
+        return combined_loss
+
 # --------------------------------------------------------

@@ -93,9 +93,105 @@ def qpref_model_info(model, config):
 
 # -------------------------------------------------------------------------------------------------
 
+def qpref_btex_model_info(model, config):
+    c = config
+
+    # x = torch.rand([c.batch_size, c.qperf_T, 1], dtype=torch.float32)
+    # p = torch.rand([c.batch_size, 5], dtype=torch.float32)
+
+    # input_data = (x, p)
+
+    # col_names=("num_params", "params_percent", "mult_adds", "input_size", "output_size", "trainable")
+    # row_settings=["var_names", "depth"]
+    # dtypes=[torch.float32]
+
+    # model_summary = summary(model, verbose=0, mode="train", depth=c.summary_depth,\
+    #                         input_size=None, input_data=input_data, col_names=col_names,\
+    #                         row_settings=row_settings, dtypes=dtypes,\
+    #                         device=config.device)
+
+    c.trainable_params = -1
+    c.total_params = -1
+    c.total_mult_adds = -1
+
+    torch.cuda.empty_cache()
+
+    return None
+
+# -------------------------------------------------------------------------------------------------
+
 class QPerfTrainManager(TrainManager):
     def __init__(self, config, train_sets, val_sets, test_sets, loss_f, model_manager, optim_manager, metric_manager):  
         super().__init__(config, train_sets, val_sets, test_sets, loss_f, model_manager, optim_manager, metric_manager)
+
+    # -------------------------------------------------------------------------------------------------
+
+    def compute_loss(self, x, y, p, loss_f, c, dtype, model_manager):
+        tm = start_timer(enable=c.with_timer)
+
+        B, T, D = x.shape
+
+        with torch.autocast(device_type='cuda', dtype=dtype, enabled=c.use_amp):
+            model_output = model_manager(x.to(dtype=dtype))
+            y_hat, p_estimated = model_output
+
+            loss = loss_f(model_output, (y, p))
+
+            loss = loss / c.iters_to_accumulate
+
+        end_timer(enable=c.with_timer, t=tm, msg="---> forward pass took ")
+
+        return loss, model_output
+
+    def compute_loss_eval(self, x, y, p, loss_f, c, dtype, model_manager):
+
+        with torch.autocast(device_type='cuda', dtype=dtype, enabled=c.use_amp):
+            output = model_manager(x)
+            loss = loss_f(output, (y, p))
+
+        return loss, output
+
+    def save_sample_eval(self, x, y, p, output, title):
+
+        N = x.shape[0]
+        y_hat, p_estimated = output
+
+        x = x.to(dtype=torch.float32).detach().cpu().numpy()
+        y = y.to(dtype=torch.float32).detach().cpu().numpy()
+        y_hat = y_hat.to(dtype=torch.float32).detach().cpu().numpy()
+
+        denormalize_data(x, y, p)
+        denormalize_data(x, y_hat, p_estimated)
+
+        case_picked = np.random.randint(0, N, 1)[0]
+
+        Fp = p[case_picked, 0]
+        Vp = p[case_picked, 1]
+        Visf = p[case_picked, 2]
+        PS = p[case_picked, 3]
+        Delay = p[case_picked, 4]
+
+        Fp_est = p_estimated[case_picked, 0]
+        Vp_est = p_estimated[case_picked, 1]
+        Visf_est = p_estimated[case_picked, 2]
+        PS_est = p_estimated[case_picked, 3]
+        Delay_est = p_estimated[case_picked, 4]
+
+        wandb.log({title : wandb.plot.line_series(
+                    xs=list(np.arange(N)),
+                    #ys=[list(x[idx,:,0]), list(x[idx,:,1]), list(y[idx,:].flatten()), list(y_hat[idx,:].flatten())],
+                    #keys=["aif", "myo", "myo_clean", "myo_model"],
+                    # ys=[list(x[idx,:,1]), list(y[idx,:].flatten()), list(y_hat[idx,:].flatten())],
+                    # keys=["myo", "myo_clean", "myo_model"],
+                    ys=[list(y[case_picked,:].flatten()), list(y_hat[case_picked,:].flatten())],
+                    keys=["myo_clean", "myo_model"],
+                    title=f"{id}, Fp={Fp:.2f}, Vp={Vp:.2f}, Visf={Visf:.2f}, PS={PS:.2f}, Delay={Delay} - Fp={Fp_est:.2f}, Vp={Vp_est:.2f}, Visf={Visf_est:.2f}, PS={PS_est:.2f}, Delay={Delay_est}",
+                    xname="T")})
+
+
+    def init_model(self, c):
+        model_summary = qpref_model_info(self.model_manager, c)
+        return model_summary
 
     # -------------------------------------------------------------------------------------------------
 
@@ -124,10 +220,14 @@ class QPerfTrainManager(TrainManager):
 
         # -----------------------------------------------
         if rank<=0:
-            model_summary = qpref_model_info(self.model_manager, c)
+            model_summary = self.init_model(c)
+
             logging.info(f"Configuration for this run:\n{c}") # Commenting out, prints a lot of info
-            logging.info(f"Model Summary:\n{str(model_summary)}") # Commenting out, prints a lot of info
             logging.info(f"Wandb name:\n{wandb_run.name}")
+
+            if model_summary:
+                logging.info(f"Model Summary:\n{str(model_summary)}") # Commenting out, prints a lot of info
+
             # try:
             #     wandb_run.watch(self.model_manager)
             # except:
@@ -325,22 +425,8 @@ class QPerfTrainManager(TrainManager):
                         # continue
 
                         # -------------------------------------------------------
-                        tm = start_timer(enable=c.with_timer)
 
-                        B, T, D = x.shape
-
-                        with torch.autocast(device_type='cuda', dtype=dtype, enabled=c.use_amp):
-                            model_output = model_manager(x.to(dtype=dtype))
-                            y_hat, p_estimated = model_output
-
-                            if torch.isnan(torch.sum(y_hat)):
-                                continue
-
-                            loss = loss_f(model_output, (y, p))
-
-                            loss = loss / c.iters_to_accumulate
-
-                        end_timer(enable=c.with_timer, t=tm, msg="---> forward pass took ")
+                        loss, model_output = self.compute_loss(x, y, p, loss_f, c, dtype, model_manager)
 
                         # -------------------------------------------------------
                         if torch.isnan(loss):
@@ -390,7 +476,7 @@ class QPerfTrainManager(TrainManager):
                         end_timer(enable=c.with_timer, t=tm, msg="---> epoch step logging and measuring took ")
 
                         if idx % 100 == 0:
-                            del x, y, p, loss, model_output, loader_outputs, y_hat, p_estimated
+                            del x, y, p, loss, model_output, loader_outputs
                             gc.collect()
                             torch.cuda.empty_cache()
                     # ------------------------------------------------------------------------------------------------------
@@ -583,9 +669,7 @@ class QPerfTrainManager(TrainManager):
 
                     # ----------------------------------------------------------------------
 
-                    with torch.autocast(device_type='cuda', dtype=dtype, enabled=c.use_amp):
-                        output = model_manager(x)
-                        loss = loss_f(output, (y, p))
+                    loss, output = self.compute_loss_eval(x, y, p, loss_f, c, dtype, model_manager)
 
                     # Update evaluation metrics
                     self.metric_manager.on_eval_step_end(loss.detach().item(), output, (x, y, p), f"epoch_{epoch}_{idx}", rank, save_samples, split)
@@ -595,39 +679,7 @@ class QPerfTrainManager(TrainManager):
                     if rank<=0 and samples_logged < self.config.num_uploaded and wandb_run is not None:
                         samples_logged += 1
                         title = f"{id.upper()}_{samples_logged}_{x.shape}"
-
-                        N = x.shape[0]
-                        y_hat, p_estimated = output
-
-                        x = x.to(dtype=torch.float32).detach().cpu().numpy()
-                        y = y.to(dtype=torch.float32).detach().cpu().numpy()
-                        y_hat = y_hat.to(dtype=torch.float32).detach().cpu().numpy()
-
-                        x, y, p = denormalize_data(x, y, p)
-                        x, y_hat, p_estimated = denormalize_data(x, y_hat, p_estimated)
-
-                        Fp = p[idx, 0]
-                        Vp = p[idx, 1]
-                        Visf = p[idx, 2]
-                        PS = p[idx, 3]
-                        Delay = p[idx, 4]
-
-                        Fp_est = p_estimated[idx, 0]
-                        Vp_est = p_estimated[idx, 1]
-                        Visf_est = p_estimated[idx, 2]
-                        PS_est = p_estimated[idx, 3]
-                        Delay_est = p_estimated[idx, 4]
-
-                        wandb.log({title : wandb.plot.line_series(
-                                    xs=list(np.arange(N)),
-                                    #ys=[list(x[idx,:,0]), list(x[idx,:,1]), list(y[idx,:].flatten()), list(y_hat[idx,:].flatten())],
-                                    #keys=["aif", "myo", "myo_clean", "myo_model"],
-                                    # ys=[list(x[idx,:,1]), list(y[idx,:].flatten()), list(y_hat[idx,:].flatten())],
-                                    # keys=["myo", "myo_clean", "myo_model"],
-                                    ys=[list(y[idx,:].flatten()), list(y_hat[idx,:].flatten())],
-                                    keys=["myo_clean", "myo_model"],
-                                    title=f"{id}, Fp={Fp:.2f}, Vp={Vp:.2f}, Visf={Visf:.2f}, PS={PS:.2f}, Delay={Delay} - Fp={Fp_est:.2f}, Vp={Vp_est:.2f}, Visf={Visf_est:.2f}, PS={PS_est:.2f}, Delay={Delay_est}",
-                                    xname="T")})
+                        self.save_sample_eval(x, y, p, output, title)
 
                     # ----------------------------------------------------------------------
                     # Print evaluation metrics to terminal
@@ -709,6 +761,99 @@ class QPerfTrainManager(TrainManager):
             loss, mse, l1, gauss, mae, Fp, Vp, Visf, PS, Delay = loss_meters.get_eval_loss()
 
         str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.8f},{Style.RESET_ALL} {C}mse {mse:.8f}, l1 {l1:.8f}, gauss {gauss:.8f}, mae {mae:.8f}, Fp {Fp:.8f}, Vp {Vp:.8f}, Visf {Visf:.8f}, PS {PS:.8f}, Delay {Delay:.8f}{Style.RESET_ALL}{lr_str}"
+
+        return str
+
+# -------------------------------------------------------------------------------------------------
+
+class QPerfBTEXTrainManager(QPerfTrainManager):
+
+    def __init__(self, config, train_sets, val_sets, test_sets, loss_f, model_manager, optim_manager, metric_manager):  
+        super().__init__(config, train_sets, val_sets, test_sets, loss_f, model_manager, optim_manager, metric_manager)
+
+    # -------------------------------------------------------------------------------------------------
+
+    def compute_loss(self, x, y, p, loss_f, c, dtype, model_manager):
+        tm = start_timer(enable=c.with_timer)
+
+        B, T, D = x.shape
+
+        aif = x[:,:,0]
+        input = aif[:,:,None]
+
+        with torch.autocast(device_type='cuda', dtype=dtype, enabled=c.use_amp):
+            y_hat = model_manager((input, p[:, :5]))
+            loss = loss_f(y_hat, (y, p))
+            loss = loss / c.iters_to_accumulate
+
+        end_timer(enable=c.with_timer, t=tm, msg="---> forward pass took ")
+
+        return loss, y_hat
+
+    def compute_loss_eval(self, x, y, p, loss_f, c, dtype, model_manager):
+
+        aif = x[:,:,0]
+        input = aif[:,:,None]
+
+        with torch.autocast(device_type='cuda', dtype=dtype, enabled=c.use_amp):
+            output = model_manager((input, p[:, :5]))
+            loss = loss_f(output, (y, p))
+
+        return loss, output
+
+    def save_sample_eval(self, x, y, p, output, title):
+
+        N = x.shape[0]
+        y_hat = output
+
+        x = x.to(dtype=torch.float32).detach().cpu().numpy()
+        y = y.to(dtype=torch.float32).detach().cpu().numpy()
+        y_hat = y_hat.to(dtype=torch.float32).detach().cpu().numpy()
+
+        case_picked = np.random.randint(0, N, 1)[0]
+
+        denormalize_data(x, y, p)
+        denormalize_data(x, y_hat, p)
+
+        Fp = p[case_picked, 0]
+        Vp = p[case_picked, 1]
+        Visf = p[case_picked, 2]
+        PS = p[case_picked, 3]
+        Delay = p[case_picked, 4]
+
+        wandb.log({title : wandb.plot.line_series(
+                    xs=list(np.arange(N)),
+                    ys=[list(y[case_picked,:].flatten()), list(y_hat[case_picked,:].flatten())],
+                    keys=["myo_clean", "myo_model"],
+                    title=f"{id}, Fp={Fp:.2f}, Vp={Vp:.2f}, Visf={Visf:.2f}, PS={PS:.2f}, Delay={Delay}",
+                    xname="T")})
+
+    def init_model(self, c):
+        model_summary = qpref_btex_model_info(self.model_manager, c)
+        return model_summary
+
+    def create_log_str(self, config, epoch, rank, data_shape, loss_meters, curr_lr, role):
+        if data_shape is not None:
+            data_shape_str = f"{data_shape[-1]}, "
+        else:
+            data_shape_str = ""
+
+        if curr_lr >=0:
+            lr_str = f", lr {curr_lr:.8f}"
+        else:
+            lr_str = ""
+
+        if role == 'tra':
+            C = Fore.YELLOW
+        else:
+            C = Fore.GREEN
+
+        if role == 'tra':
+            loss, mse, l1, gauss, mae = loss_meters.get_tra_loss()
+        else:
+            loss, mse, l1, gauss, mae = loss_meters.get_eval_loss()
+
+        str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.8f},{Style.RESET_ALL} {C}mse {mse:.8f}, l1 {l1:.8f}, gauss {gauss:.8f}, mae {mae:.8f}{Style.RESET_ALL}{lr_str}"
 
         return str
 

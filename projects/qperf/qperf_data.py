@@ -32,11 +32,11 @@ def normalize_data(x, y, p):
     y -= 0.5
 
     # Fp, Vp, Visf, PS, delay
-    p[0] -= 1.25
-    p[1] -= 0.05
-    p[2] -= 0.15
-    p[3] -= 1.0
-    p[4] -= 2.0
+    # p[0] -= 1.25
+    # p[1] -= 0.05
+    # p[2] -= 0.15
+    # p[3] -= 1.0
+    # p[4] -= 2.0
 
     return x, y, p
 
@@ -47,11 +47,11 @@ def denormalize_data(x, y, p):
     y += 0.5
 
     # Fp, Vp, Visf, PS, delay
-    p[0] += 1.25
-    p[1] += 0.05
-    p[2] += 0.15
-    p[3] += 1.0
-    p[4] += 2.0
+    # p[0] += 1.25
+    # p[1] += 0.05
+    # p[2] += 0.15
+    # p[3] += 1.0
+    # p[4] += 2.0
 
     return x, y, p
 
@@ -300,7 +300,7 @@ class QPerfDataSet(torch.utils.data.Dataset):
         p[8] = N
 
         # normalize data
-        x, y, p = normalize_data(x, y, p)
+        normalize_data(x, y, p)
 
         return x, y, p
 

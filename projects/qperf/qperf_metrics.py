@@ -246,6 +246,115 @@ class QPerfMetricManager(MetricManager):
             # Finish the wandb run
             self.wandb_run.finish() 
 
+# -------------------------------------------------------------------------------------------------
+class QPerfBTEXMetricManager(QPerfMetricManager):
+    
+    def __init__(self, config):
+        super().__init__(config)  
+
+    # ---------------------------------------------------------------------------------------
+    def setup_wandb_and_metrics(self, rank):
+
+        self.best_val_loss = np.inf
+
+        device = self.config.device
+
+        # self.mse_loss_func = nn.MSELoss()
+        # self.l1_loss_func = nn.L1Loss()
+
+        self.train_metrics = {'loss': AverageMeter(),
+                              'mse':AverageMeter(),
+                              'gauss':AverageMeter(),
+                              'mae':AverageMeter(),
+                              'l1':AverageMeter()
+                            }
+
+        self.eval_metrics = {'loss': AverageMeter(),
+                              'mse':AverageMeter(),
+                              'gauss':AverageMeter(),
+                              'mae':AverageMeter(),
+                              'l1':AverageMeter()
+                            }
+
+        self.train_metric_functions = {
+                              'mse':self.mse_loss_func,
+                              'l1':self.l1_loss_func,
+                              'gauss':self.gauss_loss_func,
+                              'mae':self.mae_loss_func
+                            }
+
+        self.eval_metric_functions = copy.deepcopy(self.train_metric_functions)
+
+        if rank<=0:
+            self.wandb_run.define_metric("epoch")
+            for metric_name in self.train_metrics.keys():
+                self.wandb_run.define_metric('train_'+metric_name, step_metric='epoch')
+            for metric_name in self.eval_metrics.keys():
+                self.wandb_run.define_metric('val_'+metric_name, step_metric='epoch')
+
+            self.best_val = -np.inf
+
+    def get_tra_loss(self):
+        return self.train_metrics['loss'].avg, \
+                self.train_metrics['mse'].avg, \
+                self.train_metrics['gauss'].avg, \
+                self.train_metrics['mae'].avg, \
+                self.train_metrics['l1'].avg
+
+    def get_eval_loss(self):
+        return self.eval_metrics['loss'].avg, \
+                self.eval_metrics['mse'].avg, \
+                self.eval_metrics['gauss'].avg, \
+                self.eval_metrics['mae'].avg, \
+                self.eval_metrics['l1'].avg
+
+    # ---------------------------------------------------------------------------------------
+    def on_train_step_end(self, loss, output, labels, rank, curr_lr, save_samples, epoch, ids):
+
+        x, y, p = labels
+        y_hat = output
+
+        B = y.shape[0]
+        y = y.to(y_hat.device)
+
+        self.train_metrics['loss'].update(loss, n=B)
+
+        for metric_name in ['mse', 'l1', 'gauss', 'mae']:
+            metric_value = self.train_metric_functions[metric_name](y_hat.reshape(y.shape), y)
+            self.train_metrics[metric_name].update(metric_value.item(), n=B)
+
+        if rank<=0: 
+            self.wandb_run.log({"lr": curr_lr})
+            for metric_name in self.train_metrics.keys():
+                if metric_name=='loss':
+                    self.wandb_run.log({"running_train_loss": loss})
+                else:
+                    self.wandb_run.log({f"running_train_{metric_name}": self.train_metrics[metric_name].avg})
+
+    # ---------------------------------------------------------------------------------------
+    def on_eval_step_end(self, loss, output, labels, ids, rank, save_samples, split):
+
+        x, y, p = labels
+        y_hat = output
+
+        B = y.shape[0]
+
+        y = y.to(y_hat.device)
+
+        self.eval_metrics['loss'].update(loss, n=B)
+
+        for metric_name in ['mse', 'l1', 'gauss', 'mae']:
+            metric_value = self.eval_metric_functions[metric_name](y_hat.reshape(y.shape), y)
+            self.eval_metrics[metric_name].update(metric_value.item(), n=B)
+
+        if rank <=0 :
+            if save_samples:
+                res_dir = self.config.log_dir + "/saved"
+                os.makedirs(res_dir, exist_ok=True)
+                fname = f"{ids}"
+                np.save(res_dir + "/" + fname + "_x.npy", x.detach().to(dtype=torch.float32).cpu().numpy().astype(np.float32))
+                np.save(res_dir + "/" + fname + "_y.npy", y.detach().to(dtype=torch.float32).cpu().numpy().astype(np.float32))
+                np.save(res_dir + "/" + fname + "_y_hat.npy", y_hat.detach().to(dtype=torch.float32).cpu().numpy().astype(np.float32))
 
 # ---------------------------------------------------------------------------------------
 

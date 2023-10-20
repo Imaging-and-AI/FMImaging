@@ -62,8 +62,7 @@ class general_parser(object):
         self.parser.add_argument("--patch_height", type=int, default=32, help='Height (number of rows) of patch; will crop to this')
         self.parser.add_argument("--patch_width", type=int, default=32, help='Width (number of columns) of patch; will crop to this')
         self.parser.add_argument("--patch_time", type=int, default=1, help='Temporal/depth dimension of patch; will crop to this')
-        #self.parser.add_argument("--channel_first", type=str_to_bool, default=True, help="If true, input/output tensor is [B, C, T, H, W]; otherwise, [B, T, C, H, W]")
-
+        
         # Augmentation args
         self.parser.add_argument("--affine_aug", type=str_to_bool, default=True, help="Whether to apply affine transforms")
         self.parser.add_argument("--brightness_aug", type=str_to_bool, default=True, help="Whether to apply brightness jitter transforms")

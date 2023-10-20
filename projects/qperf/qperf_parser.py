@@ -48,4 +48,4 @@ class qperf_parser(object):
 
         self.parser.add_argument("--disable_LSUV", action="store_true", help='if set, do not perform LSUV initialization.')
 
-        self.parser.add_argument("--qperf_model_type", type=str, default="QPerfModel", choices=['QPerfModel', 'QPerfModel_double_net'], help='model type')
+        self.parser.add_argument("--qperf_model_type", type=str, default="QPerfModel", choices=['QPerfModel', 'QPerfModel_double_net', 'QPerfBTEXModel'], help='model type')

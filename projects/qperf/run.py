@@ -115,7 +115,7 @@ def main():
 
     data_folder=os.path.join(config.data_dir, val_dir)
     val_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, val_dir),
-                        max_load=-1, max_samples=-1,
+                        max_load=-1, max_samples=config.max_samples,
                         T=config.qperf_T, 
                         foot_to_end=config.foot_to_end, 
                         min_noise_level=config.min_noise_level, 
@@ -130,7 +130,7 @@ def main():
 
     data_folder=os.path.join(config.data_dir, test_dir)
     test_set = QPerfDataSet(data_folder=data_folder,
-                        max_load=-1, max_samples=config.max_samples,
+                        max_load=-1, max_samples=-1,
                         T=config.qperf_T, 
                         foot_to_end=config.foot_to_end, 
                         min_noise_level=config.min_noise_level, 
