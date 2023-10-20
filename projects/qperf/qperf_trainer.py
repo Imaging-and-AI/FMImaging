@@ -513,8 +513,13 @@ class QPerfTrainManager(TrainManager):
         # ------------------------------------------------------------------------
         # Set up data loader to evaluate
         batch_size = c.batch_size
-        num_workers_per_loader = c.num_workers // (2 * len(data_sets))
+        num_workers_per_loader = c.num_workers // (len(data_sets))
 
+        if c.ddp:
+            local_world_size = int(os.environ["LOCAL_WORLD_SIZE"])
+            num_workers_per_loader = num_workers_per_loader // local_world_size
+            num_workers_per_loader = 1 if num_workers_per_loader<1 else num_workers_per_loader
+            
         print(f"{Fore.YELLOW}--> num_workers_per_loader for eval i {num_workers_per_loader} ... {Style.RESET_ALL}")
 
         if isinstance(data_sets, list):
