@@ -396,12 +396,12 @@ class QPerfBTEXModel(ModelManager):
         self.pre["nl_params"] = create_activation_func(name=self.config.activation_func)
 
     def create_backbone(self, channel_first=True): 
-        self.backbone = nn.Sequential(*[Cell(T=self.T, n_embd=2*self.n_embd, is_causal=self.is_causal, n_head=self.n_head, attn_dropout_p=self.att_dropout_p, residual_dropout_p=self.residual_dropout_p, activation_func=self.config.activation_func) for _ in range(self.n_layer)])
+        self.backbone = nn.Sequential(*[Cell(T=self.T, n_embd=self.n_embd, is_causal=self.is_causal, n_head=self.n_head, attn_dropout_p=self.att_dropout_p, residual_dropout_p=self.residual_dropout_p, activation_func=self.config.activation_func) for _ in range(self.n_layer)])
         self.feature_channels = 2*self.n_embd
 
     def create_post(self): 
         self.post = nn.ModuleDict()
-        n_embd = 2*self.n_embd
+        n_embd = self.n_embd
         self.post["layer_norm"] = nn.LayerNorm(n_embd)
         self.post["output_proj1_myo"] = nn.Linear(n_embd, n_embd*2, bias=True)
         self.post["output_proj2_myo"] = nn.Linear(n_embd*2, self.output_myo_D, bias=True)
@@ -440,7 +440,8 @@ class QPerfBTEXModel(ModelManager):
         p_proj = self.pre["nl_params"](p_proj)
         p_proj = torch.reshape(p_proj, [B, T, self.n_embd])
 
-        input_backbone = torch.concatenate((x_p, p_proj), dim=2)
+        #input_backbone = torch.concatenate((x_p, p_proj), dim=2)
+        input_backbone = x_p + p_proj
 
         # go through all layers of attentions
         output_backbone = self.backbone(input_backbone)
