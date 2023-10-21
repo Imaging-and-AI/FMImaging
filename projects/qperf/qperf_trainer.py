@@ -46,6 +46,7 @@ from optim.optim_utils import compute_total_steps
 
 from qperf_data import QPerfDataSet, normalize_data, denormalize_data
 from projects.mri.LSUV import LSUVinit
+from qperf_model import QPerfBTEXModel
 
 # -------------------------------------------------------------------------------------------------
 
@@ -252,9 +253,10 @@ class QPerfTrainManager(TrainManager):
                 input_data  = torch.stack([torch.from_numpy(self.train_sets[-1][i][0]) for i in sampled_picked])
                 print(f"{rank_str}, prepared data {input_data.shape}, LSUV prep data took {time()-t0 : .2f} seconds ...")
 
-                t0 = time()
-                LSUVinit(model_manager, input_data.to(device=device, dtype=torch.float32), verbose=True, cuda=True)
-                print(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
+                if not isinstance(model_manager, QPerfBTEXModel):
+                    t0 = time()
+                    LSUVinit(model_manager, input_data.to(device=device, dtype=torch.float32), verbose=True, cuda=True)
+                    print(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
 
         # -----------------------------------------------
         if c.ddp:
