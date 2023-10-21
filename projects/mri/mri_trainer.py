@@ -503,7 +503,7 @@ class MRITrainManager(TrainManager):
         # -----------------------------------------------
 
         save_path, save_file_name, config_yaml_file = self.model_manager.save_entire_model(epoch=self.config.num_epochs)
-        model_full_path = os.path.join(save_path, save_file_name)
+        model_full_path = os.path.join(save_path, save_file_name+'.pth')
         logging.info(f"{Fore.YELLOW}Entire model is saved at {model_full_path} ...{Style.RESET_ALL}")
 
         if wandb_run is not None:
@@ -698,8 +698,9 @@ class MRITrainManager(TrainManager):
                         if final_eval and rank<=0:
                             metric_file = os.path.join(self.config.log_dir,self.config.run_name, f'{split}_metrics.txt')
                             with open(metric_file, 'a') as f:
-                                try: f.write(f"{split}_{metric_name}: {metric_value:.4f}, ")
-                                except: pass
+                                for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
+                                    try: f.write(f"{split}_{metric_name}: {metric_value:.4f}, ")
+                                    except: pass
                             wandb_run.save(metric_file)
 
                     pbar_str += f"{Style.RESET_ALL}"
@@ -735,11 +736,11 @@ class MRITrainManager(TrainManager):
             snr_str = ""
 
         if role == 'tra':
-            loss, mse, l1, ssim, ssim3D, ssim_loss, ssim3D_loss, psnr, psnr_loss, perp, gaussian, gaussian3D = loss_meters.get_tra_loss()
+            loss, mse, l1, ssim, ssim3D, ssim_loss, ssim3D_loss, psnr, psnr_loss, perp, gaussian, gaussian3D, spec, dwt = loss_meters.get_tra_loss()
         else:
-            loss, mse, l1, ssim, ssim3D, ssim_loss, ssim3D_loss, psnr, psnr_loss, perp, gaussian, gaussian3D = loss_meters.get_eval_loss()
+            loss, mse, l1, ssim, ssim3D, ssim_loss, ssim3D_loss, psnr, psnr_loss, perp, gaussian, gaussian3D, spec, dwt = loss_meters.get_eval_loss()
 
-        str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.WHITE}{Back.LIGHTBLUE_EX}{Style.NORMAL}gmap {gmap_median:.2f}, sigma {noise_sigma:.2f}{snr_str}{Style.RESET_ALL} {C}mse {mse:.4f}, l1 {l1:.4f}, perp {perp:.4f}, ssim {ssim:.4f}, ssim3D {ssim3D:.4f}, gaussian {gaussian:.4f}, gaussian3D {gaussian3D:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}{Style.RESET_ALL}{lr_str}"
+        str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.WHITE}{Back.LIGHTBLUE_EX}{Style.NORMAL}gmap {gmap_median:.2f}, sigma {noise_sigma:.2f}{snr_str}{Style.RESET_ALL} {C}mse {mse:.4f}, l1 {l1:.4f}, perp {perp:.4f}, ssim {ssim:.4f}, ssim3D {ssim3D:.4f}, gaussian {gaussian:.4f}, gaussian3D {gaussian3D:.4f}, spec loss {spec:.4f}, dwt loss {dwt:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}{Style.RESET_ALL}{lr_str}"
 
         return str
   

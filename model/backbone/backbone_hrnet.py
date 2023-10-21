@@ -849,8 +849,6 @@ def tests():
     benchmark_all(model, test_in, grad=None, min_run_time=5, desc='STCNNT_HRnet', verbose=True, amp=True, amp_dtype=torch.bfloat16)
     benchmark_memory(model, test_in, desc='STCNNT_HRnet', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
-    config.channel_first = True
-
     # ---------------------------------------------------------------------
 
     config.backbone_hrnet.block_str = ["C2C2C2",

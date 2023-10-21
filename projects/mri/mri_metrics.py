@@ -60,7 +60,8 @@ class MriMetricManager(MetricManager):
         self.perp_func = Perpendicular_Loss()
         self.gaussian_func = GaussianDeriv_Loss(sigmas=[0.5, 1.0, 1.5], complex_i=self.config.complex_i, device=device)
         self.gaussian3D_func = GaussianDeriv3D_Loss(sigmas=[0.5, 1.0, 1.5], sigmas_T=[0.5, 0.5, 0.5], complex_i=self.config.complex_i, device=device)
-
+        self.spec_func = Spectral_Loss(dim=[-2, -1], min_bound=5, max_bound=95, complex_i=self.config.complex_i, device=device)
+        self.dwt_func = Wavelet_Loss(J=1, wave='db3', mode='symmetric', only_h=True, complex_i=self.config.complex_i, device=device)
         self.ssim_func = lambda x, y: 1 - self.ssim_loss_func(x, y)
         self.ssim3D_func = lambda x, y: 1 - self.ssim3D_loss_func(x, y)
 
@@ -75,7 +76,9 @@ class MriMetricManager(MetricManager):
                               'psnr_loss':AverageMeter(),
                               'perp':AverageMeter(),
                               'gaussian_gradient':AverageMeter(),
-                              'gaussian_gradient_3d':AverageMeter()
+                              'gaussian_gradient_3d':AverageMeter(),
+                              'spec':AverageMeter(),
+                              'dwt':AverageMeter()
                             }
         
         self.eval_metrics = {'loss': AverageMeter(),
@@ -89,7 +92,9 @@ class MriMetricManager(MetricManager):
                               'psnr_loss':AverageMeter(),
                               'perp':AverageMeter(),
                               'gaussian_gradient':AverageMeter(),
-                              'gaussian_gradient_3d':AverageMeter()
+                              'gaussian_gradient_3d':AverageMeter(),
+                              'spec':AverageMeter(),
+                              'dwt':AverageMeter()
                             }
             
         self.train_metric_functions = {
@@ -103,7 +108,9 @@ class MriMetricManager(MetricManager):
                               'psnr_loss':self.psnr_loss_func,
                               'perp':self.perp_func,
                               'gaussian_gradient':self.gaussian_func,
-                              'gaussian_gradient_3d':self.gaussian3D_func
+                              'gaussian_gradient_3d':self.gaussian3D_func,
+                              'spec': self.spec_func,
+                              'dwt': self.dwt_func
                             }
         
         self.eval_metric_functions = copy.deepcopy(self.train_metric_functions)
@@ -131,7 +138,9 @@ class MriMetricManager(MetricManager):
                 self.train_metrics['psnr_loss'].avg, \
                 self.train_metrics['perp'].avg, \
                 self.train_metrics['gaussian_gradient'].avg, \
-                self.train_metrics['gaussian_gradient_3d'].avg
+                self.train_metrics['gaussian_gradient_3d'].avg, \
+                self.train_metrics['spec'].avg, \
+                self.train_metrics['dwt'].avg
                 
     def get_eval_loss(self):
         return self.eval_metrics['loss'].avg, \
@@ -145,7 +154,9 @@ class MriMetricManager(MetricManager):
                 self.eval_metrics['psnr_loss'].avg, \
                 self.eval_metrics['perp'].avg, \
                 self.eval_metrics['gaussian_gradient'].avg, \
-                self.eval_metrics['gaussian_gradient_3d'].avg
+                self.eval_metrics['gaussian_gradient_3d'].avg, \
+                self.train_metrics['spec'].avg, \
+                self.train_metrics['dwt'].avg
 
     # ---------------------------------------------------------------------------------------
     def on_train_step_end(self, loss, output, labels, rank, curr_lr, save_samples, epoch, ids):
@@ -275,7 +286,10 @@ class MriMetricManager(MetricManager):
                 # Update wandb with eval metrics
                 for metric_name, avg_metric_eval in average_metrics.items():
                     self.wandb_run.log({"epoch":epoch, f"{split}_{metric_name}": avg_metric_eval})
-
+            else:
+                for metric_name, avg_metric_eval in average_metrics.items():
+                    self.wandb_run.summary({f"final_{split}_{metric_name}": avg_metric_eval})
+                
             # Save the average metrics for this epoch into self.average_eval_metrics
             self.average_eval_metrics = average_metrics
             #print(f"--> epoch {epoch}, average_eval_metrics {self.average_eval_metrics}")

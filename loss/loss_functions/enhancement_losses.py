@@ -28,6 +28,7 @@ from pytorch_ssim import SSIM, SSIM3D
 from msssim import MS_SSIM, ms_ssim
 from gaussian import create_window_1d, create_window_2d, create_window_3d
 import piq
+from pytorch_wavelets import DWTForward, DWTInverse
 
 # Imports needed for tests()
 Project_DIR = Path(__file__).parents[2].resolve()
@@ -656,6 +657,172 @@ class GaussianDeriv3D_Loss:
         return v
 
 # -------------------------------------------------------------------------------------------------
+
+class Spectral_Loss:
+    """
+    Test Spectral loss based on fft.
+
+    Mask out center and edges of the shifted square fft and
+    use different methods to computer the loss
+    """
+    def __init__(self, dim=[-2,-1], min_bound=5, max_bound=95, complex_i=False, device='cpu'):
+        """
+        @args:
+            - dim (int list): the dimension to take fft on
+            - min_bound (int): the percentage of middle mask
+            - max_bound (int): the percentage of edge mask
+            - complex_i (bool): whether images are 2 channelled for complex data
+            - device (torch.device): device to run the loss on
+        """
+        self.dim = dim
+        self.eps = 1e-7
+
+        self.min_bound = min_bound
+        self.max_bound = max_bound
+
+        self.complex_i = complex_i
+        self.device = device
+
+    def create_mask(self, shape):
+
+        B,C,T,H,W = shape
+
+        mask = torch.zeros(*shape)
+
+        # keep edges at 0 make everything inside 1
+        upper_bound_H = int(self.max_bound * H / 100)
+        upper_bound_W = int(self.max_bound * W / 100)
+        mask[:,:,:,(H-upper_bound_H):upper_bound_H,(W-upper_bound_W):upper_bound_W] = 1
+
+        lower_bound_H = int(self.min_bound * H / 100)
+        lower_bound_W = int(self.min_bound * W / 100)
+        ch, cw = H//2, W//2
+
+        # make the inner square 0
+        # with the edge case to keep the middle single pixel
+        if self.min_bound != -1:
+            mask[:,:,:,(ch-lower_bound_H):(ch+lower_bound_H+1),(cw-lower_bound_W):(cw+lower_bound_W+1)] = 0
+
+        return mask
+
+    def __call__(self, outputs, targets, weights=None):
+
+        B, C, T, H, W = targets.shape
+        if(self.complex_i):
+            assert C==2, f"Complex type requires image to have C=2, given C={C}"
+            outputs_im = outputs[:,0]+1j*outputs[:,1]
+            targets_im = targets[:,0]+1j*targets[:,1]
+            outputs_im = torch.unsqueeze(outputs_im, dim=1)
+            targets_im = torch.unsqueeze(targets_im, dim=1)
+        else:
+            outputs_im = outputs
+            targets_im = targets
+
+        outputs_im = outputs_im.to(device=self.device)
+        targets_im = targets_im.to(device=self.device)
+
+        outputs_fft = torch.fft.fftshift(torch.fft.fftn(outputs_im, dim=self.dim, norm="backward"), dim=self.dim)
+        targets_fft = torch.fft.fftshift(torch.fft.fftn(targets_im, dim=self.dim, norm="backward"), dim=self.dim)
+
+        outputs_fft[outputs_fft==0] = self.eps
+        targets_fft[targets_fft==0] = self.eps
+
+        outputs_fft_log = torch.log(outputs_fft)
+        targets_fft_log = torch.log(targets_fft)
+
+        mask = self.create_mask(outputs_fft.shape).to(self.device)
+
+        outputs_fft_log_masked = outputs_fft_log * mask
+        targets_fft_log_masked = targets_fft_log * mask
+
+        # loss = perpendicular_loss_complex(outputs_fft_masked, targets_fft_masked)
+
+        loss = torch.abs(targets_fft_log_masked - outputs_fft_log_masked)
+
+        if weights is not None:
+            if not weights.ndim==1:
+                raise NotImplementedError(f"Only support 1D(Batch) weights for spectral loss")
+            v = torch.sum(weights*loss) / (torch.sum(weights) + torch.finfo(torch.float16).eps)
+        else:
+            v = torch.sum(loss)
+
+        if(torch.any(torch.isnan(v))):
+            raise NotImplementedError(f"nan in Spectral_Loss")
+            v = torch.mean(0.0 * outputs)
+
+        return v / targets.numel()
+
+# -------------------------------------------------------------------------------------------------
+
+class Wavelet_Loss:
+    """
+    Test wavelet loss based on pytorch_wavelets.
+    This version performs 2D wavelet transformation on the last two dimensions [-2, -1]
+    """
+    def __init__(self, J=1, wave='db3', mode='symmetric', separable=False, only_h=True, complex_i=False, device='cpu'):
+        """
+        @args:
+            - J (int): number of wavelet levels
+            - wave (str): wavelet type, 'haar', 'db', 'sym', 'coif', 'bior', 'rbio', 'dmey', 'gaus', 'mexh', 'morl', 'cgau', 'shan', 'fbsp', 'cmor'
+            - mode (str): 'zero', 'symmetric', 'reflect' or 'periodization'
+            - only_h (bool): if True, only count high frequency bands for loss
+            - complex_i (bool): whether images are 2 channelled for complex data
+        """        
+        self.J = J
+        self.wave = wave
+        self.mode = mode
+        self.separable = separable
+        self.only_h = only_h
+        self.complex_i = complex_i
+        self.device = device
+
+        self.wt = DWTForward(J=J, wave=wave, mode=mode).to(device=self.device)
+        self.iwt = DWTInverse(wave=wave, mode=mode).to(device=self.device)
+
+    def __call__(self, outputs, targets, weights=None):
+
+        B, C, T, H, W = targets.shape
+        if(self.complex_i):
+            assert C==2, f"Complex type requires image to have C=2, given C={C}"
+
+        outputs_im = outputs
+        targets_im = targets
+
+        outputs_im = outputs_im.to(device=self.device)
+        targets_im = targets_im.to(device=self.device)
+
+        ol, oh = self.wt(torch.reshape(outputs_im, (B*C, T, H, W)))
+        tl, th = self.wt(torch.reshape(targets_im, (B*C, T, H, W)))
+
+        if weights is not None:
+            if not weights.ndim==1:
+                raise NotImplementedError(f"Only support 1D(Batch) weights for spectral loss")
+
+            loss = 0
+            for a, b in zip(oh, th):
+                v = torch.abs(a-b)
+                loss += torch.sum(weights*v) / (torch.sum(weights) + torch.finfo(torch.float16).eps)
+
+            if not self.only_h:
+                v = torch.mean(torch.abs(ol - tl))
+                loss += torch.sum(weights*v) / (torch.sum(weights) + torch.finfo(torch.float16).eps)
+                
+            loss /= targets.numel()
+        else:
+            loss = 0
+            for a, b in zip(oh, th):
+                loss += torch.mean(torch.abs(a - b))
+
+            if not self.only_h:
+                loss += torch.mean(torch.abs(ol - tl))
+
+        if(torch.any(torch.isnan(loss))):
+            raise NotImplementedError(f"nan in Wavelet_Loss")
+            loss = torch.mean(0.0 * outputs)
+
+        return loss
+
+# -------------------------------------------------------------------------------------------------
 # Combined loss class
 
 class Combined_Loss:
@@ -702,6 +869,10 @@ class Combined_Loss:
             loss_f = GaussianDeriv_Loss(sigmas=[0.25, 0.5, 1.0, 1.5], complex_i=self.complex_i, device=self.device)
         elif loss_name=="gaussian3D":
             loss_f = GaussianDeriv3D_Loss(sigmas=[0.25, 0.5, 1.0], sigmas_T=[0.25, 0.5, 0.5], complex_i=self.complex_i, device=self.device)
+        elif loss_name=="spec":
+            loss_f = Spectral_Loss(dim=[-2, -1], min_bound=5, max_bound=95, complex_i=self.complex_i, device=self.device)
+        elif loss_name=="dwt":
+            loss_f = Wavelet_Loss(J=2, wave='db3', mode='symmetric', separable=False, only_h=True, complex_i=self.complex_i, device=self.device)
         else:
             raise NotImplementedError(f"Loss type not implemented: {loss_name}")
 
@@ -786,6 +957,34 @@ def tests():
 
     RO, E1, PHS, N = noisy.shape
 
+    print("-----------------------")
+
+    x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
+    y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
+   
+    dwt_loss = Wavelet_Loss(J=3, wave='db3', only_h=True, complex_i=False, device=device)
+    
+    for k in range(N):
+        v = dwt_loss(torch.unsqueeze(x[k], dim=0), torch.unsqueeze(y[k], dim=0), weights=torch.ones(1, device=device))
+        print(f"dwt_loss - {v}")
+        
+        if k==0: assert np.isclose(v.item(), 0.8072818517684937)
+        if k==N-1: assert np.isclose(v.item(), 7.343966007232666)
+        
+    print("-----------------------")
+
+    x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
+    y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
+   
+    spec_loss = Spectral_Loss(complex_i=False, device=device)
+    
+    for k in range(N):
+        v = spec_loss(torch.unsqueeze(x[k], dim=0), torch.unsqueeze(y[k], dim=0), weights=torch.ones(1, device=device))
+        print(f"spec_loss - {v}")
+        
+        # if k==0: assert np.isclose(v.item(), 0.8072818517684937)
+        # if k==N-1: assert np.isclose(v.item(), 7.343966007232666)
+                
     print("-----------------------")
 
     msssim_loss = torchmetrics.image.MultiScaleStructuralSimilarityIndexMeasure(kernel_size=5, reduction=None, data_range=256)
@@ -1049,5 +1248,86 @@ def tests():
 
     # --------------------------------------------------------------------
 
-if __name__=="__main__":
+def spec_tests():
+
+    device = "cuda"#get_device()
+
+    import tifffile
+    from utils.util_func import normalize_image
+
+    Current_DIR = Path(__file__).parents[0].resolve()
+    sys.path.append(str(Current_DIR))
+
+    Project_DIR = Path(__file__).parents[1].resolve()
+    sys.path.append(str(Project_DIR))
+
+    REPO_DIR = Path(__file__).parents[2].resolve()
+    sys.path.append(str(REPO_DIR))
+
+    im_path = os.path.join(REPO_DIR, 'ut/data/ct/val_epoch_99_00178200_registered_Cu_020mA_FBP_VS_00178200_registered_SOC_AiCE_28.tif')
+    
+    im = tifffile.imread(im_path)
+
+    im_hig = im[:,2]
+    im_mid = im[:,1]
+    im_low = im[:,0]
+
+    T,H,W = im_hig.shape
+
+    im_hig = torch.from_numpy(im_hig.reshape(1, 1, T, H ,W)).to(device)
+    im_mid = torch.from_numpy(im_mid.reshape(1, 1, T, H ,W)).to(device)
+    im_low = torch.from_numpy(im_low.reshape(1, 1, T, H ,W)).to(device)
+
+    loss_f = SSIM_Loss()
+
+    l1 = loss_f(im_low, im_hig)
+    l2 = loss_f(im_mid, im_hig)
+    l3 = loss_f(im_low, im_mid)
+    l4 = loss_f(im_hig, im_hig)
+
+    print(l1)
+    print(l2)
+    print(l3)
+    print(l4)
+
+
+    spec_loss_f = Spectral_Loss(min_bound=5, max_bound=95, device=device, complex_i=False)
+
+    l1_spec = spec_loss_f(im_low, im_hig)
+    l2_spec = spec_loss_f(im_mid, im_hig)
+    l3_spec = spec_loss_f(im_low, im_mid)
+    l4_spec = spec_loss_f(im_hig, im_hig)
+
+    print(l1_spec)
+    print(l2_spec)
+    print(l3_spec)
+    print(l4_spec)
+
+    spec_loss_f = Spectral_Loss(min_bound=5, max_bound=95, device=device, complex_i=True)
+
+    im_low_c = torch.zeros((1, 2, T, H, W))
+    im_low_c[:,0] = im_low
+    
+    im_mid_c = torch.zeros((1, 2, T, H, W))
+    im_mid_c[:,0] = im_mid
+    
+    im_hig_c = torch.zeros((1, 2, T, H, W))
+    im_hig_c[:,0] = im_hig
+
+    l1_spec = spec_loss_f(im_low_c, im_hig_c)
+    l2_spec = spec_loss_f(im_mid_c, im_hig_c)
+    l3_spec = spec_loss_f(im_low_c, im_mid_c)
+    l4_spec = spec_loss_f(im_hig_c, im_hig_c)
+
+    print(l1_spec)
+    print(l2_spec)
+    print(l3_spec)
+    print(l4_spec)
+
+    print("All spec test done")
+
+# --------------------------------------------------------------------
+    
+if __name__=="__main__":    
     tests()
+    spec_tests()
