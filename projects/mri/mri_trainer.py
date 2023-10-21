@@ -690,12 +690,15 @@ class MRITrainManager(TrainManager):
                     if isinstance(self.metric_manager.average_eval_metrics, dict):
                         for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
                             try: 
-                                pbar_str += f", {Fore.CYAN} {metric_name} {metric_value:.4f}"
+                                pbar_str += f", {Fore.CYAN} {metric_name} {metric_value:.4f}"                               
                             except: 
                                 pass
 
                         # Save final evaluation metrics to a text file
                         if final_eval and rank<=0:
+                            for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
+                                wandb_run.summary({f"{split}_{metric_name}":metric_value})
+                             
                             metric_file = os.path.join(self.config.log_dir,self.config.run_name, f'{split}_metrics.txt')
                             with open(metric_file, 'a') as f:
                                 for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():

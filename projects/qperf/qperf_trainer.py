@@ -739,13 +739,17 @@ class QPerfTrainManager(TrainManager):
                             try: pbar_str += f", {Fore.CYAN} {metric_name} {metric_value:.8f}"
                             except: pass
 
-                            # Save final evaluation metrics to a text file
-                            if final_eval and rank<=0:
-                                metric_file = os.path.join(self.config.log_dir,self.config.run_name, f'{split}_metrics.txt')
-                                with open(metric_file, 'a') as f:
+                        # Save final evaluation metrics to a text file
+                        if final_eval and rank<=0:
+                            for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
+                                wandb_run.summary({f"{split}_{metric_name}":metric_value})
+                                
+                            metric_file = os.path.join(self.config.log_dir,self.config.run_name, f'{split}_metrics.txt')
+                            with open(metric_file, 'a') as f:
+                                for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
                                     try: f.write(f"{split}_{metric_name}: {metric_value:.8f}, ")
                                     except: pass
-                                wandb_run.save(metric_file)
+                            wandb_run.save(metric_file)
 
                     pbar_str += f"{Style.RESET_ALL}"
                 else:

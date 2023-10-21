@@ -233,6 +233,8 @@ def main():
         config.backbone_model_load_path = backbone_model_load_path
         config.post_model_load_path = post_model_load_path
 
+        config.ddp = ddp
+
         print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
 
     # -----------------------------------------------
@@ -301,8 +303,6 @@ def main():
     model = model.to(device)
 
     optim_manager = OptimManager(config=config, model_manager=model, train_set=train_set)
-
-    config.ddp = ddp
 
     print(f"{rank_str}, after initializing model, the config for running - {config}")
     print(f"{rank_str}, after initializing model, config.use_amp for running - {config.use_amp}")
