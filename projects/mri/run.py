@@ -170,6 +170,10 @@ def main():
     post_mixed_unetr_use_window_partition = config.post_mixed_unetr.use_window_partition
     post_mixed_unetr_separable_conv = config.post_mixed_unetr.separable_conv
 
+    pre_model_load_path = config.pre_model_load_path
+    backbone_model_load_path = config.backbone_model_load_path
+    post_model_load_path = config.post_model_load_path
+
     ddp = config.ddp
 
     # -----------------------------------------------        
@@ -224,6 +228,10 @@ def main():
         config.post_mixed_unetr.use_conv_3d = post_mixed_unetr_use_conv_3d
         config.post_mixed_unetr.use_window_partition = post_mixed_unetr_use_window_partition
         config.post_mixed_unetr.separable_conv = post_mixed_unetr_separable_conv
+
+        config.pre_model_load_path = pre_model_load_path
+        config.backbone_model_load_path = backbone_model_load_path
+        config.post_model_load_path = post_model_load_path
 
         print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
 
