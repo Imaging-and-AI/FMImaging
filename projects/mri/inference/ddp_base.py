@@ -183,24 +183,24 @@ class run_ddp_base(object):
                 cmd_run.extend(["--post_model_load_path", f"{load_path}_post.pth"])
 
         if config.freeze_pre:
-            self.cmd.extend(["--freeze_pre"])
+            cmd_run.extend(["--freeze_pre"])
         if config.freeze_backbone:
-            self.cmd.extend(["--freeze_backbone"])
+            cmd_run.extend(["--freeze_backbone"])
         if config.freeze_post:
-            self.cmd.extend(["--freeze_post"])
+            cmd_run.extend(["--freeze_post"])
 
-        self.cmd.extend(["--global_lr", f"{config.global_lr}"])
-        self.cmd.extend(["--optim.lr", f"{config.lr_pre} {config.lr_backbone} {config.lr_post}"])
+        cmd_run.extend(["--global_lr", f"{config.global_lr}"])
+        cmd_run.extend(["--optim.lr", f"{config.lr_pre} {config.lr_backbone} {config.lr_post}"])
 
         if config.scheduler_type=='ReduceLROnPlateau': 
-            self.cmd.extend(["--scheduler.patience", "0",
+            cmd_run.extend(["--scheduler.patience", "0",
                             "--scheduler.cooldown", "0",
                             "--scheduler.factor", "0.9",
                             "--scheduler.min_lr", "1e-7"
                         ])
                        
         if config.scheduler_type=='OneCycleLR': 
-            self.cmd.extend(["--scheduler.pct_start", "0.2"
+            cmd_run.extend(["--scheduler.pct_start", "0.2"
                         ])
 
         if config.seed is not None:
