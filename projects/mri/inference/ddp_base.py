@@ -183,11 +183,11 @@ class run_ddp_base(object):
                 cmd_run.extend(["--post_model_load_path", f"{load_path}_post.pth"])
 
         if config.freeze_pre:
-            cmd_run.extend(["--freeze_pre"])
+            cmd_run.extend(["--freeze_pre", "True"])
         if config.freeze_backbone:
-            cmd_run.extend(["--freeze_backbone"])
+            cmd_run.extend(["--freeze_backbone", "True"])
         if config.freeze_post:
-            cmd_run.extend(["--freeze_post"])
+            cmd_run.extend(["--freeze_post", "True"])
 
         cmd_run.extend(["--global_lr", f"{config.global_lr}"])
         cmd_run.extend(["--optim.lr", f"{config.lr_pre} {config.lr_backbone} {config.lr_post}"])
