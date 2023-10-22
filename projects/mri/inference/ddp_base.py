@@ -190,7 +190,7 @@ class run_ddp_base(object):
             cmd_run.extend(["--freeze_post", "True"])
 
         cmd_run.extend(["--global_lr", f"{config.global_lr}"])
-        cmd_run.extend(["--optim.lr", f"{config.lr_pre} {config.lr_backbone} {config.lr_post}"])
+        cmd_run.extend(["--optim.lr", f"{config.lr_pre}", f"{config.lr_backbone}", f"{config.lr_post}"])
 
         if config.scheduler_type=='ReduceLROnPlateau': 
             cmd_run.extend(["--scheduler.patience", "0",
