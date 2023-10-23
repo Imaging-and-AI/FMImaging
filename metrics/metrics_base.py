@@ -108,12 +108,13 @@ class MetricManager(object):
 
         if rank<=0:
 
-            # Initialize metrics to track in wandb      
-            self.wandb_run.define_metric("epoch")    
-            for metric_name in self.train_metrics.keys():
-                self.wandb_run.define_metric('train_'+metric_name, step_metric='epoch')
-            for metric_name in self.eval_metrics.keys():
-                self.wandb_run.define_metric('val_'+metric_name, step_metric='epoch')
+            if self.wandb_run is not None:
+                # Initialize metrics to track in wandb      
+                self.wandb_run.define_metric("epoch")    
+                for metric_name in self.train_metrics.keys():
+                    self.wandb_run.define_metric('train_'+metric_name, step_metric='epoch')
+                for metric_name in self.eval_metrics.keys():
+                    self.wandb_run.define_metric('val_'+metric_name, step_metric='epoch')
             
             # Initialize metrics to track for checkpointing best-performing model
             self.best_val_loss = np.inf
@@ -159,7 +160,7 @@ class MetricManager(object):
                 self.train_metrics[metric_name].update(metric_value.item(), n=output.shape[0])
 
         if rank<=0: 
-            self.wandb_run.log({"lr": curr_lr})
+            if self.wandb_run is not None: self.wandb_run.log({"lr": curr_lr})
             
     def on_train_epoch_end(self, epoch, rank):
         """
@@ -178,7 +179,7 @@ class MetricManager(object):
         # Log the metrics for this epoch to wandb
         if rank<=0: # main or master process
             for metric_name, avg_metric_val in average_metrics.items():
-                self.wandb_run.log({"epoch": epoch, "train_"+metric_name: avg_metric_val})
+                if self.wandb_run is not None: self.wandb_run.log({"epoch": epoch, "train_"+metric_name: avg_metric_val})
 
         # Save the average metrics for this epoch into self.average_train_metrics
         self.average_train_metrics = average_metrics
