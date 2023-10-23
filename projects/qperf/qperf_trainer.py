@@ -241,7 +241,7 @@ class QPerfTrainManager(TrainManager):
                 model_summary = self.init_model(c)
 
             logging.info(f"Configuration for this run:\n{c}") # Commenting out, prints a lot of info
-            logging.info(f"Wandb name:\n{wandb_run.name}")
+            if wandb_run: logging.info(f"Wandb name:\n{wandb_run.name}")
 
             if model_summary:
                 logging.info(f"Model Summary:\n{str(model_summary)}") # Commenting out, prints a lot of info
@@ -250,7 +250,7 @@ class QPerfTrainManager(TrainManager):
             #     wandb_run.watch(self.model_manager)
             # except:
             #     pass
-            wandb_run.log_code(".")
+            if wandb_run: wandb_run.log_code(".")
 
         # -----------------------------------------------
 
@@ -742,14 +742,17 @@ class QPerfTrainManager(TrainManager):
                         # Save final evaluation metrics to a text file
                         if final_eval and rank<=0:
                             for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
-                                wandb_run.summary[f"{split}_{metric_name}"] = metric_value
+                                if wandb_run: 
+                                    wandb_run.summary[f"{split}_{metric_name}"] = metric_value
                                 
                             metric_file = os.path.join(self.config.log_dir,self.config.run_name, f'{split}_metrics.txt')
                             with open(metric_file, 'a') as f:
                                 for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
                                     try: f.write(f"{split}_{metric_name}: {metric_value:.8f}, ")
                                     except: pass
-                            wandb_run.save(metric_file)
+                                    
+                            if wandb_run is not None:
+                               wandb_run.save(metric_file)
 
                     pbar_str += f"{Style.RESET_ALL}"
                 else:
