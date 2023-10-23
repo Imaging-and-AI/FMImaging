@@ -94,6 +94,7 @@ pip3 install --pre torch torchvision torchaudio --index-url https://download.pyt
 pip3 install wandb tqdm h5py torchinfo tifffile opencv-python scikit-image einops onnx numpy scipy moviepy imageio matplotlib torchmetrics gputil onnxruntime gif prettytable timm
 pip3 install torch-interpol
 
+cd ~/mrprogs
 git clone https://github.com/fbcotter/pytorch_wavelets
 cd pytorch_wavelets
 pip3 install .

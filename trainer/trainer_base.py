@@ -389,22 +389,22 @@ class TrainManager(object):
 
         if self.config.ddp:
 
-            if rank<=0:
-                c_list = [self.config]
-                print(f"{Fore.RED}--->before, on local rank {rank}, {c_list[0].run_name}{Style.RESET_ALL}", flush=True)
-            else:
-                c_list = [None]
-                print(f"{Fore.RED}--->before, on local rank {rank}, {self.config.run_name}{Style.RESET_ALL}", flush=True)
+            # if rank<=0:
+            #     c_list = [self.config]
+            #     print(f"{Fore.RED}--->before, on local rank {rank}, {c_list[0].run_name}{Style.RESET_ALL}", flush=True)
+            # else:
+            #     c_list = [None]
+            #     print(f"{Fore.RED}--->before, on local rank {rank}, {self.config.run_name}{Style.RESET_ALL}", flush=True)
 
-            if world_size > 1:
-                torch.distributed.broadcast_object_list(c_list, src=0, group=None, device=rank)
+            # if world_size > 1:
+            #     torch.distributed.broadcast_object_list(c_list, src=0, group=None, device=rank)
 
-            print(f"{Fore.RED}--->after, on local rank {rank}, {c_list[0].run_name}{Style.RESET_ALL}", flush=True)
-            if rank>0:
-                self.config = c_list[0]
+            # print(f"{Fore.RED}--->after, on local rank {rank}, {c_list[0].run_name}{Style.RESET_ALL}", flush=True)
+            # if rank>0:
+            #     self.config = c_list[0]
 
-            print(f"---> config synced for the local rank {rank}")
-            if world_size > 1: dist.barrier()
+            # print(f"---> config synced for the local rank {rank}")
+            # if world_size > 1: dist.barrier()
 
             print(f"{Fore.RED}---> Ready to run on local rank {rank}, {self.config.run_name}{Style.RESET_ALL}", flush=True)
 
