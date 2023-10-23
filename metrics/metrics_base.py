@@ -29,6 +29,7 @@ class MetricManager(object):
         super().__init__()
         self.config = config
         self.device = config.device
+        self.wandb_run = None
 
     def init_wandb(self):
         """

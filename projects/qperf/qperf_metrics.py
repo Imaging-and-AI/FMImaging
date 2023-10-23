@@ -97,11 +97,12 @@ class QPerfMetricManager(MetricManager):
         self.eval_metric_functions = copy.deepcopy(self.train_metric_functions)
 
         if rank<=0:
-            self.wandb_run.define_metric("epoch")
-            for metric_name in self.train_metrics.keys():
-                self.wandb_run.define_metric('train_'+metric_name, step_metric='epoch')
-            for metric_name in self.eval_metrics.keys():
-                self.wandb_run.define_metric('val_'+metric_name, step_metric='epoch')
+            if self.wandb_run is not None:
+                self.wandb_run.define_metric("epoch")
+                for metric_name in self.train_metrics.keys():
+                    self.wandb_run.define_metric('train_'+metric_name, step_metric='epoch')
+                for metric_name in self.eval_metrics.keys():
+                    self.wandb_run.define_metric('val_'+metric_name, step_metric='epoch')
 
             self.best_val = -np.inf
 
@@ -151,12 +152,13 @@ class QPerfMetricManager(MetricManager):
             self.train_metrics[metric_name].update(metric_value.item(), n=B)
 
         if rank<=0: 
-            self.wandb_run.log({"lr": curr_lr})
-            for metric_name in self.train_metrics.keys():
-                if metric_name=='loss':
-                    self.wandb_run.log({"running_train_loss": loss})
-                else:
-                    self.wandb_run.log({f"running_train_{metric_name}": self.train_metrics[metric_name].avg})
+            if self.wandb_run is not None:
+                self.wandb_run.log({"lr": curr_lr})
+                for metric_name in self.train_metrics.keys():
+                    if metric_name=='loss':
+                        self.wandb_run.log({"running_train_loss": loss})
+                    else:
+                        self.wandb_run.log({f"running_train_{metric_name}": self.train_metrics[metric_name].avg})
 
     # ---------------------------------------------------------------------------------------
     def on_eval_step_end(self, loss, output, labels, ids, rank, save_samples, split):
@@ -206,8 +208,9 @@ class QPerfMetricManager(MetricManager):
             average_metrics = {metric_name: self.eval_metrics[metric_name].avg for metric_name in self.eval_metrics.keys()}
 
         if rank<=0: 
-            for metric_name in average_metrics.keys():
-                self.wandb_run.log({f"val_{metric_name}": average_metrics[metric_name]})
+            if self.wandb_run is not None:
+                for metric_name in average_metrics.keys():
+                    self.wandb_run.log({f"val_{metric_name}": average_metrics[metric_name]})
 
         # Checkpoint best models during training
         if rank<=0: 
@@ -220,11 +223,12 @@ class QPerfMetricManager(MetricManager):
 
             if checkpoint_model:
                 self.best_pre_model_file, self.best_backbone_model_file, self.best_post_model_file = model_epoch.save(f"best_checkpoint_epoch_{epoch}", epoch, optim, sched)   
-                self.wandb_run.log({"epoch":epoch, "best_val_loss":self.best_val_loss})
+                if self.wandb_run is not None: self.wandb_run.log({"epoch":epoch, "best_val_loss":self.best_val_loss})
 
             # Update wandb with eval metrics
-            for metric_name, avg_metric_eval in average_metrics.items():
-                self.wandb_run.log({"epoch":epoch, f"{split}_{metric_name}": avg_metric_eval})
+            if self.wandb_run is not None:
+                for metric_name, avg_metric_eval in average_metrics.items():
+                    self.wandb_run.log({"epoch":epoch, f"{split}_{metric_name}": avg_metric_eval})
 
             # Save the average metrics for this epoch into self.average_eval_metrics
             self.average_eval_metrics = average_metrics
@@ -238,13 +242,13 @@ class QPerfMetricManager(MetricManager):
 
             if ran_training:
                 # Log the best loss and metrics from the run and save final model
-                self.wandb_run.summary["best_val_loss"] = self.best_val_loss
+                if self.wandb_run is not None: self.wandb_run.summary["best_val_loss"] = self.best_val_loss
                 
                 model_epoch = model_manager.module if self.config.ddp else model_manager 
                 model_epoch.save('final_epoch', epoch, optim, sched)
 
             # Finish the wandb run
-            self.wandb_run.finish() 
+            if self.wandb_run is not None: self.wandb_run.finish() 
 
 # -------------------------------------------------------------------------------------------------
 class QPerfBTEXMetricManager(QPerfMetricManager):
@@ -286,11 +290,12 @@ class QPerfBTEXMetricManager(QPerfMetricManager):
         self.eval_metric_functions = copy.deepcopy(self.train_metric_functions)
 
         if rank<=0:
-            self.wandb_run.define_metric("epoch")
-            for metric_name in self.train_metrics.keys():
-                self.wandb_run.define_metric('train_'+metric_name, step_metric='epoch')
-            for metric_name in self.eval_metrics.keys():
-                self.wandb_run.define_metric('val_'+metric_name, step_metric='epoch')
+            if self.wandb_run is not None:
+                self.wandb_run.define_metric("epoch")
+                for metric_name in self.train_metrics.keys():
+                    self.wandb_run.define_metric('train_'+metric_name, step_metric='epoch')
+                for metric_name in self.eval_metrics.keys():
+                    self.wandb_run.define_metric('val_'+metric_name, step_metric='epoch')
 
             self.best_val = -np.inf
 
@@ -324,12 +329,13 @@ class QPerfBTEXMetricManager(QPerfMetricManager):
             self.train_metrics[metric_name].update(metric_value.item(), n=B)
 
         if rank<=0: 
-            self.wandb_run.log({"lr": curr_lr})
-            for metric_name in self.train_metrics.keys():
-                if metric_name=='loss':
-                    self.wandb_run.log({"running_train_loss": loss})
-                else:
-                    self.wandb_run.log({f"running_train_{metric_name}": self.train_metrics[metric_name].avg})
+            if self.wandb_run is not None:
+                self.wandb_run.log({"lr": curr_lr})
+                for metric_name in self.train_metrics.keys():
+                    if metric_name=='loss':
+                        self.wandb_run.log({"running_train_loss": loss})
+                    else:
+                        self.wandb_run.log({f"running_train_{metric_name}": self.train_metrics[metric_name].avg})
 
     # ---------------------------------------------------------------------------------------
     def on_eval_step_end(self, loss, output, labels, ids, rank, save_samples, split):

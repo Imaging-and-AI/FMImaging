@@ -5,6 +5,15 @@ SAS="sp=racwdli&st=2023-06-24T03:52:16Z&se=2024-06-24T11:52:16Z&spr=https&sv=202
 
 data_src=https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared
 
+SAS_qperf="sp=racwdli&st=2023-10-22T21:32:48Z&se=2024-10-23T05:32:48Z&spr=https&sv=2022-11-02&sr=c&sig=cFBFXqcvpRZyfw9xyHKhPM%2B67l6F3LyBZLRy0fsrIYY%3D"
+data_src_qperf=https://stcnnt.blob.core.windows.net/qperf
+
+# azcopy copy "./val/" "https://stcnnt.blob.core.windows.net/qperf/?${SAS_qperf}" --recursive
+
+azcopy copy "${data_src_qperf}/tra?${SAS_qperf}" /export/Lab-Xue/projects/data/qperf --recursive
+azcopy copy "${data_src_qperf}/val?${SAS_qperf}" /export/Lab-Xue/projects/data/qperf --recursive
+azcopy copy "${data_src_qperf}/test?${SAS_qperf}" /export/Lab-Xue/projects/data/qperf --recursive
+
 # test data
 azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2DT_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
 azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2D_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
