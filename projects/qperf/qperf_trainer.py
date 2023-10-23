@@ -672,8 +672,6 @@ class QPerfTrainManager(TrainManager):
                         loader_outputs = next(data_loader_iters[loader_ind], None)
                     x, y, p = loader_outputs
 
-                    B = x.shape[0]
-
                     # del x, y, p, loader_outputs
                     # gc.collect()
                     # torch.cuda.empty_cache()
@@ -717,7 +715,7 @@ class QPerfTrainManager(TrainManager):
                     # ----------------------------------------------------------------------
 
                     if idx % 100 == 0:
-                        del x, y, p, loss, output, loader_outputs
+                        #del x, y, p, loss, output, loader_outputs
                         gc.collect()
                         torch.cuda.empty_cache()
 
@@ -729,7 +727,7 @@ class QPerfTrainManager(TrainManager):
 
                 # Print evaluation metrics to terminal
                 log_str = self.create_log_str(self.config, epoch, rank, 
-                                                B, 
+                                                x.shape, 
                                                 self.metric_manager,
                                                 curr_lr, 
                                                 split)
