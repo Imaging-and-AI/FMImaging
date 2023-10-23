@@ -339,33 +339,33 @@ class QPerfTrainManager(TrainManager):
 
                 wandb_run.save(self.config.yaml_file)
 
-            # log a few training examples
-            for i, train_set_x in enumerate(self.train_sets):
-                ind = np.random.randint(0, len(train_set_x), 16)
-                for ii in ind:
-                    x, y, p = train_set_x[ii]
+                # log a few training examples
+                for i, train_set_x in enumerate(self.train_sets):
+                    ind = np.random.randint(0, len(train_set_x), 16)
+                    for ii in ind:
+                        x, y, p = train_set_x[ii]
 
-                    Fp = p[0]
-                    Vp = p[1]
-                    Visf = p[2]
-                    PS = p[3]
-                    Delay = int(p[4])
-                    foot = int(p[5])
-                    peak = int(p[6])
-                    valley = int(p[7])
-                    used_n = int(p[8])
+                        Fp = p[0]
+                        Vp = p[1]
+                        Visf = p[2]
+                        PS = p[3]
+                        Delay = int(p[4])
+                        foot = int(p[5])
+                        peak = int(p[6])
+                        valley = int(p[7])
+                        used_n = int(p[8])
 
-                    x, y, p = denormalize_data(x, y, p)
+                        x, y, p = denormalize_data(x, y, p)
 
-                    N = x.shape[0]
+                        N = x.shape[0]
 
-                    print(f"--> upload tra {ii} ...")
-                    wandb.log({f"tra {ii}" : wandb.plot.line_series(
-                                xs=list(np.arange(N)),
-                                ys=[list(x[:,0]), list(x[:,1]), list(y.flatten())],
-                                keys=["aif", "myo", "myo_clean"],
-                                title=f"Tra, Fp={Fp:.2f},Vp={Vp:.2f},Visf={Visf:.2f},PS={PS:.2f},Delay={Delay},foot={foot},peak={peak},valley={valley},used_n={used_n}",
-                                xname="T")})
+                        print(f"--> upload tra {ii} ...")
+                        wandb.log({f"tra {ii}" : wandb.plot.line_series(
+                                    xs=list(np.arange(N)),
+                                    ys=[list(x[:,0]), list(x[:,1]), list(y.flatten())],
+                                    keys=["aif", "myo", "myo_clean"],
+                                    title=f"Tra, Fp={Fp:.2f},Vp={Vp:.2f},Visf={Visf:.2f},PS={PS:.2f},Delay={Delay},foot={foot},peak={peak},valley={valley},used_n={used_n}",
+                                    xname="T")})
 
         # -----------------------------------------------
 
