@@ -535,7 +535,8 @@ class QPerfTrainManager(TrainManager):
 
             # ----------------------------------------------------------------------------
 
-            model_manager.save(os.path.join(self.config.log_dir, self.config.run_name, 'last_checkpoint'), epoch, optim, sched)
+            logging.info(f"{Fore.CYAN}Saving the last check point ...{Style.RESET_ALL}")
+            self.model_manager.save(os.path.join(self.config.log_dir, self.config.run_name, 'last_checkpoint'), epoch, optim, sched)
             if wandb_run is not None:
                 wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_pre.pth'))
                 wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_backbone.pth'))
@@ -544,9 +545,9 @@ class QPerfTrainManager(TrainManager):
             # Load the best model from training
             if self.config.eval_train_set or self.config.eval_val_set or self.config.eval_test_set:
                 logging.info(f"{Fore.CYAN}Loading the best models from training for final evaluation...{Style.RESET_ALL}")
-                if self.metric_manager.best_pre_model_file is not None: model_manager.load_pre(self.metric_manager.best_pre_model_file)
-                if self.metric_manager.best_backbone_model_file is not None: model_manager.load_backbone(self.metric_manager.best_backbone_model_file)
-                if self.metric_manager.best_post_model_file is not None: model_manager.load_post(self.metric_manager.best_post_model_file)
+                if self.metric_manager.best_pre_model_file is not None: self.model_manager.load_pre(self.metric_manager.best_pre_model_file)
+                if self.metric_manager.best_backbone_model_file is not None: self.model_manager.load_backbone(self.metric_manager.best_backbone_model_file)
+                if self.metric_manager.best_post_model_file is not None: self.model_manager.load_post(self.metric_manager.best_post_model_file)
 
                 if wandb_run is not None:
                     if self.metric_manager.best_pre_model_file is not None: wandb_run.save(self.metric_manager.best_pre_model_file)
@@ -575,7 +576,7 @@ class QPerfTrainManager(TrainManager):
 
         # -----------------------------------------------
 
-        save_path, save_file_name, config_yaml_file = model_manager.save_entire_model(epoch=self.config.num_epochs)
+        save_path, save_file_name, config_yaml_file = self.model_manager.save_entire_model(epoch=self.config.num_epochs)
         model_full_path = os.path.join(save_path, save_file_name)
         logging.info(f"{Fore.YELLOW}Entire model is saved at {model_full_path} ...{Style.RESET_ALL}")
 
