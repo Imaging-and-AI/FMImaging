@@ -200,7 +200,7 @@ class QPerfTrainManager(TrainManager):
                     # keys=["myo", "myo_clean", "myo_model"],
                     ys=[list(y[case_picked,:].flatten()), list(y_hat[case_picked,:].flatten())],
                     keys=["myo_clean", "myo_model"],
-                    title=f"{id}, Fp={Fp:.2f}, Vp={Vp:.2f}, Visf={Visf:.2f}, PS={PS:.2f}, Delay={Delay} - Fp={Fp_est:.2f}, Vp={Vp_est:.2f}, Visf={Visf_est:.2f}, PS={PS_est:.2f}, Delay={Delay_est}",
+                    title=f"{title}, Fp={Fp:.2f}, Vp={Vp:.2f}, Visf={Visf:.2f}, PS={PS:.2f}, Delay={Delay} - Fp={Fp_est:.2f}, Vp={Vp_est:.2f}, Visf={Visf_est:.2f}, PS={PS_est:.2f}, Delay={Delay_est}",
                     xname="T")})
 
 
@@ -236,7 +236,9 @@ class QPerfTrainManager(TrainManager):
         # -----------------------------------------------
         if rank<=0:
             if not isinstance(self.model_manager, QPerfBTEXModel):
-                count_parameters(self.model_manager)
+                total_params = count_parameters(self.model_manager)
+                model_summary = None
+                c.total_params = total_params
             else:
                 model_summary = self.init_model(c)
 
@@ -263,7 +265,7 @@ class QPerfTrainManager(TrainManager):
             model_manager = self.model_manager.to(device)
 
         if not config.disable_LSUV:
-            if config.pre_model_load_path is None and config.backbone_model_load_path is None and config.post_model_load_path is None:
+            if config.pre_model_load_path is None and config.backbone_model_load_path is None and config.post_model_load_path is None and config.model_btex_load_path is None:
                 t0 = time()
                 num_samples = len(self.train_sets[-1])
                 sampled_picked = np.random.randint(0, num_samples, size=1024)
@@ -333,9 +335,9 @@ class QPerfTrainManager(TrainManager):
                 setup_logger(self.config) 
 
             if wandb_run is not None:
-                wandb_run.summary["trainable_params"] = c.trainable_params
-                wandb_run.summary["total_params"] = c.total_params
-                wandb_run.summary["total_mult_adds"] = c.total_mult_adds 
+                if 'trainable_params' in c: wandb_run.summary["trainable_params"] = c.trainable_params
+                if 'total_params' in c: wandb_run.summary["total_params"] = c.total_params
+                if 'total_mult_adds' in c: wandb_run.summary["total_mult_adds"] = c.total_mult_adds 
 
                 wandb_run.save(self.config.yaml_file)
 

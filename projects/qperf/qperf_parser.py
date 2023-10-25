@@ -26,7 +26,7 @@ class qperf_parser(object):
 
         self.parser.add_argument("--n_embd", type=int, default=512, help='embeding dimension')
 
-        self.parser.add_argument("--n_layer", nargs='+', type=int, default=[16, 16], help='number of transformer layers')
+        self.parser.add_argument("--n_layer", nargs='+', type=int, default=[16, 16], help='number of transformer layers for params model and betex model')
 
         self.parser.add_argument("--qperf_T", type=int, default=80, help='data length')
         self.parser.add_argument("--foot_to_end", action="store_true", help='if set, use data from foot to end')
@@ -49,3 +49,5 @@ class qperf_parser(object):
         self.parser.add_argument("--disable_LSUV", action="store_true", help='if set, do not perform LSUV initialization.')
 
         self.parser.add_argument("--qperf_model_type", type=str, default="QPerfModel", choices=['QPerfModel', 'QPerfModel_double_net', 'QPerfBTEXModel'], help='model type')
+
+        self.parser.add_argument("--model_btex_load_path", type=none_or_str, default=None, help='Path to load btex model, pre-trained')

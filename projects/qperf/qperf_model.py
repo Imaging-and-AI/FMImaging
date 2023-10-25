@@ -422,7 +422,8 @@ class QPerfBTEXModel(ModelManager):
 
         x, p = input
 
-        B, T, C = x.size()
+        B = x.shape[0]
+        T = x.shape[1]
         assert T <= self.T, "The positional embedding is used, so the maximal series length is %d" % self.T
 
         # project input from C channels to n_embd channels
@@ -455,6 +456,127 @@ class QPerfBTEXModel(ModelManager):
         y_myo = self.post["output_proj2_myo"](y_myo)
 
         return y_myo
+
+# -------------------------------------------------------------------------------------------------
+
+class QPerfParamsModel(ModelManager):
+    """
+        QPerf mapping model for parameters
+
+        Input: aif and myo Gd curves
+        Output: Fp, Vp, Visf, PS, and delay
+
+        The architecture is quite straight-forward :
+
+        x -> input_proj --> + --> drop_out --> attention layers one after another --> LayerNorm --> output_proj_params --> p_est --> pre-trained QPerfBTEX model --> myo_est
+                            |
+        pos_embedding-------|
+    """
+    def __init__(self, config, n_layer=8, input_D=2, output_myo_D=1, num_params=5, T=80, is_causal=False, use_pos_embedding=True, n_embd=1024, n_head=32, dropout_p=0.1, att_dropout_p=0.0, residual_dropout_p=0.1):
+
+        self.n_layer = n_layer
+        self.input_D = input_D
+        self.output_myo_D = output_myo_D
+        self.num_params = num_params
+        self.T = T
+        self.is_causal = is_causal
+        self.use_pos_embedding = use_pos_embedding
+        self.n_embd = n_embd
+        self.n_head = n_head
+        self.dropout_p = dropout_p
+        self.att_dropout_p = att_dropout_p
+        self.residual_dropout_p = residual_dropout_p
+
+        super().__init__(config)
+
+        # a good trick to count how many parameters
+        logging.info("number of parameters: %d", sum(p.numel() for p in self.parameters()))
+
+    def _init_weights(self, module):
+        if isinstance(module, (nn.Linear)):
+            module.weight.data.normal_(mean=0.0, std=0.02)
+            if isinstance(module, nn.Linear) and module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, nn.LayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
+
+    def create_pre(self): 
+        self.pre = nn.ModuleDict()
+        self.pre["input_proj"] = nn.Linear(self.input_D, self.n_embd)
+        if self.use_pos_embedding:
+            self.pre["pos_emb"] = torch.nn.ParameterList([nn.Parameter(torch.zeros(1, self.T, self.n_embd))])
+        self.pre["drop"] = nn.Dropout(self.dropout_p)
+
+    def create_backbone(self, channel_first=True): 
+        self.backbone = nn.ModuleDict()
+        self.backbone["cells"] = nn.Sequential(*[Cell(T=self.T, n_embd=self.n_embd, is_causal=self.is_causal, n_head=self.n_head, attn_dropout_p=self.att_dropout_p, residual_dropout_p=self.residual_dropout_p, activation_func=self.config.activation_func) for _ in range(self.n_layer)])
+
+        n_embd = self.n_embd
+        self.backbone["layer_norm"] = nn.LayerNorm(n_embd)
+        self.backbone["output_proj1_params"] = nn.Linear(n_embd, n_embd, bias=True)
+        self.backbone["output_proj2_params"] = nn.Linear(self.T*n_embd, self.num_params, bias=True)
+
+        self.feature_channels = self.n_embd
+
+    def create_post(self): 
+        self.post = QPerfBTEXModel(config=self.config, 
+                    n_layer=self.config.n_layer[1], 
+                    input_D=1, 
+                    output_myo_D=1, 
+                    num_params=self.num_params, 
+                    T=self.config.qperf_T, 
+                    is_causal=False, 
+                    use_pos_embedding=self.config.use_pos_embedding, 
+                    n_embd=self.config.n_embd, 
+                    n_head=self.config.n_head, 
+                    dropout_p=self.config.dropout_p, 
+                    att_dropout_p=self.config.att_dropout_p, 
+                    residual_dropout_p=self.config.residual_dropout_p)
+
+    def forward(self, x):
+        """Forward pass of detector
+
+        Args:
+            x ([B, T, 2]]): Aif and myo
+
+        Returns:
+            logits_myo: [B, T, output_D]
+            logits_params: [B, 5]
+        """
+
+        B, T, C = x.size()
+        assert T <= self.T, "The positional embedding is used, so the maximal series length is %d" % self.T
+        assert C==2
+
+        aif = torch.unsqueeze(x[:,:,0], dim=2)
+
+        # project input from C channels to n_embd channels
+        x_proj = self.pre["input_proj"](x)
+
+        if self.use_pos_embedding:
+            x = x_proj + self.pre["pos_emb"][0][:, :T, :]
+            x = self.pre["drop"](x)
+        else:
+            x = x_proj + position_encoding(seq_len=T, dim_model=C, device=self.device)
+            x = self.pre["drop"](x)
+
+        # go through all layers of attentions
+        x = self.backbone["cells"](x)
+
+        # project outputs to output_size channel
+        x = self.backbone["layer_norm"](x)
+        x = F.gelu(x, approximate='tanh')
+
+        y_params = self.backbone["output_proj1_params"](x)
+        y_params = F.gelu(y_params, approximate='tanh')
+        y_params = torch.flatten(y_params, start_dim=1, end_dim=2)
+        p_est = self.backbone["output_proj2_params"](y_params)
+
+        # now send aif and p_est to post model
+        myo_est = self.post((aif, p_est))
+
+        return myo_est, p_est
 
 # -------------------------------------------------------------------------------------------------
 

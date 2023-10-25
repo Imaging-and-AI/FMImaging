@@ -162,25 +162,26 @@ class qperf_loss:
 
         num_params = params_estimated.shape[1]
         for n in range(num_params):
-            #v = torch.abs(params_estimated[:, n]-params[:, n])
-            #combined_loss += self.config.loss_weights_params[n] * torch.sum(v)/B
+            if self.config.loss_weights_params[n] > 0:
+                #v = torch.abs(params_estimated[:, n]-params[:, n])
+                #combined_loss += self.config.loss_weights_params[n] * torch.sum(v)/B
 
-            v1 = torch.mean(torch.abs(params_estimated[:, n] - params[:, n]))
-            if(torch.any(torch.isnan(v1))):
-                raise NotImplementedError(f"nan in v1 = torch.mean(torch.abs(params_estimated[:, n] - params[:, n]))")
-                v1 = torch.mean(0.0 * params_estimated[:, n])
+                v1 = torch.mean(torch.abs(params_estimated[:, n] - params[:, n]))
+                if(torch.any(torch.isnan(v1))):
+                    raise NotImplementedError(f"nan in v1 = torch.mean(torch.abs(params_estimated[:, n] - params[:, n]))")
+                    v1 = torch.mean(0.0 * params_estimated[:, n])
 
-            # v2 = torch.mean( ( torch.log(1 + torch.abs(params_estimated[:, n])) - torch.log(1 + torch.abs(params[:, n])) ) ** 2)
-            # if(torch.any(torch.isnan(v2))):
-            #     raise NotImplementedError(f"nan in v2 = torch.mean( ( torch.log(1+params_estimated[:, n]) - torch.log(1+params[:, n]) ) ** 2)")
-            #     v2 = torch.mean(0.0 * params_estimated[:, n])
+                # v2 = torch.mean( ( torch.log(1 + torch.abs(params_estimated[:, n])) - torch.log(1 + torch.abs(params[:, n])) ) ** 2)
+                # if(torch.any(torch.isnan(v2))):
+                #     raise NotImplementedError(f"nan in v2 = torch.mean( ( torch.log(1+params_estimated[:, n]) - torch.log(1+params[:, n]) ) ** 2)")
+                #     v2 = torch.mean(0.0 * params_estimated[:, n])
 
-            # v3 = torch.mean( (params_estimated[:, n] - params[:, n]) ** 2)
-            # if(torch.any(torch.isnan(v3))):
-            #     raise NotImplementedError(f"nan in v3 = torch.mean( (params_estimated[:, n] - params[:, n]) ** 2)")
-            #     v3 = torch.mean(0.0 * params_estimated[:, n])
+                # v3 = torch.mean( (params_estimated[:, n] - params[:, n]) ** 2)
+                # if(torch.any(torch.isnan(v3))):
+                #     raise NotImplementedError(f"nan in v3 = torch.mean( (params_estimated[:, n] - params[:, n]) ** 2)")
+                #     v3 = torch.mean(0.0 * params_estimated[:, n])
 
-            combined_loss += self.config.loss_weights_params[n] * (v1)
+                combined_loss += self.config.loss_weights_params[n] * (v1)
 
         return combined_loss
 
