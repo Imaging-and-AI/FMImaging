@@ -197,9 +197,10 @@ class PixelShuffle2DExt(nn.Module):
 class Conv3DExt(nn.Module):
     # Extends torch 3D conv to support 5D inputs
 
-    def __init__(self, in_channels, out_channels, kernel_size=[3,3,3], stride=[1,1,1], padding=[1,1,1], bias=False, separable_conv=False):
+    def __init__(self, in_channels, out_channels, kernel_size=[3,3,3], stride=[1,1,1], padding=[1,1,1], bias=False, separable_conv=False, channel_first=False):
         super().__init__()
         self.separable_conv = separable_conv
+        self.channel_first = channel_first
         if separable_conv:
             self.convA = nn.Conv3d(in_channels, in_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias, groups=in_channels)
             self.convB = nn.Conv3d(in_channels, out_channels, kernel_size=[1,1,1], stride=[1,1,1], padding=[0,0,0], bias=bias)
@@ -208,14 +209,23 @@ class Conv3DExt(nn.Module):
 
     def forward(self, input):
         # requires input to have 5 dimensions
-        B, T, C, H, W = input.shape
-        x = torch.permute(input, (0, 2, 1, 3, 4))
-        if self.separable_conv:
-            y = self.convB(self.convA(x))
-        else:
-            y = self.conv(x)
+        if self.channel_first:
+            B, C, T, H, W = input.shape
+            if self.separable_conv:
+                y = self.convB(self.convA(input))
+            else:
+                y = self.conv(input)
 
-        return torch.permute(y, (0, 2, 1, 3, 4))
+            return y
+        else:
+            B, T, C, H, W = input.shape
+            x = torch.permute(input, (0, 2, 1, 3, 4))
+            if self.separable_conv:
+                y = self.convB(self.convA(x))
+            else:
+                y = self.conv(x)
+
+            return torch.permute(y, (0, 2, 1, 3, 4))
 
 class BatchNorm2DExt(nn.Module):
     # Extends BatchNorm2D to 5D inputs

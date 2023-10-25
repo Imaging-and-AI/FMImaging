@@ -187,3 +187,10 @@ git clone https://github.com/fbcotter/pytorch_wavelets
 cd pytorch_wavelets
 pip3 install .
 ```
+# clone others
+
+```
+cd ~/mrprogs
+git clone git@github.com:xueh2/matlab_mrrecon.git
+git clone git@github.com:xueh2/imagescn.git
+```

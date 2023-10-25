@@ -338,7 +338,7 @@ class QPerfBTEXModel(ModelManager):
         The architecture is quite straight-forward :
 
         aif -> input_proj --> + --> drop_out --> attention layers one after another --> LayerNorm --> output_proj_myo --> logits
-                            |                  |                                                 |--> output_proj_params --> logits
+                            |                  |                                                 
         pos_embedding-------|                  | 
                                                |
         params -> input_proj --> norm --> nl --|

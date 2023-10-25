@@ -288,8 +288,8 @@ class MriMetricManager(MetricManager):
                     self.wandb_run.log({"epoch":epoch, f"{split}_{metric_name}": avg_metric_eval})
             else:
                 for metric_name, avg_metric_eval in average_metrics.items():
-                    self.wandb_run.summary({f"final_{split}_{metric_name}": avg_metric_eval})
-                
+                    self.wandb_run.summary[f"final_{split}_{metric_name}"] = avg_metric_eval
+
             # Save the average metrics for this epoch into self.average_eval_metrics
             self.average_eval_metrics = average_metrics
             #print(f"--> epoch {epoch}, average_eval_metrics {self.average_eval_metrics}")

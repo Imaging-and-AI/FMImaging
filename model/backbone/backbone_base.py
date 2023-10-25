@@ -284,13 +284,14 @@ class _U2(nn.Module):
     """
     Upsample by 2
 
-    This module takes in a [B, T, Cin, H, W] tensor and upsample it to [B, T, Cout, 2*H, 2*W]
+    This module takes in a [B, T, Cin, H, W] tensor and upsample it to [B, T, Cout, 2*H, 2*W], if channel_first is False
+    This module takes in a [B, Cin, T, H, W] tensor and upsample it to [B, Cout, T, 2*H, 2*W], if channel_first is True
 
     By default, the operation is performed with a bilinear interpolation.
     If with_conv is True, a 1x1 convolution is added after interpolation.
     """
 
-    def __init__(self, C_in=16, C_out=-1, method='linear', with_conv=True) -> None:
+    def __init__(self, C_in=16, C_out=-1, method='linear', with_conv=True, channel_first=False) -> None:
         super().__init__()
 
         self.C_in = C_in
@@ -299,24 +300,25 @@ class _U2(nn.Module):
         self.method = method
 
         self.with_conv = with_conv
+        self.channel_first = channel_first
 
         self.conv = None
         if self.with_conv or (self.C_in != self.C_out):
-            self.conv = Conv2DExt(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[3,3], stride=[1,1], padding=[1,1])
+            self.conv = Conv2DExt(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[3,3], stride=[1,1], padding=[1,1], channel_first=self.channel_first)
 
     def forward(self, x:Tensor) -> Tensor:
 
-        B, T, C, H, W = x.shape
+        B, D1, D2, H, W = x.shape
 
         if self.method == "NN":
-            y = F.interpolate(x.reshape((B*T, C, H, W)), size=(2*H, 2*W), mode="nearest", recompute_scale_factor=False)
+            y = F.interpolate(x.reshape((B*D1, D2, H, W)), size=(2*H, 2*W), mode="nearest", recompute_scale_factor=False)
         elif self.method == 'linear':
-            y = F.interpolate(x.reshape((B*T, C, H, W)), size=(2*H, 2*W), mode="bilinear", align_corners=False, recompute_scale_factor=False)
+            y = F.interpolate(x.reshape((B*D1, D2, H, W)), size=(2*H, 2*W), mode="bilinear", align_corners=False, recompute_scale_factor=False)
         else:
             opt = dict(shape=[2*H, 2*W], anchor='first', bound='replicate')
-            y = interpol.resize(x.reshape((B*T, C, H, W)), **opt, interpolation=5)
+            y = interpol.resize(x.reshape((B*D1, D2, H, W)), **opt, interpolation=5)
 
-        y = torch.reshape(y, (B, T, *y.shape[1:]))
+        y = torch.reshape(y, (B, D1, *y.shape[1:]))
         if self.with_conv:
             y = self.conv(y)
 
@@ -326,37 +328,46 @@ class _U2_3D(nn.Module):
     """
     Upsample by 2
 
-    This module takes in a [B, T, Cin, H, W] tensor and upsample it to [B, 2*T, Cout, 2*H, 2*W]
+    This module takes in a [B, T, Cin, H, W] tensor and upsample it to [B, 2*T, Cout, 2*H, 2*W], if channel_first is False
+    This module takes in a [B, Cin, T, H, W] tensor and upsample it to [B, Cout, 2*T, 2*H, 2*W], if channel_first is True
 
     By default, the operation is performed with a trilinear interpolation.
     If with_conv is True, a 1x1 convolution is added after interpolation.
     """
 
-    def __init__(self, C_in=16, C_out=-1, method='linear', with_conv=True) -> None:
+    def __init__(self, C_in=16, C_out=-1, method='linear', with_conv=True, channel_first=False) -> None:
         super().__init__()
 
         self.C_in = C_in
         self.C_out = C_out if C_out>0 else C_in
         self.method = method        
         self.with_conv = with_conv
-
+        self.channel_first = channel_first
+        
         self.conv = None
         if self.with_conv or (self.C_in != self.C_out):
-            self.conv = Conv3DExt(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[3,3,3], stride=[1,1,1], padding=[1,1,1])
+            self.conv = Conv3DExt(in_channels=self.C_in, out_channels=self.C_out, kernel_size=[3,3,3], stride=[1,1,1], padding=[1,1,1], channel_first=self.channel_first)
 
     def forward(self, x:Tensor) -> Tensor:
 
-        B, T, C, H, W = x.shape
+        if self.channel_first:
+            x_channel_first = x
+        else:
+            x_channel_first = torch.permute(x, (0, 2, 1, 3, 4))
+            
+        B, C, T, H, W = x_channel_first.shape
 
         if self.method == "NN":
-            y = F.interpolate(torch.permute(x, (0, 2, 1, 3, 4)), size=(2*T, 2*H, 2*W), mode="nearest", recompute_scale_factor=False)
+            y = F.interpolate(x_channel_first, size=(2*T, 2*H, 2*W), mode="nearest", recompute_scale_factor=False)
         elif self.method == 'linear':
-            y = F.interpolate(torch.permute(x, (0, 2, 1, 3, 4)), size=(2*T, 2*H, 2*W), mode="trilinear", align_corners=False, recompute_scale_factor=False)
+            y = F.interpolate(x_channel_first, size=(2*T, 2*H, 2*W), mode="trilinear", align_corners=False, recompute_scale_factor=False)
         else:
             opt = dict(shape=[2*T, 2*H, 2*W], anchor='first', bound='replicate')
-            y = interpol.resize(torch.permute(x, (0, 2, 1, 3, 4)), **opt, interpolation=5)
+            y = interpol.resize(x_channel_first, **opt, interpolation=5)
 
-        y = torch.permute(y, (0, 2, 1, 3, 4))
+        if not self.channel_first:
+            y = torch.permute(y, (0, 2, 1, 3, 4))
+            
         if self.with_conv:
             y = self.conv(y)
 
@@ -369,7 +380,7 @@ class UpSample(nn.Module):
     Upsample by x(2^N), by using N U2 layers
     """
 
-    def __init__(self, N=2, C_in=16, C_out=-1, method='linear', with_conv=True, is_3D=False) -> None:
+    def __init__(self, N=2, C_in=16, C_out=-1, method='linear', with_conv=True, is_3D=False, channel_first=False) -> None:
         super().__init__()
 
         C_out = C_out if C_out>0 else C_in
@@ -380,14 +391,15 @@ class UpSample(nn.Module):
         self.with_conv = with_conv
         self.is_3D = is_3D
         self.method = method
-        
+        self.channel_first = channel_first
+
         UpSampleLayer = _U2
         if is_3D:
             UpSampleLayer = _U2_3D
 
-        layers = [('U2_0', UpSampleLayer(C_in=C_in, C_out=C_out, method=method, with_conv=with_conv))]
+        layers = [('U2_0', UpSampleLayer(C_in=C_in, C_out=C_out, method=method, with_conv=with_conv, channel_first=self.channel_first))]
         for n in range(1, N):
-            layers.append( (f'U2_{n}', UpSampleLayer(C_in=C_out, C_out=C_out, method=method, with_conv=with_conv)) )
+            layers.append( (f'U2_{n}', UpSampleLayer(C_in=C_out, C_out=C_out, method=method, with_conv=with_conv, channel_first=self.channel_first)) )
 
         self.block = nn.Sequential(OrderedDict(layers))
 
