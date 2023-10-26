@@ -203,6 +203,18 @@
         },
         // -----------------------------------------------------------------------------------------
         {
+            "name": "save_pt_as_onnx, mri",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/mri/save_pt_as_onnx.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "4"},
+            "args": [
+                "--input", "/export/Lab-Xue/projects/mri-main/logs/mri-main-1st_TTT_TTT_for_testing_STCNNT_HRNET_T1T1T1_T1T1T1_20231025_222045_958810_STCNNT_MRI_C-32-1_amp-True_complex_residual-T1T1T1_T1T1T1/mri-main-1st_TTT_TTT_for_testing_STCNNT_HRNET_T1T1T1_T1T1T1_20231025_222045_958810_STCNNT_MRI_C-32-1_amp-True_complex_residual-T1T1T1_T1T1T1_epoch-1.pth", "--output", "/export/Lab-Xue/projects/mri/test/test_model.pts"]
+        },
+        // -----------------------------------------------------------------------------------------
+        {
             "name": "create_hdf5_from_mat",
             "type": "python",
             "request": "launch",
@@ -338,6 +350,26 @@
                 "--save_val_samples", "True",
                 "--qperf_model_type", "QPerfBTEXModel",
                 "--disable_LSUV"
+                // "--pre_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_pre.pth",
+                // "--backbone_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_backbone.pth",
+                // "--post_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_post.pth",
+                // "--load_optim_and_sched", "True"
+            ]
+        },
+        // -----------------------------------------------------------------------------------------
+        {
+            "name": "inference, qperf",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/qperf/inference/run_inference.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "4"},
+            "args": [
+                "--data_folder", "/export/Lab-Xue/data/qperf/test",
+                "--output_dir", "/export/Lab-Xue/data/qperf/results",
+                "--model", "/export/Lab-Xue/projects/qperf/models/best_checkpoint_epoch_0",
+                "--max_samples", "2048"
                 // "--pre_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_pre.pth",
                 // "--backbone_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_backbone.pth",
                 // "--post_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_post.pth",

@@ -49,26 +49,11 @@ from utils.status import get_device
 from mri_parser import mri_parser
 from mri_data import MRIDenoisingDatasetTrain, load_mri_data
 from mri_loss import mri_loss 
-from mri_model import STCNNT_MRI, MRI_hrnet, MRI_double_net, omnivore_MRI
+from mri_model import STCNNT_MRI, MRI_hrnet, MRI_double_net, omnivore_MRI, create_model
 from LSUV import LSUVinit
 from mri_metrics import MriMetricManager
 from mri_trainer import MRITrainManager, get_rank_str
 
-# -------------------------------------------------------------------------------------------------
-
-def create_model(config, model_type):
-    config_copy = copy.copy(config)
-    if model_type == "STCNNT_MRI":
-        model = STCNNT_MRI(config=config_copy)
-    elif model_type == "MRI_hrnet":
-        model = MRI_hrnet(config=config_copy)
-    elif model_type == "omnivore_MRI":
-        model = omnivore_MRI(config=config_copy)
-    else:
-        model = MRI_double_net(config=config_copy)
-
-    return model
-   
 # -------------------------------------------------------------------------------------------------
 def main():
 

@@ -159,14 +159,28 @@ class MriMetricManager(MetricManager):
                 self.train_metrics['dwt'].avg
 
     # ---------------------------------------------------------------------------------------
+    def parse_output(self, output):
+        if self.config.model_type == "STCNNT_MRI" or self.config.model_type == "MRI_hrnet" or self.config.model_type == "omnivore_MRI":
+            if len(output) == 2:
+                y_hat, weights = output
+            else:
+                y_hat = output
+            output_1st_net = None
+        else:
+            if len(output) == 3:
+                y_hat, weights, output_1st_net = output
+            else:
+                y_hat, output_1st_net = output
+
+        return y_hat, output_1st_net
+
+    # ---------------------------------------------------------------------------------------
     def on_train_step_end(self, loss, output, labels, rank, curr_lr, save_samples, epoch, ids):
           
         x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = labels
-        if len(output) == 3:
-            y_hat, weights, output_1st_net = output
-        else:
-            y_hat, output_1st_net = output
-        
+
+        y_hat, output_1st_net = self.parse_output(output)
+
         y_for_loss = y
         if self.config.super_resolution:
             y_for_loss = y_2x
@@ -199,24 +213,17 @@ class MriMetricManager(MetricManager):
 
     # ---------------------------------------------------------------------------------------
     def on_eval_step_end(self, loss, output, labels, ids, rank, save_samples, split):
-        
+
         x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = labels
-        if isinstance(output, list):
-            if len(output) == 3:
-                y_hat, weights, output_1st_net = output
-            else:
-                y_hat, output_1st_net = output
-        else:
-            y_hat = output
-            output_1st_net = None
-        
+        y_hat, output_1st_net = self.parse_output(output)
+
         y_for_loss = y
         if self.config.super_resolution:
             y_for_loss = y_2x
-                
+
         y_hat = y_hat.to(torch.float32)
         y_for_loss = y_for_loss.to(device=y_hat.device, dtype=torch.float32)
-        
+
         for metric_name in self.eval_metrics.keys():
             if metric_name=='loss':
                 self.eval_metrics[metric_name].update(loss, n=x.shape[0])
@@ -231,7 +238,7 @@ class MriMetricManager(MetricManager):
                                
             if output_1st_net is not None: output_1st_net = output_1st_net.detach().cpu()
             self.save_batch_samples(save_path, f"{ids}", x.cpu(), y.cpu(), y_hat.detach().cpu(), y_for_loss.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item(), output_1st_net)
-            
+
     # ---------------------------------------------------------------------------------------        
     def on_eval_epoch_end(self, rank, epoch, model_manager, optim, sched, split, final_eval):
         """

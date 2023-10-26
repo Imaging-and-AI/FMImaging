@@ -45,8 +45,8 @@ import onnxruntime as ort
 import GPUtil
 
 from utils.status import model_info, start_timer, end_timer, support_bfloat16, get_device
-from .run import create_model
-from .running_inference import running_inference
+from mri_model import create_model
+from running_inference import running_inference
 
 # ---------------------------------------------------------
 
@@ -377,23 +377,23 @@ def compare_model(config, model, model_jit, model_onnx, device='cpu', x=None):
     model.to(device=device)
     model.eval()
 
-    cutout_in = (c.time, c.height[-1], c.width[-1])
-    overlap_in = (c.time//2, c.height[-1]//2, c.width[-1]//2)
+    cutout_in = (c.time, c.mri_height[-1], c.mri_width[-1])
+    overlap_in = (c.time//2, c.mri_height[-1]//2, c.mri_width[-1]//2)
 
-    tm = start_timer(enable=True)    
-    y, y_model = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, device=device)
-    end_timer(enable=True, t=tm, msg="torch model took")
+    # tm = start_timer(enable=True)    
+    # y, y_model = running_inference(model, x, cutout=cutout_in, overlap=overlap_in, batch_size=2, device=device)
+    # end_timer(enable=True, t=tm, msg="torch model took")
 
     tm = start_timer(enable=True)
-    y_onnx, y_model_onnx = running_inference(model_onnx, x, cutout=cutout_in, overlap=overlap_in, device=device)
+    y_onnx, y_model_onnx = running_inference(model_onnx, x, cutout=cutout_in, overlap=overlap_in, batch_size=2, device=torch.device('cpu'))
     end_timer(enable=True, t=tm, msg="onnx model took")
+
+    tm = start_timer(enable=True)
+    y_jit, y_model_jit = running_inference(model_jit, x, cutout=cutout_in, overlap=overlap_in, batch_size=2, device=torch.device('cpu'))
+    end_timer(enable=True, t=tm, msg="torch script model took")
 
     diff = np.linalg.norm(y-y_onnx)
     print(f"--> {Fore.GREEN}Onnx model difference is {diff} ... {Style.RESET_ALL}", flush=True)
-
-    tm = start_timer(enable=True)
-    y_jit, y_model_jit = running_inference(model_jit, x, cutout=cutout_in, overlap=overlap_in, device=device)
-    end_timer(enable=True, t=tm, msg="torch script model took")
 
     diff = np.linalg.norm(y-y_jit)
     print(f"--> {Fore.GREEN}Jit model difference is {diff} ... {Style.RESET_ALL}", flush=True)

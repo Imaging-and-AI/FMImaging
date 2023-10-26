@@ -42,6 +42,21 @@ from optim.optim_utils import divide_optim_into_groups
 # inside the model, permutes are used as less as possible
 
 # -------------------------------------------------------------------------------------------------
+
+def create_model(config, model_type):
+    config_copy = copy.copy(config)
+    if model_type == "STCNNT_MRI":
+        model = STCNNT_MRI(config=config_copy)
+    elif model_type == "MRI_hrnet":
+        model = MRI_hrnet(config=config_copy)
+    elif model_type == "omnivore_MRI":
+        model = omnivore_MRI(config=config_copy)
+    else:
+        model = MRI_double_net(config=config_copy)
+
+    return model
+
+# -------------------------------------------------------------------------------------------------
 # MRI model
 
 class STCNNT_MRI(ModelManager):
@@ -143,9 +158,9 @@ class STCNNT_MRI(ModelManager):
 
         if base_snr_t is not None:
             weights = self.compute_weights(snr=snr, base_snr_t=base_snr_t)
-            return logits, weights, None
+            return logits, weights
         else:
-            return logits, None
+            return logits
 
     def compute_weights(self, snr, base_snr_t):
         weights = self.pre["paras"]["a"] - self.pre["paras"]["b"] * torch.sigmoid(snr-base_snr_t)
@@ -221,9 +236,9 @@ class omnivore_MRI(STCNNT_MRI):
 
         if base_snr_t is not None:
             weights = self.compute_weights(snr=snr, base_snr_t=base_snr_t)
-            return logits, weights, None
+            return logits, weights
         else:
-            return logits, None
+            return logits
 
 # -------------------------------------------------------------------------------------------------
 # MRI hrnet model
@@ -519,9 +534,9 @@ class MRI_hrnet(STCNNT_MRI):
 
         if base_snr_t is not None:
             weights = self.compute_weights(snr=snr, base_snr_t=base_snr_t)
-            return logits, weights, None
+            return logits, weights
         else:
-            return logits, None
+            return logits
 
 # -------------------------------------------------------------------------------------------------
 # MRI double net model

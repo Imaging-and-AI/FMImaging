@@ -92,7 +92,7 @@ class mri_parser(object):
         # self.parser.add_argument("--disable_post", action="store_true", help='if set, post module will have require_grad_(False).')
 
         self.parser.add_argument('--post_backbone', type=str, default="STCNNT_HRNET", choices=["STCNNT_HRNET", "STCNNT_mUNET"], help="model for post module, 'STCNNT_HRNET', 'STCNNT_mUNET' ")
-        self.parser.add_argument('--post_hrnet.block_str', dest='post_hrnet.block_str', nargs='+', type=str, default=['T1L1T1G1', 'T1L1T1G1'], help="hrnet MR post network block string, from the low resolution level to high resolution level.")
+        self.parser.add_argument('--post_hrnet.block_str', dest='post_hrnet.block_str', nargs='+', type=str, default=['T1L1G1', 'T1L1G1'], help="hrnet MR post network block string, from the low resolution level to high resolution level.")
         self.parser.add_argument('--post_hrnet.separable_conv', dest='post_hrnet.separable_conv', action="store_true", help="post network, whether to use separable convolution.")
 
         self.parser.add_argument('--post_mixed_unetr.num_resolution_levels', dest='post_mixed_unetr.num_resolution_levels', type=int, default=2, help="number of resolution levels for post mixed unetr")

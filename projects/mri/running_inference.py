@@ -72,17 +72,19 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
     
     torch_dtype = torch.float32
     if is_torch_model or is_script_model:
-        if is_script_model:
-            model.cuda()
-        else:
-            model = model.to(device)
+        # if is_script_model:
+        #     model.cuda()
+        # else:
+        model = model.to(device)
         model.eval()
 
         if device != torch.device('cpu'):
-            if support_bfloat16(device):
+            if support_bfloat16(device):# and not is_script_model:
                 torch_dtype = torch.bfloat16
             else:
                 torch_dtype = torch.float32
+        else:
+            torch_dtype = torch.bfloat16
 
         if verbose: 
             print(f"processing tensor dtype {torch_dtype}, device {device}")
@@ -143,14 +145,22 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
     # inferring each patch in length of batch_size
     image_batch_pred = None
 
-    if is_torch_model:
+    if is_torch_model or is_script_model:
         with torch.inference_mode():
             for i in range(0, image_batch.shape[0], batch_size):
                 x_in = torch.from_numpy(image_batch[i:i+batch_size]).to(device=device, dtype=torch_dtype)
                 x_in = torch.permute(x_in, (0, 2, 1, 3, 4))
 
-                with torch.autocast(device_type='cuda', dtype=torch_dtype, enabled=(not is_script_model)):
-                    res, res_1st_net = model(x_in)
+                print(f"torch_dtype is {torch_dtype} ...")
+
+                #with torch.autocast(device_type='cuda', dtype=torch_dtype, enabled=(not is_script_model)):
+                with torch.autocast(device_type="cpu", dtype=torch_dtype, enabled=True):
+                    output = model(x_in)
+
+                if isinstance(output, tuple):
+                    res = output[0]
+                else:
+                    res = output
 
                 res = res.cpu().detach().to(dtype=torch.float32).numpy()
                 res = np.transpose(res, (0, 2, 1, 3, 4))
@@ -164,8 +174,10 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
     else:
         for i in range(0, image_batch.shape[0], batch_size):
             x_in = image_batch[i:i+batch_size]
+            x_in = np.transpose(x_in, (0, 2, 1, 3, 4))
             ort_inputs = {model.get_inputs()[0].name: x_in.astype('float32')}
             res = model.run(None, ort_inputs)[0]
+            res = np.transpose(res, (0, 2, 1, 3, 4))
             if image_batch_pred is None:
                     image_batch_pred = np.empty((image_batch.shape[0], Tc, res.shape[2], res.shape[-2], res.shape[-1]), dtype=d_type)
                     ratio_H = int(res.shape[-2]//x_in.shape[-2])

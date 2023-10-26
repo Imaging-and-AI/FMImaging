@@ -385,8 +385,10 @@ class ModelManager(nn.Module):
             - save_file_name (str): model file name
             - device (torch.device): device to setup the model on
         """
-        
-        model_full_path = os.path.join(save_path, save_file_name)
+        if save_path is not None:
+            model_full_path = os.path.join(save_path, save_file_name)
+        else:
+            model_full_path = save_file_name
         logging.info(f"{Fore.YELLOW}Loading model from {model_full_path}{Style.RESET_ALL}")
 
         if os.path.isfile(model_full_path):

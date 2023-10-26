@@ -7,6 +7,7 @@ import logging
 import argparse
 import copy
 from time import time
+import pickle
 
 import torch
 from tqdm import tqdm
@@ -15,13 +16,19 @@ from torch.utils.data.dataloader import DataLoader
 import sys
 from pathlib import Path
 
-Project_DIR = Path(__file__).parents[1].resolve()
-sys.path.insert(1, str(Project_DIR))
+from pathlib import Path
 
-from utils import *
-from model_base.losses import *
-from model_mri import STCNNT_MRI
-from trainer_mri import apply_model, compare_model
+Current_DIR = Path(__file__).parents[0].resolve()
+sys.path.append(str(Current_DIR))
+
+Project_DIR = Path(__file__).parents[1].resolve()
+sys.path.append(str(Project_DIR))
+
+REPO_DIR = Path(__file__).parents[2].resolve()
+sys.path.append(str(REPO_DIR))
+
+from mri_model import *
+from inference import apply_model, load_model, apply_model_3D, compare_model, load_model_onnx
 
 # -------------------------------------------------------------------------------------------------
 # setup for testing from cmd
@@ -51,7 +58,7 @@ def check_args(args):
 
     # get the args path    
     if args.output is None:
-        fname = os.path.splitext(args.input)[0]        
+        fname = os.path.splitext(args.input)[0]
         args.output  = fname + '.pts'
 
     fname = os.path.splitext(args.output)[0]
@@ -63,21 +70,18 @@ def check_args(args):
 # -------------------------------------------------------------------------------------------------
 # load model
 
-def load_pt_model(args):
+def load_pth_model(args):
     """
-    load a ".pt" model
+    load a ".pth" model
     @args:
         - args (Namespace): runtime namespace for setup
     @rets:
         - model (torch model): the model ready for inference
     """
-    
-    config = []
-    
     status = torch.load(args.input, map_location=get_device())
-    config = status['config']        
-    model = STCNNT_MRI(config=config)
-    model.load_state_dict(status['model'])
+    config = status['config']
+    model = create_model(config, config.model_type)
+    model.load_state_dict(status['model_state'])
     return model, config
 
 # -------------------------------------------------------------------------------------------------
@@ -89,17 +93,17 @@ def main():
     print(args)
     
     print(f"{Fore.YELLOW}Load in model file - {args.input}")
-    model, config = load_pt_model(args)
+    model, config = load_pth_model(args)
 
     output_dir = Path(args.output).parents[0].resolve()
     os.makedirs(str(output_dir), exist_ok=True)
 
     device = get_device()
 
-    model_input = torch.randn(1, config.time, config.C_in, config.height[-1], config.width[-1], requires_grad=False)
+    model_input = torch.randn(1, config.no_in_channel, config.time, config.mri_height[-1], config.mri_width[-1], requires_grad=False)
     model_input = model_input.to(device)
     model.to(device)
-
+    model.eval()
     print(f"input size {model_input.shape}")
 
     model_scripted = torch.jit.trace(model, model_input, strict=False)
@@ -112,20 +116,19 @@ def main():
                     do_constant_folding=False,
                     input_names = ['input'], 
                     output_names = ['output'], 
-                    dynamic_axes={'input' : {0:'batch_size', 1: 'time', 3: 'H', 4: 'W'}, 
-                                    'input' : {0:'batch_size', 1: 'time', 3: 'H', 4: 'W'}
+                    dynamic_axes={'input' : {0:'batch_size', 2: 'time', 3: 'H', 4: 'W'}, 
+                                    'output' : {0:'batch_size', 2: 'time', 3: 'H', 4: 'W'}
                                     }
                     )
 
     with open(args.config, 'wb') as fid:
         pickle.dump(config, fid)
 
-    model_jit = load_model(model_dir=None, model_file=args.output, map_location=device)
+    model_jit = torch.jit.load(args.output)
     model_onnx, _ = load_model_onnx(model_dir=None, model_file=args.output_onnx)
-            
+
     print(f"device is {device}")
-    compare_model(config, model, model_jit, model_onnx, device=device, x=None)
-    
-        
+    compare_model(config, model, model_jit, model_onnx, device=torch.device('cpu'), x=None)
+
 if __name__=="__main__":
     main()

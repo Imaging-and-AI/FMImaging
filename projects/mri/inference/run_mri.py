@@ -501,7 +501,7 @@ class mri_ddp_base(run_ddp_base):
         parser.add_argument("--with_data_degrading", action="store_true", help='if set, degrade image before adding noise.')
 
         parser.add_argument('--post_backbone', type=str, default="STCNNT_HRNET", help="model for post module, 'STCNNT_HRNET', 'STCNNT_mUNET' ")
-        parser.add_argument('--post_block_str', nargs='+', type=str, default=['T1L1T1G1', 'T1L1T1G1'], help="hrnet MR post network block string, from the low resolution level to high resolution level.")
+        parser.add_argument('--post_block_str', nargs='+', type=str, default=['T1L1G1', 'T1L1G1'], help="hrnet MR post network block string, from the low resolution level to high resolution level.")
 
         parser.add_argument("--only_white_noise", action="store_true", help='if set, only add white noise.')
         parser.add_argument("--ignore_gmap", action="store_true", help='if set, do not use gmap for training.')

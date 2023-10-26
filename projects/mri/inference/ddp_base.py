@@ -221,6 +221,8 @@ class run_ddp_base(object):
         if config.save_samples:
             cmd_run.extend(["--save_samples"])
 
+        #cmd_run.extend(["--window_sizing_method", "keep_num_window"])
+
         print(f"Running command:\n{' '.join(cmd_run)}")
 
         return cmd_run

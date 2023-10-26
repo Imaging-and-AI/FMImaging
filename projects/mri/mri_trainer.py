@@ -347,12 +347,16 @@ class MRITrainManager(TrainManager):
                         with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
                             if c.weighted_loss_snr:
                                 model_output = self.model_manager(x, snr, base_snr_t)
-                                output, weights, output_1st_net = model_output
+                                output = model_output[0]
+                                weights = model_output[1]
                                 if c.weighted_loss_temporal:
                                     weights *= weights_t
                             else:
                                 model_output = self.model_manager(x)
-                                output, output_1st_net = model_output
+                                if isinstance(model_output, tuple):
+                                    output = model_output[0]
+                                else:
+                                    output = model_output
                                 if c.weighted_loss_temporal:
                                     weights = weights_t
 
@@ -502,13 +506,14 @@ class MRITrainManager(TrainManager):
 
         # -----------------------------------------------
 
-        save_path, save_file_name, config_yaml_file = self.model_manager.save_entire_model(epoch=self.config.num_epochs)
-        model_full_path = os.path.join(save_path, save_file_name+'.pth')
-        logging.info(f"{Fore.YELLOW}Entire model is saved at {model_full_path} ...{Style.RESET_ALL}")
+        if rank <= 0:
+            save_path, save_file_name, config_yaml_file = self.model_manager.save_entire_model(epoch=self.config.num_epochs)
+            model_full_path = os.path.join(save_path, save_file_name+'.pth')
+            logging.info(f"{Fore.YELLOW}Entire model is saved at {model_full_path} ...{Style.RESET_ALL}")
 
-        if wandb_run is not None:
-            wandb_run.save(model_full_path)
-            wandb_run.save(config_yaml_file)
+            if wandb_run is not None:
+                wandb_run.save(model_full_path)
+                wandb_run.save(config_yaml_file)
 
         # -----------------------------------------------
 
@@ -610,7 +615,12 @@ class MRITrainManager(TrainManager):
                     y = y.to(device)
 
                     if batch_size >1 and x.shape[-1]==c.mri_width[-1]:
-                        output, output_1st_net = self.model_manager(x)
+                        output = self.model_manager(x)
+                        if isinstance(output, tuple):
+                            output_1st_net = output[1]
+                            output = output[0]
+                        else:
+                            output_1st_net = None
                     else:
                         B, C, T, H, W = x.shape
 
@@ -690,7 +700,7 @@ class MRITrainManager(TrainManager):
                     if isinstance(self.metric_manager.average_eval_metrics, dict):
                         for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
                             try: 
-                                pbar_str += f", {Fore.CYAN} {metric_name} {metric_value:.4f}"                               
+                                pbar_str += f", {Fore.CYAN} {metric_name} {metric_value:.4f}"
                             except: 
                                 pass
 
