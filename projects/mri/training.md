@@ -64,7 +64,7 @@ python3 ./mri/run_mri.py --standalone --nproc_per_node 4 --use_amp --num_epochs 
 python3 ./mri/run_mri.py --standalone --nproc_per_node 4 --use_amp --num_epochs 50 --batch_size 16 --data_root /data/mri/data/ --wandb_dir /export/Lab-Xue/project/mri/wandb --run_extra_note 1st_main_branch_TLG_snr_perturb_prob_1p0 --num_workers 32 --snr_perturb_prob 1.0 --run_list 0 1
 
 # refactor_v2
-python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node 4 --use_amp --num_epochs 50 --batch_size 16 --data_root /data1/mri --run_extra_note 1st --num_workers 16 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1 --mri_height 32 64 --mri_width 32 64 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0
+python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node 4 --use_amp --num_epochs 50 --batch_size 16 --data_root /data1/mri --run_extra_note 1st --num_workers 32 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1 --mri_height 32 64 --mri_width 32 64 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0
 
 python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node 4 --use_amp --num_epochs 50 --batch_size 16 --data_root /data1/mri --run_extra_note 1st --num_workers 16 --model_backbone STCNNT_UNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1 --mri_height 32 64 --mri_width 32 64 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0
 
