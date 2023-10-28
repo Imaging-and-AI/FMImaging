@@ -58,11 +58,11 @@ class mri_ddp_base(run_ddp_base):
         #"--num_workers", "48",
         "--prefetch_factor", "8",
 
-        "--scheduler_type", "ReduceLROnPlateau",
-        "--scheduler.patience", "0",
-        "--scheduler.cooldown", "0",
-        "--scheduler.min_lr", "1e-7",
-        "--scheduler.factor", "0.9",
+        # "--scheduler_type", "ReduceLROnPlateau",
+        # "--scheduler.patience", "0",
+        # "--scheduler.cooldown", "0",
+        # "--scheduler.min_lr", "1e-7",
+        # "--scheduler.factor", "0.9",
 
         #"--scheduler_type", "OneCycleLR",
 
