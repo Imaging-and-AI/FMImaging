@@ -533,9 +533,13 @@ class MRITrainManager(TrainManager):
 
         # ------------------------------------------------------------------------
         # Determine if we will save the predictions to files for thie eval 
-        if split=='train': save_samples = final_eval and self.config.save_train_samples
-        elif split=='val': save_samples = final_eval and self.config.save_val_samples
-        elif split=='test': save_samples = final_eval and self.config.save_test_samples
+        if split=='train': 
+            save_samples = final_eval and self.config.save_train_samples
+        elif split=='val': 
+            save_samples = final_eval and self.config.save_val_samples
+        elif split=='test': 
+            save_samples = final_eval and self.config.save_test_samples
+            self.config.num_uploaded *= 4
         else: raise ValueError(f"Unknown split {split} specified, should be in [train, val, test]")
 
         loss_f = self.loss_f

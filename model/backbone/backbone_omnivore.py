@@ -51,7 +51,7 @@ class omnivore_base_class(STCNNT_Base_Runtime, ABC):
 
     def forward(self, x):
         res = self.model(x)
-        return res
+        return [res]
 
 #-------------------------------------------------------------------------------------
 
@@ -1376,11 +1376,3 @@ class SwinTransformer3D(nn.Module):
         """Convert the model into training mode while keep layers freezed."""
         super(SwinTransformer3D, self).train(mode)
         self._freeze_stages()
-
-
-
-
-
-
-
-

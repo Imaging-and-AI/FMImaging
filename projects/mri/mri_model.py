@@ -143,7 +143,7 @@ class STCNNT_MRI(ModelManager):
         if self.config.backbone_model=="STCNNT_HRNET":
             y_hat, _ = self.backbone(res_pre)
         else:
-            y_hat = self.backbone(res_pre)
+            y_hat = self.backbone(res_pre)[0]
        
         if self.residual:
             y_hat[:, :C, :, :, :] = res_pre + y_hat[:, :C, :, :, :]

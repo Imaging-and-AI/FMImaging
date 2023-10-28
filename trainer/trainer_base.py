@@ -426,7 +426,8 @@ class TrainManager(object):
             # make sure the runtime is cleaned, by brutally removing processes
             clean_after_training()
 
-            print(f"{Fore.YELLOW}Remove {self.metric_manager.wandb_run.name} ...{Style.RESET_ALL}", flush=True)
+            if self.metric_manager.wandb_run is not None: 
+                print(f"{Fore.YELLOW}Remove {self.metric_manager.wandb_run.name} ...{Style.RESET_ALL}", flush=True)
 
         # -------------------------------------------------------
         # after the run, release the process groups
