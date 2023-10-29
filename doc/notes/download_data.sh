@@ -14,6 +14,11 @@ azcopy copy "${data_src_qperf}/tra?${SAS_qperf}" /export/Lab-Xue/projects/data/q
 azcopy copy "${data_src_qperf}/val?${SAS_qperf}" /export/Lab-Xue/projects/data/qperf --recursive
 azcopy copy "${data_src_qperf}/test?${SAS_qperf}" /export/Lab-Xue/projects/data/qperf --recursive
 
+mkdir -p /export/Lab-Xue/projects/data/qperf/v2
+azcopy copy "${data_src_qperf}/v2/tra?${SAS_qperf}" /export/Lab-Xue/projects/data/qperf/v2 --recursive
+azcopy copy "${data_src_qperf}/v2/val?${SAS_qperf}" /export/Lab-Xue/projects/data/qperf/v2 --recursive
+azcopy copy "${data_src_qperf}/v2/test?${SAS_qperf}" /export/Lab-Xue/projects/data/qperf/v2 --recursive
+
 # test data
 azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2DT_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
 azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2D_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
