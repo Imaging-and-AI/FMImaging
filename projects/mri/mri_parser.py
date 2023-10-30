@@ -86,6 +86,7 @@ class mri_parser(object):
         self.parser.add_argument("--not_load_pre", action="store_true", help='if set, pre module will not be loaded.')
         self.parser.add_argument("--not_load_backbone", action="store_true", help='if set, backbone module will not be loaded.')
         self.parser.add_argument("--not_load_post", action="store_true", help='if set, pre module will not be loaded.')
+        self.parser.add_argument("--post_model_of_1st_net", type=str, default=None, help='if not None and model_type is double net, load post for the 1st net here.')
 
         # self.parser.add_argument("--disable_pre", action="store_true", help='if set, pre module will have require_grad_(False).')
         # self.parser.add_argument("--disable_backbone", action="store_true", help='if set, backbone module will have require_grad_(False).')

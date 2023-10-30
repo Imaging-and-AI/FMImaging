@@ -338,6 +338,7 @@ class run_ddp_base(object):
         parser.add_argument("--with_timer", action="store_true", help='whether to train with timing')
 
         parser.add_argument("--load_path", type=str, default=None, help="check point file to load if provided")
+        parser.add_argument("--post_model_of_1st_net", type=str, default=None, help="for double net, load post of the 1st model")
         parser.add_argument("--not_load_pre", action="store_true", help='if set, pre module will not be loaded.')
         parser.add_argument("--not_load_backbone", action="store_true", help='if set, backbone module will not be loaded.')
         parser.add_argument("--not_load_post", action="store_true", help='if set, pre module will not be loaded.')

@@ -265,6 +265,10 @@ def main():
         else:
             print(f"{rank_str}, {Fore.RED}load saved model, WITHOUT backbone_state{Style.RESET_ALL}")
 
+        if config.post_model_of_1st_net is not None and config.model_type == "MRI_double_net":
+            print(f"{rank_str}, {Fore.YELLOW}load post module of the 1st net{Style.RESET_ALL}")
+            model.load_post_1st_net(config.post_model_of_1st_net, device=device)
+
         if config.freeze_backbone:
             print(f"{rank_str}, {Fore.YELLOW}load saved model, backbone requires_grad_(False){Style.RESET_ALL}")
             model.freeze_backbone()
