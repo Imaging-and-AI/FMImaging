@@ -61,39 +61,52 @@ def main():
     
     def save_cases_to_h5(args, filename, case_files):
         global total_samples
+        grp_num = 100
         total_samples = 0
-        N = len(case_files)
+        num_cases = len(case_files)
         with h5py.File(filename , mode="w",libver='earliest') as h5file:
+
+            pbar = tqdm(total=num_cases)
             for ii, a_case in enumerate(case_files):
 
                 if args.max_sample_loaded > 0 and total_samples >= args.max_sample_loaded:
                     break
 
-                print(f"---> {ii} out of {N}, {a_case} <---")
+                #print(f"---> {ii} out of {num_cases}, {a_case} <---")
                 
                 if os.path.isfile(a_case):
-                    # load in the matlab file
-                    
-                    mat = scipy.io.loadmat(a_case)
-                    
-                    N = mat['out'].shape[1]
-                    
-                    pbar = tqdm(total=N)
-                    
-                    for ind in range(mat['out'].shape[1]):
-                        params = mat['out'][0,ind]['params'][0,0].flatten()
-                        aif = mat['out'][0,ind]['aif'][0,0].flatten()
-                        myo = mat['out'][0,ind]['myo'][0,0].flatten()
-                        
+
+                    a_case_fname, mat_ext = os.path.splitext(a_case)
+                    aif_fname = f"{a_case_fname}_aif.npy"
+                    myo_fname = f"{a_case_fname}_myo.npy"
+                    params_fname = f"{a_case_fname}_params.npy"
+
+                    if not os.path.exists(aif_fname):
+                        continue
+
+                    aif = np.load(aif_fname)
+                    myo = np.load(myo_fname)
+                    params = np.load(params_fname)
+
+                    aif = aif.astype(np.float32)
+                    myo = myo.astype(np.float32)
+                    params = params.astype(np.float32)
+
+                    N = aif.shape[0]
+
+                    for ind in range(0, N, grp_num):
+                        a_params = params[ind:ind+grp_num, :]
+                        a_aif = aif[ind:ind+grp_num, :]
+                        a_myo = myo[ind:ind+grp_num, :]
+
                         key = f"{a_case}_{ind}"
                         data_folder = h5file.create_group(key)
                         data_folder["aif"] = aif.astype(np.float32)
                         data_folder["myo"] = myo.astype(np.float32)
                         data_folder["params"] = params.astype(np.float32)
-                        
-                        pbar.update(1)
-                        pbar.set_description_str(f"{key}, {aif.shape[0]}, {params[0]}")
-                        
+
+                pbar.update(1)
+                pbar.set_description_str(f"{a_case_fname}")
 
         print("----" * 20)
         print(f"--> total number of samples {total_samples}")

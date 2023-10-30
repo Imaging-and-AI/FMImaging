@@ -33,7 +33,7 @@ from model.backbone import STCNNT_HRnet, STCNNT_Mixed_Unetr, UpSample, set_windo
 from model.imaging_attention import *
 from model.task_heads import *
 
-from setup import get_device
+from setup import get_device, Nestedspace
 from utils import model_info, get_gpu_ram_usage, start_timer, end_timer
 from optim.optim_utils import divide_optim_into_groups
 
@@ -547,7 +547,7 @@ class MRI_double_net(STCNNT_MRI):
     Using the hrnet backbone, plus a unet post network
     """
     def __init__(self, config):
-        assert config.backbone_model == 'STCNNT_HRNET' or config.backbone_model == 'STCNNT_mUNET'
+        assert config.backbone_model == 'STCNNT_HRNET' or config.backbone_model == 'STCNNT_mUNET' or config.backbone_model == 'STCNNT_UNET'
         assert config.post_backbone == 'STCNNT_HRNET' or config.post_backbone == 'STCNNT_mUNET'
         super().__init__(config=config)
 
@@ -588,6 +588,12 @@ class MRI_double_net(STCNNT_MRI):
 
         if config.post_backbone == 'STCNNT_HRNET':
             config_post = copy.copy(config)
+
+            if config.backbone_model != 'STCNNT_HRNET':
+                config_post.backbone_hrnet = Nestedspace()
+                config_post.backbone_hrnet.num_resolution_levels = len(config.post_hrnet.block_str)
+                config_post.backbone_hrnet.use_interpolation = True
+
             config_post.backbone_hrnet.block_str = config.post_hrnet.block_str
             config_post.separable_conv = config.post_hrnet.separable_conv
 

@@ -22,6 +22,75 @@ import nibabel as nib
 
 # -------------------------------------------------------------------------------------------------
 
+def save_inference_results(input, output, gmap, output_dir, noisy_image=None):
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    if input is not None:
+        if np.any(np.iscomplex(input)):
+            res_name = os.path.join(output_dir, 'input_real.npy')
+            print(res_name)
+            np.save(res_name, input.real)
+            nib.save(nib.Nifti1Image(input.real, affine=np.eye(4)), os.path.join(output_dir, 'input_real.nii'))
+
+            res_name = os.path.join(output_dir, 'input_imag.npy')
+            print(res_name)
+            np.save(res_name, input.imag)
+            nib.save(nib.Nifti1Image(input.imag, affine=np.eye(4)), os.path.join(output_dir, 'input_imag.nii'))
+
+            input = np.abs(input)
+
+        res_name = os.path.join(output_dir, 'input.npy')
+        print(res_name)
+        np.save(res_name, input)
+        nib.save(nib.Nifti1Image(input, affine=np.eye(4)), os.path.join(output_dir, 'input.nii'))
+
+    if gmap is not None:
+        res_name = os.path.join(output_dir, 'gfactor.npy')
+        print(res_name)
+        np.save(res_name, gmap)
+        nib.save(nib.Nifti1Image(gmap, affine=np.eye(4)), os.path.join(output_dir, 'gfactor.nii'))
+
+    if output is not None:
+        if np.any(np.iscomplex(output)):
+            res_name = os.path.join(output_dir, 'output_real.npy')
+            print(res_name)
+            np.save(res_name, output.real)
+            nib.save(nib.Nifti1Image(output.real, affine=np.eye(4)), os.path.join(output_dir, 'output_real.nii'))
+
+            res_name = os.path.join(output_dir, 'output_imag.npy')
+            print(res_name)
+            np.save(res_name, output.imag)
+            nib.save(nib.Nifti1Image(output.imag, affine=np.eye(4)), os.path.join(output_dir, 'output_imag.nii'))
+
+            output = np.abs(output)
+
+        res_name = os.path.join(output_dir, 'output.npy')
+        print(res_name)
+        np.save(res_name, output)
+        nib.save(nib.Nifti1Image(output, affine=np.eye(4)), os.path.join(output_dir, 'output.nii'))
+        
+    if noisy_image is not None:
+        if np.any(np.iscomplex(noisy_image)):
+            res_name = os.path.join(output_dir, 'noisy_image_real.npy')
+            print(res_name)
+            np.save(res_name, output.real)
+            nib.save(nib.Nifti1Image(noisy_image.real, affine=np.eye(4)), os.path.join(output_dir, 'noisy_image_real.nii'))
+
+            res_name = os.path.join(output_dir, 'noisy_image_imag.npy')
+            print(res_name)
+            np.save(res_name, noisy_image.imag)
+            nib.save(nib.Nifti1Image(noisy_image.imag, affine=np.eye(4)), os.path.join(output_dir, 'noisy_image_imag.nii'))
+
+            noisy_image = np.abs(noisy_image)
+
+        res_name = os.path.join(output_dir, 'noisy_image.npy')
+        print(res_name)
+        np.save(res_name, noisy_image)
+        nib.save(nib.Nifti1Image(noisy_image, affine=np.eye(4)), os.path.join(output_dir, 'noisy_image.nii'))
+
+# -------------------------------------------------------------------------------------------------
+
 def normalize_image(image, percentiles=None, values=None, clip=True, clip_vals=[0,1]):
     """
     Normalizes image locally.

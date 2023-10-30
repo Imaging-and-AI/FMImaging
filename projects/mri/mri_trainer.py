@@ -37,7 +37,7 @@ REPO_DIR = Path(__file__).parents[2].resolve()
 sys.path.append(str(REPO_DIR))
 
 from trainer import *
-from utils.status import model_info, start_timer, end_timer, support_bfloat16
+from utils.status import model_info, start_timer, end_timer, support_bfloat16, count_parameters
 from metrics.metrics_utils import AverageMeter
 from optim.optim_utils import compute_total_steps
 
@@ -108,6 +108,7 @@ class MRITrainManager(TrainManager):
 
         # -----------------------------------------------
         if rank<=0:
+            total_params = count_parameters(self.model_manager)
             model_summary = model_info(self.model_manager, c)
             logging.info(f"Configuration for this run:\n{c}") # Commenting out, prints a lot of info
             logging.info(f"Model Summary:\n{str(model_summary)}") # Commenting out, prints a lot of info
@@ -657,7 +658,7 @@ class MRITrainManager(TrainManager):
                         loss = loss_f(output, y)
 
                     # Update evaluation metrics
-                    self.metric_manager.on_eval_step_end(loss.item(), output, loader_outputs, f"{idx}", rank, save_samples, split)
+                    self.metric_manager.on_eval_step_end(loss.item(), (output, output_1st_net), loader_outputs, f"{idx}", rank, save_samples, split)
 
                     if rank<=0 and images_logged < self.config.num_uploaded and wandb_run is not None:
                         images_logged += 1

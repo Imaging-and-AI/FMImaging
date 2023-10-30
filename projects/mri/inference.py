@@ -421,7 +421,7 @@ def load_model(saved_model_path):
         if not torch.cuda.is_available():
             config.device = torch.device('cpu')
 
-        model = create_model(config)
+        model = create_model(config, config.model_type)
 
         print(f"{Fore.YELLOW}Load in model {Style.RESET_ALL}")
         model.load_state_dict(status['model_state'])

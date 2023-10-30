@@ -200,7 +200,7 @@ class mri_ddp_base(run_ddp_base):
         vars['shuffle_in_windows'] = ["0"]
         vars['block_dense_connections'] = ["1"]
         vars['norm_modes'] = ["instance2d"]
-        vars['C'] = [32]
+        vars['C'] = [64]
         vars['scale_ratio_in_mixers'] = [1.0]
 
         #vars['snr_perturb_prob'] = [0.0]
@@ -519,7 +519,7 @@ def main():
 
     os.system("ulimit -n 65536")
 
-    ddp_run = mri_ddp_base(project="mri-main", script_to_run='./projects/mri/run.py')
+    ddp_run = mri_ddp_base(project="mri-test", script_to_run='./projects/mri/run.py')
     ddp_run.run()
 
 # -------------------------------------------------------------

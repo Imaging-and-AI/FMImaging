@@ -71,6 +71,8 @@ def main():
     
     print(f"{Fore.YELLOW}Load in model file - {args.saved_model_path}")
     model, config = load_model(args.saved_model_path)
+    config.height = config.mri_height
+    config.width = config.mri_width
 
     device = get_device()
 
