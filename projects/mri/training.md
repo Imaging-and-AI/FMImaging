@@ -82,6 +82,10 @@ python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node 4 --us
 # ---------------------------------
 # second stage training
 
+python3 ./projects/mri/inference/run_mri.py --nproc_per_node 4 --standalone --tra_ratio 90 --val_ratio 10 --load_path /export/Lab-Xue/projects/mri-main/logs/mri-main-1st_STCNNT_UNET_T1L1G1_T1L1G1_20231027_201703_437806_STCNNT_MRI_C-32-1_amp-True_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_49 --model_type MRI_double_net --losses mse l1 perpendicular dwt gaussian3D  --loss_weights 0.1 0.1 10.0 10.0 10.0 1.0 --min_noise_level 1.0 --max_noise_level 12.0 --lr_pre 0.00001 --lr_backbone 0.00001 --lr_post 0.00001  --freeze_pre --freeze_backbone  --run_extra_note 2nd --data_root /data1/mri/ --num_epochs 50 --batch_size 16 --not_load_post --model_backbone STCNNT_UNET --model_block_str T1L1G1 T1L1G1
+
+
+
 python3 ./projects/mri/inference/run_mri.py --nproc_per_node 4 --standalone --tra_ratio 90 --val_ratio 10 --load_path /export/Lab-Xue/projects/mri-main/logs/mri-main-1st_STCNNT_UNET_T1L1G1_T1L1G1_20231027_201703_437806_STCNNT_MRI_C-32-1_amp-True_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_49 --model_type MRI_double_net --losses mse l1 perpendicular dwt gaussian3D  --loss_weights 0.1 0.1 10.0 10.0 10.0 1.0 --min_noise_level 1.0 --max_noise_level 12.0 --lr_pre 0.00001 --lr_backbone 0.00001 --lr_post 0.00001  --freeze_pre --freeze_backbone  --run_extra_note 2nd --data_root /data1/mri/ --num_epochs 50 --batch_size 16 --not_load_post
 
 
