@@ -182,6 +182,9 @@ class run_ddp_base(object):
             if not config.not_load_post:
                 cmd_run.extend(["--post_model_load_path", f"{load_path}_post.pth"])
 
+        if config.post_model_of_1st_net is not None:
+            cmd_run.extend(["--post_model_of_1st_net", f"{config.post_model_of_1st_net}"])
+
         if config.freeze_pre:
             cmd_run.extend(["--freeze_pre", "True"])
         if config.freeze_backbone:

@@ -209,6 +209,14 @@ python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/pr
 
 # ======================================================================
 
+# knee
+
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/Share/data/DataForHui/kneeH5/imagedata/20190104_200942_meas_MID00034_FID06440_t2_tse_tra/res/DebugOutput/ --output_dir /export/Lab-Kellman/Share/data/DataForHui/kneeH5/imagedata/20190104_200942_meas_MID00034_FID06440_t2_tse_tra/res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
+
+
+# ======================================================================
+
 # WB LGE
 
 
