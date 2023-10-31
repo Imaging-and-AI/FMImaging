@@ -649,13 +649,13 @@ class MRI_double_net(STCNNT_MRI):
         self.post["output_conv"] = Conv2DExt(C_out, config_post.no_out_channel, kernel_size=config_post.kernel_size, stride=config_post.stride, padding=config_post.padding, bias=True, channel_first=True)
 
     def load_post_1st_net(self, load_path, device=None):
-        logging.info(f"{Fore.YELLOW}Loading post in the 1st network from {load_path}{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}Loading post in the 1st network from {load_path}{Style.RESET_ALL}")
 
         if os.path.isfile(load_path):
             status = torch.load(load_path, map_location=self.config.device)
             self.post_1st.load_state_dict(status['post_model_state'])
         else:
-            logging.warning(f"{Fore.YELLOW}{load_path} does not exist .... {Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}{load_path} does not exist .... {Style.RESET_ALL}")
 
     def freeze_backbone(self):
         super().freeze_backbone()
