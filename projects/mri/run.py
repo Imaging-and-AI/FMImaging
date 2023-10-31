@@ -158,6 +158,7 @@ def main():
     pre_model_load_path = config.pre_model_load_path
     backbone_model_load_path = config.backbone_model_load_path
     post_model_load_path = config.post_model_load_path
+    post_model_of_1st_net = config.post_model_of_1st_net
 
     ddp = config.ddp
 
@@ -217,6 +218,7 @@ def main():
         config.pre_model_load_path = pre_model_load_path
         config.backbone_model_load_path = backbone_model_load_path
         config.post_model_load_path = post_model_load_path
+        config.post_model_of_1st_net = post_model_of_1st_net
 
         config.ddp = ddp
 
