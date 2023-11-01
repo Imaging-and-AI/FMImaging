@@ -199,7 +199,7 @@ class run_ddp_base(object):
             cmd_run.extend(["--scheduler_type", "ReduceLROnPlateau",
                             "--scheduler.patience", "0",
                             "--scheduler.cooldown", "0",
-                            "--scheduler.factor", "0.9",
+                            "--scheduler.factor", f"{config.scheduler_factor}",
                             "--scheduler.min_lr", "1e-7"
                         ])
                        
@@ -378,6 +378,8 @@ class run_ddp_base(object):
         parser.add_argument("--use_amp", action="store_true", help='if set, use mixed precision training.')
 
         parser.add_argument("--save_samples", action="store_true", help='if set, save training and validation samples.')
+
+        parser.add_argument('--scheduler_factor', type=float, default=0.9, help="LR reduction factor, multiplication")
 
         return parser
 
