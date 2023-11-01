@@ -6,6 +6,7 @@ import os
 import sys
 import scipy
 import shutil
+import random
 import pickle
 import torch
 from tqdm import tqdm
@@ -14,6 +15,7 @@ import numpy as np
 from pathlib import Path
 from skimage.util import view_as_blocks
 from colorama import Fore, Style
+import h5py
 
 Current_DIR = Path(__file__).parents[0].resolve()
 sys.path.append(str(Current_DIR))
@@ -374,6 +376,117 @@ class QPerfDataSet(torch.utils.data.Dataset):
             return True
         else:
             return False
+
+# -------------------------------------------------------------------------------------------------
+
+def load_one_set(train_paths, ratio):
+
+    h5files = []
+    train_keys = []
+
+    for file in train_paths:
+        if not os.path.exists(file):
+            raise RuntimeError(f"File not found: {file}")
+
+        print(f"reading from file: {file}")
+        h5file = h5py.File(file, libver='earliest', mode='r')
+        keys = list(h5file.keys())
+
+        random.shuffle(keys)
+
+        n = len(keys)
+
+        tra = int(ratio*n)
+        tra = 1 if tra == 0 else tra
+
+        h5files.append(h5file)
+        train_keys.append(keys[:tra])
+
+    return h5file, train_keys
+
+def load_qperf_data(config):
+    """
+        - data_dir (str): main folder of the data
+        - train_files (str list): names of h5files in dataroot for training
+        - val_files (str list): names of h5files in dataroot for testing
+        - test_files (str list): names of h5files in dataroot for testing
+    """
+
+    c = config
+
+    ratio = [x/100 for x in c.ratio]
+    print(f"--> loading data with ratio {ratio} ...")
+
+    train_paths = []
+    for path_x in c.train_files:
+        train_paths.append(os.path.join(c.data_dir, path_x))
+
+    val_paths = []
+    for path_x in c.val_files:
+        val_paths.append(os.path.join(c.data_dir, path_x))
+
+    test_paths = []
+    for path_x in c.test_files:
+        test_paths.append(os.path.join(c.data_dir, path_x))
+
+    tra_h5_files, tra_keys = load_one_set(train_paths, ratio[0])
+    val_h5_files, val_keys = load_one_set(val_paths, ratio[1])
+    test_h5_files, test_keys = load_one_set(test_paths, ratio[2])
+
+    print(f"Done - reading from file: {c.train_files}, tra {sum([len(v) for v in tra_keys])}")
+    print(f"Done - reading from file: {c.val_files}, tra {sum([len(v) for v in val_keys])}")
+    print(f"Done - reading from file: {c.test_files}, tra {sum([len(v) for v in test_keys])}")
+
+    tra_dir = 'tra'
+    val_dir = 'val'
+    test_dir = 'test'
+
+    only_white_noise = True
+    filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0]
+
+    train_set = QPerfDataSet(h5_files=tra_h5_files, 
+                             keys = tra_keys,
+                            max_load=-1, max_samples=config.max_samples,
+                            T=config.qperf_T, 
+                            foot_to_end=config.foot_to_end, 
+                            min_noise_level=config.min_noise_level, 
+                            max_noise_level=config.max_noise_level,
+                            filter_sigma=filter_sigma,
+                            only_white_noise=only_white_noise,
+                            add_noise=config.add_noise,
+                            cache_folder=os.path.join(config.log_dir, tra_dir))
+
+    val_set = QPerfDataSet(h5_files=val_h5_files, 
+                           keys=val_keys,
+                        max_load=-1, max_samples=config.max_samples,
+                        T=config.qperf_T, 
+                        foot_to_end=config.foot_to_end, 
+                        min_noise_level=config.min_noise_level, 
+                        max_noise_level=config.max_noise_level,
+                        filter_sigma=filter_sigma,
+                        only_white_noise=only_white_noise,
+                        add_noise=config.add_noise,
+                        cache_folder=os.path.join(config.log_dir, val_dir))
+
+    test_set = QPerfDataSet(h5_files=test_h5_files, 
+                            keys = test_keys,
+                            max_load=-1, max_samples=config.max_samples,
+                            T=config.qperf_T, 
+                            foot_to_end=config.foot_to_end, 
+                            min_noise_level=config.min_noise_level, 
+                            max_noise_level=config.max_noise_level,
+                            filter_sigma=filter_sigma,
+                            only_white_noise=only_white_noise,
+                            add_noise=config.add_noise,
+                            cache_folder=os.path.join(config.log_dir, test_dir))
+
+    total_tra = sum([len(d) for d in train_set])
+    total_val = sum([len(d) for d in val_set])
+    total_test = sum([len(d) for d in test_set])
+
+    print(f"--->{Fore.YELLOW}Number of samples for tra/val/test are {total_tra}/{total_val}/{total_test}{Style.RESET_ALL}")
+
+    return train_set, val_set, test_set
 
 # -------------------------------------------------------------------------------------------------
 

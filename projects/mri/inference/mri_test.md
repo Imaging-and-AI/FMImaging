@@ -147,6 +147,9 @@ RES_DIR=res_1st_hrnet_TLG_TLGTLG
 model_type_str=STCNNT_MRI
 scaling_factor=1.0
 
+# 2nd, unet
+model=/export/Lab-Xue/projects/mri/test/mri-main-2nd_STCNNT_UNET_T1L1G1_T1L1G1_20231030_194521_497809_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_8
+
 export CUDA_VISIBLE_DEVICES=0
 export DISABLE_FLOAT16_INFERENCE=True
 

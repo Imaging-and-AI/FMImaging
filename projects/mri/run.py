@@ -225,19 +225,24 @@ def main():
         print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
 
     # -----------------------------------------------
+
     if continued_training:
         config.load_optim_and_sched = True
     else:
         config.load_optim_and_sched = False
 
     # -----------------------------------------------
+
     model = create_model(config=config, model_type=config.model_type) 
 
     # -----------------------------------------------
     print(f"{rank_str}, load saved model, continued_training - {continued_training}")
     if continued_training:
+
         model.load_pre(config.pre_model_load_path, device=device)
+
         model.load_backbone(config.backbone_model_load_path, device=device)
+
         model.load_post(config.post_model_load_path, device=device)
 
     else: # new stage training
@@ -255,11 +260,11 @@ def main():
         else:
             print(f"{rank_str}, {Fore.RED}load saved model, WITHOUT pre_state{Style.RESET_ALL}")
 
-        if config.freeze_pre:
-            print(f"{rank_str}, {Fore.YELLOW}load saved model, pre requires_grad_(False){Style.RESET_ALL}")
-            model.freeze_pre()
-        else:
-            print(f"{rank_str}, {Fore.RED}load saved model, pre requires_grad_(True){Style.RESET_ALL}")
+        # if config.freeze_pre:
+        #     print(f"{rank_str}, {Fore.YELLOW}load saved model, pre requires_grad_(False){Style.RESET_ALL}")
+        #     model.freeze_pre()
+        # else:
+        #     print(f"{rank_str}, {Fore.RED}load saved model, pre requires_grad_(True){Style.RESET_ALL}")
         # ------------------------------
         if config.backbone_model_load_path is not None:
             print(f"{rank_str}, {Fore.YELLOW}load saved model, backbone_state{Style.RESET_ALL}")
@@ -271,11 +276,11 @@ def main():
             print(f"{rank_str}, {Fore.YELLOW}load post module of the 1st net{Style.RESET_ALL}")
             model.load_post_1st_net(config.post_model_of_1st_net, device=device)
 
-        if config.freeze_backbone:
-            print(f"{rank_str}, {Fore.YELLOW}load saved model, backbone requires_grad_(False){Style.RESET_ALL}")
-            model.freeze_backbone()
-        else:
-            print(f"{rank_str}, {Fore.RED}load saved model, backbone requires_grad_(True){Style.RESET_ALL}")
+        # if config.freeze_backbone:
+        #     print(f"{rank_str}, {Fore.YELLOW}load saved model, backbone requires_grad_(False){Style.RESET_ALL}")
+        #     model.freeze_backbone()
+        # else:
+        #     print(f"{rank_str}, {Fore.RED}load saved model, backbone requires_grad_(True){Style.RESET_ALL}")
         # ------------------------------
         if config.post_model_load_path is not None:
             print(f"{rank_str}, {Fore.YELLOW}load saved model, post_state{Style.RESET_ALL}")
@@ -283,15 +288,37 @@ def main():
         else:
             print(f"{rank_str}, {Fore.RED}load saved model, WITHOUT post_state{Style.RESET_ALL}")
 
-        if config.freeze_post:
-            print(f"{rank_str}, {Fore.YELLOW}load saved model, post requires_grad_(False){Style.RESET_ALL}")
-            model.freeze_post()
-        else:
-            print(f"{rank_str}, {Fore.RED}load saved model, post requires_grad_(True){Style.RESET_ALL}")
+        # if config.freeze_post:
+        #     print(f"{rank_str}, {Fore.YELLOW}load saved model, post requires_grad_(False){Style.RESET_ALL}")
+        #     model.freeze_post()
+        # else:
+        #     print(f"{rank_str}, {Fore.RED}load saved model, post requires_grad_(True){Style.RESET_ALL}")
 
-        # ---------------------------------------------------
+    # ---------------------------------------------------
+
+    if config.freeze_pre:
+        print(f"{rank_str}, {Fore.YELLOW}load saved model, pre requires_grad_(False){Style.RESET_ALL}")
+        model.freeze_pre()
+    else:
+        print(f"{rank_str}, {Fore.RED}load saved model, pre requires_grad_(True){Style.RESET_ALL}")
+
+    if config.freeze_backbone:
+        print(f"{rank_str}, {Fore.YELLOW}load saved model, backbone requires_grad_(False){Style.RESET_ALL}")
+        model.freeze_backbone()
+    else:
+        print(f"{rank_str}, {Fore.RED}load saved model, backbone requires_grad_(True){Style.RESET_ALL}")
+
+    if config.freeze_post:
+        print(f"{rank_str}, {Fore.YELLOW}load saved model, post requires_grad_(False){Style.RESET_ALL}")
+        model.freeze_post()
+    else:
+        print(f"{rank_str}, {Fore.RED}load saved model, post requires_grad_(True){Style.RESET_ALL}")
+
+    # ---------------------------------------------------
 
     model = model.to(device)
+
+    # ---------------------------------------------------
 
     optim_manager = OptimManager(config=config, model_manager=model, train_set=train_set)
 
@@ -320,6 +347,8 @@ def main():
 
     metric_manager = MriMetricManager(config=config)
 
+    # ---------------------------------------------------
+
     trainer = MRITrainManager(config=config,
                             train_sets=train_set,
                             val_sets=val_set,
@@ -332,5 +361,5 @@ def main():
     trainer.train()
 
 # -------------------------------------------------------------------------------------------------
-if __name__=="__main__":    
+if __name__=="__main__":
     main()

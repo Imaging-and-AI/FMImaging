@@ -123,7 +123,7 @@
                 "--run_name", "1st", 
                 "--run_notes", "1st", 
                 "--n_head", "32",
-                "--override", "--disable_LSUV"
+                "--override", "--disable_LSUV", "--with_data_degrading"
             ]
         },
         // -----------------------------------------------------------------------------------------
@@ -190,7 +190,7 @@
             "console": "integratedTerminal",
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "7"},
             "args": [
-                "--output", "/data/qperf/new_data_2/test.h5", "--test_output", "/data/qperf/new_data_2/tmp.h5", "--test_fraction", "0.0", "/data/qperf/new_data_2/test"
+                "--output", "/data/qperf/new_data_3/test.h5", "--test_output", "/data/qperf/new_data_3/tmp.h5", "--test_fraction", "0.0", "/data/qperf/new_data_3/test"
             ]
         },
         // -----------------------------------------------------------------------------------------
