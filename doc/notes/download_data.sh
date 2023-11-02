@@ -11,6 +11,7 @@ export data_src_qperf=https://stcnnt.blob.core.windows.net/qperf
 export SAS2="sp=racwdli&st=2023-10-29T19:02:56Z&se=2025-10-30T03:02:56Z&spr=https&sv=2022-11-02&sr=c&sig=WbK6S7bLpXJ%2F4838iQTMrYPCcY%2FdH5w9k8bw6gz9uTk%3D"
 
 # azcopy copy "./val/" "https://stcnnt.blob.core.windows.net/qperf/?${SAS_qperf}" --recursive
+# azcopy copy "https://stcnnt.blob.core.windows.net/qperf/h5_data?${SAS_qperf}" . --recursive
 
 mkdir -p /export/Lab-Xue/projects/imagenet/qperf/v2
 mkdir -p /export/Lab-Xue/projects/imagenet/qperf/v2/tra

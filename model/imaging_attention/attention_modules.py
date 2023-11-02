@@ -109,15 +109,15 @@ class Conv2DExt(nn.Module):
     # Extends torch 2D conv to support 5D inputs
     # if channel_first is True, input x is [B, C, T, H, W]
     # if channel_first is False, input x is [B, T, C, H, W]
-    def __init__(self, in_channels, out_channels, kernel_size=[3,3], stride=[1,1], padding=[1,1], bias=False, separable_conv=False, channel_first=False):
+    def __init__(self, in_channels, out_channels, kernel_size=[3,3], stride=[1,1], padding=[1,1], padding_mode='reflect', bias=False, separable_conv=False, channel_first=False):
         super().__init__()
         self.separable_conv = separable_conv
         self.channel_first = channel_first
         if separable_conv:
-            self.convA = nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias, groups=in_channels)
-            self.convB = nn.Conv2d(in_channels, out_channels, kernel_size=[1,1], stride=[1,1], padding=[0,0], bias=bias)
+            self.convA = nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias, padding_mode=padding_mode, groups=in_channels)
+            self.convB = nn.Conv2d(in_channels, out_channels, kernel_size=[1,1], stride=[1,1], padding=[0,0], bias=bias, padding_mode=padding_mode)
         else:
-            self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias)
+            self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias, padding_mode=padding_mode)
 
     def forward(self, input):
         # requires input to have 5 dimensions
@@ -197,15 +197,15 @@ class PixelShuffle2DExt(nn.Module):
 class Conv3DExt(nn.Module):
     # Extends torch 3D conv to support 5D inputs
 
-    def __init__(self, in_channels, out_channels, kernel_size=[3,3,3], stride=[1,1,1], padding=[1,1,1], bias=False, separable_conv=False, channel_first=False):
+    def __init__(self, in_channels, out_channels, kernel_size=[3,3,3], stride=[1,1,1], padding=[1,1,1], bias=False, padding_mode='reflect', separable_conv=False, channel_first=False):
         super().__init__()
         self.separable_conv = separable_conv
         self.channel_first = channel_first
         if separable_conv:
-            self.convA = nn.Conv3d(in_channels, in_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias, groups=in_channels)
-            self.convB = nn.Conv3d(in_channels, out_channels, kernel_size=[1,1,1], stride=[1,1,1], padding=[0,0,0], bias=bias)
+            self.convA = nn.Conv3d(in_channels, in_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias, padding_mode=padding_mode, groups=in_channels)
+            self.convB = nn.Conv3d(in_channels, out_channels, kernel_size=[1,1,1], stride=[1,1,1], padding=[0,0,0], bias=bias, padding_mode=padding_mode)
         else:
-            self.conv = nn.Conv3d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias)
+            self.conv = nn.Conv3d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias, padding_mode=padding_mode)
 
     def forward(self, input):
         # requires input to have 5 dimensions
