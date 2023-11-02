@@ -452,7 +452,7 @@ def load_qperf_data(config):
     print(f"{Fore.RED}----> Info for the test set, {data_folder} ...{Style.RESET_ALL}")
     print(test_set)
 
-6    print(f"load_qperf_data took {time.time() - start} seconds ...")
+    print(f"load_qperf_data took {time.time() - start} seconds ...")
 
     print(f"--->{Fore.YELLOW}Number of samples for tra/val/test are {len(train_set)}/{len(val_set)}/{len(test_set)}{Style.RESET_ALL}")
 
