@@ -40,7 +40,7 @@ sys.path.append(str(REPO_DIR))
 from torchinfo import summary
 
 from trainer import *
-from utils.status import start_timer, end_timer, support_bfloat16
+from utils.status import start_timer, end_timer, support_bfloat16, count_parameters
 from metrics.metrics_utils import AverageMeter
 from optim.optim_utils import compute_total_steps
 
@@ -217,16 +217,13 @@ class QPerfTrainManager(TrainManager):
 
         # -----------------------------------------------
 
-        print(f"{rank_str}, {Style.BRIGHT}{Fore.RED}{Back.LIGHTWHITE_EX}RUN NAME - {config.run_name}{Style.RESET_ALL}")
+        logging.info(f"{rank_str}, {Style.BRIGHT}{Fore.RED}{Back.LIGHTWHITE_EX}RUN NAME - {config.run_name}{Style.RESET_ALL}")
 
         # -----------------------------------------------
         if rank<=0:
-            if not isinstance(self.model_manager, QPerfBTEXModel):
-                total_params = count_parameters(self.model_manager)
-                model_summary = None
-                c.total_params = total_params
-            else:
-                model_summary = self.init_model(c)
+            total_params = count_parameters(self.model_manager)
+            c.total_params = total_params
+            model_summary = self.init_model(c)
 
             logging.info(f"Configuration for this run:\n{c}") # Commenting out, prints a lot of info
             if wandb_run: logging.info(f"Wandb name:\n{wandb_run.name}")
@@ -256,12 +253,12 @@ class QPerfTrainManager(TrainManager):
                 num_samples = len(self.train_sets[-1])
                 sampled_picked = np.random.randint(0, num_samples, size=1024)
                 input_data  = torch.stack([torch.from_numpy(self.train_sets[-1][i][0]) for i in sampled_picked])
-                print(f"{rank_str}, prepared data {input_data.shape}, LSUV prep data took {time()-t0 : .2f} seconds ...")
+                logging.info(f"{rank_str}, prepared data {input_data.shape}, LSUV prep data took {time()-t0 : .2f} seconds ...")
 
                 if not isinstance(model_manager, QPerfBTEXModel):
                     t0 = time()
                     LSUVinit(model_manager, input_data.to(device=device, dtype=torch.float32), verbose=True, cuda=True)
-                    print(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
+                    logging.info(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
 
         # -----------------------------------------------
         if c.ddp:
@@ -347,7 +344,7 @@ class QPerfTrainManager(TrainManager):
 
                         N = x.shape[0]
 
-                        print(f"--> upload tra {ii} ...")
+                        logging.info(f"--> upload tra {ii} ...")
                         wandb.log({f"tra {ii}" : wandb.plot.line_series(
                                     xs=list(np.arange(N)),
                                     ys=[list(x[:,0]), list(x[:,1]), list(y.flatten())],
@@ -437,7 +434,7 @@ class QPerfTrainManager(TrainManager):
 
                         # -------------------------------------------------------
                         if torch.isnan(loss):
-                            print(f"Warning - loss is nan ... ")
+                            logging.info(f"Warning - loss is nan ... ")
                             optim.zero_grad()
                             continue
 
@@ -579,7 +576,7 @@ class QPerfTrainManager(TrainManager):
 
         if c.ddp:
             dist.barrier()
-        print(f"--> run finished ...")
+        logging.info(f"--> run finished ...")
 
     # =============================================================================================================================
 
@@ -614,7 +611,7 @@ class QPerfTrainManager(TrainManager):
             num_workers_per_loader = num_workers_per_loader // local_world_size
             num_workers_per_loader = 1 if num_workers_per_loader<1 else num_workers_per_loader
             
-        print(f"{Fore.YELLOW}--> num_workers_per_loader for eval i {num_workers_per_loader} ... {Style.RESET_ALL}")
+        logging.info(f"{Fore.YELLOW}--> num_workers_per_loader for eval i {num_workers_per_loader} ... {Style.RESET_ALL}")
 
         if isinstance(data_sets, list):
             data_loaders = [DataLoader(dataset=data_set, batch_size=batch_size, shuffle=False, sampler=samplers[ind],
@@ -711,7 +708,7 @@ class QPerfTrainManager(TrainManager):
                 # -----------------------------------------------------------------------------------------------------------
 
                 # Update evaluation metrics 
-                print(f"--> self.metric_manager.on_eval_epoch_end ... ")
+                logging.info(f"--> self.metric_manager.on_eval_epoch_end ... ")
                 self.metric_manager.on_eval_epoch_end(rank, epoch, model_manager, optim, sched, split, final_eval)
 
                 # Print evaluation metrics to terminal

@@ -22,7 +22,7 @@ class qperf_parser(object):
     def __init__(self):
         self.parser = argparse.ArgumentParser("")
 
-        #self.parser.add_argument("--ratio", nargs='+', type=float, default=[90,10,100], help='Ratio (as a percentage) for train/val/test divide of given data. Does allow for using partial dataset')    
+        self.parser.add_argument("--ratio", nargs='+', type=float, default=[100,100,100], help='Ratio (as a percentage) for train/val/test divide of given data. Does allow for using partial dataset')    
 
         self.parser.add_argument("--n_embd", type=int, default=512, help='embeding dimension')
 
@@ -44,7 +44,7 @@ class qperf_parser(object):
 
         self.parser.add_argument('--num_uploaded', type=int, default=16, help='number of samples uploaded to wandb')
 
-        self.parser.add_argument("--max_samples", type=int, default=-1, help='max number of samples used in training')
+        self.parser.add_argument("--max_samples", nargs='+', type=int, default=[-1, -1, -1], help='max number of samples used in tra/val/test')
 
         self.parser.add_argument("--disable_LSUV", action="store_true", help='if set, do not perform LSUV initialization.')
 

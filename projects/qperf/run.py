@@ -10,7 +10,7 @@ from time import time
 import os
 import sys
 import logging
-
+import glob
 from colorama import Fore, Back, Style
 import nibabel as nib
 
@@ -47,7 +47,7 @@ from utils.status import get_device
 
 # Custom functions
 from qperf_parser import qperf_parser
-from qperf_data import QPerfDataSet
+from qperf_data import QPerfDataSet, load_one_set, load_qperf_data
 from qperf_loss import qperf_loss
 from qperf_model import QPerfModel, QPerfModel_double_net
 from qperf_metrics import QPerfMetricManager
@@ -87,63 +87,7 @@ def main():
 
     # -----------------------------------------------
 
-    # tra_dir = 'tra_small'
-    # val_dir = 'val_small'
-    # test_dir = 'test_small'
-
-    tra_dir = 'tra'
-    val_dir = 'val'
-    test_dir = 'test'
-
-    only_white_noise = True
-
-    start = time()
-    data_folder=os.path.join(config.data_dir, tra_dir)
-    train_set = QPerfDataSet(data_folder=data_folder, 
-                        max_load=-1, max_samples=config.max_samples,
-                        T=config.qperf_T, 
-                        foot_to_end=config.foot_to_end, 
-                        min_noise_level=config.min_noise_level, 
-                        max_noise_level=config.max_noise_level,
-                        filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
-                        only_white_noise=only_white_noise,
-                        add_noise=config.add_noise,
-                        cache_folder=os.path.join(config.log_dir, tra_dir))
-
-    print(f"{Fore.RED}----> Info for the training set, {data_folder} ...{Style.RESET_ALL}")
-    print(train_set)
-
-    data_folder=os.path.join(config.data_dir, val_dir)
-    val_set = QPerfDataSet(data_folder=os.path.join(config.data_dir, val_dir),
-                        max_load=-1, max_samples=config.max_samples//5,
-                        T=config.qperf_T, 
-                        foot_to_end=config.foot_to_end, 
-                        min_noise_level=config.min_noise_level, 
-                        max_noise_level=config.max_noise_level,
-                        filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
-                        only_white_noise=only_white_noise,
-                        add_noise=config.add_noise,
-                        cache_folder=os.path.join(config.log_dir, val_dir))
-
-    print(f"{Fore.RED}----> Info for the val set, {data_folder} ...{Style.RESET_ALL}")
-    print(val_set)
-
-    data_folder=os.path.join(config.data_dir, test_dir)
-    test_set = QPerfDataSet(data_folder=data_folder,
-                        max_load=-1, max_samples=-1,
-                        T=config.qperf_T, 
-                        foot_to_end=config.foot_to_end, 
-                        min_noise_level=config.min_noise_level, 
-                        max_noise_level=config.max_noise_level,
-                        filter_sigma=[0.1, 0.25, 0.5, 0.8, 1.0],
-                        only_white_noise=only_white_noise,
-                        add_noise=config.add_noise,
-                        cache_folder=os.path.join(config.log_dir, test_dir))
-
-    print(f"{Fore.RED}----> Info for the test set, {data_folder} ...{Style.RESET_ALL}")
-    print(test_set)
-
-    print(f"load_mri_data took {time() - start} seconds ...")
+    train_set, val_set, test_set = load_qperf_data(config)
 
     # -----------------------------------------------
 

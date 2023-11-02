@@ -61,19 +61,19 @@ def main():
     
     def save_cases_to_h5(args, filename, case_files):
         global total_samples
-        grp_num = 100
+        grp_num = 20
         total_samples = 0
         num_cases = len(case_files)
         h5file = None
         pbar = tqdm(total=num_cases)
         for ii, a_case in enumerate(case_files):
 
-            if ii % 500 == 0:
+            if ii % 100 == 0:
                 if h5file is not None: 
                     h5file.close()
                 fname = f"{filename}_{ii}.h5"
-                print(f"--> create file {fname}")
-                h5file = h5py.File(f"{filename}_{ii}.h5" , mode="w", libver='earliest')
+                print(f"--> create file {fname}, grp_num {grp_num}")
+                h5file = h5py.File(f"{filename}_{ii}.h5" , mode="w", libver='latest')
 
             if args.max_sample_loaded > 0 and total_samples >= args.max_sample_loaded:
                 break
@@ -95,27 +95,31 @@ def main():
                 params = np.load(params_fname)
                 params = params.astype(np.float32)
 
+                head, tail = os.path.split(a_case_fname)
+
                 N = aif.shape[0]
-
-                # key = f"{a_case}"
-                # data_folder = h5file.create_group(key)
-                # data_folder["aif"] = aif
-                # data_folder["myo"] = myo
-                # data_folder["params"] = params
-
+                case_folder = h5file.create_group(tail)
                 for ind in range(0, N, grp_num):
+                    if ind+grp_num >= N:
+                        break
+
                     a_params = params[ind:ind+grp_num, :]
                     a_aif = aif[ind:ind+grp_num, :]
                     a_myo = myo[ind:ind+grp_num, :]
 
-                    key = f"{a_case}_{ind}"
-                    data_folder = h5file.create_group(key)
+                    key = f"{ind}"
+                    data_folder = case_folder.create_group(key)
                     data_folder["aif"] = a_aif
                     data_folder["myo"] = a_myo
                     data_folder["params"] = a_params
 
+                    assert a_aif.shape[0] == grp_num
+
             pbar.update(1)
             pbar.set_description_str(f"{a_case_fname}")
+
+        if h5file is not None: 
+            h5file.close()
 
         print("----" * 20)
         print(f"--> total number of samples {total_samples}")
