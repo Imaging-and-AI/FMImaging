@@ -759,7 +759,7 @@ class Wavelet_Loss:
     Test wavelet loss based on pytorch_wavelets.
     This version performs 2D wavelet transformation on the last two dimensions [-2, -1]
     """
-    def __init__(self, J=1, wave='db3', mode='symmetric', separable=False, only_h=True, complex_i=False, device='cpu'):
+    def __init__(self, J=1, wave='db3', mode='reflect', separable=False, only_h=True, complex_i=False, device='cpu'):
         """
         @args:
             - J (int): number of wavelet levels
@@ -872,7 +872,7 @@ class Combined_Loss:
         elif loss_name=="spec":
             loss_f = Spectral_Loss(dim=[-2, -1], min_bound=5, max_bound=95, complex_i=self.complex_i, device=self.device)
         elif loss_name=="dwt":
-            loss_f = Wavelet_Loss(J=2, wave='db3', mode='symmetric', separable=False, only_h=True, complex_i=self.complex_i, device=self.device)
+            loss_f = Wavelet_Loss(J=2, wave='db3', mode='reflect', separable=False, only_h=True, complex_i=self.complex_i, device=self.device)
         else:
             raise NotImplementedError(f"Loss type not implemented: {loss_name}")
 
