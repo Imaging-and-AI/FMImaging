@@ -114,8 +114,9 @@ class Conv2DExt(nn.Module):
         self.separable_conv = separable_conv
         self.channel_first = channel_first
         if separable_conv:
-            self.convA = nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias, padding_mode=padding_mode, groups=in_channels)
-            self.convB = nn.Conv2d(in_channels, out_channels, kernel_size=[1,1], stride=[1,1], padding=[0,0], bias=bias, padding_mode=padding_mode)
+            #self.convA = nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias, padding_mode=padding_mode, groups=in_channels)
+            #self.convB = nn.Conv2d(in_channels, out_channels, kernel_size=[1,1], stride=[1,1], padding=[0,0], bias=bias, padding_mode=padding_mode)
+            pass
         else:
             self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias, padding_mode=padding_mode)
 
@@ -129,7 +130,8 @@ class Conv2DExt(nn.Module):
             x = input
             
         if self.separable_conv:
-            y = self.convB(self.convA(x.reshape((B*T, C, H, W))))
+            #y = self.convB(self.convA(x.reshape((B*T, C, H, W))))
+            pass
         else:
             y = self.conv(x.reshape((B*T, C, H, W)))
 
@@ -202,8 +204,9 @@ class Conv3DExt(nn.Module):
         self.separable_conv = separable_conv
         self.channel_first = channel_first
         if separable_conv:
-            self.convA = nn.Conv3d(in_channels, in_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias, padding_mode=padding_mode, groups=in_channels)
-            self.convB = nn.Conv3d(in_channels, out_channels, kernel_size=[1,1,1], stride=[1,1,1], padding=[0,0,0], bias=bias, padding_mode=padding_mode)
+            # self.convA = nn.Conv3d(in_channels, in_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias, padding_mode=padding_mode, groups=in_channels)
+            # self.convB = nn.Conv3d(in_channels, out_channels, kernel_size=[1,1,1], stride=[1,1,1], padding=[0,0,0], bias=bias, padding_mode=padding_mode)
+            pass
         else:
             self.conv = nn.Conv3d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias, padding_mode=padding_mode)
 
@@ -212,7 +215,8 @@ class Conv3DExt(nn.Module):
         if self.channel_first:
             B, C, T, H, W = input.shape
             if self.separable_conv:
-                y = self.convB(self.convA(input))
+                #y = self.convB(self.convA(input))
+                pass
             else:
                 y = self.conv(input)
 
@@ -221,7 +225,8 @@ class Conv3DExt(nn.Module):
             B, T, C, H, W = input.shape
             x = torch.permute(input, (0, 2, 1, 3, 4))
             if self.separable_conv:
-                y = self.convB(self.convA(x))
+                #y = self.convB(self.convA(x))
+                pass
             else:
                 y = self.conv(x)
 
