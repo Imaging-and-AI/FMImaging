@@ -150,8 +150,21 @@ scaling_factor=1.0
 # 2nd, unet
 model=/export/Lab-Xue/projects/mri/test/mri-main-2nd_STCNNT_UNET_T1L1G1_T1L1G1_20231030_194521_497809_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_8
 
-export CUDA_VISIBLE_DEVICES=0
+# 2nd, hrnet, goot ssim
+
+model=/export/Lab-Xue/projects/mri-main/logs/mri-main-2nd_STCNNT_UNET_T1L1G1_T1L1G1T1L1G1_20231103_094005_416559_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/mri-main-2nd_STCNNT_UNET_T1L1G1_T1L1G1T1L1G1_20231103_094005_416559_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1_epoch-20.pth
+
+RES_DIR=res_2nd_net_TLG_TLGTLG
+model_type_str=MRI_double_net
+scaling_factor=1.0
+
+export CUDA_VISIBLE_DEVICES=6
 export DISABLE_FLOAT16_INFERENCE=True
+
+# ======================================================================
+# quick test case
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
 
 # ======================================================================
 

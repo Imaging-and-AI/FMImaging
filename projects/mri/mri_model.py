@@ -44,7 +44,7 @@ from optim.optim_utils import divide_optim_into_groups
 # -------------------------------------------------------------------------------------------------
 
 def create_model(config, model_type):
-    config_copy = copy.copy(config)
+    config_copy = copy.deepcopy(config)
     if model_type == "STCNNT_MRI":
         model = STCNNT_MRI(config=config_copy)
     elif model_type == "MRI_hrnet":
@@ -200,7 +200,7 @@ class omnivore_MRI(STCNNT_MRI):
         else:
             raise NotImplementedError(f"Backbone model not implemented: {self.config.backbone_model}")
 
-        config = copy.copy(self.config)
+        config = copy.deepcopy(self.config)
         config.no_out_channel = self.feature_channels[0]
         self.backbone["mixer"] = UperNet3D(config, feature_channels=self.feature_channels)
 
@@ -587,7 +587,7 @@ class MRI_double_net(STCNNT_MRI):
             self.post["o_conv"] = Conv2DExt(backbone_C_out, backbone_C_out, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True, channel_first=True)
 
         if config.post_backbone == 'STCNNT_HRNET':
-            config_post = copy.copy(config)
+            config_post = copy.deepcopy(config)
 
             if config.backbone_model != 'STCNNT_HRNET':
                 config_post.backbone_hrnet = Nestedspace()
@@ -608,7 +608,7 @@ class MRI_double_net(STCNNT_MRI):
 
             C_out = int(config_post.backbone_hrnet.C * sum([np.power(2, k) for k in range(config_post.backbone_hrnet.num_resolution_levels)]))
         else:
-            config_post = copy.copy(config)
+            config_post = copy.deepcopy(config)
             config_post.separable_conv = config.post_mixed_unetr.separable_conv
 
             config_post.backbone_mixed_unetr.block_str = config.post_mixed_unetr.block_str

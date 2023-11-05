@@ -53,6 +53,7 @@ from mri_model import STCNNT_MRI, MRI_hrnet, MRI_double_net, omnivore_MRI, creat
 from LSUV import LSUVinit
 from mri_metrics import MriMetricManager
 from mri_trainer import MRITrainManager, get_rank_str
+from inference import apply_model, load_model, apply_model_3D, load_model_pre_backbone_post
 
 # -------------------------------------------------------------------------------------------------
 def main():
@@ -317,6 +318,11 @@ def main():
     # ---------------------------------------------------
 
     model = model.to(device)
+
+    # model.eval()
+    # with torch.inference_mode():
+    #     save_path, save_file_name, config_yaml_file = model.save_entire_model(epoch=0)
+    #     model_loaded, config_loaded = load_model(os.path.join(save_path, save_file_name+'.pth'))
 
     # ---------------------------------------------------
 

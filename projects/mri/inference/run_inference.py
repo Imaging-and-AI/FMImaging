@@ -26,7 +26,7 @@ REPO_DIR = Path(__file__).parents[3].resolve()
 sys.path.append(str(REPO_DIR))
 
 from utils import *
-from inference import apply_model, load_model, apply_model_3D
+from inference import apply_model, load_model, apply_model_3D, load_model_pre_backbone_post
 
 # -------------------------------------------------------------------------------------------------
 # setup for testing from cmd
@@ -65,9 +65,6 @@ def check_args(args):
     @rets:
         - args (Namespace): the checked and updated argparse for MRI
     """
-    assert args.saved_model_path.endswith(".pt") or args.saved_model_path.endswith(".pts") or args.saved_model_path.endswith(".onnx") or args.saved_model_path.endswith(".pth"),\
-            f"Saved model should either be \"*.pt\" or \"*.pts\" or \"*.onnx\" or \"*.pth\""
-
     # get the args path
     fname = os.path.splitext(args.saved_model_path)[0]
     args.saved_model_config  = fname + '.yaml'
@@ -85,7 +82,10 @@ def main():
     print(f"---> support bfloat16 is {support_bfloat16(device=get_device())}")
 
     print(f"{Fore.YELLOW}Load in model file - {args.saved_model_path}")
-    model, config = load_model(args.saved_model_path)
+    if os.path.exists(args.saved_model_path):
+        model, config = load_model(args.saved_model_path)
+    else:
+        model, config = load_model_pre_backbone_post(args.saved_model_path)
 
     config.height = config.mri_height
     config.width = config.mri_width

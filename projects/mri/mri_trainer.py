@@ -43,6 +43,7 @@ from optim.optim_utils import compute_total_steps
 
 from mri_data import MRIDenoisingDatasetTrain
 from running_inference import running_inference
+from inference import load_model
 
 # -------------------------------------------------------------------------------------------------
 
@@ -509,6 +510,7 @@ class MRITrainManager(TrainManager):
 
         if rank <= 0:
             save_path, save_file_name, config_yaml_file = self.model_manager.save_entire_model(epoch=self.config.num_epochs)
+            model_loaded, config_loaded = load_model(os.path.join(save_path, save_file_name+'.pth'))
             model_full_path = os.path.join(save_path, save_file_name+'.pth')
             logging.info(f"{Fore.YELLOW}Entire model is saved at {model_full_path} ...{Style.RESET_ALL}")
 

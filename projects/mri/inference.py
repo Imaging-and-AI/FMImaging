@@ -428,6 +428,54 @@ def load_model(saved_model_path):
 
     return model, config
 
+def load_model(saved_model_path):
+    """
+    load a ".pth"model
+    @rets:
+        - model (torch model): the model ready for inference
+    """
+
+    model = None
+    config = None
+
+    if saved_model_path.endswith(".pt") or saved_model_path.endswith(".pth"):
+
+        status = torch.load(saved_model_path)
+        config = status['config']
+
+        if not torch.cuda.is_available():
+            config.device = torch.device('cpu')
+
+        model = create_model(config, config.model_type)
+
+        print(f"{Fore.YELLOW}Load in model {Style.RESET_ALL}")
+        model.load_state_dict(status['model_state'])
+
+    return model, config
+
+def load_model_pre_backbone_post(saved_model_path):
+    """
+    load a ".pth"model
+    @rets:
+        - model (torch model): the model ready for inference
+    """
+
+    model = None
+    config = None
+
+    pre_name = saved_model_path+"_pre.pth"
+
+    status = torch.load(pre_name, map_location=get_device())
+    config = status['config']
+
+    model = create_model(config, config.model_type)
+    model.config.device = get_device()
+
+    print(f"{Fore.YELLOW}Load in model {Style.RESET_ALL}")
+    model.load(saved_model_path)
+
+    return model, config
+
 # -------------------------------------------------------------------------------------------------
 
 def tests():
