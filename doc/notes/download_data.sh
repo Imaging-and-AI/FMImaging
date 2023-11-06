@@ -13,19 +13,20 @@ export SAS2="sp=racwdli&st=2023-10-29T19:02:56Z&se=2025-10-30T03:02:56Z&spr=http
 # azcopy copy "./val/" "https://stcnnt.blob.core.windows.net/qperf/?${SAS_qperf}" --recursive
 # azcopy copy "https://stcnnt.blob.core.windows.net/qperf/h5_data?${SAS_qperf}" . --recursive
 
-mkdir -p /export/Lab-Xue/projects/imagenet/qperf/v2
-mkdir -p /export/Lab-Xue/projects/imagenet/qperf/v2/tra
-mkdir -p /export/Lab-Xue/projects/imagenet/qperf/v2/val
-mkdir -p /export/Lab-Xue/projects/imagenet/qperf/v2/test
-azcopy copy "${data_src_qperf}/v2/tra/aif.npy?${SAS2}" /export/Lab-Xue/projects/imagenet/qperf/v2/tra --recursive
-azcopy copy "${data_src_qperf}/v2/tra/myo.npy?${SAS2}" /export/Lab-Xue/projects/imagenet/qperf/v2/tra --recursive
-azcopy copy "${data_src_qperf}/v2/tra/params.npy?${SAS2}" /export/Lab-Xue/projects/imagenet/qperf/v2/tra --recursive
-azcopy copy "${data_src_qperf}/v2/val?${SAS2}" /export/Lab-Xue/projects/imagenet/qperf/v2 --recursive
-azcopy copy "${data_src_qperf}/v2/test?${SAS2}" /export/Lab-Xue/projects/imagenet/qperf/v2 --recursive
+# mkdir -p /export/Lab-Xue/projects/imagenet/qperf/v2
+# mkdir -p /export/Lab-Xue/projects/imagenet/qperf/v2/tra
+# mkdir -p /export/Lab-Xue/projects/imagenet/qperf/v2/val
+# mkdir -p /export/Lab-Xue/projects/imagenet/qperf/v2/test
+# azcopy copy "${data_src_qperf}/v2/tra/aif.npy?${SAS2}" /export/Lab-Xue/projects/imagenet/qperf/v2/tra --recursive
+# azcopy copy "${data_src_qperf}/v2/tra/myo.npy?${SAS2}" /export/Lab-Xue/projects/imagenet/qperf/v2/tra --recursive
+# azcopy copy "${data_src_qperf}/v2/tra/params.npy?${SAS2}" /export/Lab-Xue/projects/imagenet/qperf/v2/tra --recursive
+# azcopy copy "${data_src_qperf}/v2/val?${SAS2}" /export/Lab-Xue/projects/imagenet/qperf/v2 --recursive
+# azcopy copy "${data_src_qperf}/v2/test?${SAS2}" /export/Lab-Xue/projects/imagenet/qperf/v2 --recursive
 
-azcopy copy "${data_src_qperf}/tra?${SAS_qperf}" /export/Lab-Xue/projects/data/qperf --recursive
-azcopy copy "${data_src_qperf}/val?${SAS_qperf}" /export/Lab-Xue/projects/data/qperf --recursive
-azcopy copy "${data_src_qperf}/test?${SAS_qperf}" /export/Lab-Xue/projects/data/qperf --recursive
+mkdir -p /data/qperf
+azcopy copy "${data_src_qperf}/h5_data/tra?${SAS_qperf}" /data/qperf/ --recursive
+azcopy copy "${data_src_qperf}/h5_data/val?${SAS_qperf}" /data/qperf/ --recursive
+azcopy copy "${data_src_qperf}/h5_data/test?${SAS_qperf}" /data/qperf/ --recursive
 
 # test data
 azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2DT_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data

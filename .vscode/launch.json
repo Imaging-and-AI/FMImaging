@@ -154,7 +154,7 @@
                 "--im_scaling", "10.0",
                 "--gmap_scaling", "100.0",
                 "--input_fname", "im",
-                "--saved_model_path", "/export/Lab-Xue/projects/mri-main/logs/mri-main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20231104_195917_890137_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/mri-main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20231104_195917_890137_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1_epoch-2.pth",
+                "--saved_model_path", "/export/Lab-Xue/projects/mri-main/logs/mri-main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20231104_204006_398966_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_12",
                 "--model_type", "MRI_double_net"
             ]
         },

@@ -152,9 +152,9 @@ model=/export/Lab-Xue/projects/mri/test/mri-main-2nd_STCNNT_UNET_T1L1G1_T1L1G1_2
 
 # 2nd, hrnet, goot ssim
 
-model=/export/Lab-Xue/projects/mri-main/logs/mri-main-2nd_STCNNT_UNET_T1L1G1_T1L1G1T1L1G1_20231103_094005_416559_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/mri-main-2nd_STCNNT_UNET_T1L1G1_T1L1G1T1L1G1_20231103_094005_416559_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1_epoch-20.pth
+model=/export/Lab-Xue/projects/mri-main/logs/mri-main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20231104_204006_398966_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_12
 
-RES_DIR=res_2nd_net_TLG_TLGTLG
+RES_DIR=res_2nd_hrnet_TLG_TLGTLG
 model_type_str=MRI_double_net
 scaling_factor=1.0
 

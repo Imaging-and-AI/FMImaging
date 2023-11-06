@@ -274,225 +274,252 @@ class MRITrainManager(TrainManager):
             
             image_save_step_size = int(total_iters // config.num_saved_samples)
             if image_save_step_size == 0: image_save_step_size = 1
-                
-            # ----------------------------------------------------------------------------
-            for epoch in range(curr_epoch, c.num_epochs):
-                logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank} {'-'*20}{Style.RESET_ALL}")
 
-                model_manager.train()
-                if c.ddp: [train_loader.sampler.set_epoch(epoch) for train_loader in train_loaders]
-                self.metric_manager.on_train_epoch_start()
-                train_loader_iters = [iter(train_loader) for train_loader in train_loaders]
-                
-                images_saved = 0
-                
-                train_snr_meter.reset()
-                
+            try:
                 # ----------------------------------------------------------------------------
-                with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
-                    for idx in range(total_iters):
+                for epoch in range(curr_epoch, c.num_epochs):
+                    logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank} {'-'*20}{Style.RESET_ALL}")
 
-                        # -------------------------------------------------------
-                        tm = start_timer(enable=c.with_timer)
-                        loader_ind = idx % len(train_loader_iters)
-                        loader_outputs = next(train_loader_iters[loader_ind], None)
-                        while loader_outputs is None:
-                            del train_loader_iters[loader_ind]
+                    model_manager.train()
+                    if c.ddp: [train_loader.sampler.set_epoch(epoch) for train_loader in train_loaders]
+                    self.metric_manager.on_train_epoch_start()
+                    train_loader_iters = [iter(train_loader) for train_loader in train_loaders]
+
+                    images_saved = 0
+
+                    train_snr_meter.reset()
+
+                    # ----------------------------------------------------------------------------
+                    with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
+                        for idx in range(total_iters):
+
+                            # -------------------------------------------------------
+                            tm = start_timer(enable=c.with_timer)
                             loader_ind = idx % len(train_loader_iters)
                             loader_outputs = next(train_loader_iters[loader_ind], None)
-                        data_type = train_set_type[loader_ind]
-                        x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = loader_outputs
-                        end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
-                        
-                        # -------------------------------------------------------
-                        tm = start_timer(enable=c.with_timer)
-                        y_for_loss = y
-                        if config.super_resolution:
-                            y_for_loss = y_2x
+                            while loader_outputs is None:
+                                del train_loader_iters[loader_ind]
+                                loader_ind = idx % len(train_loader_iters)
+                                loader_outputs = next(train_loader_iters[loader_ind], None)
+                            data_type = train_set_type[loader_ind]
+                            x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = loader_outputs
+                            end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
+                            
+                            # -------------------------------------------------------
+                            tm = start_timer(enable=c.with_timer)
+                            y_for_loss = y
+                            if config.super_resolution:
+                                y_for_loss = y_2x
 
-                        tm = start_timer(enable=c.with_timer)
-                        x = x.to(device=device)
-                        y_for_loss = y_for_loss.to(device)
-                        noise_sigmas = noise_sigmas.to(device)
-                        gmaps_median = gmaps_median.to(device)
+                            tm = start_timer(enable=c.with_timer)
+                            x = x.to(device=device)
+                            y_for_loss = y_for_loss.to(device)
+                            noise_sigmas = noise_sigmas.to(device)
+                            gmaps_median = gmaps_median.to(device)
 
-                        B, C, T, H, W = x.shape
+                            B, C, T, H, W = x.shape
 
-                        if c.weighted_loss_temporal:
-                            # compute temporal std
-                            if C == 3:
-                                std_t = torch.std(torch.abs(y[:,0,:,:,:] + 1j * y[:,1,:,:,:]), dim=1)
-                            else:
-                                std_t = torch.std(y(y[:,0,:,:,:], dim=1))
+                            if c.weighted_loss_temporal:
+                                # compute temporal std
+                                if C == 3:
+                                    std_t = torch.std(torch.abs(y[:,0,:,:,:] + 1j * y[:,1,:,:,:]), dim=1)
+                                else:
+                                    std_t = torch.std(y(y[:,0,:,:,:], dim=1))
 
-                            weights_t = torch.mean(std_t, dim=(-2, -1)).to(device)
+                                weights_t = torch.mean(std_t, dim=(-2, -1)).to(device)
 
-                        # compute snr
-                        signal = torch.mean(torch.linalg.norm(y, dim=1, keepdim=True), dim=(1, 2, 3, 4)).to(device)
-                        #snr = signal / (noise_sigmas*gmaps_median)
-                        snr = signal / gmaps_median
-                        #snr = snr.to(device)
+                            # compute snr
+                            signal = torch.mean(torch.linalg.norm(y, dim=1, keepdim=True), dim=(1, 2, 3, 4)).to(device)
+                            #snr = signal / (noise_sigmas*gmaps_median)
+                            snr = signal / gmaps_median
+                            #snr = snr.to(device)
 
-                        # base_snr : original snr in the clean patch
-                        # noise_sigmas: added noise
-                        # weighted_t: temporal/slice signal variation
+                            # base_snr : original snr in the clean patch
+                            # noise_sigmas: added noise
+                            # weighted_t: temporal/slice signal variation
 
-                        if c.weighted_loss_snr:
-                            beta_counter += 1
-                            base_snr = beta_snr * base_snr + (1-beta_snr) * torch.mean(snr).item()
-                            base_snr_t = base_snr / (1 - np.power(beta_snr, beta_counter))
-                        else:
-                            base_snr_t = -1
-
-                        noise_sigmas = torch.reshape(noise_sigmas, (B, 1, 1, 1, 1))
-
-                        with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
                             if c.weighted_loss_snr:
-                                model_output = self.model_manager(x, snr, base_snr_t)
-                                output = model_output[0]
-                                weights = model_output[1]
-                                if c.weighted_loss_temporal:
-                                    weights *= weights_t
+                                beta_counter += 1
+                                base_snr = beta_snr * base_snr + (1-beta_snr) * torch.mean(snr).item()
+                                base_snr_t = base_snr / (1 - np.power(beta_snr, beta_counter))
                             else:
-                                model_output = self.model_manager(x)
-                                if isinstance(model_output, tuple):
+                                base_snr_t = -1
+
+                            noise_sigmas = torch.reshape(noise_sigmas, (B, 1, 1, 1, 1))
+
+                            with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
+                                if c.weighted_loss_snr:
+                                    model_output = self.model_manager(x, snr, base_snr_t)
                                     output = model_output[0]
+                                    weights = model_output[1]
+                                    if c.weighted_loss_temporal:
+                                        weights *= weights_t
                                 else:
-                                    output = model_output
-                                if c.weighted_loss_temporal:
-                                    weights = weights_t
-
-                            if torch.isnan(torch.sum(output)):
-                                continue
-
-                            if torch.sum(noise_sigmas).item() > 0:
-                                if c.weighted_loss_snr or c.weighted_loss_temporal:
-                                    if c.weighted_loss_added_noise:
-                                        loss = loss_f(output*noise_sigmas, y_for_loss*noise_sigmas, weights=weights.to(device))
+                                    model_output = self.model_manager(x)
+                                    if isinstance(model_output, tuple):
+                                        output = model_output[0]
                                     else:
-                                        loss = loss_f(output, y_for_loss, weights=weights.to(device))
+                                        output = model_output
+                                    if c.weighted_loss_temporal:
+                                        weights = weights_t
+
+                                if torch.isnan(torch.sum(output)):
+                                    continue
+
+                                if torch.sum(noise_sigmas).item() > 0:
+                                    if c.weighted_loss_snr or c.weighted_loss_temporal:
+                                        if c.weighted_loss_added_noise:
+                                            loss = loss_f(output*noise_sigmas, y_for_loss*noise_sigmas, weights=weights.to(device))
+                                        else:
+                                            loss = loss_f(output, y_for_loss, weights=weights.to(device))
+                                    else:
+                                        if c.weighted_loss_added_noise:
+                                            loss = loss_f(output*noise_sigmas, y_for_loss*noise_sigmas)
+                                        else:
+                                            loss = loss_f(output, y_for_loss)
                                 else:
-                                    if c.weighted_loss_added_noise:
-                                        loss = loss_f(output*noise_sigmas, y_for_loss*noise_sigmas)
+                                    if c.weighted_loss_snr or c.weighted_loss_temporal:
+                                        loss = loss_f(output, y_for_loss, weights=weights.to(device))
                                     else:
                                         loss = loss_f(output, y_for_loss)
-                            else:
-                                if c.weighted_loss_snr or c.weighted_loss_temporal:
-                                    loss = loss_f(output, y_for_loss, weights=weights.to(device))
-                                else:
-                                    loss = loss_f(output, y_for_loss)
 
-                            loss = loss / c.iters_to_accumulate
+                                loss = loss / c.iters_to_accumulate
 
-                        end_timer(enable=c.with_timer, t=tm, msg="---> forward pass took ")
+                            end_timer(enable=c.with_timer, t=tm, msg="---> forward pass took ")
 
-                        # -------------------------------------------------------
-                        if torch.isnan(loss):
-                            print(f"Warning - loss is nan ... ")
-                            optim.zero_grad()
-                            continue
+                            # -------------------------------------------------------
+                            if torch.isnan(loss):
+                                print(f"Warning - loss is nan ... ")
+                                optim.zero_grad()
+                                continue
 
-                        tm = start_timer(enable=c.with_timer)
-                        scaler.scale(loss).backward()
-                        end_timer(enable=c.with_timer, t=tm, msg="---> backward pass took ")
+                            tm = start_timer(enable=c.with_timer)
+                            scaler.scale(loss).backward()
+                            end_timer(enable=c.with_timer, t=tm, msg="---> backward pass took ")
 
-                        # -------------------------------------------------------
-                        tm = start_timer(enable=c.with_timer)
-                        if (idx + 1) % c.iters_to_accumulate == 0 or (idx + 1 == total_iters):
-                            if(c.clip_grad_norm>0):
-                                scaler.unscale_(optim)
-                                nn.utils.clip_grad_norm_(self.model_manager.parameters(), c.clip_grad_norm)
+                            # -------------------------------------------------------
+                            tm = start_timer(enable=c.with_timer)
+                            if (idx + 1) % c.iters_to_accumulate == 0 or (idx + 1 == total_iters):
+                                if(c.clip_grad_norm>0):
+                                    scaler.unscale_(optim)
+                                    nn.utils.clip_grad_norm_(self.model_manager.parameters(), c.clip_grad_norm)
 
-                            scaler.step(optim)
-                            optim.zero_grad(set_to_none=True)
-                            scaler.update()
+                                scaler.step(optim)
+                                optim.zero_grad(set_to_none=True)
+                                scaler.update()
 
-                            if c.scheduler_type == "OneCycleLR": sched.step()
-                        end_timer(enable=c.with_timer, t=tm, msg="---> other steps took ")
+                                if c.scheduler_type == "OneCycleLR": sched.step()
+                            end_timer(enable=c.with_timer, t=tm, msg="---> other steps took ")
 
-                        # -------------------------------------------------------
-                        tm = start_timer(enable=c.with_timer)
-                        curr_lr = optim.param_groups[0]['lr']
+                            # -------------------------------------------------------
+                            tm = start_timer(enable=c.with_timer)
+                            curr_lr = optim.param_groups[0]['lr']
 
-                        train_snr_meter.update(torch.mean(snr), n=x.shape[0])
+                            train_snr_meter.update(torch.mean(snr), n=x.shape[0])
 
-                        tra_save_images = idx%image_save_step_size==0 and images_saved < config.num_saved_samples and config.save_train_samples
-                        self.metric_manager.on_train_step_end(loss.item(), model_output, loader_outputs, rank, curr_lr, tra_save_images, epoch, images_saved)
-                        images_saved += 1
+                            tra_save_images = idx%image_save_step_size==0 and images_saved < config.num_saved_samples and config.save_train_samples
+                            self.metric_manager.on_train_step_end(loss.item(), model_output, loader_outputs, rank, curr_lr, tra_save_images, epoch, images_saved)
+                            images_saved += 1
 
-                        # -------------------------------------------------------
-                        pbar.update(1)
+                            # -------------------------------------------------------
+                            pbar.update(1)
+                            log_str = self.create_log_str(config, epoch, rank, 
+                                            x.shape, 
+                                            torch.mean(gmaps_median).cpu().item(),
+                                            torch.mean(noise_sigmas).cpu().item(),
+                                            train_snr_meter.avg,
+                                            self.metric_manager,
+                                            curr_lr, 
+                                            "tra")
+
+                            pbar.set_description_str(log_str)
+
+                            end_timer(enable=c.with_timer, t=tm, msg="---> epoch step logging and measuring took ")
+                        # ------------------------------------------------------------------------------------------------------
+
+                        # Run metric logging for each epoch 
+                        tm = start_timer(enable=c.with_timer) 
+
+                        self.metric_manager.on_train_epoch_end(epoch, rank)
+
+                        # Print out metrics from this epoch
                         log_str = self.create_log_str(config, epoch, rank, 
-                                         x.shape, 
-                                         torch.mean(gmaps_median).cpu().item(),
-                                         torch.mean(noise_sigmas).cpu().item(),
-                                         train_snr_meter.avg,
-                                         self.metric_manager,
-                                         curr_lr, 
-                                         "tra")
+                                                    x.shape, 
+                                                    torch.mean(gmaps_median).cpu().item(),
+                                                    torch.mean(noise_sigmas).cpu().item(),
+                                                    train_snr_meter.avg,
+                                                    self.metric_manager,
+                                                    curr_lr, 
+                                                    "tra")
 
-                        pbar.set_description_str(log_str)
+                        pbar.set_description(log_str)
 
-                        end_timer(enable=c.with_timer, t=tm, msg="---> epoch step logging and measuring took ")
+                        # Write training status to log file
+                        if rank<=0: 
+                            logging.getLogger("file_only").info(log_str)
+
+                        end_timer(enable=c.with_timer, t=tm, msg="---> epoch end logging and measuring took ")                
                     # ------------------------------------------------------------------------------------------------------
 
-                    # Run metric logging for each epoch 
-                    tm = start_timer(enable=c.with_timer) 
+                    if epoch % c.eval_frequency==0 or epoch==c.num_epochs:
+                        self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="val_in_training", split="val", final_eval=False, scaling_factor=1)
 
-                    self.metric_manager.on_train_epoch_end(epoch, rank)
+                    if c.scheduler_type != "OneCycleLR":
+                        if c.scheduler_type == "ReduceLROnPlateau":
+                            sched.step(loss.item())
+                        elif c.scheduler_type == "StepLR":
+                            sched.step()
 
-                    # Print out metrics from this epoch
-                    log_str = self.create_log_str(config, epoch, rank, 
-                                                x.shape, 
-                                                torch.mean(gmaps_median).cpu().item(),
-                                                torch.mean(noise_sigmas).cpu().item(),
-                                                train_snr_meter.avg,
-                                                self.metric_manager,
-                                                curr_lr, 
-                                                "tra")
+                        if c.ddp:
+                            self.distribute_learning_rates(rank, optim, src=0)
 
-                    pbar.set_description(log_str)
+                # ----------------------------------------------------------------------------
 
-                    # Write training status to log file
-                    if rank<=0: 
-                        logging.getLogger("file_only").info(log_str)
-
-                    end_timer(enable=c.with_timer, t=tm, msg="---> epoch end logging and measuring took ")                
-                # ------------------------------------------------------------------------------------------------------
-
-                if epoch % c.eval_frequency==0 or epoch==c.num_epochs:
-                    self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="val_in_training", split="val", final_eval=False, scaling_factor=1)
-
-                if c.scheduler_type != "OneCycleLR":
-                    if c.scheduler_type == "ReduceLROnPlateau":
-                        sched.step(loss.item())
-                    elif c.scheduler_type == "StepLR":
-                        sched.step()
-
-                    if c.ddp:
-                        self.distribute_learning_rates(rank, optim, src=0)
-
-            # ----------------------------------------------------------------------------
-
-            self.model_manager.save(os.path.join(self.config.log_dir, self.config.run_name, 'last_checkpoint'), epoch, optim, sched)
-            if wandb_run is not None:
-                wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_pre.pth'))
-                wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_backbone.pth'))
-                wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_post.pth'))
-
-            # Load the best model from training
-            if self.config.eval_train_set or self.config.eval_val_set or self.config.eval_test_set:
-                logging.info(f"{Fore.CYAN}Loading the best models from training for final evaluation...{Style.RESET_ALL}")
-                if self.metric_manager.best_pre_model_file is not None: self.model_manager.load_pre(self.metric_manager.best_pre_model_file)
-                if self.metric_manager.best_backbone_model_file is not None: self.model_manager.load_backbone(self.metric_manager.best_backbone_model_file)
-                if self.metric_manager.best_post_model_file is not None: self.model_manager.load_post(self.metric_manager.best_post_model_file)
-
+                self.model_manager.save(os.path.join(self.config.log_dir, self.config.run_name, 'last_checkpoint'), epoch, optim, sched)
                 if wandb_run is not None:
-                    if self.metric_manager.best_pre_model_file is not None: wandb_run.save(self.metric_manager.best_pre_model_file)
-                    if self.metric_manager.best_backbone_model_file is not None: wandb_run.save(self.metric_manager.best_backbone_model_file)
-                    if self.metric_manager.best_post_model_file is not None: wandb_run.save(self.metric_manager.best_post_model_file)
-        else: 
-            epoch = 0
+                    wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_pre.pth'))
+                    wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_backbone.pth'))
+                    wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_post.pth'))
+
+                # Load the best model from training
+                if self.config.eval_train_set or self.config.eval_val_set or self.config.eval_test_set:
+                    logging.info(f"{Fore.CYAN}Loading the best models from training for final evaluation...{Style.RESET_ALL}")
+                    if self.metric_manager.best_pre_model_file is not None: self.model_manager.load_pre(self.metric_manager.best_pre_model_file)
+                    if self.metric_manager.best_backbone_model_file is not None: self.model_manager.load_backbone(self.metric_manager.best_backbone_model_file)
+                    if self.metric_manager.best_post_model_file is not None: self.model_manager.load_post(self.metric_manager.best_post_model_file)
+
+                    if wandb_run is not None:
+                        if self.metric_manager.best_pre_model_file is not None: wandb_run.save(self.metric_manager.best_pre_model_file)
+                        if self.metric_manager.best_backbone_model_file is not None: wandb_run.save(self.metric_manager.best_backbone_model_file)
+                        if self.metric_manager.best_post_model_file is not None: wandb_run.save(self.metric_manager.best_post_model_file)
+                else: 
+                    epoch = 0
+
+            except KeyboardInterrupt:
+
+                print(f"{Fore.YELLOW}Interrupted from the keyboard at epoch {epoch} ...{Style.RESET_ALL}", flush=True)
+
+                print(f"{Fore.YELLOW}Save current model ...{Style.RESET_ALL}", flush=True)
+
+                self.model_manager.save(os.path.join(self.config.log_dir, self.config.run_name, 'last_checkpoint'), epoch, optim, sched)
+                if wandb_run is not None:
+                    wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_pre.pth'))
+                    wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_backbone.pth'))
+                    wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_post.pth'))
+
+                # Load the best model from training
+                if self.config.eval_train_set or self.config.eval_val_set or self.config.eval_test_set:
+                    logging.info(f"{Fore.CYAN}Loading the best models from training for final evaluation...{Style.RESET_ALL}")
+                    if self.metric_manager.best_pre_model_file is not None: self.model_manager.load_pre(self.metric_manager.best_pre_model_file)
+                    if self.metric_manager.best_backbone_model_file is not None: self.model_manager.load_backbone(self.metric_manager.best_backbone_model_file)
+                    if self.metric_manager.best_post_model_file is not None: self.model_manager.load_post(self.metric_manager.best_post_model_file)
+
+                    if wandb_run is not None:
+                        if self.metric_manager.best_pre_model_file is not None: wandb_run.save(self.metric_manager.best_pre_model_file)
+                        if self.metric_manager.best_backbone_model_file is not None: wandb_run.save(self.metric_manager.best_backbone_model_file)
+                        if self.metric_manager.best_post_model_file is not None: wandb_run.save(self.metric_manager.best_post_model_file)
+
+                print(f"{Fore.YELLOW}Continue to evaluate current model ...{Style.RESET_ALL}", flush=True)
 
         # -----------------------------------------------
         # Evaluate models of each split
