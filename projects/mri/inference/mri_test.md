@@ -155,13 +155,16 @@ model=/export/Lab-Xue/projects/mri/test/mri-main-2nd_STCNNT_UNET_T1L1G1_T1L1G1_2
 model=/export/Lab-Xue/projects/mri-main/logs/mri-main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20231104_204006_398966_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_12
 
 model=/export/Lab-Xue/projects/mri-main/logs/mri-main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20231104_204006_398966_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_12
+
 model=/export/Lab-Xue/projects/mri-main/logs/mri-main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20231106_221712_582764_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_14
+
+model=/export/Lab-Xue/projects/mri/test/mri-main-1st_STCNNT_HRNET_T1L1G1_T1L1G1_20231107_131054_114694_STCNNT_MRI_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1/mri-main-1st_STCNNT_HRNET_T1L1G1_T1L1G1_20231107_131054_114694_STCNNT_MRI_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1_epoch-50.pth
 
 RES_DIR=res_2nd_hrnet_TLG_TLGTLG
 model_type_str=MRI_double_net
 scaling_factor=1.0
 
-export CUDA_VISIBLE_DEVICES=6
+export CUDA_VISIBLE_DEVICES=7
 export DISABLE_FLOAT16_INFERENCE=True
 
 # ======================================================================
@@ -230,8 +233,31 @@ python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/pr
 
 # knee
 
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/Share/data/DataForHui/kneeH5/imagedata/20190104_200942_meas_MID00034_FID06440_t2_tse_tra/res/DebugOutput/ --output_dir /export/Lab-Kellman/Share/data/DataForHui/kneeH5/imagedata/20190104_200942_meas_MID00034_FID06440_t2_tse_tra/res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input_ave0 --gmap_fname gmap_ave0 --saved_model_path $model --model_type ${model_type_str}
 
-python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/Share/data/DataForHui/kneeH5/imagedata/20190104_200942_meas_MID00034_FID06440_t2_tse_tra/res/DebugOutput/ --output_dir /export/Lab-Kellman/Share/data/DataForHui/kneeH5/imagedata/20190104_200942_meas_MID00034_FID06440_t2_tse_tra/res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
+# spine
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/Share/data/DataForHui/spineH5/imagedata/20181207_181828_meas_MID00150_FID01036_t2_tse_sag_p2/res/DebugOutput/ --output_dir /export/Lab-Kellman/Share/data/DataForHui/spineH5/imagedata/20181207_181828_meas_MID00150_FID01036_t2_tse_sag_p2/res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input_ave0 --gmap_fname gmap_ave0 --saved_model_path $model --model_type ${model_type_str}
+
+# neuro
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/Share/data/neuro/meas_MID00083_FID14721_t1_mprage_1mm_p4_pos50_ACPC_check/ --output_dir /export/Lab-Kellman/Share/data/neuro/meas_MID00083_FID14721_t1_mprage_1mm_p4_pos50_ACPC_check/res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname im --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/Share/data/neuro/meas_MID00094_FID14732_t2_spc_sag_1mm_p2X2/res/DebugOutput/ --output_dir /export/Lab-Kellman/Share/data/neuro/meas_MID00094_FID14732_t2_spc_sag_1mm_p2X2/res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
+
+#lung
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/Share/data/LungTSE_rawData/20181218_124140_meas_MID00542_FID03365_t2_tse_tra_p2_320_trig/res/DebugOutput/ --output_dir /export/Lab-Kellman/Share/data/LungTSE_rawData/20181218_124140_meas_MID00542_FID03365_t2_tse_tra_p2_320_trig/res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input1 --gmap_fname gmap1 --saved_model_path $model --model_type ${model_type_str}
+
+#lung
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/Share/data/LungTSE_rawData/20181218_124140_meas_MID00542_FID03365_t2_tse_tra_p2_320_trig/res/DebugOutput/ --output_dir /export/Lab-Kellman/Share/data/LungTSE_rawData/20181218_124140_meas_MID00542_FID03365_t2_tse_tra_p2_320_trig/res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input1 --gmap_fname gmap1 --saved_model_path $model --model_type ${model_type_str}
+
+
+T:\Share\data\neuro\meas_MID00083_FID14721_t1_mprage_1mm_p4_pos50_ACPC_check
+
+T:\Share\data\LungTSE_rawData
+
+T:\Share\data\DataForHui\kneeH5\imagedata\20190104_200259_meas_MID00033_FID06439_pd_tse_sag_384
+
+T:\Share\data\DataForHui\spineH5\imagedata\20181207_181828_meas_MID00150_FID01036_t2_tse_sag_p2
 
 
 # ======================================================================
@@ -244,6 +270,8 @@ python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellma
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_raw/WB_LGE_MOCO_AVE_OnTheFly_41837_1525437056_1525437065_1150_20230405-115358 --output_dir /export/Lab-Kellman/ReconResults/denoising/Barts_WB_LGE_Denoising_2023_AI_denoising_AI_on_raw/WB_LGE_MOCO_AVE_OnTheFly_41837_1525437056_1525437065_1150_20230405-115358/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gfactor --saved_model_path $model --model_type ${model_type_str}
 
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/Barts_STCNNT_LGE/20230904/WB_LGE_MOCO_AVE_STCNNT_41837_2049151069_2049151078_178_20230904-105747/DebugOutput --output_dir /export/Lab-Kellman/ReconResults/Barts_STCNNT_LGE/20230904/WB_LGE_MOCO_AVE_STCNNT_41837_2049151069_2049151078_178_20230904-105747/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gfactor --saved_model_path $model --model_type ${model_type_str}
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/Barts_STCNNT_LGE/20230904/WB_LGE_MOCO_AVE_STCNNT_41837_2049151069_2049151078_179_20230904-105942/DebugOutput --output_dir /export/Lab-Kellman/ReconResults/Barts_STCNNT_LGE/20230904/WB_LGE_MOCO_AVE_STCNNT_41837_2049151069_2049151078_179_20230904-105942/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gfactor --saved_model_path $model --model_type ${model_type_str}
 
 # -------------------------------------------------------
 # 3T perfusion

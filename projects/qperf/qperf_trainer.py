@@ -257,7 +257,7 @@ class QPerfTrainManager(TrainManager):
 
                 if not isinstance(model_manager, QPerfBTEXModel):
                     t0 = time()
-                    LSUVinit(model_manager, input_data.to(device=device, dtype=torch.float32), verbose=True, cuda=True)
+                    LSUVinit(model_manager, input_data.to(device=device, dtype=torch.float32), verbose=False, cuda=True)
                     logging.info(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
 
         # -----------------------------------------------
