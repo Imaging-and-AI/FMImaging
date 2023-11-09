@@ -35,6 +35,9 @@ class ConvolutionModule(nn.Module):
         assert conv_type=="conv2d" or conv_type=="conv3d", \
             f"Conv type not implemented: {conv_type}"
 
+        self.C_in = C_in
+        self.C_out = C_out
+
         if conv_type=="conv2d":
 
             if len(kernel_size)==3:
@@ -48,7 +51,7 @@ class ConvolutionModule(nn.Module):
                                     kernel_size=kernel_size, stride=stride, padding=padding,\
                                     separable_conv=separable_conv)
         elif conv_type=="conv3d":
-            
+
             if len(kernel_size)==2:
                 kernel_size = (*kernel_size, kernel_size[0])
             if len(stride)==2:
@@ -62,21 +65,21 @@ class ConvolutionModule(nn.Module):
         else:
             raise NotImplementedError(f"Conv type not implemented: {conv_type}")
 
-        # if(norm_mode=="layer"):
-        #     self.n1 = nn.LayerNorm([C_out, H, W])
-        # elif(norm_mode=="batch2d"):
-        #     self.n1 = BatchNorm2DExt(C_out)
-        # elif(norm_mode=="instance2d"):
-        #     self.n1 = InstanceNorm2DExt(C_out)
-        # elif(norm_mode=="batch3d"):
-        #     self.n1 = BatchNorm3DExt(C_out)
-        # elif(norm_mode=="instance3d"):
-        #     self.n1 = InstanceNorm3DExt(C_out)
-        # else:
-        #     self.n1 = nn.Identity()
-        
+        if(norm_mode=="layer"):
+            self.n1 = nn.LayerNorm([C_out, H, W])
+        elif(norm_mode=="batch2d"):
+            self.n1 = BatchNorm2DExt(C_out)
+        elif(norm_mode=="instance2d"):
+            self.n1 = InstanceNorm2DExt(C_out)
+        elif(norm_mode=="batch3d"):
+            self.n1 = BatchNorm3DExt(C_out)
+        elif(norm_mode=="instance3d"):
+            self.n1 = InstanceNorm3DExt(C_out)
+        else:
+            self.n1 = nn.Identity()
+
         self.act_func = create_activation_func(name=activation_func)
-        
+
     def forward(self, x):
         """
         @args:
@@ -86,10 +89,11 @@ class ConvolutionModule(nn.Module):
             y ([B, T, C_out, H', W']): Output of the batch
         """
 
-        #y = self.act_func(self.n1(self.conv(x)))
-        y = self.act_func(self.conv(x))
-        
-        return y
+        res = self.act_func(self.n1(self.conv(x)))
+        if self.C_in == self.C_out:
+            return res + x
+        else:
+            return res
 
 # -------------------------------------------------------------------------------------------------
 
@@ -119,12 +123,14 @@ def tests():
 
     for conv_type, separable, norm_mode, activation_func in itertools.product(conv_types, separables, norm_modes, activation_funcs):
 
+        print(conv_type, separable, norm_mode, activation_func)
+
         model = ConvolutionModule(conv_type=conv_type, C_in=C, C_out=C_out, H=H, W=W, 
                                     kernel_size=kernel_size, stride=stride, padding=padding, 
                                     separable_conv=separable, 
                                     norm_mode=norm_mode, 
                                     activation_func=activation_func)
-        
+
         model.to(device)
 
         test_out = model(test_in)
