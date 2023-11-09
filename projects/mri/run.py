@@ -251,6 +251,7 @@ def main():
 
         if not config.disable_LSUV:
             t0 = time()
+            print(f"{rank_str}, LSUVinit starts ...")
             LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
             print(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
 
