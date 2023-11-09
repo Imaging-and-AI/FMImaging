@@ -200,7 +200,7 @@ class mri_ddp_base(run_ddp_base):
         vars['shuffle_in_windows'] = ["0"]
         vars['block_dense_connections'] = ["1"]
         vars['norm_modes'] = ["instance2d"]
-        vars['C'] = [64]
+        vars['C'] = [32]
         vars['scale_ratio_in_mixers'] = [1.0]
 
         #vars['snr_perturb_prob'] = [0.0]
@@ -245,7 +245,7 @@ class mri_ddp_base(run_ddp_base):
         vars['weighted_loss_temporal'] = [False]
         vars['weighted_loss_added_noise'] = [False]
 
-        vars['n_heads'] = [32]
+        vars['n_heads'] = [64]
 
         return vars
 
@@ -370,8 +370,9 @@ class mri_ddp_base(run_ddp_base):
                         loss_weights=['1.0', '1.0']
                         ):
 
-        if c < n_heads:
-             return None
+        # if c < n_heads:
+        #     print(f"c {c} < n_heads {n_heads}")
+        #     return None
 
         cmd_run = super().create_cmd_run(cmd_run, config, 
                         optim, bk, a_type, cell_type, 
