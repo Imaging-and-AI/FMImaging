@@ -466,7 +466,7 @@ class MRITrainManager(TrainManager):
 
                     if c.scheduler_type != "OneCycleLR":
                         if c.scheduler_type == "ReduceLROnPlateau":
-                            sched.step(loss.item())
+                            sched.step(self.metric_manager.average_eval_metrics['loss'])
                         elif c.scheduler_type == "StepLR":
                             sched.step()
 
