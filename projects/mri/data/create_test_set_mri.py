@@ -10,8 +10,8 @@ import numpy as np
 from noise_augmentation import *
 
 
-base_file_path = "/export/Lab-Xue/projects/mri/data/"
-base_file_name = "train_3D_3T_retro_cine_2020.h5"
+base_file_path = "/data1/mri"
+base_file_name = "BARTS_RetroCine_3T_2023.h5"
 
 min_noise_level=1.0
 max_noise_level=12.0
