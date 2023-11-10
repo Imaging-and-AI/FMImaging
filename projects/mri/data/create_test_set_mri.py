@@ -7,6 +7,20 @@ import h5py
 import random
 import numpy as np
 
+from pathlib import Path
+
+Current_DIR = Path(__file__).parents[0].resolve()
+sys.path.append(str(Current_DIR))
+
+Project_DIR = Path(__file__).parents[1].resolve()
+sys.path.append(str(Project_DIR))
+
+Project_DIR = Path(__file__).parents[2].resolve()
+sys.path.append(str(Project_DIR))
+
+REPO_DIR = Path(__file__).parents[3].resolve()
+sys.path.append(str(REPO_DIR))
+
 from noise_augmentation import *
 
 
