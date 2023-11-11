@@ -28,7 +28,7 @@ from noise_augmentation import *
 base_file_path = "/data1/mri"
 base_file_name = "BARTS_RetroCine_3T_2023.h5"
 
-min_noise_level=0.1
+min_noise_level=2.0
 max_noise_level=12.0
 matrix_size_adjust_ratio=[0.5, 0.75, 1.0, 1.25, 1.5]
 kspace_filter_sigma=[0.8, 1.0, 1.5, 2.0, 2.25]
