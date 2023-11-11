@@ -1,17 +1,20 @@
-import time
 import pytest
 import os
 
+import shutil
 import copy
 import numpy as np
-from time import time
+import time
 
 import os
 import sys
 import logging
+import pickle
 
 from colorama import Fore, Back, Style
 import nibabel as nib
+
+import subprocess
 
 import torch
 import torch.nn as nn
@@ -54,41 +57,183 @@ from mri.mri_metrics import MriMetricManager
 from mri.mri_trainer import MRITrainManager, get_rank_str
 from mri.inference import apply_model, load_model, apply_model_3D, load_model_pre_backbone_post
 
+# --------------------------------------------------------
+def get_test_folders():
+    if 'FMI_DATA_ROOT' in os.environ:
+        data_root = os.environ['FMI_DATA_ROOT'] + "/mri/data"
+    else:
+        data_root = "/export/Lab-Xue/projects/data/mri/data"
+
+    if 'FMI_LOG_ROOT' in os.environ:
+        log_root = os.environ['FMI_LOG_ROOT'] + "/mri"
+    else:
+        log_root = "/export/Lab-Xue/projects/logs/mri"
+
+    assert os.path.exists(data_root)
+    os.makedirs(log_root, exist_ok=True)
+
+    return data_root, log_root
+
+# --------------------------------------------------------
+
 class Test_MRI_Tra(object):
 
     @classmethod
     def setup_class(cls):
         set_seed(23564)
         torch.set_printoptions(precision=10)
+        assert torch.cuda.is_available() and torch.cuda.device_count()>=2
 
     @classmethod
     def teardown_class(cls):
-        pass
+        os.system("kill -9 $(ps aux | grep torchrun | grep -v grep | awk '{print $2}') ")
+        os.system("kill -9 $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
+
+    def run_training(self, data_root, log_root, cmd_run, run_folder):
+
+        shutil.rmtree(log_root + "/" + run_folder, ignore_errors=True)
+
+        logging.info(f"--> test run, {data_root}, {log_root}")
+        logging.info(f"{Fore.YELLOW}{cmd_run}{Style.RESET_ALL}", flush=True)
+
+        logging.info("===" * 20)
+        logging.info(f"{Fore.GREEN}{cmd_run}{Style.RESET_ALL}")
+        logging.info("--" * 20)
+        logging.info(f"Running command:\n{Fore.WHITE}{Back.BLUE}{' '.join(cmd_run)}{Style.RESET_ALL}")
+        time.sleep(3)
+        fname = log_root+"/run.log"
+        logging.info(f"Running command:\n{Fore.YELLOW}{Back.BLUE}{fname}{Style.RESET_ALL}")
+
+        with open(fname, 'w') as f: 
+            subprocess.run(cmd_run, stdout=f)
+
+        logging.info("===" * 20)
+
+        # check the test scores
+        logging.info(f"--> read in from {run_folder}")
+
+        metric_file = log_root + "/" + run_folder + "/test_metrics.pkl"
+        with open(metric_file, 'rb') as f: 
+            metrics = pickle.load(f)
+
+        logging.info(f"{Fore.YELLOW}{Back.RED}{metrics}{Style.RESET_ALL} ")
+
+        return metrics
 
     def test_hrnet_TLG_TLG(self):
 
-        device = get_device()
+        data_root, log_root = get_test_folders()
 
-        if 'FMI_DATA_ROOT' in os.environ:
-            self.data_root = os.environ['FMI_DATA_ROOT']
-        else:
-            self.data_root = "/export/Lab-Xue/projects/data"
+        cmd_run = ["python3", str(Project_DIR)+"/projects/mri/inference/run_mri.py", 
+                   "--standalone", 
+                   "--nproc_per_node", "4", 
+                   "--use_amp", 
+                   "--num_epochs", "1", 
+                   "--batch_size", "16", 
+                   "--data_root", data_root, 
+                   "--log_root", log_root, 
+                   "--run_extra_note", "test_hrnet_TLG_TLG", 
+                   "--num_workers", "32", 
+                   "--model_backbone", "STCNNT_HRNET", 
+                   "--model_type", "STCNNT_MRI", 
+                   "--model_block_str", "T1L1G1", "T1L1G1", 
+                   "--mri_height", "32", "64", 
+                   "--mri_width", "32", "64", 
+                   "--lr_pre", "1e-4", 
+                   "--lr_post", "1e-4", 
+                   "--lr_backbone", "1e-4", 
+                   "--run_list", "0",  
+                   "--tra_ratio", "1", 
+                   "--val_ratio", "2", 
+                   "--test_ratio", "2",
+                   "--scheduler_factor", "0.8", 
+                   "--ut_mode", 
+                   "--project", "FM-UT-MRI"]
 
-        assert os.path.exists(self.data_root)
+        metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_hrnet_TLG_TLG_STCNNT_HRNET_T1L1G1_T1L1G1_STCNNT_MRI_C-32-1_amp-True_complex_residual-T1L1G1_T1L1G1')
 
-        
+        assert metrics['loss'] < 4.0
+        assert metrics['mse'] < 0.8
+        assert metrics['l1'] < 0.8
+        assert metrics['ssim'] > 0.74
 
         # =======================================================
 
     def test_unet_TLG_TLG(self):
 
-        device = get_device()
+        data_root, log_root = get_test_folders()
+
+        cmd_run = ["python3", str(Project_DIR)+"/projects/mri/inference/run_mri.py", 
+                   "--standalone", 
+                   "--nproc_per_node", "4", 
+                   "--use_amp", 
+                   "--num_epochs", "1", 
+                   "--batch_size", "16", 
+                   "--data_root", data_root, 
+                   "--log_root", log_root, 
+                   "--run_extra_note", "test_unet_TLG_TLG", 
+                   "--num_workers", "32", 
+                   "--model_backbone", "STCNNT_UNET", 
+                   "--model_type", "STCNNT_MRI", 
+                   "--model_block_str", "T1L1G1", "T1L1G1", 
+                   "--mri_height", "32", "64", 
+                   "--mri_width", "32", "64", 
+                   "--lr_pre", "1e-4", 
+                   "--lr_post", "1e-4", 
+                   "--lr_backbone", "1e-4", 
+                   "--run_list", "0",  
+                   "--tra_ratio", "1", 
+                   "--val_ratio", "2", 
+                   "--test_ratio", "10",
+                   "--scheduler_factor", "0.8", 
+                   "--ut_mode", 
+                   "--project", "FM-UT-MRI"]
+
+        metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_unet_TLG_TLG_STCNNT_UNET_T1L1G1_T1L1G1_STCNNT_MRI_C-32-1_amp-True_complex_residual-T1L1G1_T1L1G1')
+
+        assert metrics['loss'] < 4.0
+        assert metrics['mse'] < 0.8
+        assert metrics['l1'] < 0.8
+        assert metrics['ssim'] > 0.74
 
         # =======================================================
 
     def test_hrnet_C3C3C3_C3C3C3(self):
 
-        device = get_device()
+        data_root, log_root = get_test_folders()
+
+        cmd_run = ["python3", str(Project_DIR)+"/projects/mri/inference/run_mri.py", 
+                   "--standalone", 
+                   "--nproc_per_node", "4", 
+                   "--use_amp", 
+                   "--num_epochs", "1", 
+                   "--batch_size", "16", 
+                   "--data_root", data_root, 
+                   "--log_root", log_root, 
+                   "--run_extra_note", "test_hrnet_C3C3C3_C3C3C3", 
+                   "--num_workers", "32", 
+                   "--model_backbone", "STCNNT_HRNET", 
+                   "--model_type", "STCNNT_MRI", 
+                   "--model_block_str", "C3C3C3", "C3C3C3", 
+                   "--mri_height", "32", "64", 
+                   "--mri_width", "32", "64", 
+                   "--lr_pre", "1e-4", 
+                   "--lr_post", "1e-4", 
+                   "--lr_backbone", "1e-4", 
+                   "--run_list", "0",  
+                   "--tra_ratio", "1", 
+                   "--val_ratio", "2", 
+                   "--test_ratio", "10",
+                   "--scheduler_factor", "0.8", 
+                   "--ut_mode", 
+                   "--project", "FM-UT-MRI"]
+
+        metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_hrnet_C3C3C3_C3C3C3_STCNNT_HRNET_C3C3C3_C3C3C3_STCNNT_MRI_C-32-1_amp-True_complex_residual-C3C3C3_C3C3C3')
+
+        assert metrics['loss'] < 4.0
+        assert metrics['mse'] < 0.8
+        assert metrics['l1'] < 0.8
+        assert metrics['ssim'] > 0.74
 
         # =======================================================
 

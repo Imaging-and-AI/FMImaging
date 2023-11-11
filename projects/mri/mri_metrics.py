@@ -269,6 +269,8 @@ class MriMetricManager(MetricManager):
         else:
             average_metrics = {metric_name: self.eval_metrics[metric_name].avg for metric_name in self.eval_metrics.keys()}
 
+        # Save the average metrics for this epoch into self.average_eval_metrics
+        self.average_eval_metrics = average_metrics
         #print(f"--> epoch {epoch}, average_metrics {average_metrics}")
 
         # Checkpoint best models during training
@@ -288,7 +290,7 @@ class MriMetricManager(MetricManager):
                     save_path = os.path.join(self.config.log_dir, self.config.run_name)
                     self.best_pre_model_file, self.best_backbone_model_file, self.best_post_model_file = model_epoch.save(os.path.join(save_path, f"best_checkpoint_epoch_{epoch}"), epoch, optim, sched) 
                     self.wandb_run.log({"epoch":epoch, "best_val_loss":self.best_val_loss})
-                    print(f"--> val loss {self.best_val_loss}, save best model for epoch {epoch} to {self.best_pre_model_file}, {self.best_pre_model_file, self.best_backbone_model_file}, {self.best_post_model_file}")
+                    logging.info(f"--> val loss {self.best_val_loss}, save best model for epoch {epoch} to {self.best_pre_model_file}, {self.best_pre_model_file, self.best_backbone_model_file}, {self.best_post_model_file}")
 
                 # Update wandb with eval metrics
                 for metric_name, avg_metric_eval in average_metrics.items():
@@ -296,10 +298,6 @@ class MriMetricManager(MetricManager):
             else:
                 for metric_name, avg_metric_eval in average_metrics.items():
                     self.wandb_run.summary[f"final_{split}_{metric_name}"] = avg_metric_eval
-
-            # Save the average metrics for this epoch into self.average_eval_metrics
-            self.average_eval_metrics = average_metrics
-            #print(f"--> epoch {epoch}, average_eval_metrics {self.average_eval_metrics}")
 
     # ---------------------------------------------------------------------------------------
     def on_training_end(self, rank, epoch, model_manager, optim, sched, ran_training):
@@ -411,8 +409,7 @@ class MriMetricManager(MetricManager):
         nib.save(nib.Nifti1Image(gmap, affine=np.eye(4)), os.path.join(saved_path, f"{fname}_gmap.nii"))
 
 def tests():
-    print('Passed all tests')
+    logging.info('Passed all tests')
 
-    
 if __name__=="__main__":
     tests()

@@ -387,7 +387,9 @@ class mri_ddp_base(run_ddp_base):
 
         curr_time = datetime.now()
         moment = curr_time.strftime('%Y%m%d_%H%M%S_%f')
-        run_str = f"{moment}_{config.model_type}_C-{c}-{int(scale_ratio_in_mixer)}_amp-{config.use_amp}"
+        run_str = f"{config.model_type}_C-{c}-{int(scale_ratio_in_mixer)}_amp-{config.use_amp}"
+        if not config.ut_mode:
+            run_str = f"{moment}_" + run_str
         #run_str = moment
 
         if config.run_extra_note is not None:
@@ -523,7 +525,7 @@ def main():
 
     os.system("ulimit -n 65536")
 
-    ddp_run = mri_ddp_base(project="mri-main", script_to_run='./projects/mri/run.py')
+    ddp_run = mri_ddp_base(project="mri-main", script_to_run=str(REPO_DIR)+"/projects/mri/run.py")
     ddp_run.run()
 
 # -------------------------------------------------------------

@@ -95,7 +95,7 @@ def main():
 
     start = time()
     train_set, val_set, test_set = load_mri_data(config=config)
-    print(f"load_mri_data took {time() - start} seconds ...")
+    logging.info(f"load_mri_data took {time() - start} seconds ...")
 
     if not config.disable_LSUV:
         if (config.pre_model_load_path is None and config.backbone_model_load_path is None and config.post_model_load_path is None) or (not config.continued_training):
@@ -103,7 +103,7 @@ def main():
             num_samples = len(train_set[-1])
             sampled_picked = np.random.randint(0, num_samples, size=32)
             input_data  = torch.stack([train_set[-1][i][0] for i in sampled_picked])
-            print(f"{rank_str}, prepared data {input_data.shape}, LSUV prep data took {time()-t0 : .2f} seconds ...")
+            logging.info(f"{rank_str}, prepared data {input_data.shape}, LSUV prep data took {time()-t0 : .2f} seconds ...")
 
     # -----------------------------------------------
 
@@ -223,7 +223,7 @@ def main():
 
         config.ddp = ddp
 
-        print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
+        logging.info(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
 
     # -----------------------------------------------
 
@@ -237,7 +237,7 @@ def main():
     model = create_model(config=config, model_type=config.model_type) 
 
     # -----------------------------------------------
-    print(f"{rank_str}, load saved model, continued_training - {continued_training}")
+    logging.info(f"{rank_str}, load saved model, continued_training - {continued_training}")
     if continued_training:
 
         model.load_pre(config.pre_model_load_path, device=device)
@@ -251,70 +251,70 @@ def main():
 
         if not config.disable_LSUV:
             t0 = time()
-            print(f"{rank_str}, LSUVinit starts ...")
+            logging.info(f"{rank_str}, LSUVinit starts ...")
             LSUVinit(model, input_data.to(device=device), verbose=False, cuda=True)
-            print(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
+            logging.info(f"{rank_str}, LSUVinit took {time()-t0 : .2f} seconds ...")
 
         # ------------------------------
         if config.pre_model_load_path is not None:
-            print(f"{rank_str}, {Fore.YELLOW}load saved model, pre_state{Style.RESET_ALL}")
+            logging.info(f"{rank_str}, {Fore.YELLOW}load saved model, pre_state{Style.RESET_ALL}")
             model.load_pre(config.pre_model_load_path, device=device)
         else:
-            print(f"{rank_str}, {Fore.RED}load saved model, WITHOUT pre_state{Style.RESET_ALL}")
+            logging.info(f"{rank_str}, {Fore.RED}load saved model, WITHOUT pre_state{Style.RESET_ALL}")
 
         # if config.freeze_pre:
-        #     print(f"{rank_str}, {Fore.YELLOW}load saved model, pre requires_grad_(False){Style.RESET_ALL}")
+        #     logging.info(f"{rank_str}, {Fore.YELLOW}load saved model, pre requires_grad_(False){Style.RESET_ALL}")
         #     model.freeze_pre()
         # else:
-        #     print(f"{rank_str}, {Fore.RED}load saved model, pre requires_grad_(True){Style.RESET_ALL}")
+        #     logging.info(f"{rank_str}, {Fore.RED}load saved model, pre requires_grad_(True){Style.RESET_ALL}")
         # ------------------------------
         if config.backbone_model_load_path is not None:
-            print(f"{rank_str}, {Fore.YELLOW}load saved model, backbone_state{Style.RESET_ALL}")
+            logging.info(f"{rank_str}, {Fore.YELLOW}load saved model, backbone_state{Style.RESET_ALL}")
             model.load_backbone(config.backbone_model_load_path, device=device)
         else:
-            print(f"{rank_str}, {Fore.RED}load saved model, WITHOUT backbone_state{Style.RESET_ALL}")
+            logging.info(f"{rank_str}, {Fore.RED}load saved model, WITHOUT backbone_state{Style.RESET_ALL}")
 
         if config.post_model_of_1st_net is not None and config.model_type == "MRI_double_net":
-            print(f"{rank_str}, {Fore.YELLOW}load post module of the 1st net{Style.RESET_ALL}")
+            logging.info(f"{rank_str}, {Fore.YELLOW}load post module of the 1st net{Style.RESET_ALL}")
             model.load_post_1st_net(config.post_model_of_1st_net, device=device)
 
         # if config.freeze_backbone:
-        #     print(f"{rank_str}, {Fore.YELLOW}load saved model, backbone requires_grad_(False){Style.RESET_ALL}")
+        #     logging.info(f"{rank_str}, {Fore.YELLOW}load saved model, backbone requires_grad_(False){Style.RESET_ALL}")
         #     model.freeze_backbone()
         # else:
-        #     print(f"{rank_str}, {Fore.RED}load saved model, backbone requires_grad_(True){Style.RESET_ALL}")
+        #     logging.info(f"{rank_str}, {Fore.RED}load saved model, backbone requires_grad_(True){Style.RESET_ALL}")
         # ------------------------------
         if config.post_model_load_path is not None:
-            print(f"{rank_str}, {Fore.YELLOW}load saved model, post_state{Style.RESET_ALL}")
+            logging.info(f"{rank_str}, {Fore.YELLOW}load saved model, post_state{Style.RESET_ALL}")
             model.load_post(config.post_model_load_path, device=device)
         else:
-            print(f"{rank_str}, {Fore.RED}load saved model, WITHOUT post_state{Style.RESET_ALL}")
+            logging.info(f"{rank_str}, {Fore.RED}load saved model, WITHOUT post_state{Style.RESET_ALL}")
 
         # if config.freeze_post:
-        #     print(f"{rank_str}, {Fore.YELLOW}load saved model, post requires_grad_(False){Style.RESET_ALL}")
+        #     logging.info(f"{rank_str}, {Fore.YELLOW}load saved model, post requires_grad_(False){Style.RESET_ALL}")
         #     model.freeze_post()
         # else:
-        #     print(f"{rank_str}, {Fore.RED}load saved model, post requires_grad_(True){Style.RESET_ALL}")
+        #     logging.info(f"{rank_str}, {Fore.RED}load saved model, post requires_grad_(True){Style.RESET_ALL}")
 
     # ---------------------------------------------------
 
     if config.freeze_pre:
-        print(f"{rank_str}, {Fore.YELLOW}load saved model, pre requires_grad_(False){Style.RESET_ALL}")
+        logging.info(f"{rank_str}, {Fore.YELLOW}load saved model, pre requires_grad_(False){Style.RESET_ALL}")
         model.freeze_pre()
     else:
-        print(f"{rank_str}, {Fore.RED}load saved model, pre requires_grad_(True){Style.RESET_ALL}")
+        logging.info(f"{rank_str}, {Fore.RED}load saved model, pre requires_grad_(True){Style.RESET_ALL}")
 
     if config.freeze_backbone:
-        print(f"{rank_str}, {Fore.YELLOW}load saved model, backbone requires_grad_(False){Style.RESET_ALL}")
+        logging.info(f"{rank_str}, {Fore.YELLOW}load saved model, backbone requires_grad_(False){Style.RESET_ALL}")
         model.freeze_backbone()
     else:
-        print(f"{rank_str}, {Fore.RED}load saved model, backbone requires_grad_(True){Style.RESET_ALL}")
+        logging.info(f"{rank_str}, {Fore.RED}load saved model, backbone requires_grad_(True){Style.RESET_ALL}")
 
     if config.freeze_post:
-        print(f"{rank_str}, {Fore.YELLOW}load saved model, post requires_grad_(False){Style.RESET_ALL}")
+        logging.info(f"{rank_str}, {Fore.YELLOW}load saved model, post requires_grad_(False){Style.RESET_ALL}")
         model.freeze_post()
     else:
-        print(f"{rank_str}, {Fore.RED}load saved model, post requires_grad_(True){Style.RESET_ALL}")
+        logging.info(f"{rank_str}, {Fore.RED}load saved model, post requires_grad_(True){Style.RESET_ALL}")
 
     # ---------------------------------------------------
 
@@ -329,23 +329,23 @@ def main():
 
     optim_manager = OptimManager(config=config, model_manager=model, train_set=train_set)
 
-    print(f"{rank_str}, after initializing model, the config for running - {config}")
-    print(f"{rank_str}, after initializing model, config.use_amp for running - {config.use_amp}")
-    print(f"{rank_str}, after initializing model, config.optim for running - {config.optim}")
-    print(f"{rank_str}, after initializing model, config.scheduler_type for running - {config.scheduler_type}")
-    print(f"{rank_str}, after initializing model, config.weighted_loss_snr for running - {config.weighted_loss_snr}")
-    print(f"{rank_str}, after initializing model, config.weighted_loss_temporal for running - {config.weighted_loss_temporal}")
-    print(f"{rank_str}, after initializing model, config.weighted_loss_added_noise for running - {config.weighted_loss_added_noise}")
-    print(f"{rank_str}, after initializing model, config.num_workers for running - {config.num_workers}")
-    print(f"{rank_str}, after initializing model, config.super_resolution for running - {config.super_resolution}")
-    print(f"{rank_str}, after initializing model, config.post_backbone for running - {config.post_backbone}")
-    print(f"{rank_str}, after initializing model, config.post_hrnet for running - {config.post_hrnet}")
-    print(f"{rank_str}, after initializing model, config.post_mixed_unetr for running - {config.post_mixed_unetr}")
+    logging.info(f"{rank_str}, after initializing model, the config for running - {config}")
+    logging.info(f"{rank_str}, after initializing model, config.use_amp for running - {config.use_amp}")
+    logging.info(f"{rank_str}, after initializing model, config.optim for running - {config.optim}")
+    logging.info(f"{rank_str}, after initializing model, config.scheduler_type for running - {config.scheduler_type}")
+    logging.info(f"{rank_str}, after initializing model, config.weighted_loss_snr for running - {config.weighted_loss_snr}")
+    logging.info(f"{rank_str}, after initializing model, config.weighted_loss_temporal for running - {config.weighted_loss_temporal}")
+    logging.info(f"{rank_str}, after initializing model, config.weighted_loss_added_noise for running - {config.weighted_loss_added_noise}")
+    logging.info(f"{rank_str}, after initializing model, config.num_workers for running - {config.num_workers}")
+    logging.info(f"{rank_str}, after initializing model, config.super_resolution for running - {config.super_resolution}")
+    logging.info(f"{rank_str}, after initializing model, config.post_backbone for running - {config.post_backbone}")
+    logging.info(f"{rank_str}, after initializing model, config.post_hrnet for running - {config.post_hrnet}")
+    logging.info(f"{rank_str}, after initializing model, config.post_mixed_unetr for running - {config.post_mixed_unetr}")
 
-    print(f"{rank_str}, after initializing model, optim_manager.curr_epoch for running - {optim_manager.curr_epoch}")
-    print(f"{rank_str}, {Fore.GREEN}after initializing model, model type - {config.model_type}{Style.RESET_ALL}")
-    print(f"{rank_str}, {Fore.RED}after initializing model, model.device - {model.device}{Style.RESET_ALL}")
-    print(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
+    logging.info(f"{rank_str}, after initializing model, optim_manager.curr_epoch for running - {optim_manager.curr_epoch}")
+    logging.info(f"{rank_str}, {Fore.GREEN}after initializing model, model type - {config.model_type}{Style.RESET_ALL}")
+    logging.info(f"{rank_str}, {Fore.RED}after initializing model, model.device - {model.device}{Style.RESET_ALL}")
+    logging.info(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
 
     if config.ddp:
         dist.barrier()

@@ -185,6 +185,19 @@
         },
         // -----------------------------------------------------------------------------------------
         {
+            "name": "test, mri",
+            "type": "python",
+            "request": "launch",
+            "program": "/home/gtuser/.local/bin/pytest",
+            "justMyCode": true,
+            "cwd": "/home/gtuser/mrprogs/FMImaging_refeactor_v2/projects/test",
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "0,1", "FMI_DATA_ROOT": "/export/Lab-Xue/projects", "FMI_LOG_ROOT": "/data/logs"},
+            "args": [
+                "./test_mri_training.py::Test_MRI_Tra" ]
+        },
+        // -----------------------------------------------------------------------------------------
+        {
             "name": "run.py, qperf",
             "type": "python",
             "request": "launch",

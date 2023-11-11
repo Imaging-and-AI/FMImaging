@@ -9,6 +9,7 @@ from time import time
 import os
 import sys
 import logging
+import pickle
 
 from colorama import Fore, Back, Style
 import nibabel as nib
@@ -105,7 +106,7 @@ class MRITrainManager(TrainManager):
 
         # -----------------------------------------------
 
-        print(f"{rank_str}, {Style.BRIGHT}{Fore.RED}{Back.LIGHTWHITE_EX}RUN NAME - {config.run_name}{Style.RESET_ALL}")
+        logging.info(f"{rank_str}, {Style.BRIGHT}{Fore.RED}{Back.LIGHTWHITE_EX}RUN NAME - {config.run_name}{Style.RESET_ALL}")
 
         # -----------------------------------------------
         if rank<=0:
@@ -389,7 +390,7 @@ class MRITrainManager(TrainManager):
 
                             # -------------------------------------------------------
                             if torch.isnan(loss):
-                                print(f"Warning - loss is nan ... ")
+                                logging.info(f"Warning - loss is nan ... ")
                                 optim.zero_grad()
                                 continue
 
@@ -497,9 +498,9 @@ class MRITrainManager(TrainManager):
 
             except KeyboardInterrupt:
 
-                print(f"{Fore.YELLOW}Interrupted from the keyboard at epoch {epoch} ...{Style.RESET_ALL}", flush=True)
+                logging.info(f"{Fore.YELLOW}Interrupted from the keyboard at epoch {epoch} ...{Style.RESET_ALL}", flush=True)
 
-                print(f"{Fore.YELLOW}Save current model ...{Style.RESET_ALL}", flush=True)
+                logging.info(f"{Fore.YELLOW}Save current model ...{Style.RESET_ALL}", flush=True)
 
                 self.model_manager.save(os.path.join(self.config.log_dir, self.config.run_name, 'last_checkpoint'), epoch, optim, sched)
                 if wandb_run is not None:
@@ -519,7 +520,7 @@ class MRITrainManager(TrainManager):
                         if self.metric_manager.best_backbone_model_file is not None: wandb_run.save(self.metric_manager.best_backbone_model_file)
                         if self.metric_manager.best_post_model_file is not None: wandb_run.save(self.metric_manager.best_post_model_file)
 
-                print(f"{Fore.YELLOW}Continue to evaluate current model ...{Style.RESET_ALL}", flush=True)
+                logging.info(f"{Fore.YELLOW}Continue to evaluate current model ...{Style.RESET_ALL}", flush=True)
 
         # -----------------------------------------------
         # Evaluate models of each split
@@ -749,6 +750,12 @@ class MRITrainManager(TrainManager):
                                     try: f.write(f"{split}_{metric_name}: {metric_value:.4f}, ")
                                     except: pass
                             wandb_run.save(metric_file)
+
+                            average_eval_metrics = {metric_name:metric_value for metric_name, metric_value in self.metric_manager.average_eval_metrics.items()}
+
+                            metric_file = os.path.join(self.config.log_dir,self.config.run_name, f'{split}_metrics.pkl')
+                            with open(metric_file, 'wb') as fid:
+                                pickle.dump(average_eval_metrics, fid)
 
                     pbar_str += f"{Style.RESET_ALL}"
                 else:

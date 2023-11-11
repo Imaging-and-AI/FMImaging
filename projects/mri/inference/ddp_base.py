@@ -74,10 +74,11 @@ class run_ddp_base(object):
                 os.mkdir(log_path)
 
         data_root = config.data_root if config.data_root is not None else os.path.join(project_base_dir, config.project, "data")
+        log_root = config.log_root if config.log_root is not None else os.path.join(project_base_dir, config.project, "logs")
 
         self.cmd.extend([
             "--data_dir", data_root,
-            "--log_dir", os.path.join(project_base_dir, config.project, "logs")
+            "--log_dir", log_root
         ])
 
         if config.with_timer:
@@ -237,7 +238,7 @@ class run_ddp_base(object):
         "--summary_depth", "6",
         "--device", "cuda",
         "--ddp", 
-        "--project", self.project
+        "--project", config.project
         ])
 
     def set_up_variables(self, config):
@@ -323,9 +324,12 @@ class run_ddp_base(object):
         @rets:
             - parser (ArgumentParser): the argparse for torchrun of mri
         """
-        parser = argparse.ArgumentParser(prog=self.project)   
+        parser = argparse.ArgumentParser(prog=self.project)
+
+        parser.add_argument("--project", type=str, default="mri_main", help="project name")
 
         parser.add_argument("--data_root", type=str, default=None, help="data folder; if None, use the project folder")
+        parser.add_argument("--log_root", type=str, default=None, help="log folder; if None, use the project folder")
         parser.add_argument("--wandb_dir", type=str, default='/export/Lab-Xue/projects/mri/wandb', help='directory for saving wandb')
 
         parser.add_argument("--standalone", action="store_true", help='whether to run in the standalone mode')
@@ -379,12 +383,14 @@ class run_ddp_base(object):
 
         parser.add_argument("--save_samples", action="store_true", help='if set, save training and validation samples.')
 
+        parser.add_argument("--ut_mode", action="store_true", help='if set, this run is for unit test.')
+
         parser.add_argument('--scheduler_factor', type=float, default=0.9, help="LR reduction factor, multiplication")
 
         return parser
 
     def get_valid_runs(self, config):
-        config.project = self.project
+        #config.project = self.project
         self.set_up_torchrun(config)
         self.set_up_run_path(config)
         self.set_up_constants(config)
