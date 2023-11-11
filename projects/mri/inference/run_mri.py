@@ -493,7 +493,7 @@ class mri_ddp_base(run_ddp_base):
         parser.add_argument("--losses", nargs='+', type=str, default=None, help='Any combination of "mse", "l1", "sobel", "ssim", "ssim3D", "psnr", "msssim", "perpendicular", "gaussian", "gaussian3D" ')
         parser.add_argument('--loss_weights', nargs='+', type=float, default=None, help='to balance multiple losses, weights can be supplied')
 
-        parser.add_argument("--min_noise_level", type=float, default=1.0, help='minimal noise level')
+        parser.add_argument("--min_noise_level", type=float, default=0.1, help='minimal noise level')
         parser.add_argument("--max_noise_level", type=float, default=24.0, help='maximal noise level')
 
         parser.add_argument("--disable_LSUV", action="store_true", help='if set, do not perform LSUV init.')

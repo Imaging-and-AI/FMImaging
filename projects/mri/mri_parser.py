@@ -39,7 +39,7 @@ class mri_parser(object):
         self.parser.add_argument("--ratio", nargs='+', type=float, default=[90,10,100], help='Ratio (as a percentage) for train/val/test divide of given data. Does allow for using partial dataset')    
 
         # Noise Augmentation arguments
-        self.parser.add_argument("--min_noise_level", type=float, default=1.0, help='minimum noise sigma to add')
+        self.parser.add_argument("--min_noise_level", type=float, default=0.1, help='minimum noise sigma to add')
         self.parser.add_argument("--max_noise_level", type=float, default=24.0, help='maximum noise sigma to add')
         self.parser.add_argument('--matrix_size_adjust_ratio', type=float, nargs='+', default=[0.35, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0], help='down/upsample the image, keeping the fov')
         self.parser.add_argument('--kspace_filter_sigma', type=float, nargs='+', default=[0.8, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0], help='sigma for kspace filter')

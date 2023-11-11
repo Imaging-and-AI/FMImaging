@@ -1,6 +1,7 @@
 """
 Create test set for STCNNT MRI
 """
+import sys
 import os
 import tqdm
 import h5py
@@ -27,7 +28,7 @@ from noise_augmentation import *
 base_file_path = "/data1/mri"
 base_file_name = "BARTS_RetroCine_3T_2023.h5"
 
-min_noise_level=1.0
+min_noise_level=0.1
 max_noise_level=12.0
 matrix_size_adjust_ratio=[0.5, 0.75, 1.0, 1.25, 1.5]
 kspace_filter_sigma=[0.8, 1.0, 1.5, 2.0, 2.25]
@@ -79,7 +80,7 @@ def create_2d(write_path, N=1000):
                                                             phase_resolution_ratio=phase_resolution_ratio,
                                                             readout_resolution_ratio=readout_resolution_ratio,
                                                             only_white_noise=False,
-                                                            verbose=True)
+                                                            verbose=False)
 
         nn *= gmap
 
@@ -129,7 +130,7 @@ def create_3d(write_path, N=1000):
                                                             phase_resolution_ratio=phase_resolution_ratio,
                                                             readout_resolution_ratio=readout_resolution_ratio,
                                                             only_white_noise=False,
-                                                            verbose=True)
+                                                            verbose=False)
 
         nn *= gmap
 

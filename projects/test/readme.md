@@ -8,5 +8,9 @@ git clone /export/Lab-Xue/data/FM_data_repo ./FM_data_repo
 
 # to get mri data
 
-dvc get /export/Lab-Xue/data/FM_data_repo/mri
+cd ./FM_data_repo
+
+dvc remote add -d fm_data /export/Lab-Xue/data/FM_data_repo
+
+dvc get fm_data mri
 ```

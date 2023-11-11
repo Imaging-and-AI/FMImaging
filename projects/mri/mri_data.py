@@ -506,12 +506,18 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
         factors = gmaps.shape[0]
         if factors < 16:
             if(random_factor<0):
-                random_factor = np.random.randint(0, factors)
-            return gmaps[random_factor, :,:]
+                random_factor = np.random.randint(0, factors+1)
+            if random_factor < factors:
+                return gmaps[random_factor, :,:]
+            else:
+                return np.ones(gmaps.shape[-2:])
         else:
             if(random_factor<0):
-                random_factor = np.random.randint(0, gmaps.shape[2])
-            return gmaps[:, :, random_factor]
+                random_factor = np.random.randint(0, gmaps.shape[2]+1)
+            if random_factor < gmaps.shape[2]:
+                return gmaps[:, :, random_factor]
+            else:
+                return np.ones(gmaps.shape[:2])
 
 
     def random_flip(self, data, gmap, data_2x):
