@@ -1,0 +1,5 @@
+steps:
+  - label: ":python:"
+    commands:
+      - pip3 install numpy
+      - python3 -m pytest -s ./projects/test/test_mri_training.py
