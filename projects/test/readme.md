@@ -1,5 +1,10 @@
 # Regression and integration for FMI
 
+## Install dvc
+```
+pip3 install dvc
+```
+
 ## Data management
 
 The training data is managed with dvc. The repo is at DIR Isilon drive:
