@@ -60,7 +60,7 @@ from mri.inference import apply_model, load_model, apply_model_3D, load_model_pr
 # --------------------------------------------------------
 def get_test_folders():
     if 'FMI_DATA_ROOT' in os.environ:
-        data_root = os.environ['FMI_DATA_ROOT'] + "/mri/data"
+        data_root = os.environ['FMI_DATA_ROOT'] + "/mri"
     else:
         data_root = "/export/Lab-Xue/projects/data/mri/data"
 

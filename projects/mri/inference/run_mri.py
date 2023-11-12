@@ -512,7 +512,7 @@ class mri_ddp_base(run_ddp_base):
         parser.add_argument("--only_white_noise", action="store_true", help='if set, only add white noise.')
         parser.add_argument("--ignore_gmap", action="store_true", help='if set, do not use gmap for training.')
 
-        parser.add_argument("--num_epochs", type=int, default=50, help='number of epochs to train for')
+        parser.add_argument("--num_epochs", type=int, default=30, help='number of epochs to train for')
         parser.add_argument("--batch_size", type=int, default=16, help='size of each batch')
 
         parser.add_argument("--snr_perturb_prob", type=float, default=0.0, help='prob to add snr perturbation')
