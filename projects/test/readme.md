@@ -3,6 +3,7 @@
 ## Install dvc
 ```
 pip3 install dvc
+pip3 install dvc-azure
 ```
 
 ## Data management

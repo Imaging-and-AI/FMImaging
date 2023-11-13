@@ -77,6 +77,11 @@ def get_test_folders():
 
 # --------------------------------------------------------
 
+num_epochs=10
+tra_ratio=10
+val_ratio=20
+test_ratio=20
+
 class Test_MRI_Tra(object):
 
     @classmethod
@@ -129,7 +134,7 @@ class Test_MRI_Tra(object):
                    "--standalone", 
                    "--nproc_per_node", f"{torch.cuda.device_count()}", 
                    "--use_amp", 
-                   "--num_epochs", "1", 
+                   "--num_epochs", f"{num_epochs}", 
                    "--batch_size", "16", 
                    "--data_root", data_root, 
                    "--log_root", log_root, 
@@ -144,9 +149,9 @@ class Test_MRI_Tra(object):
                    "--lr_post", "1e-4", 
                    "--lr_backbone", "1e-4", 
                    "--run_list", "0",  
-                   "--tra_ratio", "1", 
-                   "--val_ratio", "2", 
-                   "--test_ratio", "2",
+                   "--tra_ratio", f"{tra_ratio}", 
+                   "--val_ratio", f"{val_ratio}", 
+                   "--test_ratio", f"{test_ratio}",
                    "--scheduler_factor", "0.8", 
                    "--ut_mode", 
                    "--project", "FM-UT-MRI"]
@@ -168,7 +173,7 @@ class Test_MRI_Tra(object):
                    "--standalone", 
                    "--nproc_per_node", f"{torch.cuda.device_count()}", 
                    "--use_amp", 
-                   "--num_epochs", "1", 
+                   "--num_epochs", f"{num_epochs}", 
                    "--batch_size", "16", 
                    "--data_root", data_root, 
                    "--log_root", log_root, 
@@ -183,9 +188,9 @@ class Test_MRI_Tra(object):
                    "--lr_post", "1e-4", 
                    "--lr_backbone", "1e-4", 
                    "--run_list", "0",  
-                   "--tra_ratio", "1", 
-                   "--val_ratio", "2", 
-                   "--test_ratio", "10",
+                   "--tra_ratio", f"{tra_ratio}", 
+                   "--val_ratio", f"{val_ratio}", 
+                   "--test_ratio", f"{test_ratio}",
                    "--scheduler_factor", "0.8", 
                    "--ut_mode", 
                    "--project", "FM-UT-MRI"]
@@ -207,7 +212,7 @@ class Test_MRI_Tra(object):
                    "--standalone", 
                    "--nproc_per_node", f"{torch.cuda.device_count()}", 
                    "--use_amp", 
-                   "--num_epochs", "1", 
+                   "--num_epochs", f"{num_epochs}", 
                    "--batch_size", "16", 
                    "--data_root", data_root, 
                    "--log_root", log_root, 
@@ -222,9 +227,9 @@ class Test_MRI_Tra(object):
                    "--lr_post", "1e-4", 
                    "--lr_backbone", "1e-4", 
                    "--run_list", "0",  
-                   "--tra_ratio", "1", 
-                   "--val_ratio", "2", 
-                   "--test_ratio", "10",
+                   "--tra_ratio", f"{tra_ratio}", 
+                   "--val_ratio", f"{val_ratio}", 
+                   "--test_ratio", f"{test_ratio}",
                    "--scheduler_factor", "0.8", 
                    "--ut_mode", 
                    "--project", "FM-UT-MRI"]
