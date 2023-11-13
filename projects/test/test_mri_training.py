@@ -127,7 +127,7 @@ class Test_MRI_Tra(object):
 
         cmd_run = ["python3", str(Project_DIR)+"/projects/mri/inference/run_mri.py", 
                    "--standalone", 
-                   "--nproc_per_node", "4", 
+                   "--nproc_per_node", f{torch.cuda.device_count()}, 
                    "--use_amp", 
                    "--num_epochs", "1", 
                    "--batch_size", "16", 
@@ -166,7 +166,7 @@ class Test_MRI_Tra(object):
 
         cmd_run = ["python3", str(Project_DIR)+"/projects/mri/inference/run_mri.py", 
                    "--standalone", 
-                   "--nproc_per_node", "4", 
+                   "--nproc_per_node", f{torch.cuda.device_count()}, 
                    "--use_amp", 
                    "--num_epochs", "1", 
                    "--batch_size", "16", 
@@ -205,7 +205,7 @@ class Test_MRI_Tra(object):
 
         cmd_run = ["python3", str(Project_DIR)+"/projects/mri/inference/run_mri.py", 
                    "--standalone", 
-                   "--nproc_per_node", "4", 
+                   "--nproc_per_node", f{torch.cuda.device_count()}, 
                    "--use_amp", 
                    "--num_epochs", "1", 
                    "--batch_size", "16", 
