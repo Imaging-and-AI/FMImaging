@@ -18,6 +18,7 @@ import sys
 import numpy as np
 import torch
 import torch.nn.functional as F
+import torchvision
 import torchmetrics
 from pathlib import Path
 
@@ -454,6 +455,130 @@ class Perpendicular_Loss:
         return v / targets.numel()
 
 # -------------------------------------------------------------------------------------------------
+# Charbonnier Loss
+
+class Charbonnier_Loss:
+    """
+    Charbonnier Loss (L1)
+    """
+    def __init__(self, complex_i=False, eps=1e-3):
+        """
+        @args:
+            - complex_i (bool): whether images are 2 channelled for complex data
+            - eps (float): epsilon, different values can be tried here
+        """
+        self.complex_i = complex_i
+        self.eps = eps
+
+    def __call__(self, outputs, targets, weights=None):
+
+        B, C, T, H, W = targets.shape
+        if(self.complex_i):
+            assert C==2, f"Complex type requires image to have C=2, given C={C}"
+            diff_L1 = torch.abs(outputs[:,0]-targets[:,0]) + torch.abs(outputs[:,1]-targets[:,1])
+        else:
+            diff_L1 = torch.abs(outputs-targets)
+
+        loss = torch.sqrt(diff_L1 * diff_L1 + self.eps * self.eps)
+
+        if(weights is not None):
+
+            if(weights.ndim==1):
+                weights = weights.reshape(B,1,1,1,1)
+            elif weights.ndim==2:
+                weights = weights.reshape(B,T,1,1,1)
+            else:
+                raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights for L1_Loss")
+
+            v_l1 = torch.sum(weights*loss) / torch.sum(weights)
+        else:
+            v_l1 = torch.sum(loss)
+
+        return v_l1 / loss.numel()
+
+# -------------------------------------------------------------------------------------------------
+# Perceptual Loss
+
+class VGGPerceptualLoss(torch.nn.Module):
+    """
+    Perceptual Loss (VGG Loss)
+    """
+    def __init__(self, complex_i=False, resize=False, interpolate_mode='bilinear'):
+        super(VGGPerceptualLoss, self).__init__()
+        blocks = []
+        blocks.append(torchvision.models.vgg16(weights='DEFAULT').features[:4].eval())
+        blocks.append(torchvision.models.vgg16(weights='DEFAULT').features[4:9].eval())
+        blocks.append(torchvision.models.vgg16(weights='DEFAULT').features[9:16].eval())
+        blocks.append(torchvision.models.vgg16(weights='DEFAULT').features[16:23].eval())
+        for bl in blocks:
+            for p in bl.parameters():
+                p.requires_grad = False
+        self.blocks = torch.nn.ModuleList(blocks)
+        self.transform = torch.nn.functional.interpolate
+        self.resize = resize
+        self.interpolate_mode = interpolate_mode
+        self.complex_i = complex_i
+        self.register_buffer("mean", torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1))
+        self.register_buffer("std", torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1))
+
+    # can also try feature_layers=[2], style_layers=[0, 1, 2, 3]
+    def __call__(self, outputs, targets, feature_layers=[0, 1, 2, 3], style_layers=[], weights=None):
+
+        B, C, T, H, W = targets.shape
+        if(self.complex_i):
+            assert C==2, f"Complex type requires image to have C=2, given C={C}"
+            outputs_im = torch.sqrt(outputs[:,0]*outputs[:,0] + outputs[:,1:]*outputs[:,1:])
+            targets_im = torch.sqrt(targets[:,0]*targets[:,0] + targets[:,1:]*targets[:,1:])
+        else:
+            outputs_im = outputs
+            targets_im = targets
+
+        B, C, T, H, W = targets_im.shape
+        outputs_im = torch.reshape(torch.permute(outputs_im, (0, 2, 1, 3, 4)), (B*T, C, H, W))
+        targets_im = torch.reshape(torch.permute(targets_im, (0, 2, 1, 3, 4)), (B*T, C, H, W))
+
+        if outputs_im.shape[1] != 3:
+            outputs_im = outputs_im.repeat(1, 3, 1, 1)
+            targets_im = targets_im.repeat(1, 3, 1, 1)
+        outputs_im = (outputs_im-self.mean) / self.std
+        targets_im = (targets_im-self.mean) / self.std
+
+        if self.resize:
+            outputs_im = self.transform(outputs_im, mode=self.interpolate_mode, size=(224, 224), align_corners=False)
+            targets_im = self.transform(targets_im, mode=self.interpolate_mode, size=(224, 224), align_corners=False)
+
+        outputs_im = outputs_im.to(dtype=torch.float32)
+        targets_im = targets_im.to(dtype=torch.float32)
+
+        loss = 0.0
+        x = outputs_im
+        y = targets_im
+        for i, block in enumerate(self.blocks):
+            x = block(x)
+            y = block(y)
+            if i in feature_layers:
+                loss += torch.nn.functional.l1_loss(x, y)
+            if i in style_layers:
+                act_x = x.reshape(x.shape[0], x.shape[1], -1)
+                act_y = y.reshape(y.shape[0], y.shape[1], -1)
+                gram_x = act_x @ act_x.permute(0, 2, 1)
+                gram_y = act_y @ act_y.permute(0, 2, 1)
+                loss += torch.nn.functional.l1_loss(gram_x, gram_y)
+
+        if weights is not None:
+            if weights.ndim==1:
+                weights_used = weights.expand(T,B).permute(1,0).reshape(B*T)
+            elif weights.ndim==2:
+                weights_used = weights.reshape(B*T)
+            else:
+                raise NotImplementedError(f"Only support 1D(Batch) or 2D(Batch+Time) weights")
+            v_vgg = torch.sum(weights_used*loss) / (torch.sum(weights_used) + torch.finfo(torch.float16).eps)
+        else:
+            v_vgg = torch.mean(loss)
+
+        return v_vgg
+
+# -------------------------------------------------------------------------------------------------
 
 class GaussianDeriv1D_Loss:
     """
@@ -855,6 +980,11 @@ class Combined_Loss:
             loss_f = MSE_Loss(complex_i=self.complex_i)
         elif loss_name=="l1":
             loss_f = L1_Loss(complex_i=self.complex_i)
+        elif loss_name=="charbonnier":
+            loss_f = Charbonnier_Loss(complex_i=self.complex_i)
+        elif loss_name=="perceptual":
+            loss_f = VGGPerceptualLoss(complex_i=self.complex_i)
+            loss_f.to(self.device)
         elif loss_name=="ssim":
             loss_f = SSIM_Loss(window_size=5, complex_i=self.complex_i, device=self.device)
         elif loss_name=="ssim3D":
@@ -910,7 +1040,7 @@ def tests():
     sys.path.append(str(REPO_DIR))
 
     # --------------------------------------------------------------------------
-    
+
     noisy = np.load(str(REPO_DIR) + '/ut/data/loss/noisy_real.npy') + 1j * np.load(str(REPO_DIR) + '/ut/data/loss/noisy_imag.npy')
     print(noisy.shape)
 
@@ -919,6 +1049,57 @@ def tests():
 
     pred = np.load(str(REPO_DIR) + '/ut/data/loss/pred_real.npy') + 1j * np.load(str(REPO_DIR) + '/ut/data/loss/pred_imag.npy')
     print(pred.shape)
+
+    # --------------------------------------------------------------------------
+
+    RO, E1, PHS, N = noisy.shape
+
+    for k in range(N):
+        charb_loss = Charbonnier_Loss(complex_i=True)
+
+        x = np.zeros((1, 2, PHS, RO, E1))
+        y = np.zeros((1, 2, PHS, RO, E1))
+
+        x[:,0,:,:,:] = np.transpose(np.real(noisy[:,:,:,k]), (2, 0, 1))
+        x[:,1,:,:,:] = np.transpose(np.imag(noisy[:,:,:,k]), (2, 0, 1))
+        y[:,0,:,:,:] = np.transpose(np.real(clean[:,:,:,k]), (2, 0, 1))
+        y[:,1,:,:,:] = np.transpose(np.imag(clean[:,:,:,k]), (2, 0, 1))
+
+        x = torch.from_numpy(x)
+        y = torch.from_numpy(y)
+
+        v = charb_loss(x, y)
+
+        if k==0: assert np.isclose(v, 1.6255687153453988)
+        if k==N-1: assert np.isclose(v, 16.27434819273709)
+
+        print(f"sigma {k+1} - charb_loss - {v}")
+
+    # --------------------------------------------------------------------------
+
+    for k in range(N):
+        vgg_loss = VGGPerceptualLoss(complex_i=True)
+        vgg_loss.to(device=device)
+
+        x = np.zeros((1, 2, PHS, RO, E1))
+        y = np.zeros((1, 2, PHS, RO, E1))
+
+        x[:,0,:,:,:] = np.transpose(np.real(noisy[:,:,:,k]), (2, 0, 1))
+        x[:,1,:,:,:] = np.transpose(np.imag(noisy[:,:,:,k]), (2, 0, 1))
+        y[:,0,:,:,:] = np.transpose(np.real(clean[:,:,:,k]), (2, 0, 1))
+        y[:,1,:,:,:] = np.transpose(np.imag(clean[:,:,:,k]), (2, 0, 1))
+
+        x = torch.from_numpy(x)
+        y = torch.from_numpy(y)
+
+        v = vgg_loss(x.to(device=device), y.to(device=device))
+
+        # if k==0: assert np.isclose(v, 1.6255687153453988)
+        # if k==N-1: assert np.isclose(v, 16.27434819273709)
+
+        print(f"sigma {k+1} - vgg_loss - {v.items()}")
+
+    # --------------------------------------------------------------------------
 
     RO, E1, PHS, N = noisy.shape
 
@@ -942,9 +1123,9 @@ def tests():
         if k==N-1: assert np.isclose(v, 3.0950791641223936)
 
         print(f"sigma {k+1} - perp - {v}")
-       
+
     # -----------------------------------------------------------------
-    
+
     # further test ssim, msssim and perp loss
     noisy = np.load(str(REPO_DIR) + '/ut/data/loss/noisy.npy')
     print(noisy.shape)
@@ -961,30 +1142,30 @@ def tests():
 
     x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
     y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
-   
+
     dwt_loss = Wavelet_Loss(J=3, wave='db3', only_h=True, complex_i=False, device=device)
-    
+
     for k in range(N):
         v = dwt_loss(torch.unsqueeze(x[k], dim=0), torch.unsqueeze(y[k], dim=0), weights=torch.ones(1, device=device))
         print(f"dwt_loss - {v}")
-        
+
         if k==0: assert np.isclose(v.item(), 0.8072818517684937)
         if k==N-1: assert np.isclose(v.item(), 7.343966007232666)
-        
+
     print("-----------------------")
 
     x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
     y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
-   
+
     spec_loss = Spectral_Loss(complex_i=False, device=device)
-    
+
     for k in range(N):
         v = spec_loss(torch.unsqueeze(x[k], dim=0), torch.unsqueeze(y[k], dim=0), weights=torch.ones(1, device=device))
         print(f"spec_loss - {v}")
-        
+
         # if k==0: assert np.isclose(v.item(), 0.8072818517684937)
         # if k==N-1: assert np.isclose(v.item(), 7.343966007232666)
-                
+
     print("-----------------------")
 
     msssim_loss = torchmetrics.image.MultiScaleStructuralSimilarityIndexMeasure(kernel_size=5, reduction=None, data_range=256)
@@ -998,7 +1179,7 @@ def tests():
     y = torch.permute(y, (2, 0, 1)).reshape([N, 1, RO, E1])
     v = msssim_loss(x, y)
     print(f"sigma 1 to 10 - mssim - {v}")
-        
+
     # 3D ssim
     x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1))
     y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1))
@@ -1010,13 +1191,13 @@ def tests():
     # loss code
     x = torch.permute(torch.from_numpy(noisy), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
     y = torch.permute(torch.from_numpy(clean), (3, 2, 0, 1)).reshape((N, 1, PHS, RO, E1)).to(device=device)
-   
+
     msssim_loss = MSSSIM_Loss(window_size=3, data_range=128, device=device, complex_i=False)
-    
+
     for k in range(N):
         v = msssim_loss(torch.unsqueeze(x[k], dim=0), torch.unsqueeze(y[k], dim=0), weights=torch.ones(1, device=device))
         print(f"msssim loss - {v}")
-        
+
         if k==0: assert np.isclose(v.item(), 0.0031998753547668457)
         if k==N-1: assert np.isclose(v.item(), 0.1460852026939392)
 

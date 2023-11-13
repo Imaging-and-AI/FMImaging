@@ -225,7 +225,9 @@ class run_ddp_base(object):
             cmd_run.extend(["--separable_conv"])
 
         if config.save_samples:
-            cmd_run.extend(["--save_samples"])
+            cmd_run.extend(["--save_train_samples", "False", "--save_val_samples", "False", "--save_test_samples", "True"])
+        else:
+            cmd_run.extend(["--save_train_samples", "False", "--save_val_samples", "False", "--save_test_samples", "False"])
 
         #cmd_run.extend(["--window_sizing_method", "keep_num_window"])
 
@@ -381,7 +383,7 @@ class run_ddp_base(object):
 
         parser.add_argument("--use_amp", action="store_true", help='if set, use mixed precision training.')
 
-        parser.add_argument("--save_samples", action="store_true", help='if set, save training and validation samples.')
+        parser.add_argument("--save_samples", action="store_true", help='if set, save test samples.')
 
         parser.add_argument("--ut_mode", action="store_true", help='if set, this run is for unit test.')
 
