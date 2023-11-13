@@ -1,0 +1,7 @@
+steps:
+  - label: ":mri:"
+    env:
+      FMI_DATA_ROOT: "/data/FM_data_repo"
+      FMI_LOG_ROOT: "/data/logs"
+    commands:
+      - python3 -m pytest -s ./projects/test/test_mri_training.py
