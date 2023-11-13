@@ -265,7 +265,7 @@ class MriMetricManager(MetricManager):
             for metric_name in self.eval_metrics.keys():
                 v = torch.tensor(self.eval_metrics[metric_name].avg).to(device=self.device)
                 dist.all_reduce(v, op=torch.distributed.ReduceOp.AVG)
-                average_metrics[metric_name] = v
+                average_metrics[metric_name] = v.items()
         else:
             average_metrics = {metric_name: self.eval_metrics[metric_name].avg for metric_name in self.eval_metrics.keys()}
 
@@ -293,10 +293,10 @@ class MriMetricManager(MetricManager):
                     logging.info(f"--> val loss {self.best_val_loss}, save best model for epoch {epoch} to {self.best_pre_model_file}, {self.best_pre_model_file, self.best_backbone_model_file}, {self.best_post_model_file}")
 
                 # Update wandb with eval metrics
-                for metric_name, avg_metric_eval in average_metrics.items():
+                for metric_name, avg_metric_eval in average_metrics:
                     self.wandb_run.log({"epoch":epoch, f"{split}_{metric_name}": avg_metric_eval})
             else:
-                for metric_name, avg_metric_eval in average_metrics.items():
+                for metric_name, avg_metric_eval in average_metrics:
                     self.wandb_run.summary[f"final_{split}_{metric_name}"] = avg_metric_eval
 
     # ---------------------------------------------------------------------------------------

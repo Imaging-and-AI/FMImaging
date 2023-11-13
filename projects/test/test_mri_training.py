@@ -10,6 +10,7 @@ import os
 import sys
 import logging
 import pickle
+import json
 
 from colorama import Fore, Back, Style
 import nibabel as nib
@@ -112,9 +113,9 @@ class Test_MRI_Tra(object):
         # check the test scores
         logging.info(f"--> read in from {run_folder}")
 
-        metric_file = log_root + "/" + run_folder + "/test_metrics.pkl"
-        with open(metric_file, 'rb') as f: 
-            metrics = pickle.load(f)
+        metric_file = log_root + "/" + run_folder + "/test_metrics.json"
+        with open(metric_file, 'r') as f: 
+            metrics = json.load(f)
 
         logging.info(f"{Fore.YELLOW}{Back.RED}{metrics}{Style.RESET_ALL} ")
 

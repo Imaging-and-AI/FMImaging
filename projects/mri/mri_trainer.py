@@ -10,6 +10,7 @@ import os
 import sys
 import logging
 import pickle
+import json
 
 from colorama import Fore, Back, Style
 import nibabel as nib
@@ -733,7 +734,7 @@ class MRITrainManager(TrainManager):
                     #print(f"--> rank {rank}, self.metric_manager.average_eval_metrics : {self.metric_manager.average_eval_metrics}")
                     pbar_str = f"--> rank {rank}, {split}, epoch {epoch}"
                     if isinstance(self.metric_manager.average_eval_metrics, dict):
-                        for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
+                        for metric_name, metric_value in self.metric_manager.average_eval_metrics:
                             try: 
                                 pbar_str += f", {Fore.CYAN} {metric_name} {metric_value:.4f}"
                             except: 
@@ -741,21 +742,13 @@ class MRITrainManager(TrainManager):
 
                         # Save final evaluation metrics to a text file
                         if final_eval and rank<=0:
-                            for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
+                            for metric_name, metric_value in self.metric_manager.average_eval_metrics:
                                 wandb_run.summary[f"{split}_{metric_name}"] = metric_value
-                             
-                            metric_file = os.path.join(self.config.log_dir,self.config.run_name, f'{split}_metrics.txt')
-                            with open(metric_file, 'a') as f:
-                                for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
-                                    try: f.write(f"{split}_{metric_name}: {metric_value:.4f}, ")
-                                    except: pass
+
+                            metric_file = os.path.join(self.config.log_dir,self.config.run_name, f'{split}_metrics.json')
+                            with open(metric_file, 'w', encoding='utf-8') as f:
+                                json.dump(self.metric_manager.average_eval_metrics, f, ensure_ascii=True, indent=4)
                             wandb_run.save(metric_file)
-
-                            average_eval_metrics = {metric_name:metric_value for metric_name, metric_value in self.metric_manager.average_eval_metrics.items()}
-
-                            metric_file = os.path.join(self.config.log_dir,self.config.run_name, f'{split}_metrics.pkl')
-                            with open(metric_file, 'wb') as fid:
-                                pickle.dump(average_eval_metrics, fid)
 
                     pbar_str += f"{Style.RESET_ALL}"
                 else:

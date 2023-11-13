@@ -217,7 +217,7 @@ class TrainManager(object):
                     if rank<=0: 
                         logging.getLogger("file_only").info(pbar_str)
 
-                    end_timer(enable=c.with_timer, t=tm, msg="---> epoch end logging and measuring took ")                
+                    end_timer(enable=c.with_timer, t=tm, msg="---> epoch end logging and measuring took ")
 
                 if epoch % c.eval_frequency==0 or epoch==c.num_epochs:
                     self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="", split="val", final_eval=False)
