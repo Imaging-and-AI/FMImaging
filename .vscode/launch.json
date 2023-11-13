@@ -12,7 +12,8 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "justMyCode": true
+            "justMyCode": true,
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "6"},
         },
         // -----------------------------------------------------------------------------------------
         {
