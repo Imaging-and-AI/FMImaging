@@ -1097,7 +1097,7 @@ def tests():
         # if k==0: assert np.isclose(v, 1.6255687153453988)
         # if k==N-1: assert np.isclose(v, 16.27434819273709)
 
-        print(f"sigma {k+1} - vgg_loss - {v.items()}")
+        print(f"sigma {k+1} - vgg_loss - {v.item()}")
 
     # --------------------------------------------------------------------------
 

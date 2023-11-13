@@ -265,7 +265,7 @@ class MriMetricManager(MetricManager):
             for metric_name in self.eval_metrics.keys():
                 v = torch.tensor(self.eval_metrics[metric_name].avg).to(device=self.device)
                 dist.all_reduce(v, op=torch.distributed.ReduceOp.AVG)
-                average_metrics[metric_name] = v.items()
+                average_metrics[metric_name] = v.item()
         else:
             average_metrics = {metric_name: self.eval_metrics[metric_name].avg for metric_name in self.eval_metrics.keys()}
 
