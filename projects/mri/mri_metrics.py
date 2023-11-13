@@ -293,10 +293,10 @@ class MriMetricManager(MetricManager):
                     logging.info(f"--> val loss {self.best_val_loss}, save best model for epoch {epoch} to {self.best_pre_model_file}, {self.best_pre_model_file, self.best_backbone_model_file}, {self.best_post_model_file}")
 
                 # Update wandb with eval metrics
-                for metric_name, avg_metric_eval in average_metrics:
+                for metric_name, avg_metric_eval in average_metrics.items():
                     self.wandb_run.log({"epoch":epoch, f"{split}_{metric_name}": avg_metric_eval})
             else:
-                for metric_name, avg_metric_eval in average_metrics:
+                for metric_name, avg_metric_eval in average_metrics.items():
                     self.wandb_run.summary[f"final_{split}_{metric_name}"] = avg_metric_eval
 
     # ---------------------------------------------------------------------------------------
