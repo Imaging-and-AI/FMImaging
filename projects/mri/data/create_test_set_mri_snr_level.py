@@ -30,7 +30,7 @@ base_file_path = "/data/FM_data_repo/mri"
 base_file_path = "/data1/mri/data"
 base_file_name = "BARTS_RetroCine_3T_2023.h5"
 
-snr_levels = [0, 0.01, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 4.0, 8.0, 12.0]
+snr_levels = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.15, 0.2, 0.5, 1.0, 2.0, 4.0, 8.0, 12.0]
 
 matrix_size_adjust_ratio=[0.5, 0.75, 1.0, 1.25, 1.5]
 kspace_filter_sigma=[0.8, 1.0, 1.5, 2.0, 2.25]
@@ -87,7 +87,9 @@ def create_3d_repeated(N=20):
 
         clean_im = np.zeros((RO, E1, T, num_levels), dtype=np.complex64)
         noisy_im = np.zeros((RO, E1, T, num_levels), dtype=np.complex64)
-        gmaps = np.zeros((RO, E1, num_levels))
+        gmaps = np.ones((RO, E1, num_levels))
+        noise_sigmas = np.zeros(num_levels+1)
+        noise_sigmas[-1] = signal_level
 
         for ind, snr in enumerate(snr_levels):
 
@@ -113,7 +115,7 @@ def create_3d_repeated(N=20):
                                                                 only_white_noise=False,
                                                                 verbose=False)
 
-            nn *= gmap
+            #nn *= gmap
 
             if snr > 0:
                 noisy_data = data + np.copy(nn)
@@ -125,7 +127,8 @@ def create_3d_repeated(N=20):
 
             clean_im[:,:,:,ind] = np.transpose(data, (1, 2, 0))
             noisy_im[:,:,:,ind] = np.transpose(noisy_data, (1, 2, 0))
-            gmaps[:,:,ind] = gmap
+            #gmaps[:,:,ind] = gmap
+            noise_sigmas[ind] = noise_sigma
 
         case_res_file_path = os.path.join(res_file_path, keys[i])
         os.makedirs(case_res_file_path, exist_ok=True)
@@ -140,6 +143,8 @@ def create_3d_repeated(N=20):
 
         np.save(os.path.join(case_res_file_path, 'gmap.npy'), gmaps)
         nib.save(nib.Nifti1Image(gmaps, affine=np.eye(4)), os.path.join(case_res_file_path, 'gmap.nii'))
+
+        np.save(os.path.join(case_res_file_path, 'noise_sigmas.npy'), noise_sigmas)
 
 def main():
 

@@ -150,7 +150,7 @@ scaling_factor=1.0
 # 2nd, unet
 model=/export/Lab-Xue/projects/mri/test/mri-main-2nd_STCNNT_UNET_T1L1G1_T1L1G1_20231030_194521_497809_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_8
 
-# 2nd, hrnet, goot ssim
+# 2nd, hrnet, good ssim
 
 model=/export/Lab-Xue/projects/mri-main/logs/mri-main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20231104_204006_398966_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_12
 
@@ -159,6 +159,8 @@ model=/export/Lab-Xue/projects/mri-main/logs/mri-main-2nd_STCNNT_HRNET_T1L1G1_T1
 model=/export/Lab-Xue/projects/mri-main/logs/mri-main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20231106_221712_582764_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_14
 
 model=/export/Lab-Xue/projects/mri/test/mri-main-1st_STCNNT_HRNET_T1L1G1_T1L1G1_20231107_131054_114694_STCNNT_MRI_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1/mri-main-1st_STCNNT_HRNET_T1L1G1_T1L1G1_20231107_131054_114694_STCNNT_MRI_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1_epoch-50.pth
+
+model=/export/Lab-Xue/projects/mri-main/logs/mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231113_125144_783329_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_16
 
 RES_DIR=res_2nd_hrnet_TLG_TLGTLG
 model_type_str=MRI_double_net
@@ -171,6 +173,13 @@ export DISABLE_FLOAT16_INFERENCE=True
 # quick test case
 
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
+
+# ======================================================================
+# snr level test
+
+case_dir=Retro_Lin_Cine_2DT_LAX_GLS_66016_078855422_078855431_409_20230613-154734_slc_1
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/projects/mri/data/mri_test/${case_dir}/ --output_dir /export/Lab-Xue/projects/mri/data/mri_test/${case_dir}/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname noisy --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
 
 # ======================================================================
 

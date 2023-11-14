@@ -542,8 +542,8 @@ class VGGPerceptualLoss(torch.nn.Module):
         if outputs_im.shape[1] != 3:
             outputs_im = outputs_im.repeat(1, 3, 1, 1)
             targets_im = targets_im.repeat(1, 3, 1, 1)
-        outputs_im = (outputs_im-self.mean) / self.std
-        targets_im = (targets_im-self.mean) / self.std
+        # outputs_im = (outputs_im-self.mean) / self.std
+        # targets_im = (targets_im-self.mean) / self.std
 
         if self.resize:
             outputs_im = self.transform(outputs_im, mode=self.interpolate_mode, size=(224, 224), align_corners=False)
