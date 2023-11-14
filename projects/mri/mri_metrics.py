@@ -64,6 +64,8 @@ class MriMetricManager(MetricManager):
         self.dwt_func = Wavelet_Loss(J=1, wave='db3', mode='symmetric', only_h=True, complex_i=self.config.complex_i, device=device)
         self.ssim_func = lambda x, y: 1 - self.ssim_loss_func(x, y)
         self.ssim3D_func = lambda x, y: 1 - self.ssim3D_loss_func(x, y)
+        self.charb_func = Charbonnier_Loss(complex_i=self.config.complex_i)
+        self.vgg_func = VGGPerceptualLoss(complex_i=self.config.complex_i)
 
         self.train_metrics = {'loss': AverageMeter(),
                               'mse':AverageMeter(),
@@ -78,7 +80,9 @@ class MriMetricManager(MetricManager):
                               'gaussian_gradient':AverageMeter(),
                               'gaussian_gradient_3d':AverageMeter(),
                               'spec':AverageMeter(),
-                              'dwt':AverageMeter()
+                              'dwt':AverageMeter(),
+                              'charb':AverageMeter(),
+                              'vgg':AverageMeter()
                             }
         
         self.eval_metrics = {'loss': AverageMeter(),
@@ -94,7 +98,9 @@ class MriMetricManager(MetricManager):
                               'gaussian_gradient':AverageMeter(),
                               'gaussian_gradient_3d':AverageMeter(),
                               'spec':AverageMeter(),
-                              'dwt':AverageMeter()
+                              'dwt':AverageMeter(),
+                              'charb':AverageMeter(),
+                              'vgg':AverageMeter()
                             }
             
         self.train_metric_functions = {
@@ -110,7 +116,9 @@ class MriMetricManager(MetricManager):
                               'gaussian_gradient':self.gaussian_func,
                               'gaussian_gradient_3d':self.gaussian3D_func,
                               'spec': self.spec_func,
-                              'dwt': self.dwt_func
+                              'dwt': self.dwt_func,
+                              'charb': self.charb_func,
+                              'vgg': self.vgg_func
                             }
         
         self.eval_metric_functions = copy.deepcopy(self.train_metric_functions)
@@ -140,8 +148,10 @@ class MriMetricManager(MetricManager):
                 self.train_metrics['gaussian_gradient'].avg, \
                 self.train_metrics['gaussian_gradient_3d'].avg, \
                 self.train_metrics['spec'].avg, \
-                self.train_metrics['dwt'].avg
-                
+                self.train_metrics['dwt'].avg, \
+                self.train_metrics['charb'].avg, \
+                self.train_metrics['vgg'].avg
+
     def get_eval_loss(self):
         return self.eval_metrics['loss'].avg, \
                 self.eval_metrics['mse'].avg, \
@@ -155,8 +165,10 @@ class MriMetricManager(MetricManager):
                 self.eval_metrics['perp'].avg, \
                 self.eval_metrics['gaussian_gradient'].avg, \
                 self.eval_metrics['gaussian_gradient_3d'].avg, \
-                self.train_metrics['spec'].avg, \
-                self.train_metrics['dwt'].avg
+                self.eval_metrics['spec'].avg, \
+                self.eval_metrics['dwt'].avg , \
+                self.eval_metrics['charb'].avg, \
+                self.eval_metrics['vgg'].avg
 
     # ---------------------------------------------------------------------------------------
     def parse_output(self, output):
