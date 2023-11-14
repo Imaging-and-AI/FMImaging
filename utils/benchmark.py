@@ -31,7 +31,7 @@ def benchmark_backward(fn, *inputs, grad=None, min_run_time=10, desc='', verbose
         print(f"{Fore.GREEN}{desc} - Backward pass{Style.RESET_ALL}")
     with torch.autocast(device_type='cuda', dtype=amp_dtype, enabled=amp):
         y = fn(*inputs, **kwinputs)
-        if type(y) is tuple:
+        if type(y) is list:
             y = y[0]
     if grad is None:
         grad = torch.randn_like(y)
@@ -64,7 +64,7 @@ def benchmark_combined(fn, *inputs, grad=None, min_run_time=10, desc='', verbose
     def f(grad, *inputs, **kwinputs):
         with torch.autocast(device_type='cuda', dtype=amp_dtype, enabled=amp):
             y = fn(*inputs, **kwinputs)
-            if type(y) is tuple:
+            if type(y) is list:
                 y = y[0]
         if grad is None:
             grad = torch.randn_like(y)

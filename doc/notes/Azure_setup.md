@@ -91,8 +91,13 @@ sudo chmod a+x /usr/bin/azcopy
 # install packages
 
 pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu118
-pip3 install wandb tqdm h5py torchinfo tifffile opencv-python scikit-image einops onnx numpy scipy moviepy imageio matplotlib torchmetrics gputil onnxruntime gif
+pip3 install wandb tqdm h5py torchinfo tifffile opencv-python scikit-image einops onnx numpy scipy moviepy imageio matplotlib torchmetrics gputil onnxruntime gif prettytable timm
 pip3 install torch-interpol
+
+cd ~/mrprogs
+git clone https://github.com/fbcotter/pytorch_wavelets
+cd pytorch_wavelets
+pip3 install .
 
 # login prompt
 # add ~/.local/bin into the path
@@ -173,4 +178,19 @@ azcopy copy ./BWH_RTCine_3T_2023.h5 "https://stcnnt.blob.core.windows.net/mri/da
 azcopy copy ./VIDA_train_clean_0430.h5 "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/VIDA_train_clean_0430.h5?${SAS}" --recursive
 
 azcopy cp "./*.h5" "https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared/?${SAS}"
+```
+
+# install pytorch wavelet
+
+```
+git clone https://github.com/fbcotter/pytorch_wavelets
+cd pytorch_wavelets
+pip3 install .
+```
+# clone others
+
+```
+cd ~/mrprogs
+git clone git@github.com:xueh2/matlab_mrrecon.git
+git clone git@github.com:xueh2/imagescn.git
 ```

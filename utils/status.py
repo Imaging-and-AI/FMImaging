@@ -8,6 +8,7 @@ from datetime import datetime
 from torchinfo import summary
 from colorama import Fore, Style
 import numpy as np
+from prettytable import PrettyTable
 
 # -------------------------------------------------------------------------------------------------
     
@@ -47,14 +48,12 @@ def get_cuda_info(device):
 	}
 
 def support_bfloat16(device):
-    
-    check_bfloat16 = os.getenv("DISABLE_FLOAT16_INFERENCE", 'False').lower() in ('false', '0', 'f')
-    if check_bfloat16:
-        info =  get_cuda_info(device)
-        if info["gpu_name"].find("A100") >= 0 or info["gpu_name"].find("H100") >= 0:
-            return True
-        else:
-            return False
+    DISABLE_FLOAT16_INFERENCE = os.environ.get("DISABLE_FLOAT16_INFERENCE", False)
+    if DISABLE_FLOAT16_INFERENCE: return False
+
+    info =  get_cuda_info(device)
+    if info["gpu_name"].find("A100") >= 0 or info["gpu_name"].find("H100") >= 0:
+        return True
     else:
         return False
 
@@ -101,7 +100,7 @@ def model_info(model, config):
             see torchinfo/model_statistics.py for more information.
     """
     c = config
-    input_size = (c.batch_size, c.time, c.C_in, c.height[0], c.width[0])
+    input_size = (c.batch_size, c.no_in_channel, c.time, c.height, c.width)
     col_names=("num_params", "params_percent", "mult_adds", "input_size", "output_size", "trainable")
     row_settings=["var_names", "depth"]
     dtypes=[torch.float32]
@@ -119,35 +118,31 @@ def model_info(model, config):
 
     return model_summary
 
+def count_parameters(model):
+    table = PrettyTable(["Modules", "Parameters"])
+    total_params = 0
+    for name, parameter in model.named_parameters():
+        if not parameter.requires_grad: continue
+        params = parameter.numel()
+        table.add_row([name, params])
+        total_params+=params
+    print(table)
+    print(f"Total Trainable Params: {total_params}")
+    return total_params
+
 # -------------------------------------------------------------------------------------------------
-# average metric tracker
-
-class AverageMeter(object):
+def get_device(device=None):
     """
-    Computes and stores the average and current value
+    Wrapper around getting device
+    @args:
+        - device (torch.device): if not None this device will be returned
+            otherwise check if cuda is available
+    @rets:
+        - device (torch.device): the device to be used
     """
-    def __init__(self):        
-        self.reset()
 
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-        self.vals = []
-        self.counts = []
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
-        
-        self.vals.append(val)
-        self.counts.append(n)
-
-    def status(self):
-        return np.array(self.vals), np.array(self.counts)
+    return device if device is not None else \
+            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 if __name__=="__main__":
     pass

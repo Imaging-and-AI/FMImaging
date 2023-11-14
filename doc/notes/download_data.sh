@@ -1,9 +1,44 @@
 #!/usr/bin/bash
 
-SAS="sp=racwdli&st=2023-06-10T20:45:41Z&se=2024-06-11T04:45:41Z&sv=2022-11-02&sr=c&sig=60Z2H8v9237zvtckS0lCa5g%2FWkkUc%2FivqhEn8KDcSmM%3D"
-SAS="sp=racwdli&st=2023-06-24T03:52:16Z&se=2024-06-24T11:52:16Z&spr=https&sv=2022-11-02&sr=c&sig=VMXIrGEFZEFSU6IrmxdjQSoj3wj8QTBWEE6CFzV9dic%3D"
+export SAS="sp=racwdli&st=2023-06-10T20:45:41Z&se=2024-06-11T04:45:41Z&sv=2022-11-02&sr=c&sig=60Z2H8v9237zvtckS0lCa5g%2FWkkUc%2FivqhEn8KDcSmM%3D"
+export SAS="sp=racwdli&st=2023-06-24T03:52:16Z&se=2024-06-24T11:52:16Z&spr=https&sv=2022-11-02&sr=c&sig=VMXIrGEFZEFSU6IrmxdjQSoj3wj8QTBWEE6CFzV9dic%3D"
 
-data_src=https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared
+export data_src=https://stcnnt.blob.core.windows.net/mri/data/denoising/data_prepared
+
+export SAS_qperf="sp=racwdli&st=2023-10-22T21:32:48Z&se=2024-10-23T05:32:48Z&spr=https&sv=2022-11-02&sr=c&sig=cFBFXqcvpRZyfw9xyHKhPM%2B67l6F3LyBZLRy0fsrIYY%3D"
+export data_src_qperf=https://stcnnt.blob.core.windows.net/qperf
+
+export SAS2="sp=racwdli&st=2023-10-29T19:02:56Z&se=2025-10-30T03:02:56Z&spr=https&sv=2022-11-02&sr=c&sig=WbK6S7bLpXJ%2F4838iQTMrYPCcY%2FdH5w9k8bw6gz9uTk%3D"
+
+# azcopy copy "./val/" "https://stcnnt.blob.core.windows.net/qperf/?${SAS_qperf}" --recursive
+# azcopy copy "https://stcnnt.blob.core.windows.net/qperf/h5_data?${SAS_qperf}" . --recursive
+
+# mkdir -p /export/Lab-Xue/projects/imagenet/qperf/v2
+# mkdir -p /export/Lab-Xue/projects/imagenet/qperf/v2/tra
+# mkdir -p /export/Lab-Xue/projects/imagenet/qperf/v2/val
+# mkdir -p /export/Lab-Xue/projects/imagenet/qperf/v2/test
+# azcopy copy "${data_src_qperf}/v2/tra/aif.npy?${SAS2}" /export/Lab-Xue/projects/imagenet/qperf/v2/tra --recursive
+# azcopy copy "${data_src_qperf}/v2/tra/myo.npy?${SAS2}" /export/Lab-Xue/projects/imagenet/qperf/v2/tra --recursive
+# azcopy copy "${data_src_qperf}/v2/tra/params.npy?${SAS2}" /export/Lab-Xue/projects/imagenet/qperf/v2/tra --recursive
+# azcopy copy "${data_src_qperf}/v2/val?${SAS2}" /export/Lab-Xue/projects/imagenet/qperf/v2 --recursive
+# azcopy copy "${data_src_qperf}/v2/test?${SAS2}" /export/Lab-Xue/projects/imagenet/qperf/v2 --recursive
+
+mkdir -p /data/qperf
+azcopy copy "${data_src_qperf}/h5_data/tra?${SAS_qperf}" /data/qperf/ --recursive
+azcopy copy "${data_src_qperf}/h5_data/val?${SAS_qperf}" /data/qperf/ --recursive
+azcopy copy "${data_src_qperf}/h5_data/test?${SAS_qperf}" /data/qperf/ --recursive
+
+# test data
+azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2DT_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2D_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_3D_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_500_samples.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+
+azcopy copy "${data_src}/test_2D_sig_1_16_1000.h5?${SAS}" /export/Lab-Xue/projects/data
+azcopy copy "${data_src}/test_2DT_sig_1_16_2000.h5?${SAS}" /export/Lab-Xue/projects/data
+
+ln -s /export/Lab-Xue/projects/data/test_2D_sig_1_16_1000.h5 /export/Lab-Xue/projects/mri/data/test_2D_sig_1_16_1000.h5
+ln -s /export/Lab-Xue/projects/data/test_2DT_sig_1_16_2000.h5 /export/Lab-Xue/projects/mri/data/test_2DT_sig_1_16_2000.h5
 
 # test data
 azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2DT_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
@@ -12,6 +47,9 @@ azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_3D_test.h5?${SAS}" /e
 azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_500_samples.h5?${SAS}" /export/Lab-Xue/projects/mri/data
 
 # cine
+azcopy copy "${data_src}/BARTS_3D_3T_retro_cine_2023.h5?${SAS}" /export/Lab-Xue/projects/data
+ln -s /export/Lab-Xue/projects/data/BARTS_3D_3T_retro_cine_2023.h5 /export/Lab-Xue/projects/mri/data/BARTS_3D_3T_retro_cine_2023.h5
+
 azcopy copy "${data_src}/train_3D_3T_retro_cine_2018.h5?${SAS}" /export/Lab-Xue/projects/mri/data
 azcopy copy "${data_src}/train_3D_3T_retro_cine_2019.h5?${SAS}" /export/Lab-Xue/projects/data
 azcopy copy "${data_src}/train_3D_3T_retro_cine_2020.h5?${SAS}" /export/Lab-Xue/projects/mri/data

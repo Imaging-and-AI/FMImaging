@@ -1,0 +1,29 @@
+export CUDA_VISIBLE_DEVICES=2
+
+python ../../run.py --run_name="tissue_refactor" \
+                    --log_dir="/home/hoopersm/refactor_v1_FMImaging/projects/tissue_segment/logs" \
+                    --data_dir="/home/hoopersm/preprocessed_data/tissue" \
+                    --split_csv_path="/home/hoopersm/baseline_backbones/samplers/simple_tissue_splits_seed_1.csv" \
+                    --height=256 \
+                    --width=256 \
+                    --time=1 \
+                    --no_in_channel=3 \
+                    --no_out_channel=2 \
+                    --affine_aug=True \
+                    --brightness_aug=True \
+                    --gaussian_blur_aug=True \
+                    --pre_model=Identity \
+                    --backbone_model=omnivore_tiny \
+                    --post_model=UperNet2D \
+                    --task_type=seg \
+                    --optim_type=adam \
+                    --scheduler_type=None \
+                    --loss_type=CrossEntropy \
+                    --device=cuda \
+                    --num_workers=4 \
+                    --num_epochs=50 \
+                    --batch_size=32 \
+                    --optim.lr=0.0001 \
+                    --optim.beta1=0.9 \
+                    --optim.beta2=0.99 \
+                    

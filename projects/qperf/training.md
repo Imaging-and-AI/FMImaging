@@ -1,0 +1,25 @@
+
+# Train with torchrun
+
+
+```
+torchrun --standalone --nproc_per_node 8 ./projects/qperf/run.py --batch_size 1024 --data_dir /data/qperf/new_data --log_dir /data/qperf/new_data/cache --n_layer 16 --use_pos_embedding --project QPerf --clip_grad_norm 0.1 --override --ddp --optim_type sophia --optim.weight_decay 0.1 --num_epochs 30 --prefetch_factor 64 --use_amp --foot_to_end --run_name qperf_new_data --losses mse l1 gauss max_ae --loss_weights 1.0 1.0 10.0 1.0 --loss_weights_params 5.0 1 1 1 10.0 --max_samples -1 --optim.lr 1e-4 1e-4 1e-4
+
+torchrun --standalone --nproc_per_node 8 ./projects/qperf/run.py --batch_size 512 --data_dir /data/qperf/new_data --log_dir /data/qperf/new_data/cache --n_layer 16 8 --use_pos_embedding --project QPerf --clip_grad_norm 1 --override --ddp --optim_type adamw --optim.weight_decay 0.1 --num_epochs 30 --prefetch_factor 64 --foot_to_end --run_name qperf_1st_larger_linear_heads_with_nl_with_data_normalization --losses mse l1 gauss max_ae --loss_weights 1.0 1.0 10.0 10.0 --loss_weights_params 5.0 1 1 1 10.0 --max_samples 1000000 --optim.lr 1e-4 1e-4 1e-4 --qperf_model_type QPerfModel
+
+torchrun --standalone --nproc_per_node 8 ./projects/qperf/run.py --batch_size 1024 --data_dir /data/qperf/new_data --log_dir /data/qperf/new_data/cache --n_layer 8 --use_pos_embedding --project QPerf --clip_grad_norm 0.1 --override --ddp --optim.weight_decay 0.1 --num_epochs 10 --prefetch_factor 64 --pre_model_load_path /data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_pre.pth --backbone_model_load_path /data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_backbone.pth --post_model_load_path /data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_post.pth --load_optim_and_sched True --foot_to_end
+```
+
+# btex model training
+torchrun --standalone --nproc_per_node 4 ./projects/qperf/run_btex.py --batch_size 1024 --data_dir /data/qperf/new_data_3/h5_data --log_dir /data/qperf/new_data_3/logs --n_layer 16 --use_pos_embedding --project QPerf --clip_grad_norm 0.1 --override --ddp --optim_type sophia --optim.weight_decay 0.1 --num_epochs 30 --prefetch_factor 64 --use_amp --foot_to_end --run_name qperf_new_data --losses mse l1 gauss max_ae --loss_weights 1.0 1.0 10.0 1.0 --loss_weights_params 5.0 1 1 1 10.0 --max_samples -1 -1 -1 --optim.lr 1e-4 1e-4 1e-4 --scheduler.factor 0.5
+
+torchrun --nnodes 6 --node_rank 0  --rdzv_endpoint 172.16.0.4:8891 --nproc_per_node 4 ./projects/qperf/run_btex.py --batch_size 1024 --data_dir /export/Lab-Xue/projects/imagenet/qperf/v2 --log_dir /export/Lab-Xue/projects/imagenet/qperf/v2 --n_layer 16 --use_pos_embedding --project QPerf --clip_grad_norm 0.1 --override --ddp --optim_type sophia --optim.weight_decay 0.1 --num_epochs 30 --prefetch_factor 64 --use_amp --foot_to_end --run_name qperf_btex_new_data_v2 --losses mse l1 max_ae --loss_weights 1.0 1.0 1.0 1.0 --loss_weights_params 5.0 1 1 1 10.0 --max_samples -1 --optim.lr 1e-4 1e-4 1e-4 --num_workers 8
+
+# params model training
+
+torchrun --standalone --nproc_per_node 4 ./projects/qperf/run_param_model.py --batch_size 1024 --data_dir /data/qperf/new_data --log_dir /data/qperf/new_data/cache --n_layer 8 16 --use_pos_embedding --project QPerf --clip_grad_norm 0.1 --override --ddp --optim_type sophia --optim.weight_decay 0.1 --num_epochs 30 --prefetch_factor 64 --use_amp --foot_to_end --run_name qperf_params_model --losses mse l1 max_ae --loss_weights 1.0 1.0 1.0 1.0 --loss_weights_params 5.0 1 1 1 10.0 --max_samples 100000000 --optim.lr 1e-4 1e-4 1e-4 --num_workers 8 --model_btex_load_path /export/Lab-Xue/projects/qperf/models/best_checkpoint_epoch_30 --freeze_post True
+
+torchrun --nnodes 6 --node_rank 0  --rdzv_endpoint 172.16.0.4:8891 --nproc_per_node 4 ./projects/qperf/run_param_model.py --batch_size 1024 --n_layer 16 16 --use_pos_embedding --project QPerf --clip_grad_norm 0.1 --override --ddp --optim_type sophia --optim.weight_decay 1 --num_epochs 10 --prefetch_factor 64 --use_amp --foot_to_end --run_name qperf_params_model --losses mse l1 max_ae --loss_weights 1.0 1.0 1.0 1.0 --loss_weights_params 5.0 1 1 1 10.0 --max_samples 100000000 --optim.lr 1e-4 1e-4 1e-4 --num_workers 8 --model_btex_load_path /export/Lab-Xue/projects/data/qperf/models/best_checkpoint_epoch_30 --freeze_post True --data_dir /export/Lab-Xue/projects/data/qperf --log_dir /export/Lab-Xue/projects/data/qperf
+
+
+torchrun --standalone --nproc_per_node 4 ./projects/qperf/run_param_model.py --batch_size 256 --data_dir /export/Lab-Xue/qperf/h5_data --log_dir /export/Lab-Xue/qperf/logs  --n_layer 16 16 --use_pos_embedding --project QPerf --clip_grad_norm 0.1 --override --ddp --optim_type sophia --optim.weight_decay 1 --num_epochs 30 --prefetch_factor 64 --use_amp --foot_to_end --run_name qperf_params_model --losses mse l1 max_ae --loss_weights 1.0 1.0 1.0 1.0 --loss_weights_params 5.0 1 1 1 10.0 --max_samples -1 -1 -1  --optim.lr 1e-4 1e-4 5e-6 --num_workers 32 --model_btex_load_path /export/Lab-Xue/qperf/logs/qperf_new_data_v3/best_checkpoint_epoch_9 --scheduler.factor 0.5
