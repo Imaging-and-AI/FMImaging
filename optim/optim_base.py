@@ -54,7 +54,7 @@ class OptimManager(object):
         self.set_up_optim_and_scheduling(total_steps=self.total_steps)
 
         # Load optim and scheduler states, if desired
-        if self.config.load_optim_and_sched:
+        if self.config.continued_training:
             if self.config.pre_model_load_path is not None: self.load_optim_and_sched("pre", config.pre_model_load_path)
             if self.config.backbone_model_load_path is not None: self.load_optim_and_sched("backbone", config.backbone_model_load_path)
             if self.config.post_model_load_path is not None: self.load_optim_and_sched("post", config.post_model_load_path)
