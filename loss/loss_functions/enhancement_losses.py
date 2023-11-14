@@ -527,8 +527,10 @@ class VGGPerceptualLoss(torch.nn.Module):
         B, C, T, H, W = targets.shape
         if(self.complex_i):
             assert C==2, f"Complex type requires image to have C=2, given C={C}"
-            outputs_im = torch.sqrt(outputs[:,0]*outputs[:,0] + outputs[:,1:]*outputs[:,1:])
-            targets_im = torch.sqrt(targets[:,0]*targets[:,0] + targets[:,1:]*targets[:,1:])
+            outputs_im = torch.sqrt(outputs[:,0]*outputs[:,0] + outputs[:,1]*outputs[:,1])
+            targets_im = torch.sqrt(targets[:,0]*targets[:,0] + targets[:,1]*targets[:,1])
+            outputs_im = torch.unsqueeze(outputs_im, dim=1)
+            targets_im = torch.unsqueeze(targets_im, dim=1)
         else:
             outputs_im = outputs
             targets_im = targets
