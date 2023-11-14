@@ -65,7 +65,7 @@ class MriMetricManager(MetricManager):
         self.ssim_func = lambda x, y: 1 - self.ssim_loss_func(x, y)
         self.ssim3D_func = lambda x, y: 1 - self.ssim3D_loss_func(x, y)
         self.charb_func = Charbonnier_Loss(complex_i=self.config.complex_i)
-        self.vgg_func = VGGPerceptualLoss(complex_i=self.config.complex_i)
+        self.vgg_func = VGGPerceptualLoss(complex_i=self.config.complex_i).to(device=device)
 
         self.train_metrics = {'loss': AverageMeter(),
                               'mse':AverageMeter(),
