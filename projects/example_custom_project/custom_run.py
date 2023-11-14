@@ -80,6 +80,9 @@ def main():
     """
     model_manager = custom_ModelManager(config=config) 
 
+    # Load model if specified
+    model_manager.load()
+
 
     """
     Create a OptimManager, MetricManager, and TrainManager.
