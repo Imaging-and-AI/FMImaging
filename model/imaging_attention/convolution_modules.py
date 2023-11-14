@@ -51,7 +51,6 @@ class ConvolutionModule(nn.Module):
                                     kernel_size=kernel_size, stride=stride, padding=padding,\
                                     separable_conv=separable_conv)
         elif conv_type=="conv3d":
-
             if len(kernel_size)==2:
                 kernel_size = (*kernel_size, kernel_size[0])
             if len(stride)==2:
@@ -130,7 +129,6 @@ def tests():
                                     separable_conv=separable, 
                                     norm_mode=norm_mode, 
                                     activation_func=activation_func)
-
         model.to(device)
 
         test_out = model(test_in)

@@ -461,7 +461,7 @@ class STCNNT_Parallel_Cell(nn.Module):
 
         self.with_mixer = with_mixer
         if(self.with_mixer):
-            if self.mixer_type == "conv" or att_mode=="temporal":
+            if self.mixer_type == "conv" or att_mode=="temporal" or att_mode=="conv2d" or att_mode=="conv3d":
                 mixer_cha = int(scale_ratio_in_mixer*C_out)
                 
                 self.mlp = nn.Sequential(

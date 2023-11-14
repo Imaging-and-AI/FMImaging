@@ -49,6 +49,8 @@ class mri_ddp_base(run_ddp_base):
 
         "--dropout_p", "0.1",
 
+        "--dropout_p", "0.1",
+
         #"--use_amp", 
         
         "--activation_func", "prelu",
@@ -68,6 +70,9 @@ class mri_ddp_base(run_ddp_base):
 
         #"--post_backbone", "STCNNT_mUNET", 
         #"--post_backbone", "STCNNT_HRNET", 
+
+        #"--post_backbone", "mixed_unetr", 
+        #"--post_backbone", "hrnet", 
 
         #"--min_noise_level", "2.0",
         #"--max_noise_level", "24.0",
@@ -182,6 +187,8 @@ class mri_ddp_base(run_ddp_base):
                             "--train_data_types", "2dt", "2dt", "2dt", 
                             "--test_data_types", "3d", "2dt", "2d", "2dt", "2d", "2dt",
                         ])
+
+        self.cmd.extend(["--snr_perturb_prob", f"{config.snr_perturb_prob}"])
 
         self.cmd.extend(["--snr_perturb_prob", f"{config.snr_perturb_prob}"])
 

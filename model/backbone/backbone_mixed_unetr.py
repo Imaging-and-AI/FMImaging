@@ -649,7 +649,6 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
             self.up_w = UpSample(N=1, C_in=4*self.C, C_out=4*self.C, method=c.upsample_method, with_conv=self.with_conv, is_3D=is_3D_window_partition)
         else:
             self.up_w = nn.Identity()
-
     # -------------------------------------------------------------------------------------------
 
     def check_class_specific_parameters(self, config):

@@ -23,7 +23,7 @@
             "program": "./projects/cifar_classify/custom_cifar_run.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "6"},
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "0"},
             "args": [
                 "--log_dir", "/export/Lab-Xue/projects/cifar/logs"
             ]
