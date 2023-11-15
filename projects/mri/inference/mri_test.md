@@ -162,7 +162,11 @@ model=/export/Lab-Xue/projects/mri/test/mri-main-1st_STCNNT_HRNET_T1L1G1_T1L1G1_
 
 model=/export/Lab-Xue/projects/mri-main/logs/mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231113_125144_783329_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_16
 
-RES_DIR=res_2nd_hrnet_TLG_TLGTLG
+model=/export/Lab-Xue/projects/mri-main/logs/mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231113_125144_783329_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1/mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231113_125144_783329_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1_epoch-20.pth
+
+model=/export/Lab-Xue/projects/mri-main/logs/mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231114_090037_843822_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_3
+
+RES_DIR=res_2nd_hrnet_TLG_TLG
 model_type_str=MRI_double_net
 scaling_factor=1.0
 
