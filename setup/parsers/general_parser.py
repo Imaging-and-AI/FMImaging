@@ -33,7 +33,7 @@ class general_parser(object):
         self.parser.add_argument("--pre_model_load_path", type=none_or_str, default=None, help='Path to load pre model from; set to None if not loading a model')
         self.parser.add_argument("--backbone_model_load_path", type=none_or_str, default=None, help='Path to backbone load model from; set to None if not loading a model')
         self.parser.add_argument("--post_model_load_path", type=none_or_str, default=None, help='Path to load post model from; set to None if not loading a model')
-        self.parser.add_argument("--load_optim_and_sched", type=str_to_bool, default=False, help="Whether to load the optimizer and scheduler states along with the model weights; used only if load_paths are specified")
+        self.parser.add_argument("--continued_training", type=str_to_bool, default=False, help="Whether to continue training; if True, will load the optimizer and scheduler states along with the model weights; used only if load_paths are specified")
         self.parser.add_argument("--yaml_load_path", type=none_or_str, default=None, help='Path to load yaml config from; set to None if not loading a config. Note that this config will overwrite user args.')
         self.parser.add_argument("--override", action="store_true", help="Whether to override files already saved in log_dir/run_name")
         
