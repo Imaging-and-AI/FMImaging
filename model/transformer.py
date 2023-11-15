@@ -22,7 +22,7 @@ Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.append(str(Project_DIR))
 
 from utils import get_device, model_info, get_gpu_ram_usage
-from setup import create_generic_class_str
+from model_utils import create_generic_class_str
 from imaging_attention import create_activation_func
 
 def position_encoding(
