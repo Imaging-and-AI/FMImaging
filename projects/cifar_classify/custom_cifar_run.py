@@ -39,6 +39,9 @@ def main():
     # Define model (no customization)
     model_manager = ModelManager(config=config) 
 
+    # Load model if specified
+    model_manager.load()
+
     # Create optimizer and scheduler (no customization)
     optim_manager = OptimManager(config=config, model_manager=model_manager, train_set=train_set)
 
