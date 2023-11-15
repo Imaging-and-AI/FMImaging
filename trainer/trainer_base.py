@@ -141,7 +141,7 @@ class TrainManager(object):
         # Training loop
         if self.config.train_model:
 
-            logging.info(f"{rank_str}, {Fore.PINK}OPTIMIZER PARAMETERS: {optim} {Style.RESET_ALL}")
+            logging.info(f"{Fore.PINK}OPTIMIZER PARAMETERS: {optim} {Style.RESET_ALL}")
 
             for epoch in range(curr_epoch, c.num_epochs):
                 logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank} {'-'*20}{Style.RESET_ALL}")
