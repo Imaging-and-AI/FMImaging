@@ -51,7 +51,7 @@ class omnivore_base_class(STCNNT_Base_Runtime, ABC):
 
     def forward(self, x):
         res = self.model(x)
-        return [res]
+        return res
 
 #-------------------------------------------------------------------------------------
 
