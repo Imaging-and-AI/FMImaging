@@ -123,7 +123,7 @@ def check_args(config):
     if config.prefetch_factor <= 0:
        config.prefetch_factor = 2
     if len(config.lr)==1:
-        config.lr = [config.lr[0]]*3
+        config.optim.lr = [config.optim.lr[0]]*3
         
 
 
