@@ -334,11 +334,6 @@ class ModelManager(nn.Module):
         if self.config.pre_model_load_path is not None: self.load_pre(self.config.pre_model_load_path)
         if self.config.backbone_model_load_path is not None: self.load_backbone(self.config.backbone_model_load_path)
         if self.config.post_model_load_path is not None: self.load_post(self.config.post_model_load_path)
-        
-    def load(self, model_save_name):
-        self.load_pre(model_save_name+"_pre.pth")
-        self.load_backbone(model_save_name+"_backbone.pth")
-        self.load_post(model_save_name+"_post.pth")
 
     def save(self, model_save_name, epoch, optim, sched):
         pre_model_file = self.save_pre(model_save_name+"_pre", epoch, optim, sched)
