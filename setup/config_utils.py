@@ -122,5 +122,8 @@ def check_args(config):
         config.num_workers = os.cpu_count()
     if config.prefetch_factor <= 0:
        config.prefetch_factor = 2
+    if len(config.lr)==1:
+        config.lr = [config.lr[0]]*3
+        
 
 
