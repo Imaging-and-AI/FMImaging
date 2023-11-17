@@ -475,11 +475,12 @@ class Charbonnier_Loss:
         B, C, T, H, W = targets.shape
         if(self.complex_i):
             assert C==2, f"Complex type requires image to have C=2, given C={C}"
-            diff_L1 = torch.abs(outputs[:,0]-targets[:,0]) + torch.abs(outputs[:,1]-targets[:,1])
+            diff_L1_real = torch.abs(outputs[:,0]-targets[:,0])
+            diff_L1_imag = torch.abs(outputs[:,1]-targets[:,1])
+            loss = torch.sqrt(diff_L1_real * diff_L1_real + diff_L1_imag * diff_L1_imag + self.eps * self.eps)
         else:
             diff_L1 = torch.abs(outputs-targets)
-
-        loss = torch.sqrt(diff_L1 * diff_L1 + self.eps * self.eps)
+            loss = torch.sqrt(diff_L1 * diff_L1 + self.eps * self.eps)
 
         if(weights is not None):
 
