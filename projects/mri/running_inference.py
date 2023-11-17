@@ -66,10 +66,10 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
     # setup the model and image
     is_torch_model = isinstance(model, torch.nn.Module)
     is_script_model = isinstance(model, torch.jit._script.RecursiveScriptModule)
-    
+
     if device == torch.device('cpu'):
         batch_size = 32
-    
+
     torch_dtype = torch.float32
     if is_torch_model or is_script_model:
         # if is_script_model:
@@ -84,7 +84,7 @@ def running_inference(model, image, cutout=(16,256,256), overlap=(4,64,64), batc
             else:
                 torch_dtype = torch.float32
         else:
-            torch_dtype = torch.bfloat16
+            torch_dtype = torch.float32
 
         if verbose: 
             print(f"processing tensor dtype {torch_dtype}, device {device}")

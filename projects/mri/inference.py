@@ -44,7 +44,7 @@ from time import time
 import onnxruntime as ort
 import GPUtil
 
-from utils.status import model_info, start_timer, end_timer, support_bfloat16, get_device
+from utils import start_timer, end_timer, get_device
 from mri_model import create_model
 from running_inference import running_inference
 
@@ -415,7 +415,7 @@ def load_model(saved_model_path):
 
     if saved_model_path.endswith(".pt") or saved_model_path.endswith(".pth"):
 
-        status = torch.load(saved_model_path)
+        status = torch.load(saved_model_path, map_location='cpu')
         config = status['config']
 
         if not torch.cuda.is_available():
@@ -440,7 +440,7 @@ def load_model(saved_model_path):
 
     if saved_model_path.endswith(".pt") or saved_model_path.endswith(".pth"):
 
-        status = torch.load(saved_model_path)
+        status = torch.load(saved_model_path, map_location='cpu')
         config = status['config']
 
         if not torch.cuda.is_available():
