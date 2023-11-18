@@ -369,7 +369,7 @@ class run_ddp_base(object):
         parser.add_argument("--stride_t", type=int, default=2, help='stride for temporal attention, q and k (equal x and y)') 
         parser.add_argument("--separable_conv", action="store_true", help='if set, use separable conv')
 
-        parser.add_argument("--scheduler_type", type=none_or_str, default="ReduceLROnPlateau", choices=["ReduceLROnPlateau", "StepLR", "OneCycleLR", None], help='Which LR scheduler to use')
+        parser.add_argument("--scheduler_type", type=none_or_str, default="OneCycleLR", choices=["ReduceLROnPlateau", "StepLR", "OneCycleLR", None], help='Which LR scheduler to use')
 
         parser.add_argument("--seed", type=int, default=None, help='seed for randomization')
 
