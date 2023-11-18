@@ -92,8 +92,9 @@ class Test_MRI_Tra(object):
 
     @classmethod
     def teardown_class(cls):
-        os.system("kill -9 $(ps aux | grep torchrun | grep -v grep | awk '{print $2}') ")
-        os.system("kill -9 $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
+        #os.system("kill -9 $(ps aux | grep torchrun | grep -v grep | awk '{print $2}') ")
+        #os.system("kill -9 $(ps aux | grep wandb | grep -v grep | awk '{print $2}') ")
+        pass
 
     def run_training(self, data_root, log_root, cmd_run, run_folder):
 

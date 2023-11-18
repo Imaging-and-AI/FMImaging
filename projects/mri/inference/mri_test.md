@@ -166,8 +166,18 @@ model=/export/Lab-Xue/projects/mri-main/logs/mri_main-2nd_STCNNT_HRNET_T1L1G1_T1
 
 model=/export/Lab-Xue/projects/mri-main/logs/mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231114_090037_843822_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_3
 
+model=/export/Lab-Xue/projects/mri-main/logs/mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231115_213057_794008_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1/mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231115_213057_794008_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1_epoch-20.pth
+
+model=/export/Lab-Xue/projects/mri-main/logs/mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231116_221321_671150_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_0
+
 RES_DIR=res_2nd_hrnet_TLG_TLG
 model_type_str=MRI_double_net
+scaling_factor=1.0
+
+model=/export/Lab-Xue/projects/data/logs/mri-main-1st_perp_charb_vgg_with_perf_STCNNT_HRNET_T1L1G1_T1L1G1_20231115_223334_623623_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/mri-main-1st_perp_charb_vgg_with_perf_STCNNT_HRNET_T1L1G1_T1L1G1_20231115_223334_623623_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1_epoch-30.pth
+
+RES_DIR=res_1st_hrnet_TLG_TLG
+model_type_str=STCNNT_MRI
 scaling_factor=1.0
 
 export CUDA_VISIBLE_DEVICES=7
@@ -177,6 +187,8 @@ export DISABLE_FLOAT16_INFERENCE=True
 # quick test case
 
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20231102_HV/meas_MID00542_FID20263_G25_4CH_CINE_256_R3ipat_85phase_res_BH/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20231102_HV/meas_MID00542_FID20263_G25_4CH_CINE_256_R3ipat_85phase_res_BH/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
 
 # ======================================================================
 # snr level test

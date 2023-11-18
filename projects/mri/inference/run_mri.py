@@ -167,7 +167,7 @@ class mri_ddp_base(run_ddp_base):
                                                 #"BARTS_RetroCine_3T_2023.h5", 
                                                 #"BARTS_RetroCine_1p5T_2023.h5",
                                                 #"BWH_Perfusion_3T_2023.h5",
-                                                #"BWH_Perfusion_3T_2022.h5",
+                                                #"BWH_Perfusion_3T_2021.h5",
                                                 #"MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", 
                                                 #"MINNESOTA_UHVC_RetroCine_1p5T_2022.h5",
 
@@ -179,7 +179,7 @@ class mri_ddp_base(run_ddp_base):
                                             "test_2DT_sig_1_16_2000.h5",
 
 
-                            "--train_data_types", "2dt", "2dt", "2dt", 
+                            "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", 
                             "--test_data_types", "3d", "2dt", "2d", "2dt", "2d", "2dt",
                         ])
 

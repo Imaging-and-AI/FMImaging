@@ -24,7 +24,7 @@ class sched_parser(object):
             self.add_step_sched_args()
         if scheduler_type=='OneCycleLR': 
             self.add_cycle_sched_args()
-        
+
     def add_plateau_sched_args(self):
         self.parser.add_argument('--scheduler.patience', type=int, default=0, help="Number of epochs to wait for further LR adjustment")
         self.parser.add_argument('--scheduler.cooldown', type=int, default=0, help="After adjusting the LR, number of epochs to wait before tracking loss")
