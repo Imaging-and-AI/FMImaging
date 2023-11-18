@@ -216,7 +216,7 @@ class run_ddp_base(object):
             cmd_run.extend(["--num_workers", f"{config.num_workers}"])
 
         if config.continued_training:
-            cmd_run.extend(["--continued_training"])
+            cmd_run.extend(["--continued_training", "True"])
 
         if config.use_amp:
             cmd_run.extend(["--use_amp"])

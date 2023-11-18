@@ -118,6 +118,7 @@ def main():
     lr = config.optim.lr
     optim = config.optim
     scheduler_type = config.scheduler_type
+    scheduler = config.scheduler
     losses = config.losses
     loss_weights = config.loss_weights
     weighted_loss_snr = config.weighted_loss_snr
@@ -175,6 +176,7 @@ def main():
         config.loss_weights = loss_weights
         config.optim = optim
         config.scheduler_type = scheduler_type
+        config.scheduler = scheduler
         config.optim.lr = lr
         config.optim.global_lr = global_lr
         config.num_epochs = num_epochs

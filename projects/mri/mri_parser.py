@@ -105,8 +105,6 @@ class mri_parser(object):
         self.parser.add_argument('--post_mixed_unetr.use_window_partition', dest='post_mixed_unetr.use_window_partition', type=int, default=0, help="whether to add window partition on input tensors")
         self.parser.add_argument('--post_mixed_unetr.separable_conv', dest='post_mixed_unetr.separable_conv', action="store_true", help="post network, whether to use separable convolution.")
 
-        self.parser.add_argument("--continued_training", action="store_true", help='if set, it means a continued training loaded from checkpoints (optim and scheduler will be loaded); if not set, it mean a new stage of training.')
-
         # training
         self.parser.add_argument('--num_uploaded', type=int, default=12, help='number of images uploaded to wandb')
         self.parser.add_argument("--num_saved_samples", type=int, default=32, help='number of samples to save')
