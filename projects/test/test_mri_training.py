@@ -80,7 +80,7 @@ def get_test_folders():
 num_epochs=6
 tra_ratio=10
 val_ratio=5
-test_ratio=10
+test_ratio=5
 
 class Test_MRI_Tra(object):
 
