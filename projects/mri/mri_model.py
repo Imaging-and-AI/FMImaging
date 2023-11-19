@@ -601,8 +601,8 @@ class MRI_double_net(STCNNT_MRI):
             config_post.backbone_hrnet.C = backbone_C_out
 
             if self.config.super_resolution:
-                config_post.height[0] *= 2
-                config_post.width[0] *= 2
+                config_post.height *= 2
+                config_post.width *= 2
 
             self.post['post_main'] = STCNNT_HRnet(config=config_post)
 
@@ -624,8 +624,8 @@ class MRI_double_net(STCNNT_MRI):
             config_post.backbone_mixed_unetr.C = backbone_C_out
 
             if self.config.super_resolution:
-                config_post.height[0] *= 2
-                config_post.width[0] *= 2
+                config_post.height *= 2
+                config_post.width *= 2
 
             self.post['post_main'] = STCNNT_Mixed_Unetr(config=config_post)
 
