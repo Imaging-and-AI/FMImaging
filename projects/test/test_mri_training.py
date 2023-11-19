@@ -157,7 +157,7 @@ class Test_MRI_Tra(object):
                    "--losses", "mse", "perpendicular", "perceptual", "charbonnier", "gaussian3D", "--loss_weights", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0",
                    "--project", "FM-UT-MRI"]
 
-        metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_hrnet_TLG_TLG_STCNNT_HRNET_T1L1G1_T1L1G1_STCNNT_MRI_C-32-1_amp-True_complex_residual-T1L1G1_T1L1G1')
+        metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_hrnet_TLG_TLG_STCNNT_HRNET_T1L1G1_T1L1G1_STCNNT_MRI_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1')
 
         assert metrics['loss'] < 4.0
         assert metrics['mse'] < 0.8
@@ -197,7 +197,7 @@ class Test_MRI_Tra(object):
                    "--losses", "mse", "perpendicular", "perceptual", "charbonnier", "gaussian3D", "--loss_weights", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0",
                    "--project", "FM-UT-MRI"]
 
-        metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_unet_TLG_TLG_STCNNT_UNET_T1L1G1_T1L1G1_STCNNT_MRI_C-32-1_amp-True_complex_residual-T1L1G1_T1L1G1')
+        metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_unet_TLG_TLG_STCNNT_UNET_T1L1G1_T1L1G1_STCNNT_MRI_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1')
 
         assert metrics['loss'] < 4.0
         assert metrics['mse'] < 0.8
@@ -237,7 +237,7 @@ class Test_MRI_Tra(object):
                    "--losses", "mse", "perpendicular", "perceptual", "charbonnier", "gaussian3D", "--loss_weights", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0",
                    "--project", "FM-UT-MRI"]
 
-        metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_hrnet_C3C3C3_C3C3C3_STCNNT_HRNET_C3C3C3_C3C3C3_STCNNT_MRI_C-32-1_amp-True_complex_residual-C3C3C3_C3C3C3')
+        metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_hrnet_C3C3C3_C3C3C3_STCNNT_HRNET_C3C3C3_C3C3C3_STCNNT_MRI_C-64-1_amp-True_complex_residual-C3C3C3_C3C3C3')
 
         assert metrics['loss'] < 4.0
         assert metrics['mse'] < 0.8
