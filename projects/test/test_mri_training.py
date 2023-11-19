@@ -77,7 +77,7 @@ def get_test_folders():
 
 # --------------------------------------------------------
 
-num_epochs=10
+num_epochs=6
 tra_ratio=10
 val_ratio=10
 test_ratio=20
@@ -135,7 +135,7 @@ class Test_MRI_Tra(object):
                    "--nproc_per_node", f"{torch.cuda.device_count()}", 
                    "--use_amp", 
                    "--num_epochs", f"{num_epochs}", 
-                   "--batch_size", "16", 
+                   "--batch_size", "8", 
                    "--data_root", data_root, 
                    "--log_root", log_root, 
                    "--run_extra_note", "test_hrnet_TLG_TLG", 
@@ -153,7 +153,7 @@ class Test_MRI_Tra(object):
                    "--val_ratio", f"{val_ratio}", 
                    "--test_ratio", f"{test_ratio}",
                    "--scheduler_factor", "0.8", 
-                   "--ut_mode", 
+                   "--ut_mode", "--scheduler_type", "OneCycleLR",
                    "--project", "FM-UT-MRI"]
 
         metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_hrnet_TLG_TLG_STCNNT_HRNET_T1L1G1_T1L1G1_STCNNT_MRI_C-32-1_amp-True_complex_residual-T1L1G1_T1L1G1')
@@ -174,7 +174,7 @@ class Test_MRI_Tra(object):
                    "--nproc_per_node", f"{torch.cuda.device_count()}", 
                    "--use_amp", 
                    "--num_epochs", f"{num_epochs}", 
-                   "--batch_size", "16", 
+                   "--batch_size", "8", 
                    "--data_root", data_root, 
                    "--log_root", log_root, 
                    "--run_extra_note", "test_unet_TLG_TLG", 
@@ -192,7 +192,7 @@ class Test_MRI_Tra(object):
                    "--val_ratio", f"{val_ratio}", 
                    "--test_ratio", f"{test_ratio}",
                    "--scheduler_factor", "0.8", 
-                   "--ut_mode", 
+                   "--ut_mode", "--scheduler_type", "OneCycleLR",
                    "--project", "FM-UT-MRI"]
 
         metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_unet_TLG_TLG_STCNNT_UNET_T1L1G1_T1L1G1_STCNNT_MRI_C-32-1_amp-True_complex_residual-T1L1G1_T1L1G1')
@@ -213,7 +213,7 @@ class Test_MRI_Tra(object):
                    "--nproc_per_node", f"{torch.cuda.device_count()}", 
                    "--use_amp", 
                    "--num_epochs", f"{num_epochs}", 
-                   "--batch_size", "16", 
+                   "--batch_size", "8", 
                    "--data_root", data_root, 
                    "--log_root", log_root, 
                    "--run_extra_note", "test_hrnet_C3C3C3_C3C3C3", 
@@ -231,7 +231,7 @@ class Test_MRI_Tra(object):
                    "--val_ratio", f"{val_ratio}", 
                    "--test_ratio", f"{test_ratio}",
                    "--scheduler_factor", "0.8", 
-                   "--ut_mode", 
+                   "--ut_mode", "--scheduler_type", "OneCycleLR",
                    "--project", "FM-UT-MRI"]
 
         metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_hrnet_C3C3C3_C3C3C3_STCNNT_HRNET_C3C3C3_C3C3C3_STCNNT_MRI_C-32-1_amp-True_complex_residual-C3C3C3_C3C3C3')
