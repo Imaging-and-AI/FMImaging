@@ -5,6 +5,7 @@ A base model for training, supporting multi-node, multi-gpu training
 import os
 import sys
 import logging
+import warnings
 
 from colorama import Fore, Style
 
@@ -227,7 +228,11 @@ class TrainManager(object):
 
                 if c.scheduler_type != "OneCycleLR":
                     if c.scheduler_type == "ReduceLROnPlateau":
-                        sched.step(loss.item())
+                        try: 
+                            sched.step(self.metric_manager.average_eval_metrics['loss'])
+                        except:
+                            warnings.warn("Average loss not available, using step loss to step scheduler.")
+                            sched.step(loss.item())
                     elif c.scheduler_type == "StepLR":
                         sched.step()
 
