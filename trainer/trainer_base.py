@@ -205,7 +205,7 @@ class TrainManager(object):
                     # Run metric logging for each epoch 
                     tm = start_timer(enable=c.with_timer) 
 
-                    self.metric_manager.on_train_epoch_end(epoch, rank)
+                    self.metric_manager.on_train_epoch_end(model_manager, optim, sched, epoch, rank)
 
                     # Print out metrics from this epoch
                     pbar_str = f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} tra, rank {rank},  {inputs.shape}, lr {curr_lr:.8f}"
