@@ -226,15 +226,32 @@ class MriMetricManager(MetricManager):
     # ---------------------------------------------------------------------------------------
     def on_eval_step_end(self, loss, output, labels, ids, rank, save_samples, split):
 
-        x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = labels
-        y_hat, output_1st_net = self.parse_output(output)
+        with torch.inference_mode():
+            x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = labels
+            y_hat, output_1st_net = self.parse_output(output)
 
-        y_for_loss = y
-        if self.config.super_resolution:
-            y_for_loss = y_2x
+            x = torch.clone(x)
+            y = torch.clone(y)
+            y_degraded = torch.clone(y_degraded)
+            y_2x = torch.clone(y_2x)
+            y_hat = torch.clone(y_hat)
 
-        y_hat = y_hat.to(torch.float32)
-        y_for_loss = y_for_loss.to(device=y_hat.device, dtype=torch.float32)
+            B = x.shape[0]
+            noise_sigmas = torch.reshape(noise_sigmas, [B, 1, 1, 1, 1])
+
+            x *= noise_sigmas
+            y *= noise_sigmas
+            y_degraded *= noise_sigmas
+            if self.config.super_resolution:
+                y_2x *= noise_sigmas
+            y_hat *= noise_sigmas.to(device=y_hat.device)
+
+            y_for_loss = y
+            if self.config.super_resolution:
+                y_for_loss = y_2x
+
+            y_hat = y_hat.to(torch.float32)
+            y_for_loss = y_for_loss.to(device=y_hat.device, dtype=torch.float32)
 
         for metric_name in self.eval_metrics.keys():
             if metric_name=='loss':
@@ -248,7 +265,9 @@ class MriMetricManager(MetricManager):
             save_path = os.path.join(self.config.log_dir,self.config.run_name,'saved_samples',split)
             os.makedirs(save_path, exist_ok=True)
                                
-            if output_1st_net is not None: output_1st_net = output_1st_net.detach().cpu()
+            if output_1st_net is not None: 
+                output_1st_net = output_1st_net.detach().cpu()
+                output_1st_net *= noise_sigmas.cpu()
             self.save_batch_samples(save_path, f"{ids}", x.cpu(), y.cpu(), y_hat.detach().cpu(), y_for_loss.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item(), output_1st_net)
 
     # ---------------------------------------------------------------------------------------        

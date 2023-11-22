@@ -218,6 +218,9 @@ class run_ddp_base(object):
         if config.continued_training:
             cmd_run.extend(["--continued_training", "True"])
 
+        if config.only_eval:
+            cmd_run.extend(["--train_model", "False"])
+
         if config.use_amp:
             cmd_run.extend(["--use_amp"])
 
@@ -380,6 +383,7 @@ class run_ddp_base(object):
         parser.add_argument("--run_list", type=int, nargs='+', default=[-1], help="run list")
 
         parser.add_argument("--continued_training", action="store_true", help='if set, it means a continued training loaded from checkpoints (optim and scheduler will be loaded); if not set, it mean a new stage of training.')
+        parser.add_argument("--only_eval", action="store_true", help="If True, only perform evaluation")
 
         parser.add_argument("--use_amp", action="store_true", help='if set, use mixed precision training.')
 

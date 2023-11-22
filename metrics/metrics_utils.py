@@ -30,7 +30,7 @@ class AverageMeter(object):
     """
     Computes and stores the average and current value
     """
-    def __init__(self):        
+    def __init__(self):
         self.reset()
 
     def reset(self):
@@ -46,7 +46,7 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
-        
+
         self.vals.append(val)
         self.counts.append(n)
 

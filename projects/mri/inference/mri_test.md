@@ -1,137 +1,6 @@
 ### Run the example cases
 
 ```
-
-# good model after gradient-deriv fine-tuning
-model=/export/Lab-Xue/projects/mri/checkpoints/mri-HRNET-20230702_013521_019623_complex_residual_weighted_loss-T1L1G1_T1L1G1_T1L1G1_T1L1G1_epoch-59.pth
-
-# large model
-model=/export/Lab-Xue/projects/mri/models/mri-HRNET-20230708_034122_305779_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_03-41-31-20230708_best.pt
-
-# medium model
-model=/export/Lab-Xue/projects/mri/test/after_flash_attention/mri-HRNET-20230710_010701_408688_complex_residual_weighted_loss-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_01-57-06-20230711_best.pt
-
-# small model
-model=/export/Lab-Xue/projects/mri/test/after_flash_attention/mri-HRNET-20230710_010701_409083_complex_residual_weighted_loss-T1L1G1_T1L1G1_T1L1G1_T1L1G1_epoch-67.pth
-
-
-# different model sizes
-model=/export/Lab-Xue/projects/mri/test/after_flash_attention/mri-HRNET-20230710_010701_408688_complex_residual_weighted_loss-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-98.pth
-
-model=/export/Lab-Xue/projects/mri/checkpoints/mri-HRNET-20230712_215823_066536_C-64-4_complex_residual_weighted_loss-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-1024.pth
-
-model=/export/Lab-Xue/projects/mri/test/after_flash_attention/mri-HRNET-20230710_010701_408769_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_19-56-09-20230711_best.pt
-
-model=/export/Lab-Xue/projects/mri/checkpoints/mri-HRNET-20230710_010701_408769_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-1024.pth
-
-# double net
-
-# 1st stage
-model=/export/Lab-Xue/projects/mri/test/first_stage/mri-STCNNT_MRI_20230721_225151_726014_C-32-1_amp-True_complex_residual_weighted_loss-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-67.pth
-
-RES_DIR=res
-model_type_str=STCNNT_MRI
-
-# 2nd stage
-model=/export/Lab-Xue/projects/mri/checkpoints/mri-HRNET-20230716_190117_960318_C-32-1_amp-False_complex_residual_weighted_loss-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-50.pth
-RES_DIR=res_double_net
-model_type_str=MRI_double_net
-
-# new training
-model=/export/Lab-Xue/projects/mri/test/mri_hrnet/mri-HRNET-20230720_002927_C-32-1_amp-False_complex_residual_weighted_loss-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_19-01-29-20230716_best.pt
-
-# less denoising, more sharpness
-model=/export/Lab-Xue/projects/mri/test/second_stage/mri-MRI_double_net_20230722_190320_614230_C-32-1_amp-False_complex_residual_weighted_loss_snr_temporal_added_noise-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-69.pth
-
-# more denoising, less sharpness
-model=/export/Lab-Xue/projects/mri/test/second_stage/mri-MRI_double_net_20230722_235953_782390_C-32-1_amp-False_2nd_stage_perp_gaussian_ssim_complex_residual_weighted_loss_snr_temporal_added_noise-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-62.pth
-
-# model after speed up and retraining
-model=/export/Lab-Xue/projects/mri/test/second_stage/mri-MRI_double_net_20230731_225634_401217_C-32-1_amp-True_2nd_stage_noise_1to8_amp_complex_residual_weighted_loss_snr_temporal_added_noise-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-51.pth*
-
-# model on latest branch
-model=/export/Lab-Xue/projects/mri/test/hy_search_contined_gaussian_2nd_stage/hy_search_contined_gaussian_2nd_stage_epoch-74.pth
-
-RES_DIR=res_double_net
-model_type_str=MRI_double_net
-scaling_factor=1.0
-
-export CUDA_VISIBLE_DEVICES=7
-
-# 2x super resolution model
-model=/export/Lab-Xue/projects/mri/checkpoints/mri-validation-MRI_double_net_20230915_225832_809885_C-32-1_amp-False_2nd_stage_super_resolution_bspline_complex_residual-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-21_best.pth
-model=/export/Lab-Xue/projects/mri-main/checkpoints/mri-main-MRI_double_net_20230927_082939_795557_C-32-1_amp-False_2nd_main_branch_complex_residual-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-6.pth
-
-# for the paper - number
-model=/export/Lab-Xue/projects/mri/test/2nd_hrnet_TLG_TLGTLG/mri-main-MRI_double_net_20230930_034949_947892_C-32-1_amp-False_2nd_main_branch_T1L1G1_T1L1G1T1L1G1_complex_residual-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_13-58-47-20230922_best.pt
-
-RES_DIR=res_double_net
-model_type_str=MRI_double_net
-scaling_factor=0.65
-
-model=/export/Lab-Xue/projects/mri/test/2nd_hrnet_TLG_TLGTLG/mri-main-STCNNT_MRI_20230923_204006_841700_C-32-1_amp-True_1st_main_branch_complex_residual-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_13-58-47-20230922_best.pt
-
-RES_DIR=res_1st_net
-model_type_str=STCNNT_MRI
-scaling_factor=0.65
-
-# T1L1G1, T1L1G1
-model=/export/Lab-Xue/projects/mri/test/2nd_hrnet_T1T1T1_T1T1T1/mri-main-2nd_hrnet_T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_20231013_184712_294031_MRI_double_net_C-32-1_amp-False_complex_residual_last.pt
-
-RES_DIR=res_double_net_TLG_TL1
-model_type_str=MRI_double_net
-scaling_factor=1.0
-
-model=/export/Lab-Xue/projects/mri/test/1st_hrnet_TLG_TLGTLG/mri-main-1st_for_paper_v5_comparison_hrnet_T1L1G1_T1L1G1T1L1G1_20231010_150217_717315_STCNNT_MRI_C-32-1_amp-True_complex_residual-T1L1G1_T1L1G1T1L1G1_15-02-26-20231010_best.pt
-
-RES_DIR=res_1st_net_TLG_TLG
-model_type_str=STCNNT_MRI
-scaling_factor=1.0
-
-# only T1T1T1
-model=/export/Lab-Xue/projects/mri/test/2nd_hrnet_T1T1T1_T1T1T1/mri-main-2nd_T1T1T1_T1T1T1_hrnet_T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_20231014_181501_728334_MRI_double_net_C-32-1_amp-False_complex_residual-best.pt
-model=/export/Lab-Xue/projects/mri/test/2nd_hrnet_T1T1T1_T1T1T1/mri-main-2nd_hrnet_T1T1T1_T1T1T1_20231015_212207_440875_MRI_double_net_C-32-1_amp-False_complex_residual-T1T1T1_T1T1T1_epoch-17.pth
-
-RES_DIR=res_double_net_TTT_TTT
-model_type_str=MRI_double_net
-scaling_factor=1.0
-
-model=/export/Lab-Xue/projects/mri/test/2nd_hrnet_T1T1T1_T1T1T1/mri-main-1st_hrnet_T1T1T1_T1T1T1_20231014_232142_984594_STCNNT_MRI_C-32-1_amp-False_complex_residual-T1T1T1_T1T1T1_epoch-48.pth
-RES_DIR=res_1st_net_TTT_TTT
-model_type_str=STCNNT_MRI
-scaling_factor=1.0
-
-
-# new 2nd, TLG, TLGTLG
-model=/export/Lab-Xue/projects/mri/test/2nd_hrnet_TLG_TLGTLG_only_3T/mri-main-2nd_hrnet_T1L1G1_T1L1GT1L1G1_20231015_142019_415526_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1GT1L1G1_epoch-4.pth
-model=/export/Lab-Xue/projects/mri/test/2nd_hrnet_TLG_TLGTLG/mri-main-2nd_for_paper_v5_hrnet_T1L1G1_T1L1G1T1L1G1_20231018_031614_000933_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1_epoch-5.pth
-
-# 2nd, after fix
-model=/export/Lab-Xue/projects/mri/test/2nd_hrnet_TLG_TLGTLG/mri-main-2nd_for_paper_v5_hrnet_T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_20231019_135524_058314_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-0.pth
-
-model=/export/Lab-Xue/projects/mri/test/2nd_hrnet_TLG_TLGTLG_only_3T_for_paper_v5/mri-main-2nd_for_paper_v5_hrnet_T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_20231019_135524_058314_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-47_best.pth
-
-RES_DIR=res_double_net_TLG_TLGTLG
-model_type_str=MRI_double_net
-scaling_factor=1.0
-
-# 2nd, after fix, TTT
-model=/export/Lab-Xue/projects/mri/test/2nd_hrnet_TTT_TTT/mri-main-2nd_T1T1T1_T1T1T1_hrnet_T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1T1L1G1_20231014_181501_728334_MRI_double_net_C-32-1_amp-False_complex_residual-best.pt
-
-model=/export/Lab-Xue/projects/mri/test/2nd_hrnet_TTT_TTT_only_3T_for_paper_v5/mri-main-2nd_for_paper_v5_hrnet_T1T1T1_T1T1T1_20231019_144847_267924_MRI_double_net_C-32-1_amp-False_complex_residual-T1T1T1_T1T1T1_epoch-43_best.pth
-
-RES_DIR=res_double_net_TTT_TTT
-model_type_str=MRI_double_net
-scaling_factor=1.0
-
-# 1st, after fix, TTT
-model=/export/Lab-Xue/projects/mri/test/1st_hrnet_TTT_TTT/mri-main-1st_for_paper_v5_hrnet_T1T1T1_T1T1T1_20231018_013751_213646_STCNNT_MRI_C-32-1_amp-True_complex_residual-T1T1T1_T1T1T1_13-40-52-20231016_best.pt
-
-RES_DIR=res_1st_net_TTT_TTT
-model_type_str=STCNNT_MRI
-scaling_factor=1.0
-
-# --------------------------
 # patch_v2 branch
 
 # 1st, unet, TLG, TLG
@@ -174,15 +43,26 @@ model=/export/Lab-Xue/projects/mri-main/logs/mri_main-2nd_only_cine_no_percp_STC
 
 model=/export/Lab-Xue/projects/mri-main/logs/mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231117_212634_200520_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_15
 
-RES_DIR=res_2nd_hrnet_TLG_TLG
+model=/export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231119_200635_979194_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/mri_main-2nd_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231119_200635_979194_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1_epoch-10.pth
+
+RES_DIR=res_2nd_hrnet_NN_40_TLG_TLG
 model_type_str=MRI_double_net
 scaling_factor=1.0
+
+model=model=/export/Lab-Xue/projects/data/logs/mri-main-1st_NN_40_STCNNT_HRNET_T1T1T1_T1T1T1_20231119_124856_509059_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1T1T1_T1T1T1/mri-main-1st_NN_40_STCNNT_HRNET_T1T1T1_T1T1T1_20231119_124856_509059_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1T1T1_T1T1T1_epoch-30.pth
+
+RES_DIR=res_1st_net_TTT_TTT
+model_type_str=STCNNT_MRI
+scaling_factor=1.0
+
 
 model=/export/Lab-Xue/projects/data/logs/mri-main-1st_perp_charb_vgg_with_perf_STCNNT_HRNET_T1L1G1_T1L1G1_20231115_223334_623623_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/mri-main-1st_perp_charb_vgg_with_perf_STCNNT_HRNET_T1L1G1_T1L1G1_20231115_223334_623623_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1_epoch-30.pth
 
 model=/export/Lab-Xue/projects/data/logs/mri-main-1st_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231118_040652_735337_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_24
 
 model=/export/Lab-Xue/projects/data/logs/mri-main-1st_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231118_040652_735337_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/mri-main-1st_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231118_040652_735337_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1_epoch-30.pth
+
+model=/export/Lab-Xue/projects/data/logs/mri_main-1st_BN_NN_80_STCNNT_HRNET_T1L1G1_T1L1G1_20231121_031351_308529_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/ mri_main-1st_BN_NN_80_STCNNT_HRNET_T1L1G1_T1L1G1_20231121_031351_308529_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1_epoch-30.pth
 
 RES_DIR=res_1st_hrnet_TLG_TLG
 model_type_str=STCNNT_MRI
@@ -204,6 +84,19 @@ python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/da
 case_dir=Retro_Lin_Cine_2DT_LAX_GLS_66016_078855422_078855431_409_20230613-154734_slc_1
 
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/projects/mri/data/mri_test/${case_dir}/ --output_dir /export/Lab-Xue/projects/mri/data/mri_test/${case_dir}/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname noisy --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
+
+# ======================================================================
+# val and test data
+
+torchrun --standalone --nproc_per_node 4 ./projects/mri/run.py --ddp --data_dir /data1/mri/data --log_dir /export/Lab-Xue/projects/mri_main/logs --complex_i --train_model False --continued_training True --project mri_val_test --prefetch_factor 8 --batch_size 16 --time 12 --num_uploaded 128 --ratio 20 20 5 --max_load -1 --model_type MRI_double_net --train_files BARTS_RetroCine_3T_2023.h5 --test_files test_2D_sig_2_80_1000.h5 test_2DT_sig_2_80_2000.h5 --train_data_types 2dt 2dt 2dt 2dt 2dt 2dt 2dt 2dt 3d --test_data_types 2d 2dt 2d 2dt --backbone_model STCNNT_HRNET --wandb_dir /export/Lab-Xue/projects/mri/wandb --override --pre_model_load_path /export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_80_STCNNT_HRNET_T1L1G1_T1L1G1_20231120_113650_746129_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_9_pre.pth --backbone_model_load_path /export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_80_STCNNT_HRNET_T1L1G1_T1L1G1_20231120_113650_746129_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_9_backbone.pth --post_model_load_path /export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_80_STCNNT_HRNET_T1L1G1_T1L1G1_20231120_113650_746129_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_9_post.pth --post_model_of_1st_net /export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_80_STCNNT_HRNET_T1L1G1_T1L1G1_20231120_113650_746129_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_9_post.pth --freeze_pre True --freeze_backbone True --disable_LSUV --post_backbone STCNNT_HRNET --post_hrnet.block_str T1L1G1 T1L1G1 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --min_noise_level 2.0 --max_noise_level 80.0 --mri_height 32 64 --mri_width 32 64 --run_name Tra-2nd_NN_80_test-NN_80 --run_notes mri_test_2NN_80_on_80 --n_head 64 
+
+torchrun --standalone --nproc_per_node 4 ./projects/mri/run.py --ddp --data_dir /data1/mri/data --log_dir /export/Lab-Xue/projects/mri_main/logs --complex_i --train_model False --continued_training True --project mri_val_test --prefetch_factor 8 --batch_size 16 --time 12 --num_uploaded 128 --ratio 20 20 5 --max_load -1 --model_type MRI_double_net --train_files BARTS_RetroCine_3T_2023.h5 --test_files test_2D_sig_2_80_1000.h5 test_2DT_sig_2_80_2000.h5 --train_data_types 2dt 2dt 2dt 2dt 2dt 2dt 2dt 2dt 3d --test_data_types 2d 2dt 2d 2dt --backbone_model STCNNT_HRNET --wandb_dir /export/Lab-Xue/projects/mri/wandb --override --pre_model_load_path /export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231119_200635_979194_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_8_pre.pth --backbone_model_load_path /export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231119_200635_979194_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_8_backbone.pth --post_model_load_path /export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231119_200635_979194_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_8_post.pth --post_model_of_1st_net /export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231119_200635_979194_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_8_post.pth --freeze_pre True --freeze_backbone True --disable_LSUV --post_backbone STCNNT_HRNET --post_hrnet.block_str T1L1G1 T1L1G1 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --min_noise_level 2.0 --max_noise_level 80.0 --mri_height 32 64 --mri_width 32 64 --run_name Tra-2nd_NN_40_test-NN_80 --run_notes mri_test_2NN_40_on_80 --n_head 64 
+
+
+torchrun --standalone --nproc_per_node 4 ./projects/mri/run.py --ddp --data_dir /data1/mri/data --log_dir /export/Lab-Xue/projects/mri_main/logs --complex_i --train_model False --continued_training True --project mri_val_test --prefetch_factor 8 --batch_size 16 --time 12 --num_uploaded 128 --ratio 20 20 5 --max_load -1 --model_type MRI_double_net --train_files BARTS_RetroCine_3T_2023.h5 --test_files test_2D_sig_2_40_1000.h5 test_2DT_sig_2_40_2000.h5 --train_data_types 2dt 2dt 2dt 2dt 2dt 2dt 2dt 2dt 3d --test_data_types 2d 2dt 2d 2dt --backbone_model STCNNT_HRNET --wandb_dir /export/Lab-Xue/projects/mri/wandb --override --pre_model_load_path /export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_80_STCNNT_HRNET_T1L1G1_T1L1G1_20231120_113650_746129_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_9_pre.pth --backbone_model_load_path /export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_80_STCNNT_HRNET_T1L1G1_T1L1G1_20231120_113650_746129_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_9_backbone.pth --post_model_load_path /export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_80_STCNNT_HRNET_T1L1G1_T1L1G1_20231120_113650_746129_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_9_post.pth --post_model_of_1st_net /export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_80_STCNNT_HRNET_T1L1G1_T1L1G1_20231120_113650_746129_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_9_post.pth --freeze_pre True --freeze_backbone True --disable_LSUV --post_backbone STCNNT_HRNET --post_hrnet.block_str T1L1G1 T1L1G1 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --min_noise_level 2.0 --max_noise_level 80.0 --mri_height 32 64 --mri_width 32 64 --run_name Tra-2nd_NN_80_test-NN_40 --run_notes mri_test_2NN_80_on_40 --n_head 64 
+
+torchrun --standalone --nproc_per_node 4 ./projects/mri/run.py --ddp --data_dir /data1/mri/data --log_dir /export/Lab-Xue/projects/mri_main/logs --complex_i --train_model False --continued_training True --project mri_val_test --prefetch_factor 8 --batch_size 16 --time 12 --num_uploaded 128 --ratio 20 20 5 --max_load -1 --model_type MRI_double_net --train_files BARTS_RetroCine_3T_2023.h5 --test_files test_2D_sig_2_40_1000.h5 test_2DT_sig_2_40_2000.h5 --train_data_types 2dt 2dt 2dt 2dt 2dt 2dt 2dt 2dt 3d --test_data_types 2d 2dt 2d 2dt --backbone_model STCNNT_HRNET --wandb_dir /export/Lab-Xue/projects/mri/wandb --override --pre_model_load_path /export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231119_200635_979194_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_8_pre.pth --backbone_model_load_path /export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231119_200635_979194_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_8_backbone.pth --post_model_load_path /export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231119_200635_979194_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_8_post.pth --post_model_of_1st_net /export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231119_200635_979194_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_8_post.pth --freeze_pre True --freeze_backbone True --disable_LSUV --post_backbone STCNNT_HRNET --post_hrnet.block_str T1L1G1 T1L1G1 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --min_noise_level 2.0 --max_noise_level 80.0 --mri_height 32 64 --mri_width 32 64 --run_name Tra-2nd_NN_40_test-NN_40 --run_notes mri_test_2NN_40_on_40 --n_head 64 
+
 
 # ======================================================================
 

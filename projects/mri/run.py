@@ -93,6 +93,8 @@ def main():
 
     # -----------------------------------------------
 
+    logging.info(f"{rank_str}, {Fore.YELLOW}config, min noise level - {config.min_noise_level}, max noise level - {config.max_noise_level} {Style.RESET_ALL}")
+
     start = time()
     train_set, val_set, test_set = load_mri_data(config=config)
     logging.info(f"load_mri_data took {time() - start} seconds ...")
@@ -162,6 +164,11 @@ def main():
     post_model_load_path = config.post_model_load_path
     post_model_of_1st_net = config.post_model_of_1st_net
 
+    train_model = config.train_model
+
+    min_noise_level = config.min_noise_level
+    max_noise_level = config.max_noise_level
+
     ddp = config.ddp
 
     # -----------------------------------------------        
@@ -222,6 +229,11 @@ def main():
         config.backbone_model_load_path = backbone_model_load_path
         config.post_model_load_path = post_model_load_path
         config.post_model_of_1st_net = post_model_of_1st_net
+
+        config.train_model = train_model
+
+        config.min_noise_level = min_noise_level
+        config.max_noise_level = max_noise_level
 
         config.ddp = ddp
 

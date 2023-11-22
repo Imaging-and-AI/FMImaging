@@ -246,6 +246,7 @@ class MRITrainManager(TrainManager):
 
         # ----------------------------------------------------------------------------
         # Training loop
+        epoch = 0
 
         if self.config.train_model:
 
@@ -537,7 +538,7 @@ class MRITrainManager(TrainManager):
 
         # -----------------------------------------------
 
-        if rank <= 0:
+        if rank <= 0 and self.config.train_model:
             save_path, save_file_name, config_yaml_file = self.model_manager.save_entire_model(epoch=self.config.num_epochs)
             model_loaded, config_loaded = load_model(os.path.join(save_path, save_file_name+'.pth'))
             model_full_path = os.path.join(save_path, save_file_name+'.pth')
@@ -584,7 +585,7 @@ class MRITrainManager(TrainManager):
             else: samplers = None
 
         # ------------------------------------------------------------------------
-        # Set upd data loader to evaluate        
+        # Set up data loader to evaluate        
         batch_size = c.batch_size if isinstance(data_sets[0], MRIDenoisingDatasetTrain) else 1
         num_workers_per_loader = c.num_workers // (2 * len(data_sets))
         
@@ -685,6 +686,7 @@ class MRITrainManager(TrainManager):
                         if scaling_factor > 0:
                             output /= scaling_factor
 
+                    # compute loss
                     with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
                         loss = loss_f(output, y)
 
@@ -698,12 +700,21 @@ class MRITrainManager(TrainManager):
                             output_1st_net = output
                         vid = self.save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True), y_2x.numpy(force=True), output_1st_net.numpy(force=True))
                         wandb_run.log({title: wandb.Video(vid, 
-                            caption=f"epoch {epoch}, gmap {torch.mean(gmaps_median).item():.2f}, noise {torch.mean(noise_sigmas).item():.2f}, mse {self.metric_manager.eval_metrics['mse'].avg:.2f}, ssim {self.metric_manager.eval_metrics['ssim'].avg:.2f}, psnr {self.metric_manager.eval_metrics['psnr'].avg:.2f}", 
+                            caption=f"epoch {epoch}, \
+                                        x {torch.mean(torch.abs(x)).item():.2f}, \
+                                        y_hat {torch.mean(torch.abs(output)).item():.2f}, \
+                                        y {torch.mean(torch.abs(y)).item():.2f}, \
+                                        gmap {torch.mean(gmaps_median).item():.2f}, \
+                                        noise {torch.mean(noise_sigmas).item():.2f}, \
+                                        mse {self.metric_manager.eval_metrics['mse'].val:.2f}, \
+                                        ssim {self.metric_manager.eval_metrics['ssim'].val:.2f}, \
+                                        psnr {self.metric_manager.eval_metrics['psnr'].val:.2f}, \
+                                        vgg {self.metric_manager.eval_metrics['vgg'].val:.2f}", 
                             fps=1, format="gif")})
-                    
+
                     # Print evaluation metrics to terminal
                     pbar.update(1)
-                    
+
                     log_str = self.create_log_str(self.config, epoch, rank, 
                                                 x.shape, 
                                                 torch.mean(gmaps_median).cpu().item(),
@@ -712,9 +723,8 @@ class MRITrainManager(TrainManager):
                                                 self.metric_manager,
                                                 curr_lr, 
                                                 split)
-                    
-                    pbar.set_description(log_str)
 
+                    pbar.set_description(log_str)
 
                 # Update evaluation metrics 
                 self.metric_manager.on_eval_epoch_end(rank, epoch, model_manager, optim, sched, split, final_eval)

@@ -176,12 +176,13 @@ class mri_ddp_base(run_ddp_base):
                                                 #"MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", 
                                                 #"MINNESOTA_UHVC_RetroCine_1p5T_2022.h5",
 
-                            "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test.h5", 
-                                            "train_3D_3T_retro_cine_2020_small_2DT_test.h5", 
-                                            "train_3D_3T_retro_cine_2020_small_2D_test.h5", 
-                                            "train_3D_3T_retro_cine_2020_500_samples.h5",
-                                            "test_2D_sig_1_16_1000.h5",
-                                            "test_2DT_sig_1_16_2000.h5",
+                            "--test_files", "test_2D_sig_2_40_1000.h5", "test_2DT_sig_2_40_2000.h5",
+                                            # "train_3D_3T_retro_cine_2020_small_3D_test.h5", 
+                                            # "train_3D_3T_retro_cine_2020_small_2DT_test.h5", 
+                                            # "train_3D_3T_retro_cine_2020_small_2D_test.h5", 
+                                            # "train_3D_3T_retro_cine_2020_500_samples.h5",
+                                            # "test_2D_sig_1_16_1000.h5",
+                                            # "test_2DT_sig_1_16_2000.h5",
 
 
                             "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", 
@@ -253,7 +254,7 @@ class mri_ddp_base(run_ddp_base):
 
         vars['weighted_loss_snr'] = [False]
         vars['weighted_loss_temporal'] = [False]
-        vars['weighted_loss_added_noise'] = [False]
+        vars['weighted_loss_added_noise'] = [True]
 
         vars['n_heads'] = [64]
 
