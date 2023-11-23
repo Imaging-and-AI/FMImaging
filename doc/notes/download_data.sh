@@ -40,6 +40,12 @@ azcopy copy "${data_src}/test_2DT_sig_1_16_2000.h5?${SAS}" /export/Lab-Xue/proje
 ln -s /export/Lab-Xue/projects/data/test_2D_sig_1_16_1000.h5 /export/Lab-Xue/projects/mri/data/test_2D_sig_1_16_1000.h5
 ln -s /export/Lab-Xue/projects/data/test_2DT_sig_1_16_2000.h5 /export/Lab-Xue/projects/mri/data/test_2DT_sig_1_16_2000.h5
 
+azcopy copy "${data_src}/test_2D_sig_2_40_1000.h5?${SAS}" /export/Lab-Xue/projects/imagenet
+azcopy copy "${data_src}/test_2DT_sig_2_40_2000.h5?${SAS}" /export/Lab-Xue/projects/imagenet
+
+ln -s /export/Lab-Xue/projects/imagenet/test_2D_sig_2_40_1000.h5 /export/Lab-Xue/projects/mri/data/test_2D_sig_2_40_1000.h5
+ln -s /export/Lab-Xue/projects/imagenet/test_2DT_sig_2_40_2000.h5 /export/Lab-Xue/projects/mri/data/test_2DT_sig_2_40_2000.h5
+
 # test data
 azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2DT_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
 azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2D_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
