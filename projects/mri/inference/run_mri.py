@@ -254,7 +254,7 @@ class mri_ddp_base(run_ddp_base):
 
         vars['weighted_loss_snr'] = [False]
         vars['weighted_loss_temporal'] = [False]
-        vars['weighted_loss_added_noise'] = [True]
+        vars['weighted_loss_added_noise'] = [False]
 
         vars['n_heads'] = [64]
 
