@@ -264,7 +264,7 @@ class run_ddp_base(object):
         vars['shuffle_in_windows'] = ["0"]
         vars['block_dense_connections'] = ["0"]
         #vars['norm_modes'] = ["batch2d"]
-        vars['C'] = [64]
+        #vars['C'] = [64]
         vars['scale_ratio_in_mixers'] = [4.0]
 
         vars['block_strs'] = [
@@ -278,6 +278,7 @@ class run_ddp_base(object):
         cmd_runs = []
 
         vars['norm_modes'] = [config.norm_mode]
+        vars['C'] = [config.backbone_C]
 
         for k, bk in enumerate(vars['backbone']):
                 block_str = vars['block_strs'][k]
@@ -396,6 +397,8 @@ class run_ddp_base(object):
         parser.add_argument('--scheduler_factor', type=float, default=0.9, help="LR reduction factor, multiplication")
 
         parser.add_argument("--norm_mode", type=str, default="instance2d", help='normalization mode, batch2d, instance2d, batch3d, instance3d')
+
+        parser.add_argument("--backbone_C", type=int, default=64, help='backbone channels')
 
         return parser
 

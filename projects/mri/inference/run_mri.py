@@ -211,7 +211,7 @@ class mri_ddp_base(run_ddp_base):
         vars['shuffle_in_windows'] = ["0"]
         vars['block_dense_connections'] = ["0"]
         #vars['norm_modes'] = ["instance2d"]
-        vars['C'] = [64]
+        #vars['C'] = [64]
         vars['scale_ratio_in_mixers'] = [1.0]
 
         #vars['snr_perturb_prob'] = [0.0]
@@ -266,6 +266,7 @@ class mri_ddp_base(run_ddp_base):
 
         vars['backbone'] = [config.model_backbone]
         vars['norm_modes'] = [config.norm_mode]
+        vars['C'] = [config.backbone_C]
 
         for k, bk in enumerate(vars['backbone']):
 
