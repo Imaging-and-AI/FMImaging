@@ -262,8 +262,8 @@ class run_ddp_base(object):
         vars['larger_mixer_kernels'] = [False]
         vars['mixer_types'] = ["conv"]
         vars['shuffle_in_windows'] = ["0"]
-        vars['block_dense_connections'] = ["1"]
-        vars['norm_modes'] = ["batch2d"]
+        vars['block_dense_connections'] = ["0"]
+        #vars['norm_modes'] = ["batch2d"]
         vars['C'] = [64]
         vars['scale_ratio_in_mixers'] = [4.0]
 
@@ -276,6 +276,8 @@ class run_ddp_base(object):
     def run_vars(self, config, vars):
 
         cmd_runs = []
+
+        vars['norm_modes'] = [config.norm_mode]
 
         for k, bk in enumerate(vars['backbone']):
                 block_str = vars['block_strs'][k]
@@ -392,6 +394,8 @@ class run_ddp_base(object):
         parser.add_argument("--ut_mode", action="store_true", help='if set, this run is for unit test.')
 
         parser.add_argument('--scheduler_factor', type=float, default=0.9, help="LR reduction factor, multiplication")
+
+        parser.add_argument("--norm_mode", type=str, default="instance2d", help='normalization mode, batch2d, instance2d, batch3d, instance3d')
 
         return parser
 
