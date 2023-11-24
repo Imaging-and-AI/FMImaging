@@ -211,7 +211,7 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
             matrix_size_adjust_ratio = self.matrix_size_adjust_ratio[np.random.randint(0, len(self.matrix_size_adjust_ratio))]
             data_adjusted = np.array([adjust_matrix_size(img, matrix_size_adjust_ratio) for img in data])
             if self.data_type == '3d':
-                gmap_adjusted = np.zeors((gmap.shape[0], data_adjusted.shape[2], data_adjusted.shape[1]))
+                gmap_adjusted = np.zeros((gmap.shape[0], data_adjusted.shape[2], data_adjusted.shape[1]))
                 for k in range(gmap.shape[0]):
                     gmap_adjusted[k] = cv2.resize(gmap[k], dsize=(data_adjusted.shape[2], data_adjusted.shape[1]), interpolation=cv2.INTER_LINEAR)
                 assert data_adjusted.shape[1] == gmap_adjusted.shape[1] and data_adjusted.shape[2] == gmap_adjusted.shape[2]
