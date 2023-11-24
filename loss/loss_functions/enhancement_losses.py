@@ -295,11 +295,13 @@ class MSE_Loss:
     """
     Weighted MSE loss
     """
-    def __init__(self, complex_i=False):
+    def __init__(self, rmse_mode=False, complex_i=False):
         """
         @args:
+            - rmse_mode (bool): whether to turn root mean sequare error
             - complex_i (bool): whether images are 2 channelled for complex data
         """
+        self.rmse_mode = rmse_mode
         self.complex_i = complex_i
 
     def __call__(self, outputs, targets, weights=None):
@@ -310,6 +312,8 @@ class MSE_Loss:
             diff_mag_square = torch.square(outputs[:,0]-targets[:,0]) + torch.square(outputs[:,1]-targets[:,1])
         else:
             diff_mag_square = torch.square(outputs-targets)
+
+        if self.rmse_mode: diff_mag_square = torch.sqrt(diff_mag_square)
 
         if(weights is not None):
 
@@ -980,7 +984,9 @@ class Combined_Loss:
     def str_to_loss(self, loss_name):
 
         if loss_name=="mse":
-            loss_f = MSE_Loss(complex_i=self.complex_i)
+            loss_f = MSE_Loss(rmse_mode=False, complex_i=self.complex_i)
+        if loss_name=="rmse":
+            loss_f = MSE_Loss(rmse_mode=True, complex_i=self.complex_i)
         elif loss_name=="l1":
             loss_f = L1_Loss(complex_i=self.complex_i)
         elif loss_name=="charbonnier":

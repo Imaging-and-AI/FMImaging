@@ -51,7 +51,8 @@ class MriMetricManager(MetricManager):
         
         device = self.config.device
 
-        self.mse_loss_func = MSE_Loss(complex_i=self.config.complex_i)
+        self.mse_loss_func = MSE_Loss(rmse_mode=False, complex_i=self.config.complex_i)
+        self.rmse_loss_func = MSE_Loss(rmse_mode=True, complex_i=self.config.complex_i)
         self.l1_loss_func = L1_Loss(complex_i=self.config.complex_i)
         self.ssim_loss_func = SSIM_Loss(complex_i=self.config.complex_i, device=device)
         self.ssim3D_loss_func = SSIM3D_Loss(complex_i=self.config.complex_i, device=device)
@@ -69,6 +70,7 @@ class MriMetricManager(MetricManager):
 
         self.train_metrics = {'loss': AverageMeter(),
                               'mse':AverageMeter(),
+                              'rmse':AverageMeter(),
                               'l1':AverageMeter(),
                               'ssim':AverageMeter(),
                               'ssim_3d':AverageMeter(),
@@ -87,6 +89,7 @@ class MriMetricManager(MetricManager):
         
         self.eval_metrics = {'loss': AverageMeter(),
                               'mse':AverageMeter(),
+                              'rmse':AverageMeter(),
                               'l1':AverageMeter(),
                               'ssim':AverageMeter(),
                               'ssim_3d':AverageMeter(),
@@ -105,6 +108,7 @@ class MriMetricManager(MetricManager):
             
         self.train_metric_functions = {
                               'mse':self.mse_loss_func,
+                              'rmse':self.rmse_loss_func,
                               'l1':self.l1_loss_func,
                               'ssim':self.ssim_func,
                               'ssim_3d':self.ssim3D_func,
@@ -137,6 +141,7 @@ class MriMetricManager(MetricManager):
     def get_tra_loss(self):
         return self.train_metrics['loss'].avg, \
                 self.train_metrics['mse'].avg, \
+                self.train_metrics['rmse'].avg, \
                 self.train_metrics['l1'].avg, \
                 self.train_metrics['ssim'].avg, \
                 self.train_metrics['ssim_3d'].avg, \
@@ -155,6 +160,7 @@ class MriMetricManager(MetricManager):
     def get_eval_loss(self):
         return self.eval_metrics['loss'].avg, \
                 self.eval_metrics['mse'].avg, \
+                self.eval_metrics['rmse'].avg, \
                 self.eval_metrics['l1'].avg, \
                 self.eval_metrics['ssim'].avg, \
                 self.eval_metrics['ssim_3d'].avg, \

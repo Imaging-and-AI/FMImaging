@@ -334,7 +334,7 @@ class run_ddp_base(object):
         """
         parser = argparse.ArgumentParser(prog=self.project)
 
-        parser.add_argument("--project", type=str, default="mri_main", help="project name")
+        parser.add_argument("--project", type=str, default="mri", help="project name")
 
         parser.add_argument("--data_root", type=str, default=None, help="data folder; if None, use the project folder")
         parser.add_argument("--log_root", type=str, default=None, help="log folder; if None, use the project folder")

@@ -793,11 +793,11 @@ class MRITrainManager(TrainManager):
             snr_str = ""
 
         if role == 'tra':
-            loss, mse, l1, ssim, ssim3D, ssim_loss, ssim3D_loss, psnr, psnr_loss, perp, gaussian, gaussian3D, spec, dwt, charb, vgg = loss_meters.get_tra_loss()
+            loss, mse, rmse, l1, ssim, ssim3D, ssim_loss, ssim3D_loss, psnr, psnr_loss, perp, gaussian, gaussian3D, spec, dwt, charb, vgg = loss_meters.get_tra_loss()
         else:
-            loss, mse, l1, ssim, ssim3D, ssim_loss, ssim3D_loss, psnr, psnr_loss, perp, gaussian, gaussian3D, spec, dwt, charb, vgg = loss_meters.get_eval_loss()
+            loss, mse, rmse, l1, ssim, ssim3D, ssim_loss, ssim3D_loss, psnr, psnr_loss, perp, gaussian, gaussian3D, spec, dwt, charb, vgg = loss_meters.get_eval_loss()
 
-        str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.WHITE}{Back.LIGHTBLUE_EX}{Style.NORMAL}gmap {gmap_median:.2f}, sigma {noise_sigma:.2f}{snr_str}{Style.RESET_ALL} {C}mse {mse:.4f}, l1 {l1:.4f}, perp {perp:.4f}, ssim {ssim:.4f}, ssim3D {ssim3D:.4f}, gaussian {gaussian:.4f}, gaussian3D {gaussian3D:.4f}, spec {spec:.4f}, dwt {dwt:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}, charb {charb:.4f}, vgg {vgg:.4f}{Style.RESET_ALL}{lr_str}"
+        str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.WHITE}{Back.LIGHTBLUE_EX}{Style.NORMAL}gmap {gmap_median:.2f}, sigma {noise_sigma:.2f}{snr_str}{Style.RESET_ALL} {C}mse {mse:.4f}, rmse {rmse:.4f}, l1 {l1:.4f}, perp {perp:.4f}, ssim {ssim:.4f}, ssim3D {ssim3D:.4f}, gaussian {gaussian:.4f}, gaussian3D {gaussian3D:.4f}, spec {spec:.4f}, dwt {dwt:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}, charb {charb:.4f}, vgg {vgg:.4f}{Style.RESET_ALL}{lr_str}"
 
         return str
   

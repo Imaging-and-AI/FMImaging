@@ -175,6 +175,7 @@ class mri_ddp_base(run_ddp_base):
                                                 #"BWH_Perfusion_3T_2021.h5",
                                                 #"MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", 
                                                 #"MINNESOTA_UHVC_RetroCine_1p5T_2022.h5",
+                                                "VIDA_train_clean_0430.h5",
 
                             "--test_files", "test_2D_sig_2_40_1000.h5", "test_2DT_sig_2_40_2000.h5",
                                             # "train_3D_3T_retro_cine_2020_small_3D_test.h5", 
@@ -185,8 +186,8 @@ class mri_ddp_base(run_ddp_base):
                                             # "test_2DT_sig_1_16_2000.h5",
 
 
-                            "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", 
-                            "--test_data_types", "3d", "2dt", "2d", "2dt", "2d", "2dt",
+                            "--train_data_types", "2dt", "2dt", "2dt", "3d", "2dt", 
+                            "--test_data_types", "2d", "2dt", "2d", "2dt", "2d", "2dt",
                         ])
 
         self.cmd.extend(["--snr_perturb_prob", f"{config.snr_perturb_prob}"])

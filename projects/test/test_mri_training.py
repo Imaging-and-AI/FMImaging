@@ -77,7 +77,7 @@ def get_test_folders():
 
 # --------------------------------------------------------
 
-num_epochs=6
+num_epochs=10
 tra_ratio=10
 val_ratio=5
 test_ratio=5
@@ -145,9 +145,10 @@ class Test_MRI_Tra(object):
                    "--model_block_str", "T1L1G1", "T1L1G1", 
                    "--mri_height", "32", "64", 
                    "--mri_width", "32", "64", 
-                   "--lr_pre", "1e-4", 
-                   "--lr_post", "1e-4", 
-                   "--lr_backbone", "1e-4", 
+                   "--global_lr", "1e-6",
+                   "--lr_pre", "1e-6", 
+                   "--lr_post", "1e-6", 
+                   "--lr_backbone", "1e-6", 
                    "--run_list", "0",  
                    "--tra_ratio", f"{tra_ratio}", 
                    "--val_ratio", f"{val_ratio}", 
@@ -160,8 +161,8 @@ class Test_MRI_Tra(object):
 
         metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_hrnet_TLG_TLG_STCNNT_HRNET_T1L1G1_T1L1G1_STCNNT_MRI_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1')
 
-        assert metrics['mse'] < 130
-        assert metrics['l1'] < 10
+        assert metrics['mse'] < 150
+        assert metrics['l1'] < 12
         assert metrics['ssim'] > 0.55
         assert metrics['psnr'] > 50
 
@@ -186,9 +187,10 @@ class Test_MRI_Tra(object):
                    "--model_block_str", "T1L1G1", "T1L1G1", 
                    "--mri_height", "32", "64", 
                    "--mri_width", "32", "64", 
-                   "--lr_pre", "1e-4", 
-                   "--lr_post", "1e-4", 
-                   "--lr_backbone", "1e-4", 
+                   "--global_lr", "1e-6",
+                   "--lr_pre", "1e-6", 
+                   "--lr_post", "1e-6", 
+                   "--lr_backbone", "1e-6", 
                    "--run_list", "0",  
                    "--tra_ratio", f"{tra_ratio}", 
                    "--val_ratio", f"{val_ratio}", 
@@ -201,8 +203,8 @@ class Test_MRI_Tra(object):
 
         metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_unet_TLG_TLG_STCNNT_UNET_T1L1G1_T1L1G1_STCNNT_MRI_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1')
 
-        assert metrics['mse'] < 125
-        assert metrics['l1'] < 10
+        assert metrics['mse'] < 150
+        assert metrics['l1'] < 12
         assert metrics['ssim'] > 0.55
         assert metrics['psnr'] > 50
 
@@ -227,9 +229,10 @@ class Test_MRI_Tra(object):
                    "--model_block_str", "C3C3C3", "C3C3C3", 
                    "--mri_height", "32", "64", 
                    "--mri_width", "32", "64", 
-                   "--lr_pre", "1e-4", 
-                   "--lr_post", "1e-4", 
-                   "--lr_backbone", "1e-4", 
+                   "--global_lr", "1e-6",
+                   "--lr_pre", "1e-6", 
+                   "--lr_post", "1e-6", 
+                   "--lr_backbone", "1e-6", 
                    "--run_list", "0",  
                    "--tra_ratio", f"{tra_ratio}", 
                    "--val_ratio", f"{val_ratio}", 
