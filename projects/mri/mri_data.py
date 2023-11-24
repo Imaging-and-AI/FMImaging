@@ -211,12 +211,12 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
             matrix_size_adjust_ratio = self.matrix_size_adjust_ratio[np.random.randint(0, len(self.matrix_size_adjust_ratio))]
             data_adjusted = np.array([adjust_matrix_size(img, matrix_size_adjust_ratio) for img in data])
             if self.data_type == '3D':
-                gmap_adjusted = np.zeors((gmap.shape[0], data_adjusted.shape[1], data_adjusted.shape[2]))
+                gmap_adjusted = np.zeors((gmap.shape[0], data_adjusted.shape[2], data_adjusted.shape[1]))
                 for k in range(gmap.shape[0]):
-                    gmap_adjusted[k] = cv2.resize(gmap[k], dsize=(data_adjusted.shape[1], data_adjusted.shape[2]), interpolation=cv2.INTER_LINEAR)
+                    gmap_adjusted[k] = cv2.resize(gmap[k], dsize=(data_adjusted.shape[2], data_adjusted.shape[1]), interpolation=cv2.INTER_LINEAR)
                 assert data_adjusted.shape[1] == gmap_adjusted.shape[1] and data_adjusted.shape[2] == gmap_adjusted.shape[2]
             else:
-                gmap_adjusted = cv2.resize(gmap, dsize=(data_adjusted.shape[1], data_adjusted.shape[2]), interpolation=cv2.INTER_LINEAR)
+                gmap_adjusted = cv2.resize(gmap, dsize=(data_adjusted.shape[2], data_adjusted.shape[1]), interpolation=cv2.INTER_LINEAR)
                 assert data_adjusted.shape[1] == gmap_adjusted.shape[0] and data_adjusted.shape[2] == gmap_adjusted.shape[1]
 
             data = data_adjusted
@@ -867,6 +867,41 @@ if __name__ == '__main__':
 
     # -----------------------------------------------------------------
 
+    file = "/data1/mri/data/train_3D_3T_retro_cine_2018.h5"
+    h5file = h5py.File(file, libver='earliest', mode='r')
+    keys = list(h5file.keys())
+
+    images = load_images_from_h5file([h5file], [keys], max_load=-1)
+
+    tra_data = MRIDenoisingDatasetTrain([h5file], [keys], data_type='2DT', load_2x_resolution=False, ignore_gmap=False, only_white_noise=False)
+
+    for k in range(len(tra_data)):
+        print(f"{k} out of {len(tra_data)}")
+        noisy_im, clean_im, clean_im_degraded, clean_im_2x, gmaps_median, noise_sigmas = tra_data[k]
+
+    for k in range(10):
+        noisy_im, clean_im, clean_im_degraded, clean_im_2x, gmaps_median, noise_sigmas = tra_data[np.random.randint(len(tra_data))]
+
+        noisy_im = np.transpose(noisy_im.numpy(), (2, 3, 0, 1)) # H, W, C, T
+        clean_im = np.transpose(clean_im.numpy(), (2, 3, 0, 1))
+        clean_im_degraded = np.transpose(clean_im_degraded.numpy(), (2, 3, 0, 1))
+        clean_im_2x = np.transpose(clean_im_2x.numpy(), (2, 3, 0, 1))
+
+        gmap = noisy_im[:,:,2,:]
+        noisy_im = noisy_im[:,:,0,:] + 1j * noisy_im[:,:,1,:]
+        clean_im = clean_im[:,:,0,:] + 1j * clean_im[:,:,1,:]
+        clean_im_degraded = clean_im_degraded[:,:,0,:] + 1j * clean_im_degraded[:,:,1,:]
+        clean_im_2x = clean_im_2x[:,:,0,:] + 1j * clean_im_2x[:,:,1,:]
+
+        nib.save(nib.Nifti1Image(np.abs(noisy_im), affine=np.eye(4)), os.path.join(saved_path, f"noisy_im_{k}.nii"))
+        nib.save(nib.Nifti1Image(np.abs(clean_im), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_{k}.nii"))
+        nib.save(nib.Nifti1Image(np.abs(clean_im_degraded), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_degraded_{k}.nii"))
+        nib.save(nib.Nifti1Image(np.abs(clean_im_2x), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_2x_{k}.nii"))
+        nib.save(nib.Nifti1Image(gmap, affine=np.eye(4)), os.path.join(saved_path, f"gmap_{k}.nii"))
+        print(gmaps_median, noise_sigmas)
+
+# -----------------------------------------------------------------
+
     file = "/data/FM_data_repo/mri/VIDA_train_clean_0430.h5"
     h5file = h5py.File(file, libver='earliest', mode='r')
     keys = list(h5file.keys())
@@ -893,37 +928,6 @@ if __name__ == '__main__':
         clean_im = clean_im.numpy()
         clean_im_degraded = clean_im_degraded.numpy()
         clean_im_2x = clean_im_2x.numpy()
-
-        nib.save(nib.Nifti1Image(np.abs(noisy_im), affine=np.eye(4)), os.path.join(saved_path, f"noisy_im_{k}.nii"))
-        nib.save(nib.Nifti1Image(np.abs(clean_im), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_{k}.nii"))
-        nib.save(nib.Nifti1Image(np.abs(clean_im_degraded), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_degraded_{k}.nii"))
-        nib.save(nib.Nifti1Image(np.abs(clean_im_2x), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_2x_{k}.nii"))
-        nib.save(nib.Nifti1Image(gmap, affine=np.eye(4)), os.path.join(saved_path, f"gmap_{k}.nii"))
-        print(gmaps_median, noise_sigmas)
-
-    # -----------------------------------------------------------------
-
-    file = "/data/mri/data/BARTS_RetroCine_1p5T_2023_with_2x_resized.h5"
-    h5file = h5py.File(file, libver='earliest', mode='r')
-    keys = list(h5file.keys())
-
-    images = load_images_from_h5file([h5file], [keys], max_load=-1)
-
-    tra_data = MRIDenoisingDatasetTrain([h5file], [keys], data_type='2DT', load_2x_resolution=True, ignore_gmap=False, only_white_noise=True)
-
-    for k in range(10):
-        noisy_im, clean_im, clean_im_degraded, clean_im_2x, gmaps_median, noise_sigmas = tra_data[np.random.randint(len(tra_data))]
-
-        noisy_im = np.transpose(noisy_im.numpy(), (2, 3, 0, 1)) # H, W, C, T
-        clean_im = np.transpose(clean_im.numpy(), (2, 3, 0, 1))
-        clean_im_degraded = np.transpose(clean_im_degraded.numpy(), (2, 3, 0, 1))
-        clean_im_2x = np.transpose(clean_im_2x.numpy(), (2, 3, 0, 1))
-
-        gmap = noisy_im[:,:,2,:]
-        noisy_im = noisy_im[:,:,0,:] + 1j * noisy_im[:,:,1,:]
-        clean_im = clean_im[:,:,0,:] + 1j * clean_im[:,:,1,:]
-        clean_im_degraded = clean_im_degraded[:,:,0,:] + 1j * clean_im_degraded[:,:,1,:]
-        clean_im_2x = clean_im_2x[:,:,0,:] + 1j * clean_im_2x[:,:,1,:]
 
         nib.save(nib.Nifti1Image(np.abs(noisy_im), affine=np.eye(4)), os.path.join(saved_path, f"noisy_im_{k}.nii"))
         nib.save(nib.Nifti1Image(np.abs(clean_im), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_{k}.nii"))

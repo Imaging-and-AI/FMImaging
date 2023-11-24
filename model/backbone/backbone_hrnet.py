@@ -843,7 +843,7 @@ def tests():
     model = STCNNT_HRnet(config=config)
     model.to(device=device)
 
-    model = torch.compile(model, dynamic=True)
+    model = torch.compile(model, dynamic=True, fullgraph=True)
 
     with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
         for _ in range(10):
