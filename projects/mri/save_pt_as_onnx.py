@@ -106,8 +106,8 @@ def main():
     model.eval()
     print(f"input size {model_input.shape}")
 
-    # model_scripted = torch.jit.trace(model, model_input, strict=False)
-    # model_scripted.save(args.output)
+    model_scripted = torch.jit.trace(model, model_input, strict=False)
+    model_scripted.save(args.output)
 
     torch.onnx.export(model, model_input, args.output_onnx, 
                     export_params=True, 

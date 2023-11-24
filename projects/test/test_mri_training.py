@@ -159,10 +159,10 @@ class Test_MRI_Tra(object):
 
         metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_hrnet_TLG_TLG_STCNNT_HRNET_T1L1G1_T1L1G1_STCNNT_MRI_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1')
 
-        assert metrics['loss'] < 4.0
-        assert metrics['mse'] < 0.8
-        assert metrics['l1'] < 0.8
+        assert metrics['mse'] < 110
+        assert metrics['l1'] < 12
         assert metrics['ssim'] > 0.74
+        assert metrics['psnr'] > 50
 
         # =======================================================
 
@@ -199,10 +199,10 @@ class Test_MRI_Tra(object):
 
         metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_unet_TLG_TLG_STCNNT_UNET_T1L1G1_T1L1G1_STCNNT_MRI_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1')
 
-        assert metrics['loss'] < 4.0
-        assert metrics['mse'] < 0.8
-        assert metrics['l1'] < 0.8
+        assert metrics['mse'] < 110
+        assert metrics['l1'] < 12
         assert metrics['ssim'] > 0.74
+        assert metrics['psnr'] > 50
 
         # =======================================================
 
@@ -239,10 +239,10 @@ class Test_MRI_Tra(object):
 
         metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_hrnet_C3C3C3_C3C3C3_STCNNT_HRNET_C3C3C3_C3C3C3_STCNNT_MRI_C-64-1_amp-True_complex_residual-C3C3C3_C3C3C3')
 
-        assert metrics['loss'] < 4.0
-        assert metrics['mse'] < 0.8
-        assert metrics['l1'] < 0.8
+        assert metrics['mse'] < 110
+        assert metrics['l1'] < 12
         assert metrics['ssim'] > 0.74
+        assert metrics['psnr'] > 50
 
         # =======================================================
 

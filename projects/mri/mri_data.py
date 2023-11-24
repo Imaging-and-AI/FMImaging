@@ -158,7 +158,21 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
         if not self.load_2x_resolution:
             data_2x = None
 
-        gmap = self.load_gmap(gmaps, i, random_factor=-1)
+        if self.data_type != '3D':
+            gmap = self.load_gmap(gmaps, i, random_factor=-1)
+        else:
+            gmap = gmaps
+
+            if data.shape[0] < self.time_cutout:
+                data_t = np.zeros((self.time_cutout, data.shape[1], data.shape[2]))
+                data_t[0:data.shape[0]] = data
+                data_t[data.shape[0]:] = data[-1]
+                data = data_t
+
+                gmap_t = np.zeros((self.time_cutout, data.shape[1], data.shape[2]))
+                gmap_t[0:gmap.shape[0]] = gmap
+                gmap_t[gmap.shape[0]:] = gmap[-1]
+                gmap = gmap_t
 
         if self.ignore_gmap:
             gmap.fill(1.0)
@@ -181,14 +195,29 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
         # random flip
         data, gmap, data_2x = self.random_flip(data, gmap, data_2x)
 
-        assert data.shape[1] == gmap.shape[0] and data.shape[2] == gmap.shape[1]
+        if self.data_type != '3D':
+            assert data.shape[1] == gmap.shape[0] and data.shape[2] == gmap.shape[1]
+        else:
+            assert data.shape[1] == gmap.shape[1] and data.shape[2] == gmap.shape[2]
+            if data.shape[0] > gmap.shape[0]:
+                data = data[:gmap.shape[0]]
+            if data.shape[0] < gmap.shape[0]:
+                gmap = gmap[:data.shape[0]]
+
+            assert data.shape[0] == gmap.shape[0]
 
         # random increase matrix size or reduce matrix size
         if(not self.only_white_noise) and (np.random.random()<0.5):
             matrix_size_adjust_ratio = self.matrix_size_adjust_ratio[np.random.randint(0, len(self.matrix_size_adjust_ratio))]
             data_adjusted = np.array([adjust_matrix_size(img, matrix_size_adjust_ratio) for img in data])
-            gmap_adjusted = cv2.resize(gmap, dsize=(data_adjusted.shape[2], data_adjusted.shape[1]), interpolation=cv2.INTER_LINEAR)
-            assert data_adjusted.shape[1] == gmap_adjusted.shape[0] and data_adjusted.shape[2] == gmap_adjusted.shape[1]
+            if self.data_type == '3D':
+                gmap_adjusted = np.zeors((gmap.shape[0], data_adjusted.shape[1], data_adjusted.shape[2]))
+                for k in range(gmap.shape[0]):
+                    gmap_adjusted[k] = cv2.resize(gmap[k], dsize=(data_adjusted.shape[1], data_adjusted.shape[2]), interpolation=cv2.INTER_LINEAR)
+                assert data_adjusted.shape[1] == gmap_adjusted.shape[1] and data_adjusted.shape[2] == gmap_adjusted.shape[2]
+            else:
+                gmap_adjusted = cv2.resize(gmap, dsize=(data_adjusted.shape[1], data_adjusted.shape[2]), interpolation=cv2.INTER_LINEAR)
+                assert data_adjusted.shape[1] == gmap_adjusted.shape[0] and data_adjusted.shape[2] == gmap_adjusted.shape[1]
 
             data = data_adjusted
             gmap = gmap_adjusted
@@ -199,12 +228,18 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
 
         if data.shape[1] < self.cutout_shape[0]:
             data = np.pad(data, ((0, 0), (0,self.cutout_shape[0] - data.shape[1]),(0,0)), 'symmetric')
-            gmap = np.pad(gmap, ((0,self.cutout_shape[0] - gmap.shape[0]),(0,0)), 'symmetric')
+            if self.data_type == '3D':
+                gmap = np.pad(gmap, ((0,0), (0,self.cutout_shape[0] - gmap.shape[0]),(0,0)), 'symmetric')
+            else:
+                gmap = np.pad(gmap, ((0,self.cutout_shape[0] - gmap.shape[0]),(0,0)), 'symmetric')
             if self.load_2x_resolution: data_2x = np.pad(data_2x, ((0, 0), (0, 2*(2*self.cutout_shape[0] - data_2x.shape[1])),(0,0)), 'symmetric')
 
         if data.shape[2] < self.cutout_shape[1]:
             data = np.pad(data, ((0,0), (0,0), (0,self.cutout_shape[1] - data.shape[2])), 'symmetric')
-            gmap = np.pad(gmap, ((0,0), (0,self.cutout_shape[1] - gmap.shape[1])), 'symmetric')
+            if self.data_type == '3D':
+                gmap = np.pad(gmap, ((0,0), (0,0), (0,self.cutout_shape[1] - gmap.shape[1])), 'symmetric')
+            else:
+                gmap = np.pad(gmap, ((0,0), (0,self.cutout_shape[1] - gmap.shape[1])), 'symmetric')
             if self.load_2x_resolution: data_2x = np.pad(data_2x, ((0,0), (0,0), (0, 2*(2*self.cutout_shape[1] - data_2x.shape[2]))), 'symmetric')
 
         T, RO, E1 = data.shape
@@ -279,7 +314,8 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
                 noisy_data /= noise_sigma
                 if(self.with_data_degrading): data_degraded /= noise_sigma
 
-            gmap = np.repeat(gmap[None,:,:], T, axis=0)
+            if self.data_type != '3D':
+                gmap = np.repeat(gmap[None,:,:], T, axis=0)
 
             # cut out the patch on the original grid
             s_x, s_y, s_t = self.get_cutout_range(data)
@@ -830,7 +866,43 @@ if __name__ == '__main__':
     os.makedirs(saved_path, exist_ok=True)
 
     # -----------------------------------------------------------------
-    
+
+    file = "/data/FM_data_repo/mri/VIDA_train_clean_0430.h5"
+    h5file = h5py.File(file, libver='earliest', mode='r')
+    keys = list(h5file.keys())
+
+    images = load_images_from_h5file([h5file], [keys], max_load=-1)
+
+    tra_data = MRIDenoisingDatasetTrain([h5file], [keys], time_cutout=12, data_type='3D', load_2x_resolution=False, ignore_gmap=False, only_white_noise=True)
+
+    for k in range(len(tra_data)):
+        print(f"{k} out of {len(tra_data)}")
+        noisy_im, clean_im, clean_im_degraded, clean_im_2x, gmaps_median, noise_sigmas = tra_data[k]
+
+    for k in range(10):
+        noisy_im, clean_im, clean_im_degraded, clean_im_2x, gmaps_median, noise_sigmas = tra_data[np.random.randint(len(tra_data))]
+
+        gmap = noisy_im[2]
+        noisy_im = noisy_im[0] + 1j * noisy_im[1]
+        clean_im = clean_im[0] + 1j * clean_im[1]
+        clean_im_degraded = clean_im_degraded[0] + 1j * clean_im_degraded[1]
+        clean_im_2x = clean_im_2x[0] + 1j * clean_im_2x[1]
+
+        gmap = gmap.numpy()
+        noisy_im = noisy_im.numpy()
+        clean_im = clean_im.numpy()
+        clean_im_degraded = clean_im_degraded.numpy()
+        clean_im_2x = clean_im_2x.numpy()
+
+        nib.save(nib.Nifti1Image(np.abs(noisy_im), affine=np.eye(4)), os.path.join(saved_path, f"noisy_im_{k}.nii"))
+        nib.save(nib.Nifti1Image(np.abs(clean_im), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_{k}.nii"))
+        nib.save(nib.Nifti1Image(np.abs(clean_im_degraded), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_degraded_{k}.nii"))
+        nib.save(nib.Nifti1Image(np.abs(clean_im_2x), affine=np.eye(4)), os.path.join(saved_path, f"clean_im_2x_{k}.nii"))
+        nib.save(nib.Nifti1Image(gmap, affine=np.eye(4)), os.path.join(saved_path, f"gmap_{k}.nii"))
+        print(gmaps_median, noise_sigmas)
+
+    # -----------------------------------------------------------------
+
     file = "/data/mri/data/BARTS_RetroCine_1p5T_2023_with_2x_resized.h5"
     h5file = h5py.File(file, libver='earliest', mode='r')
     keys = list(h5file.keys())
