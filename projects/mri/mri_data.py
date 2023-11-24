@@ -158,7 +158,7 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
         if not self.load_2x_resolution:
             data_2x = None
 
-        if self.data_type != '3D':
+        if self.data_type != '3d':
             gmap = self.load_gmap(gmaps, i, random_factor=-1)
         else:
             gmap = gmaps
@@ -195,7 +195,7 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
         # random flip
         data, gmap, data_2x = self.random_flip(data, gmap, data_2x)
 
-        if self.data_type != '3D':
+        if self.data_type != '3d':
             assert data.shape[1] == gmap.shape[0] and data.shape[2] == gmap.shape[1]
         else:
             assert data.shape[1] == gmap.shape[1] and data.shape[2] == gmap.shape[2]
@@ -210,7 +210,7 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
         if(not self.only_white_noise) and (np.random.random()<0.5):
             matrix_size_adjust_ratio = self.matrix_size_adjust_ratio[np.random.randint(0, len(self.matrix_size_adjust_ratio))]
             data_adjusted = np.array([adjust_matrix_size(img, matrix_size_adjust_ratio) for img in data])
-            if self.data_type == '3D':
+            if self.data_type == '3d':
                 gmap_adjusted = np.zeors((gmap.shape[0], data_adjusted.shape[2], data_adjusted.shape[1]))
                 for k in range(gmap.shape[0]):
                     gmap_adjusted[k] = cv2.resize(gmap[k], dsize=(data_adjusted.shape[2], data_adjusted.shape[1]), interpolation=cv2.INTER_LINEAR)
@@ -228,7 +228,7 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
 
         if data.shape[1] < self.cutout_shape[0]:
             data = np.pad(data, ((0, 0), (0,self.cutout_shape[0] - data.shape[1]),(0,0)), 'symmetric')
-            if self.data_type == '3D':
+            if self.data_type == '3d':
                 gmap = np.pad(gmap, ((0,0), (0,self.cutout_shape[0] - gmap.shape[0]),(0,0)), 'symmetric')
             else:
                 gmap = np.pad(gmap, ((0,self.cutout_shape[0] - gmap.shape[0]),(0,0)), 'symmetric')
@@ -236,7 +236,7 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
 
         if data.shape[2] < self.cutout_shape[1]:
             data = np.pad(data, ((0,0), (0,0), (0,self.cutout_shape[1] - data.shape[2])), 'symmetric')
-            if self.data_type == '3D':
+            if self.data_type == '3d':
                 gmap = np.pad(gmap, ((0,0), (0,0), (0,self.cutout_shape[1] - gmap.shape[1])), 'symmetric')
             else:
                 gmap = np.pad(gmap, ((0,0), (0,self.cutout_shape[1] - gmap.shape[1])), 'symmetric')
@@ -314,7 +314,7 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
                 noisy_data /= noise_sigma
                 if(self.with_data_degrading): data_degraded /= noise_sigma
 
-            if self.data_type != '3D':
+            if self.data_type != '3d':
                 gmap = np.repeat(gmap[None,:,:], T, axis=0)
 
             # cut out the patch on the original grid
@@ -908,7 +908,7 @@ if __name__ == '__main__':
 
     images = load_images_from_h5file([h5file], [keys], max_load=-1)
 
-    tra_data = MRIDenoisingDatasetTrain([h5file], [keys], time_cutout=12, data_type='3D', load_2x_resolution=False, ignore_gmap=False, only_white_noise=True)
+    tra_data = MRIDenoisingDatasetTrain([h5file], [keys], time_cutout=12, data_type='3d', load_2x_resolution=False, ignore_gmap=False, only_white_noise=True)
 
     for k in range(len(tra_data)):
         print(f"{k} out of {len(tra_data)}")
