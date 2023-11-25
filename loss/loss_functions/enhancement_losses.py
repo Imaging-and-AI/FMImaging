@@ -985,7 +985,7 @@ class Combined_Loss:
 
         if loss_name=="mse":
             loss_f = MSE_Loss(rmse_mode=False, complex_i=self.complex_i)
-        if loss_name=="rmse":
+        elif loss_name=="rmse":
             loss_f = MSE_Loss(rmse_mode=True, complex_i=self.complex_i)
         elif loss_name=="l1":
             loss_f = L1_Loss(complex_i=self.complex_i)
