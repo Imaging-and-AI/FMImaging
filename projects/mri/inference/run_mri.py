@@ -536,7 +536,7 @@ def main():
 
     os.system("ulimit -n 65536")
 
-    ddp_run = mri_ddp_base(project="mri-main", script_to_run=str(REPO_DIR)+"/projects/mri/run.py")
+    ddp_run = mri_ddp_base(project="mri", script_to_run=str(REPO_DIR)+"/projects/mri/run.py")
     ddp_run.run()
 
 # -------------------------------------------------------------

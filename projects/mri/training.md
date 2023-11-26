@@ -36,7 +36,7 @@ python3 ./mri/run_mri.py --standalone --nproc_per_node 4 --use_amp --num_epochs 
 
 cd ~/mrprogs/FMImaging_refactor_v2
 
-python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node 4 --use_amp --num_epochs 30 --batch_size 16 --run_extra_note 1st --num_workers 32 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --data_root /data1/mri --log_root /export/Lab-Xue/projects/data/logs --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 80 --norm_mode instance2d
+python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node 4 --use_amp --num_epochs 30 --batch_size 16 --run_extra_note 1st --num_workers 32 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 80 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root /data/FM_data_repo/mri --log_root /export/Lab-Xue/projects/data/logs
 
 # ---------------------------------
 # second stage training

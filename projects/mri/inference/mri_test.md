@@ -64,9 +64,17 @@ model=/export/Lab-Xue/projects/data/logs/mri-main-1st_NN_40_STCNNT_HRNET_T1L1G1_
 
 model=/export/Lab-Xue/projects/data/logs/mri_main-1st_BN_NN_80_STCNNT_HRNET_T1L1G1_T1L1G1_20231121_031351_308529_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/ mri_main-1st_BN_NN_80_STCNNT_HRNET_T1L1G1_T1L1G1_20231121_031351_308529_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1_epoch-30.pth
 
+
 RES_DIR=res_1st_hrnet_TLG_TLG
 model_type_str=STCNNT_MRI
 scaling_factor=1.0
+
+model=/export/Lab-Xue/projects/data/logs/mri-main-1st_NN_80_no_dense_connection_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231123_140539_682914_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-main-1st_NN_80_no_dense_connection_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231123_140539_682914_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-30.pth
+
+RES_DIR=res_1st_hrnet_T1L1G1T1L1G1_T1L1G1T1L1G1
+model_type_str=STCNNT_MRI
+scaling_factor=1.0
+
 
 export CUDA_VISIBLE_DEVICES=7
 export DISABLE_FLOAT16_INFERENCE=True
