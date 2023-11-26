@@ -44,6 +44,7 @@ from time import time
 import onnxruntime as ort
 import GPUtil
 
+from setup import yaml_to_config, Nestedspace
 from utils import start_timer, end_timer, get_device
 from mri_model import create_model
 from running_inference import running_inference
@@ -122,10 +123,10 @@ def load_model_onnx(model_dir, model_file, use_cpu=False):
     except Exception as e:
         logger.exception(e, exc_info=True)
 
-    return m, has_gpu
+    return m
 
 # -------------------------------------------------------------------------------------------------
-def _apply_model(model, x, g, scaling_factor, config, device, overlap=None):
+def _apply_model(model, x, g, scaling_factor, config, device, overlap=None, verbose=False):
     """Apply the inference
 
     Input
@@ -154,11 +155,11 @@ def _apply_model(model, x, g, scaling_factor, config, device, overlap=None):
         if overlap is None: overlap = (c.time//2, c.height[-1]//2, c.width[-1]//2)
 
     try:
-        _, output = running_inference(model, input, cutout=cutout, overlap=overlap, batch_size=1, device=device)
+        _, output = running_inference(model, input, cutout=cutout, overlap=overlap, batch_size=1, device=device, verbose=verbose)
     except Exception as e:
         print(e)
         print(f"{Fore.YELLOW}---> call inference on cpu ...")
-        _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device=torch.device('cpu'))
+        _, output = running_inference(model, input, cutout=cutout, overlap=overlap, device=torch.device('cpu'), verbose=verbose)
 
     x /= scaling_factor
     output /= scaling_factor
@@ -220,7 +221,7 @@ def apply_model(data, model, gmap, config, scaling_factor, device=torch.device('
             g = np.repeat(gmapslab[np.newaxis, np.newaxis, np.newaxis, :, :], T, axis=1)
 
             print(f"---> running_inference, input {x.shape} for slice {k}")
-            output = _apply_model(model, x, g, scaling_factor, config, device, overlap)
+            output = _apply_model(model, x, g, scaling_factor, config, device, overlap, verbose=verbose)
 
             output = np.transpose(output, (3, 4, 2, 1, 0))
 
@@ -279,7 +280,7 @@ def apply_model_3D(data, model, gmap, config, scaling_factor, device='cpu', over
         g = np.transpose(gmap, [2, 0, 1]).reshape([1, SLC, 1, H, W])
 
         print(f"---> running_inference, input {x.shape} for volume")
-        output = _apply_model(model, x, g, scaling_factor, config, device, overlap)
+        output = _apply_model(model, x, g, scaling_factor, config, device, overlap, verbose=verbose)
 
         output = np.transpose(output, (3, 4, 2, 1, 0)) # [H, W, Cout, SLC, 1]
 
@@ -455,7 +456,13 @@ def load_model(saved_model_path):
 
         print(f"{Fore.YELLOW}Load in model {Style.RESET_ALL}")
         model.load_state_dict(status['model_state'])
-
+    elif saved_model_path.endswith("onnx"): 
+        model = load_model_onnx(model_dir=None, model_file=saved_model_path)
+        # yaml_fname = os.path.splitext(saved_model_path)[0]+'.yaml'
+        # config = yaml_to_config(yaml_fname, '/tmp', 'inference')
+        config_fname = os.path.splitext(saved_model_path)[0]+'.config'
+        with open(config_fname, 'rb') as fid:
+            config = pickle.load(fid)
     return model, config
 
 def load_model_pre_backbone_post(saved_model_path):

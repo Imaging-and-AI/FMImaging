@@ -125,7 +125,7 @@ def main():
         pickle.dump(config, fid)
 
     model_jit = torch.jit.load(args.output)
-    model_onnx, _ = load_model_onnx(model_dir=None, model_file=args.output_onnx)
+    model_onnx = load_model_onnx(model_dir=None, model_file=args.output_onnx)
 
     print(f"device is {device}")
     compare_model(config, model, model_jit, model_onnx, device=torch.device('cpu'), x=None)

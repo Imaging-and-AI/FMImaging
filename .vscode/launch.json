@@ -263,7 +263,7 @@
             "program": "./projects/mri/inference/run_inference.py",
             "justMyCode": true,
             "console": "integratedTerminal",
-            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "4"},
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "4", "DISABLE_FLOAT16_INFERENCE": "True"},
             "args": [
                 "--input_dir", "/export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_529_20230616-173849",
                 "--output_dir", "/export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_529_20230616-173849/res_test",
@@ -272,6 +272,26 @@
                 "--gmap_scaling", "100.0",
                 "--input_fname", "im",
                 "--saved_model_path", "/export/Lab-Xue/projects/data/logs/mri-main-1st_NN_40_STCNNT_HRNET_T1T1T1_T1T1T1_20231119_124856_509059_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1T1T1_T1T1T1/mri-main-1st_NN_40_STCNNT_HRNET_T1T1T1_T1T1T1_20231119_124856_509059_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1T1T1_T1T1T1_epoch-30.pth",
+                "--model_type", "STCNNT_MRI"
+            ]
+        },
+        // -----------------------------------------------------------------------------------------
+        {
+            "name": "run_inference.py, mri, onnx",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/mri/inference/run_inference.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "4"},
+            "args": [
+                "--input_dir", "/export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_529_20230616-173849",
+                "--output_dir", "/export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_529_20230616-173849/res_test",
+                "--scaling_factor", "1.0",
+                "--im_scaling", "10.0",
+                "--gmap_scaling", "100.0",
+                "--input_fname", "im",
+                "--saved_model_path", "/export/Lab-Xue/projects/data/logs/mri-1st_BN_STCNNT_HRNET_T1T1T1_T1T1T1_20231125_050827_201278_STCNNT_MRI_C-32-1_amp-False_complex_residual-T1T1T1_T1T1T1/mri-1st_BN_STCNNT_HRNET_T1T1T1_T1T1T1_20231125_050827_201278_STCNNT_MRI_C-32-1_amp-False_complex_residual-T1T1T1_T1T1T1_epoch-30.onnx",
                 "--model_type", "STCNNT_MRI"
             ]
         },

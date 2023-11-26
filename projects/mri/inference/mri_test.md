@@ -75,6 +75,11 @@ RES_DIR=res_1st_hrnet_T1L1G1T1L1G1_T1L1G1T1L1G1
 model_type_str=STCNNT_MRI
 scaling_factor=1.0
 
+model=/export/Lab-Xue/projects/data/logs/mri-1st_BN_STCNNT_HRNET_T1T1T1_T1T1T1_20231125_050827_201278_STCNNT_MRI_C-32-1_amp-False_complex_residual-T1T1T1_T1T1T1/mri-1st_BN_STCNNT_HRNET_T1T1T1_T1T1T1_20231125_050827_201278_STCNNT_MRI_C-32-1_amp-False_complex_residual-T1T1T1_T1T1T1_epoch-30.pth
+
+RES_DIR=res_1st_hrnet_TTT_TTT
+model_type_str=STCNNT_MRI
+scaling_factor=1.0
 
 export CUDA_VISIBLE_DEVICES=7
 export DISABLE_FLOAT16_INFERENCE=True
@@ -85,6 +90,9 @@ export DISABLE_FLOAT16_INFERENCE=True
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
 
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20231102_HV/meas_MID00542_FID20263_G25_4CH_CINE_256_R3ipat_85phase_res_BH/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20231102_HV/meas_MID00542_FID20263_G25_4CH_CINE_256_R3ipat_85phase_res_BH/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_529_20230616-173849 --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_529_20230616-173849/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model --model_type ${model_type_str}
+
 
 # ======================================================================
 # snr level test
