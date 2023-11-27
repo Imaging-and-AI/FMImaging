@@ -92,7 +92,7 @@ class general_parser(object):
         
         # Task args
         self.parser.add_argument('--task_type', type=str, default="class", choices=['class','seg','enhance'], help="Task type for this application")
-        self.parser.add_argument("--optim_type", type=str, default="adamw", choices=["adam", "adamw", "nadam", "sgd", "sophia"],help='Which optimizer to use')
+        self.parser.add_argument("--optim_type", type=str, default="adamw", choices=["adam", "adamw", "nadam", "sgd", "sophia", "lbfgs"],help='Which optimizer to use')
         self.parser.add_argument("--scheduler_type", type=none_or_str, default="ReduceLROnPlateau", choices=["ReduceLROnPlateau", "StepLR", "OneCycleLR", None], help='Which LR scheduler to use')
         self.parser.add_argument("--loss_type", type=str, default='CrossEntropy', choices=['CrossEntropy','MSE'], help='Which loss function to use')
         

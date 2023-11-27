@@ -28,7 +28,7 @@ REPO_DIR = Path(__file__).parents[2].resolve()
 sys.path.append(str(REPO_DIR))
 
 from mri_model import *
-from inference import apply_model, load_model, apply_model_3D, compare_model, load_model_onnx
+from inference import apply_model, load_model, apply_model_3D, compare_model, load_model_onnx, load_model_pre_backbone_post
 
 # -------------------------------------------------------------------------------------------------
 # setup for testing from cmd
@@ -93,7 +93,12 @@ def main():
     print(args)
     
     print(f"{Fore.YELLOW}Load in model file - {args.input}")
-    model, config = load_pth_model(args)
+    #model, config = load_pth_model(args)
+
+    if os.path.exists(args.input):
+        model, config = load_model(args.input)
+    else:
+        model, config = load_model_pre_backbone_post(args.input)
 
     output_dir = Path(args.output).parents[0].resolve()
     os.makedirs(str(output_dir), exist_ok=True)

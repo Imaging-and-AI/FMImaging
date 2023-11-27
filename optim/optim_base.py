@@ -171,6 +171,8 @@ class OptimManager(object):
             self.optim = optim.NAdam(optim_groups, lr=c.optim.global_lr, betas=(c.optim.beta1, c.optim.beta2), weight_decay=c.optim.weight_decay)
         elif c.optim_type == "sophia":
             self.optim = SophiaG(optim_groups, lr=c.optim.global_lr, betas=(0.965, 0.99), rho = 0.01, weight_decay=c.optim.weight_decay)
+        elif c.optim_type == "lbfgs":
+            self.optim = optim.LBFGS(optim_groups, lr=c.optim.global_lr, max_iter=c.optim.max_iter, history_size=c.optim.history_size, line_search_fn=c.optim.line_search_fn)
         else:
             raise NotImplementedError(f"Optimizer not implemented: {c.optim_type}")
 

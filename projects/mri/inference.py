@@ -390,7 +390,7 @@ def compare_model(config, model, model_jit, model_onnx, device='cpu', x=None):
         y_onnx, y_model_onnx = running_inference(model_onnx, x, cutout=cutout_in, overlap=overlap_in, batch_size=2, device=torch.device('cpu'))
         end_timer(enable=True, t=tm, msg="onnx model took")
 
-        diff = np.linalg.norm(y-y_onnx) / np.linalg.norm(y)
+        diff = np.linalg.norm(y-y_onnx)
         print(f"--> {Fore.GREEN}Onnx model difference is {diff} ... {Style.RESET_ALL}", flush=True)
 
     if model_jit:

@@ -75,7 +75,15 @@ RES_DIR=res_1st_hrnet_T1L1G1T1L1G1_T1L1G1T1L1G1
 model_type_str=STCNNT_MRI
 scaling_factor=1.0
 
+model=/export/Lab-Xue/projects/data/logs/mri-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231125_144050_460800_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/mri-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231125_144050_460800_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1_epoch-10.pth
+
+RES_DIR=res_2nd_hrnet_T1L1G1T1L1G1_T1L1G1T1L1G1
+model_type_str=MRI_double_net
+scaling_factor=1.0
+
 model=/export/Lab-Xue/projects/data/logs/mri-1st_BN_STCNNT_HRNET_T1T1T1_T1T1T1_20231125_050827_201278_STCNNT_MRI_C-32-1_amp-False_complex_residual-T1T1T1_T1T1T1/mri-1st_BN_STCNNT_HRNET_T1T1T1_T1T1T1_20231125_050827_201278_STCNNT_MRI_C-32-1_amp-False_complex_residual-T1T1T1_T1T1T1_epoch-30.pth
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_BN_T_STCNNT_HRNET_T1T1T1_T1T1T1_20231126_125003_869998_STCNNT_MRI_C-32-1_amp-False_complex_residual-T1T1T1_T1T1T1/best_checkpoint_epoch_6.onnx
 
 RES_DIR=res_1st_hrnet_TTT_TTT
 model_type_str=STCNNT_MRI
