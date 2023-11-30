@@ -170,6 +170,7 @@ class run_ddp_base(object):
 
         if bk == "STCNNT_HRNET":
             cmd_run.extend([f"--backbone_hrnet.block_str", *bs])
+            cmd_run.extend([f"--backbone_hrnet.num_resolution_levels", "3"])
         if bk == "STCNNT_UNET":
             cmd_run.extend([f"--backbone_unet.block_str", *bs])
         if bk == "STCNNT_mUNET":

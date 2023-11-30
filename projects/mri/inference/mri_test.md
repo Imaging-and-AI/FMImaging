@@ -101,6 +101,11 @@ RES_DIR=res_1st_hrnet_TLG_TLG
 model_type_str=STCNNT_MRI
 scaling_factor=1.0
 
+model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231126_141320_915089_STCNNT_MRI_C-64-1_amp-False_complex_residual_with_data_degrading-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-1st_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231126_141320_915089_STCNNT_MRI_C-64-1_amp-False_complex_residual_with_data_degrading-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-50.pth
+RES_DIR=res_1st_hrnet_T1L1G1T1L1G1_T1L1G1T1L1G1
+model_type_str=STCNNT_MRI
+scaling_factor=1.0
+
 export CUDA_VISIBLE_DEVICES=7
 export DISABLE_FLOAT16_INFERENCE=True
 

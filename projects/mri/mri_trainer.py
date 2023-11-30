@@ -266,7 +266,7 @@ class MRITrainManager(TrainManager):
 
                 base_snr = np.abs(np.median(mean_signal)) / 2
 
-                logging.info(f"{rank_str}, {Fore.YELLOW}base_snr {base_snr:.4f}, Mean signal {np.abs(np.median(mean_signal)):.4f}, median {np.abs(np.median(median_signal)):.4f}, from {len(mean_signal)} images {Style.RESET_ALL}")
+                logging.info(f"{rank_str}, {Fore.YELLOW}base_snr {base_snr:.2f}, Mean signal {np.abs(np.median(mean_signal)):.2f}, median {np.abs(np.median(median_signal)):.2f}, from {len(mean_signal)} images {Style.RESET_ALL}")
 
             logging.info(f"{rank_str}, {Fore.GREEN}----------> Start training loop <----------{Style.RESET_ALL}")
 
@@ -792,12 +792,15 @@ class MRITrainManager(TrainManager):
         else:
             snr_str = ""
 
+        data_str = ""
         if role == 'tra':
             loss, mse, rmse, l1, ssim, ssim3D, ssim_loss, ssim3D_loss, psnr, psnr_loss, perp, gaussian, gaussian3D, spec, dwt, charb, vgg = loss_meters.get_tra_loss()
         else:
-            loss, mse, rmse, l1, ssim, ssim3D, ssim_loss, ssim3D_loss, psnr, psnr_loss, perp, gaussian, gaussian3D, spec, dwt, charb, vgg = loss_meters.get_eval_loss()
+            loss, mse, rmse, l1, ssim, ssim3D, ssim_loss, ssim3D_loss, psnr, psnr_loss, perp, gaussian, gaussian3D, spec, dwt, charb, vgg, mse_2d, ssim_2d, psnr_2d, mse_2dt, ssim_2dt, psnr_2dt = loss_meters.get_eval_loss()
+            data_str = f"mse_2d {mse_2d:.3f}, ssim_2d {ssim_2d:.3f}, psnr_2d {psnr_2d:.3f}, mse_2dt {mse_2dt:.3f}, ssim_2dt {ssim_2dt:.3f}, psnr_2dt {psnr_2dt:.3f}"
 
-        str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, " + data_shape_str + f"{Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.4f},{Style.RESET_ALL} {Fore.WHITE}{Back.LIGHTBLUE_EX}{Style.NORMAL}gmap {gmap_median:.2f}, sigma {noise_sigma:.2f}{snr_str}{Style.RESET_ALL} {C}mse {mse:.4f}, rmse {rmse:.4f}, l1 {l1:.4f}, perp {perp:.4f}, ssim {ssim:.4f}, ssim3D {ssim3D:.4f}, gaussian {gaussian:.4f}, gaussian3D {gaussian3D:.4f}, spec {spec:.4f}, dwt {dwt:.4f}, psnr loss {psnr_loss:.4f}, psnr {psnr:.4f}, charb {charb:.4f}, vgg {vgg:.4f}{Style.RESET_ALL}{lr_str}"
+        str= f"{Fore.GREEN}Epoch {epoch}/{config.num_epochs}, {C}{role}, {Style.RESET_ALL}{rank}, {data_shape_str} {Fore.BLUE}{Back.WHITE}{Style.BRIGHT}loss {loss:.3f},{Style.RESET_ALL} {Fore.WHITE}{Back.LIGHTBLUE_EX}{Style.NORMAL}gmap {gmap_median:.2f}, sigma {noise_sigma:.2f}{snr_str}{Style.RESET_ALL} {C}mse {mse:.3f}, rmse {rmse:.3f}, ssim {ssim:.3f}, psnr {psnr:.3f}, " + \
+            f"{data_str}, l1 {l1:.3f}, perp {perp:.3f}, vgg {vgg:.3f}, gaussian {gaussian:.3f}, gaussian3D {gaussian3D:.3f}, spec {spec:.3f}, dwt {dwt:.3f}, ssim3D {ssim3D:.3f}, charb {charb:.3f} {Style.RESET_ALL}{lr_str}"
 
         return str
   

@@ -107,33 +107,34 @@ def load_images_for_statistics(h5file, keys, max_loaded=30):
 # -------------------------------------------------------------------------------------------------
 # test dataset class
 
-def load_test_images_from_h5file(h5file, keys):
-        """
-        Load images from h5 file objects
-        @args:
-            - h5file (h5File list): list of h5files to load images from
-            - keys (key list list): list of list of keys. One for each h5file
+def load_test_images_from_h5file(h5file, keys, data_types):
+    """
+    Load images from h5 file objects
+    @args:
+        - h5file (h5File list): list of h5files to load images from
+        - keys (key list list): list of list of keys. One for each h5file
+        - data_types (data type list): list of data types for each h5file
 
-        @outputs:
-            - images : list of image and gmap pairs as a list
-        """
-        images = []
+    @outputs:
+        - images : list of image and gmap pairs as a list
+    """
+    images = []
 
-        num_loaded = 0
-        for i in range(len(h5file)):
-            with tqdm(total=len(keys[i]), bar_format=get_bar_format()) as pbar:
-                for n, key in enumerate(keys[i]):
-                    if 'clean' in h5file[i][key].keys():
-                        images.append([key+"/noisy", key+"/clean", key+"/clean", key+"/gmap", key+"/noise_sigma", i])
-                    else:
-                        images.append([key+"/noisy", key+"/image", key+"/image_resized", key+"/gmap", key+"/noise_sigma", i])
-                    num_loaded += 1
+    num_loaded = 0
+    for i in range(len(h5file)):
+        with tqdm(total=len(keys[i]), bar_format=get_bar_format()) as pbar:
+            for n, key in enumerate(keys[i]):
+                if 'clean' in h5file[i][key].keys():
+                    images.append([key+"/noisy", key+"/clean", key+"/clean", key+"/gmap", key+"/noise_sigma", i, data_types[i]])
+                else:
+                    images.append([key+"/noisy", key+"/image", key+"/image_resized", key+"/gmap", key+"/noise_sigma", i, data_types[i]])
+                num_loaded += 1
 
-                    if n>0 and n%100 == 0:
-                        pbar.update(100)
-                        pbar.set_description_str(f"{h5file}, {n} in {len(keys[i])}, total {len(images)}")
+                if n>0 and n%100 == 0:
+                    pbar.update(100)
+                    pbar.set_description_str(f"{h5file}, {n} in {len(keys[i])}, total {len(images)}")
 
-        return images
+    return images
 
 # -------------------------------------------------------------------------------------------------
 

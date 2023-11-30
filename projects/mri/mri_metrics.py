@@ -103,7 +103,13 @@ class MriMetricManager(MetricManager):
                               'spec':AverageMeter(),
                               'dwt':AverageMeter(),
                               'charb':AverageMeter(),
-                              'vgg':AverageMeter()
+                              'vgg':AverageMeter(),
+                              'mse_2d':AverageMeter(),
+                              'ssim_2d':AverageMeter(),
+                              'psnr_2d':AverageMeter(),
+                              'mse_2dt':AverageMeter(),
+                              'ssim_2dt':AverageMeter(),
+                              'psnr_2dt':AverageMeter()
                             }
             
         self.train_metric_functions = {
@@ -122,19 +128,25 @@ class MriMetricManager(MetricManager):
                               'spec': self.spec_func,
                               'dwt': self.dwt_func,
                               'charb': self.charb_func,
-                              'vgg': self.vgg_func
+                              'vgg': self.vgg_func,
+                              'mse_2d':self.mse_loss_func,
+                              'ssim_2d':self.ssim_func,
+                              'psnr_2d':self.psnr_func,
+                              'mse_2dt':self.mse_loss_func,
+                              'ssim_2dt':self.ssim_func,
+                              'psnr_2dt':self.psnr_func
                             }
         
         self.eval_metric_functions = copy.deepcopy(self.train_metric_functions)
 
         if rank<=0:
-            # Initialize metrics to track in wandb      
-            self.wandb_run.define_metric("epoch")    
+            # Initialize metrics to track in wandb
+            self.wandb_run.define_metric("epoch")
             for metric_name in self.train_metrics.keys():
                 self.wandb_run.define_metric('train_'+metric_name, step_metric='epoch')
             for metric_name in self.eval_metrics.keys():
                 self.wandb_run.define_metric('val_'+metric_name, step_metric='epoch')
-            
+
             # Initialize metrics to track for checkpointing best-performing model
             self.best_val_psnr = -np.inf
 
@@ -174,18 +186,24 @@ class MriMetricManager(MetricManager):
                 self.eval_metrics['spec'].avg, \
                 self.eval_metrics['dwt'].avg , \
                 self.eval_metrics['charb'].avg, \
-                self.eval_metrics['vgg'].avg
+                self.eval_metrics['vgg'].avg, \
+                self.eval_metrics['mse_2d'].avg, \
+                self.eval_metrics['ssim_2d'].avg, \
+                self.eval_metrics['psnr_2d'].avg, \
+                self.eval_metrics['mse_2dt'].avg, \
+                self.eval_metrics['ssim_2dt'].avg, \
+                self.eval_metrics['psnr_2dt'].avg
 
     # ---------------------------------------------------------------------------------------
     def parse_output(self, output):
         if self.config.model_type == "STCNNT_MRI" or self.config.model_type == "MRI_hrnet" or self.config.model_type == "omnivore_MRI":
-            if len(output) == 2:
+            if isinstance(output, tuple) and len(output)==2:
                 y_hat, weights = output
             else:
                 y_hat = output
             output_1st_net = None
         else:
-            if len(output) == 3:
+            if isinstance(output, tuple) and len(output)==3:
                 y_hat, weights, output_1st_net = output
             else:
                 y_hat, output_1st_net = output
@@ -245,6 +263,8 @@ class MriMetricManager(MetricManager):
             B = x.shape[0]
             noise_sigmas = torch.reshape(noise_sigmas, [B, 1, 1, 1, 1])
 
+            T = x.shape[2]
+
             x *= noise_sigmas
             y *= noise_sigmas
             y_degraded *= noise_sigmas
@@ -259,12 +279,28 @@ class MriMetricManager(MetricManager):
             y_hat = y_hat.to(torch.float32)
             y_for_loss = y_for_loss.to(device=y_hat.device, dtype=torch.float32)
 
+        if T == 1:
+            for metric_name in self.eval_metrics.keys():
+                if metric_name.find('2d') > 0 and metric_name.find('2dt') < 0:
+                    metric_value = self.eval_metric_functions[metric_name](y_hat, y_for_loss)
+                    self.eval_metrics[metric_name].update(metric_value.item(), n=x.shape[0])
+
+        if T > 1:
+            for metric_name in self.eval_metrics.keys():
+                if metric_name.find('2dt') > 0:
+                    metric_value = self.eval_metric_functions[metric_name](y_hat, y_for_loss)
+                    self.eval_metrics[metric_name].update(metric_value.item(), n=x.shape[0])
+
         for metric_name in self.eval_metrics.keys():
             if metric_name=='loss':
                 self.eval_metrics[metric_name].update(loss, n=x.shape[0])
-            else:
-                metric_value = self.eval_metric_functions[metric_name](y_hat, y_for_loss)
-                self.eval_metrics[metric_name].update(metric_value.item(), n=x.shape[0])
+                continue
+
+            if metric_name.find('2d') >= 0:
+                continue
+
+            metric_value = self.eval_metric_functions[metric_name](y_hat, y_for_loss)
+            self.eval_metrics[metric_name].update(metric_value.item(), n=x.shape[0])
 
         # Save outputs if desired
         if save_samples and rank<=0:

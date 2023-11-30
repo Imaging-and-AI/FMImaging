@@ -68,44 +68,49 @@ def create_2d(write_path, N=1000):
 
     h5_file_2d = h5py.File(write_path, mode="w", libver="earliest")
 
-    for i in range(N):
+    with tqdm.tqdm(total=N) as pbar:
+        for i in range(N):
 
-        data = np.array(h5_file[keys[i]+"/image"])
-        gmap = load_gmap(h5_file[keys[i]+"/gmap"][:], random_factor=-1)
+            data = np.array(h5_file[keys[i]+"/image"])
+            gmap = load_gmap(h5_file[keys[i]+"/gmap"][:], random_factor=-1)
 
-        T, RO, E1 = data.shape
+            T, RO, E1 = data.shape
 
-        nn, noise_sigma = generate_3D_MR_correlated_noise(T=T, RO=RO, E1=E1, REP=1,
-                                                            min_noise_level=min_noise_level,
-                                                            max_noise_level=max_noise_level,
-                                                            kspace_filter_sigma=kspace_filter_sigma,
-                                                            pf_filter_ratio=pf_filter_ratio,
-                                                            phase_resolution_ratio=phase_resolution_ratio,
-                                                            readout_resolution_ratio=readout_resolution_ratio,
-                                                            only_white_noise=False,
-                                                            verbose=False)
+            nn, noise_sigma = generate_3D_MR_correlated_noise(T=T, RO=RO, E1=E1, REP=1,
+                                                                min_noise_level=min_noise_level,
+                                                                max_noise_level=max_noise_level,
+                                                                kspace_filter_sigma=kspace_filter_sigma,
+                                                                pf_filter_ratio=pf_filter_ratio,
+                                                                phase_resolution_ratio=phase_resolution_ratio,
+                                                                readout_resolution_ratio=readout_resolution_ratio,
+                                                                only_white_noise=False,
+                                                                verbose=False)
 
-        nn *= gmap
+            nn *= gmap
 
-        noisy_data = data + nn
+            noisy_data = data + nn
 
-        data /= noise_sigma
-        noisy_data /= noise_sigma
+            data /= noise_sigma
+            noisy_data /= noise_sigma
 
-        rand_frame = np.random.randint(0,T)
+            rand_frame = np.random.randint(0,T)
 
-        noisy = noisy_data[rand_frame]
-        clean = data[rand_frame]
-        gmap = gmap
-        noise_sigma = noise_sigma
+            noisy = noisy_data[rand_frame]
+            clean = data[rand_frame]
+            gmap = gmap
+            noise_sigma = noise_sigma
 
-        data_folder = h5_file_2d.create_group(keys[i])
+            grp_name = f"Image_{i:03d}_{keys[i]}"
+            data_folder = h5_file_2d.create_group(keys[i])
 
-        data_folder["noisy"] = noisy
-        data_folder["image"] = data
-        data_folder["image_resized"] = data
-        data_folder["gmap"] = gmap
-        data_folder["noise_sigma"] = noise_sigma
+            data_folder["noisy"] = noisy
+            data_folder["image"] = clean
+            data_folder["image_resized"] = clean
+            data_folder["gmap"] = gmap
+            data_folder["noise_sigma"] = noise_sigma
+
+            pbar.update(1)
+            pbar.set_description_str(f"{noisy.shape}, {clean.shape}, {grp_name}, {noise_sigma:.4f}, {np.mean(gmap):.2f}, data noise std - {np.mean(np.std(np.real(nn), axis=0)):.3f} - {np.mean(np.std(np.imag(nn), axis=0)):.3f}")
 
 def create_3d(write_path, N=1000):
 
@@ -221,12 +226,12 @@ def create_3d_repeated(write_path, N=20, sigmas=[1,11,1], random_mask=False):
 def main():
 
     write_path_2d = f"{base_file_path}/test_2D_sig_2_40_1000.h5"
-    create_3d(write_path=write_path_2d, N=1000)
+    create_2d(write_path=write_path_2d, N=1000)
     print(f"{write_path_2d} - done")
 
-    write_path_3d = f"{base_file_path}/test_2DT_sig_2_40_2000.h5"
-    create_3d(write_path=write_path_3d, N=2000)
-    print(f"{write_path_3d} - done")
+    # write_path_3d = f"{base_file_path}/test_2DT_sig_2_40_2000.h5"
+    # create_3d(write_path=write_path_3d, N=2000)
+    # print(f"{write_path_3d} - done")
 
    # write_path_20_3d_repeated = f"{base_file_path}/train_3D_3T_retro_cine_2020_20_sample_sig_2_30_repeated_test.h5"    
     # create_3d_repeated(write_path=write_path_20_3d_repeated)

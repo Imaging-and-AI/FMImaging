@@ -609,7 +609,7 @@ class MRIDenoisingDatasetTest(torch.utils.data.Dataset):
     Dataset for MRI denoising testing.
     Returns full images. No cutouts.
     """
-    def __init__(self, h5file, keys, ignore_gmap=True, use_complex=True):
+    def __init__(self, h5file, keys, data_types, ignore_gmap=True, use_complex=True):
         """
         Initilize the denoising dataset
         Loads and stores everything
@@ -625,8 +625,9 @@ class MRIDenoisingDatasetTest(torch.utils.data.Dataset):
         self.use_complex = use_complex
         self.h5file = h5file
         self.keys = keys
+        self.data_types = data_types
 
-        self.images = load_test_images_from_h5file(h5file, keys)
+        self.images = load_test_images_from_h5file(h5file, keys, data_types)
 
     def load_one_sample(self, i):
         """
@@ -647,6 +648,7 @@ class MRIDenoisingDatasetTest(torch.utils.data.Dataset):
         clean_resized = np.array(self.h5file[ind][self.images[i][2]]).squeeze()
         gmap = np.array(self.h5file[ind][self.images[i][3]]).squeeze()
         noise_sigma = np.array(self.h5file[ind][self.images[i][4]])
+        data_type = self.images[i][-1]
 
         if noisy.ndim==2:
             noisy = noisy[np.newaxis,np.newaxis,:,:]
@@ -851,10 +853,10 @@ def load_mri_test_data(config, ratio_test=1.0):
         if ratio_test>0:
             keys = keys[:int(len(keys)*ratio_test)]
 
-        test_h5files.append((h5file,keys))
+        test_h5files.append((h5file,keys, c.test_data_types[i]))
 
     logging.info(f"loading in test data ...")
-    test_set = [MRIDenoisingDatasetTest([h_file], keys=[t_keys], use_complex=c.complex_i) for (h_file,t_keys) in test_h5files]
+    test_set = [MRIDenoisingDatasetTest([h_file], keys=[t_keys], data_types=data_type, use_complex=c.complex_i) for (h_file,t_keys,data_type) in test_h5files]
     logging.info(f"loading in test data --- completed")
 
     return test_set, test_h5files
