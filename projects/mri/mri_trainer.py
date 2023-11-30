@@ -115,9 +115,10 @@ class MRITrainManager(TrainManager):
             model_summary = model_info(self.model_manager, c)
             logging.info(f"Configuration for this run:\n{c}") # Commenting out, prints a lot of info
             logging.info(f"Model Summary:\n{str(model_summary)}") # Commenting out, prints a lot of info
-            logging.info(f"Wandb name:\n{wandb_run.name}")
-            #wandb_run.watch(self.model_manager)
-            wandb_run.log_code(".")
+            if wandb_run:
+                logging.info(f"Wandb name:\n{wandb_run.name}")
+                #wandb_run.watch(self.model_manager)
+                wandb_run.log_code(".")
 
         # -----------------------------------------------
         if c.ddp:
@@ -228,7 +229,7 @@ class MRITrainManager(TrainManager):
 
                 title = f"Tra_samples_{i}_Noisy_Noisy_GT_{x.shape}"
                 vid = self.save_image_batch(c.complex_i, x, y_degraded, y, y_2x, y_degraded)
-                wandb_run.log({title:wandb.Video(vid, caption=f"Tra sample {i}", fps=1, format='gif')})
+                if wandb_run is not None: wandb_run.log({title:wandb.Video(vid, caption=f"Tra sample {i}", fps=1, format='gif')})
                 logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}, noise range {train_set_x.min_noise_level} to {train_set_x.max_noise_level}")
 
             logging.info(f"{Fore.YELLOW}---> noise range for validation {self.val_sets[0].min_noise_level} to {self.val_sets[0].max_noise_level}")
@@ -753,12 +754,12 @@ class MRITrainManager(TrainManager):
                         # Save final evaluation metrics to a text file
                         if final_eval and rank<=0:
                             for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
-                                wandb_run.summary[f"{split}_{metric_name}"] = metric_value
+                                if wandb_run is not None: wandb_run.summary[f"{split}_{metric_name}"] = metric_value
 
                             metric_file = os.path.join(self.config.log_dir,self.config.run_name, f'{split}_metrics.json')
                             with open(metric_file, 'w', encoding='utf-8') as f:
                                 json.dump(self.metric_manager.average_eval_metrics, f, ensure_ascii=True, indent=4)
-                            wandb_run.save(metric_file)
+                            if wandb_run is not None: wandb_run.save(metric_file)
 
                     pbar_str += f"{Style.RESET_ALL}"
                 else:
