@@ -24,10 +24,10 @@ export SAS2="sp=racwdli&st=2023-10-29T19:02:56Z&se=2025-10-30T03:02:56Z&spr=http
 # azcopy copy "${data_src_qperf}/v2/val?${SAS2}" /export/Lab-Xue/projects/imagenet/qperf/v2 --recursive
 # azcopy copy "${data_src_qperf}/v2/test?${SAS2}" /export/Lab-Xue/projects/imagenet/qperf/v2 --recursive
 
-mkdir -p /data/qperf
-azcopy copy "${data_src_qperf}/h5_data/tra?${SAS_qperf}" /data/qperf/ --recursive
-azcopy copy "${data_src_qperf}/h5_data/val?${SAS_qperf}" /data/qperf/ --recursive
-azcopy copy "${data_src_qperf}/h5_data/test?${SAS_qperf}" /data/qperf/ --recursive
+#mkdir -p /data/qperf
+#azcopy copy "${data_src_qperf}/h5_data/tra?${SAS_qperf}" /data/qperf/ --recursive
+#azcopy copy "${data_src_qperf}/h5_data/val?${SAS_qperf}" /data/qperf/ --recursive
+#azcopy copy "${data_src_qperf}/h5_data/test?${SAS_qperf}" /data/qperf/ --recursive
 
 # test data
 azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2DT_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
