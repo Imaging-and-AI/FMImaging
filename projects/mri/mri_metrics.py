@@ -220,7 +220,7 @@ class MriMetricManager(MetricManager):
         y_for_loss = y
         if self.config.super_resolution:
             y_for_loss = y_2x
-                
+
         y_hat = y_hat.to(torch.float32)
         y_for_loss = y_for_loss.to(device=y_hat.device, dtype=torch.float32)
 
@@ -243,7 +243,7 @@ class MriMetricManager(MetricManager):
         if save_samples and rank<=0:
             save_path = os.path.join(self.config.log_dir,self.config.run_name,'saved_samples', 'tra')
             os.makedirs(save_path, exist_ok=True)
-            
+
             if output_1st_net is not None: output_1st_net = output_1st_net.detach().cpu()
             self.save_batch_samples(save_path, f"epoch_{epoch}_{ids}", x.cpu(), y.cpu(), y_hat.detach().cpu(), y_for_loss.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item(), output_1st_net)
 
@@ -306,7 +306,7 @@ class MriMetricManager(MetricManager):
         if save_samples and rank<=0:
             save_path = os.path.join(self.config.log_dir,self.config.run_name,'saved_samples',split)
             os.makedirs(save_path, exist_ok=True)
-                               
+
             if output_1st_net is not None: 
                 output_1st_net = output_1st_net.detach().cpu()
                 output_1st_net *= noise_sigmas.cpu()
@@ -457,7 +457,7 @@ class MriMetricManager(MetricManager):
             nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_2x_real.nii"))
             nib.save(nib.Nifti1Image(np.imag(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_2x_imag.nii"))
             nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_2x.nii"))
-            
+
             if pred_im_1st_net is not None: 
                 output = pred_im_1st_net[:,:,0,:,:] + 1j * pred_im_1st_net[:,:,1,:,:]
                 nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_output_1st_net_real.nii"))
