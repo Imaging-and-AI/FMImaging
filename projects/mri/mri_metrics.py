@@ -141,11 +141,12 @@ class MriMetricManager(MetricManager):
 
         if rank<=0:
             # Initialize metrics to track in wandb
-            self.wandb_run.define_metric("epoch")
-            for metric_name in self.train_metrics.keys():
-                self.wandb_run.define_metric('train_'+metric_name, step_metric='epoch')
-            for metric_name in self.eval_metrics.keys():
-                self.wandb_run.define_metric('val_'+metric_name, step_metric='epoch')
+            if self.wandb_run:
+                self.wandb_run.define_metric("epoch")
+                for metric_name in self.train_metrics.keys():
+                    self.wandb_run.define_metric('train_'+metric_name, step_metric='epoch')
+                for metric_name in self.eval_metrics.keys():
+                    self.wandb_run.define_metric('val_'+metric_name, step_metric='epoch')
 
             # Initialize metrics to track for checkpointing best-performing model
             self.best_val_psnr = -np.inf
@@ -231,7 +232,7 @@ class MriMetricManager(MetricManager):
                 metric_value = self.train_metric_functions[metric_name](y_hat, y_for_loss)
                 self.train_metrics[metric_name].update(metric_value.item(), n=x.shape[0])
 
-        if rank<=0: 
+        if rank<=0 and self.wandb_run: 
             self.wandb_run.log({"lr": curr_lr})
             for metric_name in self.train_metrics.keys():
                 if metric_name=='loss':
@@ -362,15 +363,15 @@ class MriMetricManager(MetricManager):
                 if checkpoint_model:
                     save_path = os.path.join(self.config.log_dir, self.config.run_name)
                     self.best_pre_model_file, self.best_backbone_model_file, self.best_post_model_file = model_epoch.save(os.path.join(save_path, f"best_checkpoint_epoch_{epoch}"), epoch, optim, sched) 
-                    self.wandb_run.log({"epoch":epoch, "best_val_loss":self.best_val_loss})
+                    if self.wandb_run: self.wandb_run.log({"epoch":epoch, "best_val_loss":self.best_val_loss})
                     logging.info(f"--> val loss {self.best_val_loss}, save best model for epoch {epoch} to {self.best_pre_model_file}, {self.best_pre_model_file, self.best_backbone_model_file}, {self.best_post_model_file}")
 
                 # Update wandb with eval metrics
                 for metric_name, avg_metric_eval in average_metrics.items():
-                    self.wandb_run.log({"epoch":epoch, f"{split}_{metric_name}": avg_metric_eval})
+                    if self.wandb_run: self.wandb_run.log({"epoch":epoch, f"{split}_{metric_name}": avg_metric_eval})
             else:
                 for metric_name, avg_metric_eval in average_metrics.items():
-                    self.wandb_run.summary[f"final_{split}_{metric_name}"] = avg_metric_eval
+                    if self.wandb_run: self.wandb_run.summary[f"final_{split}_{metric_name}"] = avg_metric_eval
 
     # ---------------------------------------------------------------------------------------
     def on_training_end(self, rank, epoch, model_manager, optim, sched, ran_training):
@@ -381,14 +382,14 @@ class MriMetricManager(MetricManager):
             
             if ran_training:
                 # Log the best loss and metrics from the run and save final model
-                self.wandb_run.summary["best_val_loss"] = self.best_val_loss
+                if self.wandb_run: self.wandb_run.summary["best_val_loss"] = self.best_val_loss
                 
                 model_epoch = model_manager.module if self.config.ddp else model_manager 
                 model_epoch.save('final_epoch', epoch, optim, sched)
 
             # Finish the wandb run
-            self.wandb_run.finish() 
-        
+            if self.wandb_run: self.wandb_run.finish() 
+
     # ---------------------------------------------------------------------------------------
     def save_batch_samples(self, saved_path, fname, x, y, output, y_2x, y_degraded, gmap_median, noise_sigma, output_1st_net):
 

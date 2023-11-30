@@ -10,7 +10,7 @@ export data_src_qperf=https://stcnnt.blob.core.windows.net/qperf
 
 export SAS2="sp=racwdli&st=2023-10-29T19:02:56Z&se=2025-10-30T03:02:56Z&spr=https&sv=2022-11-02&sr=c&sig=WbK6S7bLpXJ%2F4838iQTMrYPCcY%2FdH5w9k8bw6gz9uTk%3D"
 
-# azcopy copy "./val/" "{$data_src}?${SAS}" --recursive
+# azcopy copy "./val/" "${data_src}?${SAS}" --recursive
 # azcopy copy "./val/" "https://stcnnt.blob.core.windows.net/qperf/?${SAS_qperf}" --recursive
 # azcopy copy "https://stcnnt.blob.core.windows.net/qperf/h5_data?${SAS_qperf}" . --recursive
 
@@ -41,11 +41,11 @@ azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_500_samples.h5?${SAS}" /exp
 #ln -s /export/Lab-Xue/projects/data/test_2DT_sig_1_16_2000.h5 /export/Lab-Xue/projects/mri/data/test_2DT_sig_1_16_2000.h5
 
 azcopy copy "${data_src}/test_2D_sig_2_40_1000.h5?${SAS}" /export/Lab-Xue/projects/imagenet
-azcopy copy "${data_src}/test_2DT_sig_2_40_2000.h5?${SAS}" /export/Lab-Xue/projects/imagenet
+azcopy copy "${data_src}/test_2DT_sig_2_40_2000_2.h5?${SAS}" /export/Lab-Xue/projects/imagenet
 azcopy copy "${data_src}/VIDA_train_clean_0430.h5?${SAS}" /export/Lab-Xue/projects/imagenet
 
 ln -s /export/Lab-Xue/projects/imagenet/test_2D_sig_2_40_1000.h5 /export/Lab-Xue/projects/mri/data/test_2D_sig_2_40_1000.h5
-ln -s /export/Lab-Xue/projects/imagenet/test_2DT_sig_2_40_2000.h5 /export/Lab-Xue/projects/mri/data/test_2DT_sig_2_40_2000.h5
+ln -s /export/Lab-Xue/projects/imagenet/test_2DT_sig_2_40_2000_2.h5 /export/Lab-Xue/projects/mri/data/test_2DT_sig_2_40_2000.h5
 ln -s /export/Lab-Xue/projects/imagenet/VIDA_train_clean_0430.h5 /export/Lab-Xue/projects/mri/data/VIDA_train_clean_0430.h5
 
 # test data
