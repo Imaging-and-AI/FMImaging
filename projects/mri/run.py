@@ -144,6 +144,7 @@ def main():
     run_notes = config.run_notes
     disable_LSUV = config.disable_LSUV
     super_resolution = config.super_resolution
+    with_data_degrading = config.with_data_degrading
 
     post_backbone = config.post_backbone
 
@@ -210,6 +211,7 @@ def main():
         config.run_notes = run_notes
         config.disable_LSUV = disable_LSUV
         config.super_resolution = super_resolution
+        config.with_data_degrading = with_data_degrading
 
         config.post_backbone = post_backbone
 

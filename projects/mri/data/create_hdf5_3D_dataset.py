@@ -78,17 +78,26 @@ def add_image_to_h5group(args, folder, h5_group):
     # remote the default scaling
     image /= args.im_scaling
 
-    # check all gmaps
-    for s in range(slices):
-        gmap_file = f"{folder}/gmap_slc_{s+1}.npy"
-        if(os.path.exists(gmap_file) == False):
-            print(f"{folder} -- pass over - cannot find gmap {gmap_file} ...")
-            return
+    gmaps = None
+    gmap_file = f"{folder}/gfactor.npy"
+    if os.path.exists(gmap_file):
+        gmaps = np.load(gmap_file)
+        assert gmaps.shape[2] == slices
+    else:
+        # check all gmaps
+        for s in range(slices):
+            gmap_file = f"{folder}/gmap_slc_{s+1}.npy"
+            if(os.path.exists(gmap_file) == False):
+                print(f"{folder} -- pass over - cannot find gmap {gmap_file} ...")
+                return
 
     for s in range(slices):
 
-        gmap = np.load(f"{folder}/gmap_slc_{s+1}.npy")
-        # gmap /= args.gmap_scaling
+        if gmaps is not None:
+            gmap = gmaps[:,:,s]
+        else:
+            gmap = np.load(f"{folder}/gmap_slc_{s+1}.npy")
+            # gmap /= args.gmap_scaling
 
         if np.median(gmap) > 50:
             gmap /= 100.0
@@ -116,12 +125,12 @@ def add_image_to_h5group(args, folder, h5_group):
             data_folder["image"] = image_slice.astype(np.complex64)
             data_folder["gmap"] = gmap.astype(np.float32)
 
-            print(f"{Fore.GREEN}{key}, images - {image_slice.shape}, gmap - {gmap.shape}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}{key}, images - {image_slice.shape}, gmap - {gmap.shape}{Style.RESET_ALL}")
 
             total_samples += 1
 
 def is_valid_folder(folder):
-    return os.path.exists(os.path.join(folder, "gmap_slc_1.npy"))
+    return os.path.exists(os.path.join(folder, "gmap_slc_1.npy")) or os.path.exists(os.path.join(folder, "gfactor.npy"))
 
 def main():
 

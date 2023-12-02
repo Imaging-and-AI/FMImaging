@@ -30,6 +30,19 @@
         },
         // -----------------------------------------------------------------------------------------
         {
+            "name": "mri, create_hdf5_3D_dataset",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/mri/data/create_hdf5_3D_dataset.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "6"},
+            "args": [
+                "--output", "/data1/mri/data/BARTS_Perfusion_3T_2023.h5", "--only_3T", "/export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2023_AI_denoising", "--gmap_scaling", "100", "--im_scaling", "10", "--only_3T"
+            ]
+        },
+        // -----------------------------------------------------------------------------------------
+        {
             "name": "mri, run",
             "type": "python",
             "request": "launch",

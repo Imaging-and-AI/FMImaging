@@ -102,9 +102,37 @@ model_type_str=STCNNT_MRI
 scaling_factor=1.0
 
 model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231126_141320_915089_STCNNT_MRI_C-64-1_amp-False_complex_residual_with_data_degrading-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-1st_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231126_141320_915089_STCNNT_MRI_C-64-1_amp-False_complex_residual_with_data_degrading-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-50.pth
-RES_DIR=res_1st_hrnet_T1L1G1T1L1G1_T1L1G1T1L1G1
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231130_174229_731370_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_16
+RES_DIR=res_1st_hrnet_TLGTLG_TLGTLG_NN100
 model_type_str=STCNNT_MRI
 scaling_factor=1.0
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231130_142057_378761_STCNNT_MRI_C-128-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_3
+
+RES_DIR=res_1st_hrnet_TLGTLG_TLGTLG_TLGTLG
+model_type_str=STCNNT_MRI
+scaling_factor=1.0
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1_20231129_211857_519244_STCNNT_MRI_C-64-1_amp-True_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1/best_checkpoint_epoch_3
+RES_DIR=res_1st_hrnet_TLGTLG_TLGTLG_TLGTLG
+model_type_str=STCNNT_MRI
+scaling_factor=1.0
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_only_perf_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231201_140954_771812_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-1st_more_epochs_only_perf_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231201_140954_771812_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-20.pth
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231201_161610_042536_STCNNT_MRI_NN_40.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_0
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231201_171522_419846_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_0
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231130_174229_731370_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_39
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231201_171522_419846_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_7
+
+RES_DIR=res_1st_hrnet_TLGTLG_TLGTLG_perf
+model_type_str=STCNNT_MRI
+scaling_factor=1.0
+
 
 export CUDA_VISIBLE_DEVICES=7
 export DISABLE_FLOAT16_INFERENCE=True
@@ -112,16 +140,21 @@ export DISABLE_FLOAT16_INFERENCE=True
 # ======================================================================
 # quick test case
 
+scaling_factor=1.0
+
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
 
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20231102_HV/meas_MID00542_FID20263_G25_4CH_CINE_256_R3ipat_85phase_res_BH/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20231102_HV/meas_MID00542_FID20263_G25_4CH_CINE_256_R3ipat_85phase_res_BH/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model --model_type ${model_type_str}
 
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_529_20230616-173849 --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_529_20230616-173849/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model --model_type ${model_type_str}
 
+scaling_factor=0.4
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_high_res_2023/20230822/Perfusion_AIF_TwoEchoes_Interleaved_R2_41837_2015269043_2015269052_266_20230822-134501/DebugOutput --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_high_res_2023/20230822/Perfusion_AIF_TwoEchoes_Interleaved_R2_41837_2015269043_2015269052_266_20230822-134501/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
 
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_190304911_190304920_408_20180906-123716/cloud_flow_res/DebugOutput --output_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_190304911_190304920_408_20180906-123716/cloud_flow_res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
 # ======================================================================
-# snr level test
+# snr level testcd
 
 case_dir=Retro_Lin_Cine_2DT_LAX_GLS_66016_078855422_078855431_409_20230613-154734_slc_1
 
@@ -317,7 +350,7 @@ cases=(
 for index in ${!cases[*]}; do 
     echo "${cases[$index]}"
 
-    python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/${cases[$index]}/cloud_flow_res/DebugOutput --output_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/${cases[$index]}/cloud_flow_res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+    python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/${cases[$index]}/cloud_flow_res/DebugOutput --output_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/${cases[$index]}/cloud_flow_res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str} --patch_size_inference 64
 
 done
 

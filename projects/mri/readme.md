@@ -391,4 +391,6 @@ torchrun --standalone --nproc_per_node 4  ./mri/main_mri.py --project mri --ddp 
 
 ```
 
-python3 ./projects/mri/data/create_hdf5_3D_dataset.py --output /data1/mri/train_3D_3T_retro_cine_BARTS_2023.h5 --only_3T /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RetroCine_2023_AI_denoising
+python3 ./projects/mri/data/create_hdf5_3D_dataset.py --output /data1/mri/data/train_3D_3T_retro_cine_BARTS_2023.h5 --only_3T /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RetroCine_2023_AI_denoising
+
+python3 ./projects/mri/data/create_hdf5_3D_dataset.py --output /data/FM_data_repo/mri/BARTS_Perfusion_3T_2023.h5 --only_3T /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2023_AI_denoising --gmap_scaling 100 --im_scaling 10 --only_3T
