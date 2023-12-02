@@ -166,13 +166,13 @@ class mri_ddp_base(run_ddp_base):
                         ])
         else:
             self.cmd.extend([
-                             "--train_files", #"train_3D_3T_retro_cine_2018.h5",  
-                                                #"train_3D_3T_retro_cine_2019.h5", 
+                             "--train_files", "train_3D_3T_retro_cine_2018.h5",  
+                                                "train_3D_3T_retro_cine_2019.h5", 
                                                 "train_3D_3T_retro_cine_2020.h5", 
-                                                "BARTS_Perfusion_3T_2023_v2.h5",
+                                                #"BARTS_Perfusion_3T_2023_v2.h5",
                                                 #"BARTS_RetroCine_3T_2023.h5", 
                                                 #"BARTS_RetroCine_1p5T_2023.h5",
-                                                "BWH_Perfusion_3T_2023.h5",
+                                                #"BWH_Perfusion_3T_2023.h5",
                                                 #"BWH_Perfusion_3T_2021.h5",
                                                 #"MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", 
                                                 #"MINNESOTA_UHVC_RetroCine_1p5T_2022.h5",
@@ -254,9 +254,9 @@ class mri_ddp_base(run_ddp_base):
         vars['complex_i'] = [True]
         vars['residual'] = [True]
 
-        vars['weighted_loss_snr'] = [True]
+        vars['weighted_loss_snr'] = [False]
         vars['weighted_loss_temporal'] = [False]
-        vars['weighted_loss_added_noise'] = [True]
+        vars['weighted_loss_added_noise'] = [False]
 
         vars['n_heads'] = [64]
 
