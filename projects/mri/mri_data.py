@@ -263,7 +263,7 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
             e1_filter_sigma = self.kspace_filter_sigma[self.rng.integers(0, len(self.kspace_filter_sigma))]
             data_reduced_resolution_filtered, _, _ = apply_image_filter(data_reduced_resolution, sigma_RO=ro_filter_sigma, sigma_E1=e1_filter_sigma)
 
-            if self.data_type=="2dt" and np.random.uniform()<0.25:
+            if self.data_type=="2dt" and np.random.uniform()<0.35:
                 T_filter_sigma = self.kspace_filter_T_sigma[self.rng.integers(0, len(self.kspace_filter_T_sigma))]
                 data_degraded, _ = apply_image_filter_T(data_reduced_resolution_filtered, sigma_T=T_filter_sigma)
             else:
