@@ -43,7 +43,7 @@ class mri_parser(object):
         self.parser.add_argument("--max_noise_level", type=float, default=24.0, help='maximum noise sigma to add')
         self.parser.add_argument('--matrix_size_adjust_ratio', type=float, nargs='+', default=[0.35, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0], help='down/upsample the image, keeping the fov')
         self.parser.add_argument('--kspace_filter_sigma', type=float, nargs='+', default=[0.5, 0.8, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5], help='sigma for kspace filter')
-        self.parser.add_argument('--kspace_T_filter_sigma', type=float, nargs='+', default=[0.25, 0.5, 0.65, 0.85, 1.0, 1.5, 2.0, 2.25], help='sigma for T filter')
+        self.parser.add_argument('--kspace_T_filter_sigma', type=float, nargs='+', default=[0.25, 0.5, 0.65, 0.85, 1.0, 1.5, 2.0, 2.25, 3.0], help='sigma for T filter')
         self.parser.add_argument('--pf_filter_ratio', type=float, nargs='+', default=[1.0, 0.875, 0.75, 0.625, 0.55], help='pf filter ratio')
         self.parser.add_argument('--phase_resolution_ratio', type=float, nargs='+', default=[1.0, 0.85, 0.7, 0.65, 0.55], help='phase resolution ratio')
         self.parser.add_argument('--readout_resolution_ratio', type=float, nargs='+', default=[1.0, 0.85, 0.7, 0.65, 0.55], help='readout resolution ratio')
