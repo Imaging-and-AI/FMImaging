@@ -48,6 +48,7 @@ from setup import yaml_to_config, Nestedspace
 from utils import start_timer, end_timer, get_device
 from mri_model import create_model
 from running_inference import running_inference
+from running_uncertainty import estimate_uncertainty_laplace
 
 # ---------------------------------------------------------
 
@@ -359,6 +360,127 @@ def apply_model_2D(data, model, gmap, config, scaling_factor, device='cpu', over
     print(f"---> apply_model_2D took {t1-t0} seconds ")
 
     return data_filtered
+
+# -------------------------------------------------------------------------------------------------
+
+def _compute_uncertainty(model, train_loader, val_loader, x, g, scaling_factor, config, device, overlap=None, verbose=False):
+    """Apply the inference
+
+    Input
+        x : [1, T, 1, H, W], attention is alone T
+        g : [1, T, 1, H, W]
+
+    Output
+        res : [1, T, Cout, H, W], sd for every pixel
+    """
+    c = config
+
+    x *= scaling_factor
+
+    B, T, C, H, W = x.shape
+
+    if config.complex_i:
+        input = np.concatenate((x.real, x.imag, g), axis=2)
+    else:
+        input = np.concatenate((np.abs(x), g), axis=2)
+
+    if not c.pad_time:
+        cutout = (T, c.height[-1], c.width[-1])
+        if overlap is None: overlap = (0, c.height[-1]//2, c.width[-1]//2)
+    else:
+        cutout = (c.time, c.height[-1], c.width[-1])
+        if overlap is None: overlap = (c.time//2, c.height[-1]//2, c.width[-1]//2)
+
+    try:
+        output = estimate_uncertainty_laplace(model, train_loader, val_loader, input, cutout=cutout, overlap=overlap, batch_size=1, device=device, verbose=verbose)
+    except Exception as e:
+        print(e)
+
+    x /= scaling_factor
+    output /= scaling_factor
+
+    if isinstance(output, torch.Tensor):
+        output = output.cpu().numpy()
+
+    return output
+
+# -------------------------------------------------------------------------------------------------
+
+def compute_uncertainty(data, train_loader, val_loader, model, gmap, config, scaling_factor, device=torch.device('cpu'), overlap=None, verbose=False):
+    '''
+    Input 
+        data : [H, W, T, SLC], remove any extra scaling
+        gmap : [H, W, SLC], no scaling added
+        scaling_factor : scaling factor to adjust denoising strength, smaller value is for higher strength (0.5 is more smoothing than 1.0)
+        overlap (T, H, W): number of overlap between patches, can be (0, 0, 0)
+    Output
+        res: [H, W, T, SLC], sd
+    '''
+
+    t0 = time()
+
+    if(data.ndim==2):
+        data = data[:,:,np.newaxis,np.newaxis]
+
+    if(data.ndim<4):
+        data = np.expand_dims(data, axis=3)
+
+    H, W, T, SLC = data.shape
+
+    if(gmap.ndim==2):
+        gmap = np.expand_dims(gmap, axis=2)
+
+    if(gmap.shape[0]!=H or gmap.shape[1]!=W or gmap.shape[2]!=SLC):
+        gmap = np.ones(H, W, SLC)
+
+    if verbose:
+        print(f"---> compute_uncertainty, preparation took {time()-t0} seconds ")
+        print(f"---> compute_uncertainty, input array {data.shape}")
+        print(f"---> compute_uncertainty, gmap array {gmap.shape}")
+        print(f"---> compute_uncertainty, pad_time {config.pad_time}")
+        print(f"---> compute_uncertainty, height and width {config.height, config.width}")
+        print(f"---> compute_uncertainty, complex_i {config.complex_i}")
+        print(f"---> compute_uncertainty, scaling_factor {scaling_factor}")
+        print(f"---> compute_uncertainty, overlap {overlap}")
+        print(f"---> compute_uncertainty, train_loader {len(train_loader)}")
+        print(f"---> compute_uncertainty, val_loader {len(val_loader)}")
+
+    c = config
+
+    try:
+        for k in range(SLC):
+            imgslab = data[:,:,:,k]
+            gmapslab = gmap[:,:,k]
+
+            H, W, T = imgslab.shape
+
+            x = np.transpose(imgslab, [2, 0, 1]).reshape([1, T, 1, H, W])
+            g = np.repeat(gmapslab[np.newaxis, np.newaxis, np.newaxis, :, :], T, axis=1)
+
+            print(f"---> compute_uncertainty, input {x.shape} for slice {k}")
+            output = _compute_uncertainty(model, train_loader, val_loader, x, g, scaling_factor, config, device, overlap=overlap, verbose=verbose)
+
+            output = np.transpose(output, (3, 4, 2, 1, 0))
+
+            if(k==0):
+                if config.complex_i:
+                    res = np.zeros((output.shape[0], output.shape[1], T, SLC), dtype=data.dtype)
+                else:
+                    res = np.zeros((output.shape[0], output.shape[1], T, SLC), dtype=np.float32)
+
+            if config.complex_i:
+                res[:,:,:,k] = output[:,:,0,:,0] + 1j*output[:,:,1,:,0]
+            else:
+                res[:,:,:,k] = output.squeeze()
+
+    except Exception as e:
+        print(e)
+        res = copy.deepcopy(data)
+
+    t1 = time()
+    print(f"---> compute_uncertainty took {t1-t0} seconds ")
+
+    return res
 
 # -------------------------------------------------------------------------------------------------
 

@@ -5,6 +5,7 @@ provides a wide range of utility function used to create training data for MRI
 
 copied from Hui's original commit in CNNT
 """
+import time
 import os
 import math
 import numpy  as np
@@ -488,7 +489,7 @@ def generate_3D_MR_correlated_noise(T=30, RO=192, E1=144, REP=1,
                                     kspace_filter_T_sigma=[0, 0.5, 0.65, 0.85, 1.0, 1.5, 2.0, 2.25],
                                     phase_resolution_ratio=[1.0, 0.85, 0.7, 0.65, 0.55],
                                     readout_resolution_ratio=[1.0, 0.85, 0.7, 0.65, 0.55],
-                                    rng=np.random.Generator(np.random.PCG64(8754132)),
+                                    rng=np.random.Generator(np.random.PCG64(int(time.time()))),
                                     only_white_noise=False,
                                     verbose=False):
 

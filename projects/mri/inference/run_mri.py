@@ -82,10 +82,11 @@ class mri_ddp_base(run_ddp_base):
         #"--loss_weights", "1.0", "1.0",
         # "--mri_height", "32", "64",
         # "--mri_width", "32", "64",
-        "--time", "12",
+        "--time", "24",
         "--num_uploaded", "32",
         #"--snr_perturb_prob", "0.25",
         "--snr_perturb", "10.0",
+        #"--add_salt_pepper",
         #"--weighted_loss",
         #"--max_load", "10000",
 
@@ -143,6 +144,12 @@ class mri_ddp_base(run_ddp_base):
 
         self.cmd.extend(["--model_type", f"{config.model_type}"])
 
+        if config.add_salt_pepper:
+            self.cmd.extend(["--add_salt_pepper"])
+
+        if config.add_possion:
+            self.cmd.extend(["--add_possion"])
+
         if config.super_resolution:
             self.cmd.extend([
                         "--super_resolution",
@@ -166,18 +173,6 @@ class mri_ddp_base(run_ddp_base):
                         ])
         else:
             self.cmd.extend([
-                             "--train_files", "train_3D_3T_retro_cine_2018.h5",  
-                                                "train_3D_3T_retro_cine_2019.h5", 
-                                                "train_3D_3T_retro_cine_2020.h5", 
-                                                #"BARTS_Perfusion_3T_2023_v2.h5",
-                                                #"BARTS_RetroCine_3T_2023.h5", 
-                                                #"BARTS_RetroCine_1p5T_2023.h5",
-                                                #"BWH_Perfusion_3T_2023.h5",
-                                                #"BWH_Perfusion_3T_2021.h5",
-                                                #"MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", 
-                                                #"MINNESOTA_UHVC_RetroCine_1p5T_2022.h5",
-                                                #"VIDA_train_clean_0430.h5",
-
                             "--test_files", "test_2D_sig_2_40_1000.h5", "test_2DT_sig_2_40_2000.h5",
                                             # "train_3D_3T_retro_cine_2020_small_3D_test.h5", 
                                             # "train_3D_3T_retro_cine_2020_small_2DT_test.h5", 
@@ -186,10 +181,31 @@ class mri_ddp_base(run_ddp_base):
                                             # "test_2D_sig_1_16_1000.h5",
                                             # "test_2DT_sig_1_16_2000.h5",
 
-
-                            "--train_data_types", "2dt", "2dt", "2dt", "3d", "2dt", 
                             "--test_data_types", "2d", "2dt", "2d", "2dt", "2d", "2dt",
                         ])
+
+            if config.train_files is not None:
+                self.cmd.extend(["--train_files"])
+                self.cmd.extend(config.train_files)
+                self.cmd.extend([
+                        "--train_data_types", "2dt", "2dt", "2dt", "3d", "2dt"
+                    ])
+            else:
+                self.cmd.extend([
+                            "--train_files", "train_3D_3T_retro_cine_2018.h5",  
+                                            "train_3D_3T_retro_cine_2019.h5", 
+                                            "train_3D_3T_retro_cine_2020.h5", 
+                                            #"BARTS_Perfusion_3T_2023.h5",
+                                            #"BARTS_RetroCine_3T_2023.h5", 
+                                            #"BARTS_RetroCine_1p5T_2023.h5",
+                                            #"BWH_Perfusion_3T_2023.h5",
+                                            #"BWH_Perfusion_3T_2021.h5",
+                                            #"MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", 
+                                            #"MINNESOTA_UHVC_RetroCine_1p5T_2022.h5",
+                                            #"VIDA_train_clean_0430.h5",
+
+                        "--train_data_types", "2dt", "2dt", "2dt", "3d", "2dt" 
+                    ])
 
         self.cmd.extend(["--snr_perturb_prob", f"{config.snr_perturb_prob}"])
 
@@ -507,6 +523,8 @@ class mri_ddp_base(run_ddp_base):
 
         parser.add_argument("--min_noise_level", type=float, default=2.0, help='minimal noise level')
         parser.add_argument("--max_noise_level", type=float, default=24.0, help='maximal noise level')
+        parser.add_argument("--add_salt_pepper", action="store_true", help='if set, add salt and pepper.')
+        parser.add_argument("--add_possion", action="store_true", help='if set, add possion noise.')
 
         parser.add_argument("--disable_LSUV", action="store_true", help='if set, do not perform LSUV init.')
 
@@ -528,6 +546,8 @@ class mri_ddp_base(run_ddp_base):
         parser.add_argument("--batch_size", type=int, default=16, help='size of each batch')
 
         parser.add_argument("--snr_perturb_prob", type=float, default=0.0, help='prob to add snr perturbation')
+
+        parser.add_argument("--train_files", type=str, nargs='+', default=None, help='list of train h5files')
 
         return parser
 

@@ -8,9 +8,11 @@ import sys
 import cv2
 import h5py
 import torch
+import time
 from tqdm import tqdm
 import numpy as np
 from pathlib import Path
+import skimage
 from skimage.util import view_as_blocks
 from colorama import Fore, Style
 
@@ -55,7 +57,13 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
                     patches_shuffle=False,
                     with_data_degrading=False,
                     add_noise=True,
-                    load_2x_resolution=False):
+                    load_2x_resolution=False,
+                    data_x_y_mode=False,
+                    add_salt_pepper=True,
+                    salt_pepper_amount=0.2, 
+                    salt_pepper_prob=0.2,
+                    add_possion=True,
+                    possion_prob=0.2):
         """
         Initilize the denoising dataset
         Loads and store all images and gmaps
@@ -84,6 +92,7 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
             - with_data_degrading (bool): if True, train with resolution reduction, time filtering etc. to degrade data a bit
             - add_noise (bool): if False, not add noise - for testing the resolution improvement
             - load_2x_resolution (bool): whether to load 2x resolution data
+            - add_salt_pepper (bool): whether to add some salt and pepper disturbance on image
         """
         assert data_type.lower()=="2d" or data_type.lower()=="2dt" or data_type.lower()=="3d",\
             f"Data type not implemented: {data_type}"
@@ -123,11 +132,21 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
         
         self.images = load_images_from_h5file(h5file, keys, max_load=self.max_load)
 
-        self.rng = np.random.Generator(np.random.PCG64(85442365))
+        self.rng = np.random.Generator(np.random.PCG64(int(time.time())))
 
         self.add_noise = add_noise
 
         self.load_2x_resolution = load_2x_resolution
+
+        self.data_x_y_mode = data_x_y_mode
+
+        self.add_salt_pepper = add_salt_pepper
+
+        self.salt_pepper_amount=0.2 
+        self.salt_pepper_prob=0.1
+
+        self.add_possion = add_possion
+        self.possion_prob=0.1
 
     def load_one_sample(self, i):
         """
@@ -441,7 +460,43 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
                 clean_im_degraded = torch.permute(clean_im_degraded, (1, 0, 2, 3))
                 clean_im_2x = torch.permute(clean_im_2x, (1, 0, 2, 3))
 
-        return noisy_im, clean_im, clean_im_degraded, clean_im_2x, gmaps_median, noise_sigmas
+        # add salt_pepper
+        if self.add_salt_pepper and np.random.random()<self.salt_pepper_prob:
+            im = noisy_im[:2]
+            s_vs_p = np.random.random()
+            amount = np.random.uniform(0, self.salt_pepper_amount)
+            out = np.copy(im)
+
+            # Salt mode
+            num_salt = np.ceil(amount * im.numel() * s_vs_p)
+            coords = np.random.randint(0, im.numel(), int(num_salt))
+            cc = np.unravel_index(coords, im.shape)
+            out[cc] *= np.random.uniform(1.0, 10.0)
+
+            # Pepper mode
+            num_pepper = np.ceil(amount* im.numel() * (1. - s_vs_p))
+            coords = np.random.randint(0, im.numel(), int(num_pepper))
+            cc = np.unravel_index(coords, im.shape)
+            out[cc] *= np.random.uniform(0, 1.0)
+
+            noisy_im[:2] = torch.from_numpy(out)
+
+        if self.add_possion and np.random.random()<self.possion_prob:
+            #mag = np.sqrt(clean_im[0]*clean_im[0] + clean_im[1]*clean_im[1])/2
+            lam_ratio = np.random.randint(1, 5)
+            mag = np.sqrt(clean_im[0]*clean_im[0] + clean_im[1]*clean_im[1])/lam_ratio
+            pn = torch.from_numpy(np.random.poisson(mag, clean_im[0].shape)) - mag
+            # sign_invert = np.random.random(pn.shape)
+            # sign_invert[sign_invert<0.5] = -1
+            # sign_invert[sign_invert>=0.5] = 1
+            # pn *= sign_invert.astype(dtype=pn.dtype)
+
+            noisy_im[0] += pn
+
+        if self.data_x_y_mode:
+            return noisy_im, torch.flatten(clean_im)
+        else:
+            return noisy_im, clean_im, clean_im_degraded, clean_im_2x, gmaps_median, noise_sigmas
 
     def get_cutout_range(self, data):
 
@@ -609,7 +664,7 @@ class MRIDenoisingDatasetTest(torch.utils.data.Dataset):
     Dataset for MRI denoising testing.
     Returns full images. No cutouts.
     """
-    def __init__(self, h5file, keys, data_types, ignore_gmap=True, use_complex=True):
+    def __init__(self, h5file, keys, data_types, ignore_gmap=True, use_complex=True, data_x_y_mode=False):
         """
         Initilize the denoising dataset
         Loads and stores everything
@@ -626,6 +681,7 @@ class MRIDenoisingDatasetTest(torch.utils.data.Dataset):
         self.h5file = h5file
         self.keys = keys
         self.data_types = data_types
+        self.data_x_y_mode = data_x_y_mode
 
         self.images = load_test_images_from_h5file(h5file, keys, data_types)
 
@@ -683,7 +739,10 @@ class MRIDenoisingDatasetTest(torch.utils.data.Dataset):
         # clean_im = torch.permute(clean_im, (1, 0, 2, 3))
         # clean_resized_im = torch.permute(clean_resized_im, (1, 0, 2, 3))
 
-        return noisy_im, clean_im, clean_im, clean_resized_im, gmaps_median, noise_sigmas
+        if self.data_x_y_mode:
+            return noisy_im, torch.flatten(clean_im)
+        else:
+            return noisy_im, clean_im, clean_im, clean_resized_im, gmaps_median, noise_sigmas
 
     def __len__(self):
         """
@@ -801,8 +860,13 @@ def load_mri_data(config):
         "add_noise": c.not_add_noise==False,
         "load_2x_resolution": c.super_resolution,
         "only_white_noise": c.only_white_noise,
-        "ignore_gmap": c.ignore_gmap
+        "ignore_gmap": c.ignore_gmap,
+        "data_x_y_mode": c.data_x_y_mode,
+        "add_salt_pepper": c.add_salt_pepper,
+        "add_possion": c.add_possion
     }
+
+    print(f"{Fore.YELLOW}--> data loading parameters: {kwargs}{Style.RESET_ALL}")
 
     train_set = []
 
@@ -862,6 +926,65 @@ def load_mri_test_data(config, ratio_test=1.0):
     return test_set, test_h5files
 
 # -------------------------------------------------------------------------------------------------
+def test_add_noise():
+
+    device = get_device()
+
+    import numpy as np
+
+    Current_DIR = Path(__file__).parents[0].resolve()
+    sys.path.append(str(Current_DIR))
+
+    Project_DIR = Path(__file__).parents[1].resolve()
+    sys.path.append(str(Project_DIR))
+
+    REPO_DIR = Path(__file__).parents[2].resolve()
+    sys.path.append(str(REPO_DIR))
+
+    # --------------------------------------------------------------------------
+
+    saved_path = "/export/Lab-Xue/projects/mri/results/add_noise_test"
+    os.makedirs(saved_path, exist_ok=True)
+
+    noisy = np.load(str(REPO_DIR) + '/ut/data/loss/noisy_real.npy') + 1j * np.load(str(REPO_DIR) + '/ut/data/loss/noisy_imag.npy')
+    print(noisy.shape)
+
+    clean = np.load(str(REPO_DIR) + '/ut/data/loss/clean_real.npy') + 1j * np.load(str(REPO_DIR) + '/ut/data/loss/clean_imag.npy')
+    print(clean.shape)
+
+    pred = np.load(str(REPO_DIR) + '/ut/data/loss/pred_real.npy') + 1j * np.load(str(REPO_DIR) + '/ut/data/loss/pred_imag.npy')
+    print(pred.shape)
+
+    p_noise = np.random.poisson(np.abs(clean)/2, clean.shape)
+    nib.save(nib.Nifti1Image(np.abs(clean)+p_noise, affine=np.eye(4)), os.path.join(saved_path, f"clean_with_pn.nii"))
+
+    max_v = np.max(np.abs(clean))
+
+    row,col,phs,slc = clean.shape
+    s_vs_p = 0.5
+    amount = 0.1
+    out = np.copy(clean)
+    # Salt mode
+    num_salt = np.ceil(amount * clean.size * s_vs_p)
+    coords = np.random.randint(0, clean.size, int(num_salt))
+    cc = np.unravel_index(coords, clean.shape)
+    out[cc] *= np.random.uniform(1.0, 10.0)
+
+    # Pepper mode
+    num_pepper = np.ceil(amount* clean.size * (1. - s_vs_p))
+    coords = np.random.randint(0, clean.size, int(num_pepper))
+    cc = np.unravel_index(coords, clean.shape)
+    out[cc] *= np.random.uniform(0, 1.0)
+
+    nib.save(nib.Nifti1Image(np.abs(out), affine=np.eye(4)), os.path.join(saved_path, f"out.nii"))
+    
+    clean_with_noise = skimage.util.random_noise(image=clean, model='poisson', clip=False)
+
+    
+
+    nib.save(nib.Nifti1Image(np.abs(clean_with_noise), affine=np.eye(4)), os.path.join(saved_path, f"clean_with_noise.nii"))
+
+# -------------------------------------------------------------------------------------------------
 
 if __name__ == '__main__':
 
@@ -870,6 +993,7 @@ if __name__ == '__main__':
     saved_path = "/export/Lab-Xue/projects/mri/results/loader_test"
     os.makedirs(saved_path, exist_ok=True)
 
+    #test_add_noise()
     # -----------------------------------------------------------------
 
     file = "/data1/mri/data/train_3D_3T_retro_cine_2018.h5"
@@ -878,7 +1002,7 @@ if __name__ == '__main__':
 
     images = load_images_from_h5file([h5file], [keys], max_load=-1)
 
-    tra_data = MRIDenoisingDatasetTrain([h5file], [keys], data_type='2DT', load_2x_resolution=False, ignore_gmap=False, only_white_noise=False)
+    tra_data = MRIDenoisingDatasetTrain([h5file], [keys], data_type='2DT', load_2x_resolution=False, ignore_gmap=False, only_white_noise=False, add_salt_pepper=True, add_possion=True)
 
     for k in range(len(tra_data)):
         print(f"{k} out of {len(tra_data)}")

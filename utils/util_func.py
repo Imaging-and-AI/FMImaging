@@ -22,7 +22,7 @@ import nibabel as nib
 
 # -------------------------------------------------------------------------------------------------
 
-def save_inference_results(input, output, gmap, output_dir, noisy_image=None):
+def save_inference_results(input, output, gmap, output_dir, noisy_image=None, sd_image=None):
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -69,7 +69,7 @@ def save_inference_results(input, output, gmap, output_dir, noisy_image=None):
         print(res_name)
         np.save(res_name, output)
         nib.save(nib.Nifti1Image(output, affine=np.eye(4)), os.path.join(output_dir, 'output.nii'))
-        
+
     if noisy_image is not None:
         if np.any(np.iscomplex(noisy_image)):
             res_name = os.path.join(output_dir, 'noisy_image_real.npy')
@@ -88,6 +88,25 @@ def save_inference_results(input, output, gmap, output_dir, noisy_image=None):
         print(res_name)
         np.save(res_name, noisy_image)
         nib.save(nib.Nifti1Image(noisy_image, affine=np.eye(4)), os.path.join(output_dir, 'noisy_image.nii'))
+
+    if sd_image is not None:
+        if np.any(np.iscomplex(sd_image)):
+            res_name = os.path.join(output_dir, 'sd_real.npy')
+            print(res_name)
+            np.save(res_name, output.real)
+            nib.save(nib.Nifti1Image(output.real, affine=np.eye(4)), os.path.join(output_dir, 'sd_real.nii'))
+
+            res_name = os.path.join(output_dir, 'sd_imag.npy')
+            print(res_name)
+            np.save(res_name, output.imag)
+            nib.save(nib.Nifti1Image(output.imag, affine=np.eye(4)), os.path.join(output_dir, 'sd_imag.nii'))
+
+            sd_image = np.abs(sd_image)
+
+        res_name = os.path.join(output_dir, 'sd.npy')
+        print(res_name)
+        np.save(res_name, sd_image)
+        nib.save(nib.Nifti1Image(sd_image, affine=np.eye(4)), os.path.join(output_dir, 'sd.nii'))
 
 # -------------------------------------------------------------------------------------------------
 

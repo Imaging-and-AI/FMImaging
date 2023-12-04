@@ -130,6 +130,26 @@ model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_STCNNT_HRNET_T1L1G1
 model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231201_171522_419846_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_7
 
 RES_DIR=res_1st_hrnet_TLGTLG_TLGTLG_perf
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_NN200_weighted_loss_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231201_211540_823483_STCNNT_MRI_NN_200.0_C-64-1_amp-False_complex_residual_weighted_loss_snr_added_noise-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-1st_more_epochs_perf_cine_NN200_weighted_loss_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231201_211540_823483_STCNNT_MRI_NN_200.0_C-64-1_amp-False_complex_residual_weighted_loss_snr_added_noise-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-20.pth
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_NN200_weighted_loss_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231202_091151_978175_STCNNT_MRI_NN_200.0_C-64-1_amp-False_complex_residual_weighted_loss_snr_temporal_added_noise-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_1
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_NN200_weighted_loss_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231202_114128_338552_STCNNT_MRI_NN_200.0_C-64-1_amp-False_complex_residual_weighted_loss_added_noise-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-1st_more_epochs_perf_cine_NN200_weighted_loss_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231202_114128_338552_STCNNT_MRI_NN_200.0_C-64-1_amp-False_complex_residual_weighted_loss_added_noise-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-20.pth
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_NN200_weighted_loss_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231203_092235_907705_STCNNT_MRI_NN_80.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_16
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_NN80_perp1_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231203_182829_444947_STCNNT_MRI_NN_80.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_0
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_NN80_perp1_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231203_182829_444947_STCNNT_MRI_NN_80.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-1st_more_epochs_perf_cine_NN80_perp1_
+STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231203_182829_444947_STCNNT_MRI_NN_80.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-20.pth
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_NN80_perp1_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231204_080404_239404_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_6
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_NN80_perp1_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231204_080404_239404_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-1st_more_epochs_perf_cine_NN80_perp1_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231204_080404_239404_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-40.pth
+
+RES_DIR=res_1st_hrnet_TLGTLG_TLGTLG_perf_cine_NN200
+
 model_type_str=STCNNT_MRI
 scaling_factor=1.0
 
@@ -148,7 +168,8 @@ python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/da
 
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_529_20230616-173849 --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_529_20230616-173849/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model --model_type ${model_type_str}
 
-scaling_factor=0.4
+scaling_factor=0.65
+
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_high_res_2023/20230822/Perfusion_AIF_TwoEchoes_Interleaved_R2_41837_2015269043_2015269052_266_20230822-134501/DebugOutput --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_high_res_2023/20230822/Perfusion_AIF_TwoEchoes_Interleaved_R2_41837_2015269043_2015269052_266_20230822-134501/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
 
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_190304911_190304920_408_20180906-123716/cloud_flow_res/DebugOutput --output_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_190304911_190304920_408_20180906-123716/cloud_flow_res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
@@ -326,6 +347,11 @@ python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellma
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_190304911_190304920_410_20180906-125352/cloud_flow_res/DebugOutput --output_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_190304911_190304920_410_20180906-125352/cloud_flow_res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
 
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_49443137_49443146_219_20190329-133337/cloud_flow_res/DebugOutput --output_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_49443137_49443146_219_20190329-133337/cloud_flow_res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_high_res_2023/20230905/Perfusion_AIF_41837_2049151441_2049151450_882_20230905-145010/DebugOutput --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_high_res_2023/20230905/Perfusion_AIF_41837_2049151441_2049151450_882_20230905-145010/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_high_res_2023/20230905/Perfusion_AIF_Q_mapping_41837_2049151252_2049151261_500_20230905-085551/DebugOutput --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_high_res_2023/20230905/Perfusion_AIF_Q_mapping_41837_2049151252_2049151261_500_20230905-085551/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
 
 cases=(
         Perfusion_AIF_2E_NL_Cloud_42170_072714971_072714980_550_20180718-175707

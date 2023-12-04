@@ -35,6 +35,8 @@ class mri_parser(object):
         self.parser.add_argument("--mri_height", nargs='+', type=int, default=[32, 64], help='heights of the training images')
         self.parser.add_argument("--mri_width", nargs='+', type=int, default=[32, 64], help='widths of the training images')
 
+        self.parser.add_argument("--data_x_y_mode", action="store_true", help='if set, data set only return x, y.')
+
         # dataset arguments
         self.parser.add_argument("--ratio", nargs='+', type=float, default=[90,10,100], help='Ratio (as a percentage) for train/val/test divide of given data. Does allow for using partial dataset')    
 
@@ -53,6 +55,8 @@ class mri_parser(object):
         self.parser.add_argument("--not_add_noise", action="store_true", help='if set, not add noise.')
         self.parser.add_argument("--only_white_noise", action="store_true", help='if set, only add white noise.')
         self.parser.add_argument("--ignore_gmap", action="store_true", help='if set, do not use gmap for training.')
+        self.parser.add_argument("--add_salt_pepper", action="store_true", help='if set, add salt and pepper.')
+        self.parser.add_argument("--add_possion", action="store_true", help='if set, add possion noise.')
 
         # 2d/3d dataset arguments
         self.parser.add_argument('--twoD_num_patches_cutout', type=int, default=1, help='for 2D usecase, number of patches per frame')

@@ -99,6 +99,11 @@ git clone https://github.com/fbcotter/pytorch_wavelets
 cd pytorch_wavelets
 pip3 install .
 
+cd ~/mrprogs
+git clone git@github.com:aleximmer/Laplace.git
+cd Laplace
+pip3 install -e . --break-system-packages
+
 # login prompt
 # add ~/.local/bin into the path
 

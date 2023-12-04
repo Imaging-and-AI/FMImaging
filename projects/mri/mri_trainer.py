@@ -673,6 +673,9 @@ class MRITrainManager(TrainManager):
                         if scaling_factor > 0:
                             x *= scaling_factor
 
+                        _, output = running_inference(self.model_manager, x, cutout=cutout_in, overlap=overlap_in, device=device)
+                        output_1st_net = None
+
                         try:
                             _, output = running_inference(self.model_manager, x, cutout=cutout_in, overlap=overlap_in, device=device)
                             output_1st_net = None

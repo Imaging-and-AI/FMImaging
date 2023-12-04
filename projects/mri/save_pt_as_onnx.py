@@ -103,6 +103,9 @@ def main():
     output_dir = Path(args.output).parents[0].resolve()
     os.makedirs(str(output_dir), exist_ok=True)
 
+    config.log_dir = str(output_dir)
+    model.save_entire_model(config.num_epochs)
+
     device = get_device()
 
     model_input = torch.randn(1, config.no_in_channel, config.time, config.mri_height[-1], config.mri_width[-1], requires_grad=False)
