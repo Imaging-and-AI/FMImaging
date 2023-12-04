@@ -1,9 +1,9 @@
 export CUDA_VISIBLE_DEVICES=4
 
 python ../../run.py --run_name="mrnet_refactor" \
-                    --log_dir="/home/hoopersm/refactor_v1_FMImaging/projects/mrnet_classify/logs" \
+                    --log_dir="/home/hoopersm/refactor_debug/logs" \
                     --data_dir="/home/hoopersm/preprocessed_data/mrnet" \
-                    --split_csv_path="/home/hoopersm/baseline_backbones/samplers/simple_mrnet_splits_seed_1.csv" \
+                    --split_csv_path="/home/hoopersm/archive/baseline_backbones/samplers/simple_mrnet_splits_seed_1.csv" \
                     --height=256 \
                     --width=256 \
                     --time=48 \
@@ -13,7 +13,8 @@ python ../../run.py --run_name="mrnet_refactor" \
                     --brightness_aug=True \
                     --gaussian_blur_aug=True \
                     --pre_model=Identity \
-                    --backbone_model=omnivore_tiny \
+                    --backbone_model=omnivore \
+                    --omnivore.size='tiny' \
                     --post_model=NormPoolLinear \
                     --task_type=class \
                     --optim_type=adam \

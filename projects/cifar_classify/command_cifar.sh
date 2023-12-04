@@ -1,7 +1,7 @@
 export CUDA_VISIBLE_DEVICES=6
                             
 python custom_cifar_run.py --run_name=cifar_refactor \
-                            --log_dir="/home/hoopersm/refactor_v1_FMImaging/projects/cifar_classify/logs" \
+                            --log_dir="/home/hoopersm/refactor_debug/logs" \
                             --data_dir="/export/Lab-Xue/projects/cifar10/data" \
                             --height=128 \
                             --width=128 \
@@ -9,7 +9,8 @@ python custom_cifar_run.py --run_name=cifar_refactor \
                             --no_in_channel=1 \
                             --no_out_channel=10 \
                             --pre_model=Identity \
-                            --backbone_model=omnivore_tiny \
+                            --backbone_model=omnivore \
+                            --omnivore.size='tiny' \
                             --post_model=NormPoolLinear \
                             --task_type=class \
                             --optim_type=adam \

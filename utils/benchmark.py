@@ -1,5 +1,7 @@
+""" 
+Useful functions for writing test code. 
+"""
 # Adapted from https://github.com/HazyResearch/hippo/blob/datasets/benchmark/utils.py
-""" Useful functions for writing test code. """
 
 import torch
 import torch.utils.benchmark as benchmark

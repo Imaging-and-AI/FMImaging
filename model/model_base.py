@@ -138,22 +138,8 @@ class ModelManager(nn.Module):
 
         if self.config.backbone_model=='Identity':
             self.backbone, self.feature_channels = identity_model(self.config, self.pre_feature_channels)
-        elif self.config.backbone_model=='omnivore_tiny':
-            self.omnivore = omnivore_tiny(self.config, self.pre_feature_channels)
-            self.backbone = self.omnivore
-            self.feature_channels = self.omnivore.feature_channels
-        elif self.config.backbone_model=='omnivore_small':
-            self.omnivore = omnivore_small(self.config, self.pre_feature_channels)
-            self.backbone = self.omnivore
-            self.feature_channels = self.omnivore.feature_channels
-        elif self.config.backbone_model=='omnivore_base':
-            self.omnivore = omnivore_base(self.config, self.pre_feature_channels)
-            self.backbone = self.omnivore
-            self.feature_channels = self.omnivore.feature_channels
-        elif self.config.backbone_model=='omnivore_large':
-            self.omnivore = omnivore_large(self.config, self.pre_feature_channels)
-            self.backbone = self.omnivore
-            self.feature_channels = self.omnivore.feature_channels
+        elif self.config.backbone_model=='omnivore':
+            self.backbone, self.feature_channels = omnivore(self.config, self.pre_feature_channels)
         elif self.config.backbone_model=='STCNNT_HRNET':
             self.backbone, self.feature_channels = STCNNT_HRnet_model(self.config, self.pre_feature_channels)
         elif self.config.backbone_model=='STCNNT_UNET':
@@ -223,7 +209,7 @@ class ModelManager(nn.Module):
         Rules these models should abide by: 
             inputs: config file and feature_channels
             init returns: model
-            forward pass returns: List[tensor] (assumed length 1), each tensor is shape of expected output for task
+            forward pass returns: List[tensor] (assumed length 1 in default codebase), each tensor is shape of expected output for task
         @args:
             - None; uses values from self.config
         @outputs:
@@ -244,6 +230,10 @@ class ModelManager(nn.Module):
             self.post = ConvPoolLinear(self.config, self.feature_channels)
         elif self.config.post_model=='SimpleMultidepthConv': # 2D or 3D enhancement
             self.post = SimpleMultidepthConv(self.config, self.feature_channels)
+        elif self.config.post_model=='UNETR2D': # 2D enhancement
+            self.post = UNETR2D(self.config, self.feature_channels)
+        elif self.config.post_model=='UNETR3D': # 2D or 3d enhancement, works with both
+            self.post = UNETR3D(self.config, self.feature_channels)
         else:
             raise NotImplementedError(f"Post model not implemented: {self.config.post_model}")
 
@@ -329,17 +319,17 @@ class ModelManager(nn.Module):
 
         print(f"{rank_str} model, post, learnable tensors {num_learnable} out of {num} ...")
 
-    def load(self):
-        # Load models if paths specified
-        if self.config.pre_model_load_path is not None: self.load_pre(self.config.pre_model_load_path)
-        if self.config.backbone_model_load_path is not None: self.load_backbone(self.config.backbone_model_load_path)
-        if self.config.post_model_load_path is not None: self.load_post(self.config.post_model_load_path)
-
-    def load(self, model_load_name):
-        # Load a given model name
-        self.load_pre(model_load_name+"_pre.pth")
-        self.load_backbone(model_load_name+"_backbone.pth")
-        self.load_post(model_load_name+"_post.pth")
+    def load(self, model_load_name=None):
+        if model_load_name is None:
+            # Load models if paths specified
+            if self.config.pre_model_load_path is not None: self.load_pre(self.config.pre_model_load_path)
+            if self.config.backbone_model_load_path is not None: self.load_backbone(self.config.backbone_model_load_path)
+            if self.config.post_model_load_path is not None: self.load_post(self.config.post_model_load_path)
+        else:
+            # Load a given model name
+            self.load_pre(model_load_name+"_pre.pth")
+            self.load_backbone(model_load_name+"_backbone.pth")
+            self.load_post(model_load_name+"_post.pth")
         
     def save(self, model_save_name, epoch, optim, sched):
         pre_model_file = self.save_pre(model_save_name+"_pre", epoch, optim, sched)
@@ -410,7 +400,7 @@ class ModelManager(nn.Module):
         pre_output = self.pre(x)
         backbone_output = self.backbone(pre_output[-1])
         post_output = self.post(backbone_output)
-        return post_output
+        return post_output[-1]
 
 
 # -------------------------------------------------------------------------------------------------

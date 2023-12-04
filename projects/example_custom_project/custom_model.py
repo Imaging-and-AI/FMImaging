@@ -31,4 +31,4 @@ class custom_ModelManager(ModelManager):
         pre_output = self.pre(x)
         backbone_output = self.backbone(pre_output[-1])
         post_output = self.post(backbone_output)
-        return post_output
+        return post_output[-1]
