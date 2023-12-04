@@ -19,10 +19,13 @@ from pathlib import Path
 Current_DIR = Path(__file__).parents[0].resolve()
 sys.path.append(str(Current_DIR))
 
-Project_DIR = Path(__file__).parents[1].resolve()
+MRI_DIR = Path(__file__).parents[1].resolve()
+sys.path.append(str(MRI_DIR))
+
+Project_DIR = Path(__file__).parents[2].resolve()
 sys.path.append(str(Project_DIR))
 
-REPO_DIR = Path(__file__).parents[2].resolve()
+REPO_DIR = Path(__file__).parents[3].resolve()
 sys.path.append(str(REPO_DIR))
 
 from setup import none_or_str
