@@ -1,7 +1,7 @@
 export CUDA_VISIBLE_DEVICES=4
 
 python custom_run.py  --run_name='custom_project_refactor' \
-                      --log_dir='/home/hoopersm/refactor_v1_FMImaging/projects/example_custom_project/logs'\
+                      --log_dir="/home/hoopersm/refactor_debug/logs" \
                       --data_dir='/home/hoopersm/preprocessed_data/ptx' \
                       --height=512 \
                       --width=512 \
@@ -12,7 +12,8 @@ python custom_run.py  --run_name='custom_project_refactor' \
                       --no_out_channel=2 \
                       --custom_arg_2="Example custom arg modification" \
                       --pre_model=Identity \
-                      --backbone_model=omnivore_tiny \
+                      --backbone_model='omnivore' \
+                      --omnivore.size='tiny'
                       --post_model=NormPoolLinear \
                       --optim_type=adam \
                       --scheduler_type=None \

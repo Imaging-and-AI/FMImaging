@@ -54,7 +54,7 @@ class NormPoolLinear(nn.Module):
         x = self.avgpool(x)
         x = self.flatten(x)
         x = self.linear(x)
-        return x
+        return [x]
     
 #----------------------------------------------------------------------------------------------------------------
 class ConvPoolLinear(nn.Module):
@@ -96,4 +96,4 @@ class ConvPoolLinear(nn.Module):
         x = self.avgpool(x)
         x = self.flatten(x)
         x = self.linear(x)
-        return x
+        return [x]

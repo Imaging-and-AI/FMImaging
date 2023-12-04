@@ -9,9 +9,9 @@ torchrun --standalone \
         --rdzv_backend="c10d" \
         ../../run.py \
                 --run_name="ptx_refactor_ddp" \
-                --log_dir="/home/hoopersm/refactor_v1_FMImaging/projects/ptx_classify/logs" \
+                --log_dir="/home/hoopersm/refactor_debug/logs" \
                 --data_dir="/home/hoopersm/preprocessed_data/ptx" \
-                --split_csv_path="/home/hoopersm/baseline_backbones/samplers/simple_ptx_splits_seed_1.csv" \
+                --split_csv_path="/home/hoopersm/archive/baseline_backbones/samplers/simple_ptx_splits_seed_1.csv" \
                 --height=512 \
                 --width=512 \
                 --time=1 \
@@ -21,7 +21,8 @@ torchrun --standalone \
                 --brightness_aug=True \
                 --gaussian_blur_aug=True \
                 --pre_model=Identity \
-                --backbone_model=omnivore_tiny \
+                --backbone_model=omnivore \
+                --omnivore.size='tiny' \
                 --post_model=NormPoolLinear \
                 --task_type=class \
                 --optim_type=adam \

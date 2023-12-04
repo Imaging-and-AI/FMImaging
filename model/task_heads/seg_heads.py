@@ -112,7 +112,7 @@ class UperNet2D(nn.Module):
         x = self.head(self.FPN(features))
         x = F.interpolate(x, size=self.input_size, mode='bilinear')
         x = torch.unsqueeze(x,2) # Add back in time dim for main codebase 
-        return x
+        return [x]
 
     def freeze_bn(self):
         for module in self.modules():
@@ -212,7 +212,7 @@ class UperNet3D(nn.Module):
             x = F.interpolate(x, size=self.input_size, mode='trilinear')
         else:
             x = F.interpolate(x, size=output_size, mode='trilinear')
-        return x
+        return [x]
 
     def freeze_bn(self):
         for module in self.modules():
@@ -252,4 +252,4 @@ class SimpleConv(nn.Module):
         x = self.permute(x[-1])
         x = self.conv2d(x)
         x = self.permute(x)
-        return x
+        return [x]

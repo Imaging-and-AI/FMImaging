@@ -59,6 +59,7 @@ class NumpyDataset(torch.utils.data.Dataset):
             split_df = pd.read_csv(self.split_csv)
             split_df = split_df[split_df.Split.isin([self.split])]
             self.split_subject_ids = list(split_df.SubjectID)
+
         else:
             # Else all available subject IDs are split up
             all_subject_ids = [subject_path.split('/')[-2] for subject_path in glob.glob(os.path.join(self.data_loc, '*', '*_input.npy'))]

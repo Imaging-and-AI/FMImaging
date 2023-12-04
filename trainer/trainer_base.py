@@ -90,9 +90,9 @@ class TrainManager(object):
         if self.config.freeze_post: self.model_manager.freeze_post()
 
         if rank<=0:
-            # model_summary = model_info(self.model_manager, c)
-            # logging.info(f"Configuration for this run:\n{c}") # Commenting out, prints a lot of info
-            # logging.info(f"Model Summary:\n{str(model_summary)}") # Commenting out, prints a lot of info
+            model_summary = model_info(self.model_manager, c)
+            logging.info(f"Configuration for this run:\n{c}")
+            logging.info(f"Model Summary:\n{str(model_summary)}") 
             logging.info(f"Wandb name:\n{self.metric_manager.wandb_run.name}")
             self.metric_manager.wandb_run.watch(self.model_manager)
 
@@ -288,22 +288,22 @@ class TrainManager(object):
         else: raise ValueError(f"Unknown split {split} specified, should be in [train, val, test]")
 
         if c.ddp:
-            loss_f = self.module.loss_f
-            if isinstance(data_sets, list): samplers = [DistributedSampler(data_set) for data_set in data_sets]
-            else: samplers = DistributedSampler(data_sets)    
+            loss_f = self.loss_f
+            if isinstance(data_sets, list): samplers = [DistributedSamplerNoDuplicate(data_set,rank=rank) for data_set in data_sets]
+            else: samplers = DistributedSamplerNoDuplicate(data_sets,rank=rank)    
         else:
             loss_f = self.loss_f
             if isinstance(data_sets, list): samplers = [None] * len(data_sets)
             else: samplers = None
 
-        # Set upd data loader to evaluate
+        # Set up data loader to evaluate
         if isinstance(data_sets, list):
             data_loaders = [DataLoader(dataset=data_set, batch_size=c.batch_size, shuffle=False, sampler=samplers[ind],
-                                    num_workers=c.num_workers, prefetch_factor=c.prefetch_factor, drop_last=True,
+                                    num_workers=c.num_workers, prefetch_factor=c.prefetch_factor, drop_last=False,
                                     persistent_workers=c.num_workers>0) for ind, data_set in enumerate(data_sets)]
         else:
             data_loaders = [DataLoader(dataset=data_sets, batch_size=c.batch_size, shuffle=False, sampler=samplers,
-                                    num_workers=c.num_workers, prefetch_factor=c.prefetch_factor, drop_last=True,
+                                    num_workers=c.num_workers, prefetch_factor=c.prefetch_factor, drop_last=False,
                                     persistent_workers=c.num_workers>0) ]
             
         self.metric_manager.on_eval_epoch_start()
@@ -350,7 +350,7 @@ class TrainManager(object):
                 if hasattr(self.metric_manager, 'average_eval_metrics'):
                     if isinstance(self.metric_manager.average_eval_metrics, dict):
                         for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
-                            try: pbar_str += f", {Fore.CYAN} {metric_name} {metric_value:.4f}"
+                            try: pbar_str += f", {Fore.MAGENTA} {metric_name} {metric_value:.4f}"
                             except: pass
 
                         # Save final evaluation metrics to a text file
@@ -393,7 +393,7 @@ class TrainManager(object):
             self.metric_manager.init_wandb()
             
         # -------------------------------------------------------
-        # if ddp is used, broadcast the parameters from rank0 to all other ranks (originally used for sweep, kept to make sure unified params)
+        # if ddp is used, broadcast the parameters from rank0 to all other ranks (originally used for sweep, commented out for now)
 
         if self.config.ddp:
 

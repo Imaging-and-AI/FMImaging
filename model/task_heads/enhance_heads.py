@@ -16,6 +16,278 @@ Model_DIR = Path(__file__).parents[1].resolve()
 sys.path.append(str(Model_DIR))
 
 from imaging_attention import Conv2DExt
+from monai.networks.blocks import UnetOutBlock, UnetrBasicBlock, UnetrUpBlock
+from monai.utils import optional_import
+
+rearrange, _ = optional_import("einops", name="rearrange")
+
+#----------------------------------------------------------------------------------------------------------------
+class UNETR2D(nn.Module):
+    """
+    Swin UNETR based on: "Hatamizadeh et al.,
+    Swin UNETR: Swin Transformers for Semantic Segmentation of Brain Tumors in MRI Images
+    <https://arxiv.org/abs/2201.01266>"
+    UNETR code modified from monai
+    """
+    def __init__(
+        self,
+        config,
+        feature_channels
+    ) -> None:
+
+        super().__init__()
+
+        if feature_channels[0] % 12 != 0:
+            raise ValueError("Features should be divisible by 12 to use current UNETR config.")
+
+        self.encoder1 = UnetrBasicBlock(
+            spatial_dims=3,
+            in_channels=config.no_in_channel,
+            out_channels=feature_channels[0],
+            kernel_size=(1,3,3),
+            stride=1,
+            norm_name="instance",
+            res_block=True,
+        )
+
+        self.encoder2 = UnetrBasicBlock(
+            spatial_dims=3,
+            in_channels=feature_channels[0],
+            out_channels=feature_channels[0],
+            kernel_size=(1,3,3),
+            stride=1,
+            norm_name="instance",
+            res_block=True,
+        )
+
+        self.encoder3 = UnetrBasicBlock(
+            spatial_dims=3,
+            in_channels=feature_channels[1],
+            out_channels=feature_channels[1],
+            kernel_size=(1,3,3),
+            stride=1,
+            norm_name="instance",
+            res_block=True,
+        )
+
+        self.encoder4 = UnetrBasicBlock(
+            spatial_dims=3,
+            in_channels=feature_channels[2],
+            out_channels=feature_channels[2],
+            kernel_size=(1,3,3),
+            stride=1,
+            norm_name="instance",
+            res_block=True,
+        )
+
+        self.encoder10 = UnetrBasicBlock(
+            spatial_dims=3,
+            in_channels=feature_channels[4],
+            out_channels=feature_channels[4],
+            kernel_size=(1,3,3),
+            stride=1,
+            norm_name="instance",
+            res_block=True,
+        )
+
+        self.decoder5 = UnetrUpBlock(
+            spatial_dims=3,
+            in_channels=feature_channels[4],
+            out_channels=feature_channels[3],
+            kernel_size=(1,3,3),
+            upsample_kernel_size=(1,2,2), #These all should reflect the patchmerging ops in the backbone
+            norm_name="instance",
+            res_block=True,
+        )
+
+        self.decoder4 = UnetrUpBlock(
+            spatial_dims=3,
+            in_channels=feature_channels[3],
+            out_channels=feature_channels[2],
+            kernel_size=(1,3,3),
+            upsample_kernel_size=(1,2,2), #These all should reflect the patchmerging ops in the backbone
+            norm_name="instance",
+            res_block=True,
+        )
+
+        self.decoder3 = UnetrUpBlock(
+            spatial_dims=3,
+            in_channels=feature_channels[2],
+            out_channels=feature_channels[1],
+            kernel_size=(1,3,3),
+            upsample_kernel_size=(1,2,2), #These all should reflect the patchmerging ops in the backbone
+            norm_name="instance",
+            res_block=True,
+        )
+        self.decoder2 = UnetrUpBlock(
+            spatial_dims=3,
+            in_channels=feature_channels[1],
+            out_channels=feature_channels[0],
+            kernel_size=(1,3,3),
+            upsample_kernel_size=(1,2,2), #These all should reflect the patchmerging ops in the backbone
+            norm_name="instance",
+            res_block=True,
+        )
+
+        self.decoder1 = UnetrUpBlock(
+            spatial_dims=3,
+            in_channels=feature_channels[0],
+            out_channels=feature_channels[0],
+            kernel_size=(1,3,3),
+            upsample_kernel_size=config.omnivore.patch_size, #This should be the patch embedding kernel size
+            norm_name="instance",
+            res_block=True,
+        )
+
+        self.out = UnetOutBlock(spatial_dims=3, in_channels=feature_channels[0], out_channels=config.no_out_channel)
+
+    def forward(self, x_in, backbone_features):
+        enc0 = self.encoder1(x_in)
+        enc1 = self.encoder2(backbone_features[0])
+        enc2 = self.encoder3(backbone_features[1])
+        enc3 = self.encoder4(backbone_features[2])
+        dec4 = self.encoder10(backbone_features[4])
+        dec3 = self.decoder5(dec4, backbone_features[3])
+        dec2 = self.decoder4(dec3, enc3)
+        dec1 = self.decoder3(dec2, enc2)
+        dec0 = self.decoder2(dec1, enc1)
+        out = self.decoder1(dec0, enc0)
+        out = self.out(out)
+        return [out]
+
+#----------------------------------------------------------------------------------------------------------------
+class UNETR3D(nn.Module):
+    """
+    Swin UNETR based on: "Hatamizadeh et al.,
+    Swin UNETR: Swin Transformers for Semantic Segmentation of Brain Tumors in MRI Images
+    <https://arxiv.org/abs/2201.01266>"
+    UNETR code modified from monai
+    """
+    def __init__(
+        self,
+        config,
+        feature_channels
+    ) -> None:
+
+        super().__init__()
+
+        if feature_channels[0] % 12 != 0:
+            raise ValueError("Features should be divisible by 12 to use current UNETR config.")
+
+        self.encoder1 = UnetrBasicBlock(
+            spatial_dims=3,
+            in_channels=config.no_in_channel,
+            out_channels=feature_channels[0],
+            kernel_size=3,
+            stride=1,
+            norm_name="instance",
+            res_block=True,
+        )
+
+        self.encoder2 = UnetrBasicBlock(
+            spatial_dims=3,
+            in_channels=feature_channels[0],
+            out_channels=feature_channels[0],
+            kernel_size=3,
+            stride=1,
+            norm_name="instance",
+            res_block=True,
+        )
+
+        self.encoder3 = UnetrBasicBlock(
+            spatial_dims=3,
+            in_channels=feature_channels[1],
+            out_channels=feature_channels[1],
+            kernel_size=3,
+            stride=1,
+            norm_name="instance",
+            res_block=True,
+        )
+
+        self.encoder4 = UnetrBasicBlock(
+            spatial_dims=3,
+            in_channels=feature_channels[2],
+            out_channels=feature_channels[2],
+            kernel_size=3,
+            stride=1,
+            norm_name="instance",
+            res_block=True,
+        )
+
+        self.encoder10 = UnetrBasicBlock(
+            spatial_dims=3,
+            in_channels=feature_channels[4],
+            out_channels=feature_channels[4],
+            kernel_size=3,
+            stride=1,
+            norm_name="instance",
+            res_block=True,
+        )
+
+        self.decoder5 = UnetrUpBlock(
+            spatial_dims=3,
+            in_channels=feature_channels[4],
+            out_channels=feature_channels[3],
+            kernel_size=3,
+            upsample_kernel_size=(1,2,2), #These all should reflect the patchmerging ops in the backbone
+            norm_name="instance",
+            res_block=True,
+        )
+
+        self.decoder4 = UnetrUpBlock(
+            spatial_dims=3,
+            in_channels=feature_channels[3],
+            out_channels=feature_channels[2],
+            kernel_size=3,
+            upsample_kernel_size=(1,2,2), #These all should reflect the patchmerging ops in the backbone
+            norm_name="instance",
+            res_block=True,
+        )
+
+        self.decoder3 = UnetrUpBlock(
+            spatial_dims=3,
+            in_channels=feature_channels[2],
+            out_channels=feature_channels[1],
+            kernel_size=3,
+            upsample_kernel_size=(1,2,2), #These all should reflect the patchmerging ops in the backbone
+            norm_name="instance",
+            res_block=True,
+        )
+        self.decoder2 = UnetrUpBlock(
+            spatial_dims=3,
+            in_channels=feature_channels[1],
+            out_channels=feature_channels[0],
+            kernel_size=3,
+            upsample_kernel_size=(1,2,2), #These all should reflect the patchmerging ops in the backbone
+            norm_name="instance",
+            res_block=True,
+        )
+
+        self.decoder1 = UnetrUpBlock(
+            spatial_dims=3,
+            in_channels=feature_channels[0],
+            out_channels=feature_channels[0],
+            kernel_size=3,
+            upsample_kernel_size=config.omnivore.patch_size, #This should be the patch embedding kernel size
+            norm_name="instance",
+            res_block=True,
+        )
+
+        self.out = UnetOutBlock(spatial_dims=3, in_channels=feature_channels[0], out_channels=config.no_out_channel)
+
+    def forward(self, x_in, backbone_features):
+        enc0 = self.encoder1(x_in)
+        enc1 = self.encoder2(backbone_features[0])
+        enc2 = self.encoder3(backbone_features[1])
+        enc3 = self.encoder4(backbone_features[2])
+        dec4 = self.encoder10(backbone_features[4])
+        dec3 = self.decoder5(dec4, backbone_features[3])
+        dec2 = self.decoder4(dec3, enc3)
+        dec1 = self.decoder3(dec2, enc2)
+        dec0 = self.decoder2(dec1, enc1)
+        out = self.decoder1(dec0, enc0)
+        out = self.out(out)
+        return [out]
 
 #----------------------------------------------------------------------------------------------------------------
 class SimpleMultidepthConv(nn.Module):
@@ -64,5 +336,5 @@ class SimpleMultidepthConv(nn.Module):
             x_in = F.interpolate(x_in, size=self.input_size, mode='trilinear')
             x_out += x_in
             
-        return x_out
+        return [x_out]
 

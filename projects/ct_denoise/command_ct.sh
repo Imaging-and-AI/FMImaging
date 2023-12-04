@@ -1,7 +1,7 @@
 export CUDA_VISIBLE_DEVICES=5
 
 python ../../run.py --run_name="ct_refactor" \
-                    --log_dir="/home/hoopersm/refactor_v1_FMImaging/projects/ct_denoise/logs" \
+                    --log_dir="/home/hoopersm/refactor_debug/logs" \
                     --data_dir="/home/hoopersm/preprocessed_data/abct_noisy" \
                     --height=224 \
                     --width=224 \
@@ -16,7 +16,8 @@ python ../../run.py --run_name="ct_refactor" \
                     --brightness_aug=True \
                     --gaussian_blur_aug=False \
                     --pre_model=Identity \
-                    --backbone_model=omnivore_tiny \
+                    --backbone_model=omnivore \
+                    --omnivore.size='tiny' \
                     --post_model=SimpleMultidepthConv \
                     --task_type=enhance \
                     --optim_type=adam \

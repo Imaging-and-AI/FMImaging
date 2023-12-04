@@ -637,7 +637,6 @@ class IdentityModel(nn.Module):
     """
     def __init__(self):
         super().__init__()
-        
         self.identity_layer = nn.Identity()
 
     def forward(self, x):

@@ -51,11 +51,11 @@ class MetricManager(object):
         if self.config.task_type=='class': 
             # Set up metric dicts, which we'll use during training to track metrics
             self.train_metrics = {'loss': AverageMeter(),
-                                  'auroc':AverageMeter()}
+                                  'auroc': AverageMeter()}
             self.eval_metrics = {'loss': AverageMeter(),
-                                 'acc_1':AverageMeter(),
-                                 'auroc':AverageMeter(),
-                                 'f1':AverageMeter()}
+                                 'acc_1': AverageMeter(),
+                                 'auroc': AverageMeter(),
+                                 'f1': AverageMeter()}
             
             # Define vars used by the metric functions
             if self.config.no_out_channel==1 or self.config.no_out_channel==2: # Assumes no multilabel problems
@@ -71,9 +71,9 @@ class MetricManager(object):
         elif self.config.task_type=='seg': 
             # Set up metric dicts, which we'll use during training to track metrics
             self.train_metrics = {'loss': AverageMeter(),
-                                  'f1':AverageMeter()}
+                                  'f1': AverageMeter()}
             self.eval_metrics = {'loss': AverageMeter(),
-                                 'f1':AverageMeter()}
+                                 'f1': AverageMeter()}
             
             # Define vars used by the metric functions
             if self.config.no_out_channel==1 or self.config.no_out_channel==2: # Assumes no multilabel problems
@@ -89,11 +89,11 @@ class MetricManager(object):
         elif self.config.task_type=='enhance': 
             # Set up metric dicts, which we'll use during training to track metrics
             self.train_metrics = {'loss': AverageMeter(),
-                                  'ssim':AverageMeter(),
-                                  'psnr':AverageMeter()}
+                                  'ssim': AverageMeter(),
+                                  'psnr': AverageMeter()}
             self.eval_metrics = {'loss': AverageMeter(),
-                                  'ssim':AverageMeter(),
-                                  'psnr':AverageMeter()}
+                                  'ssim': AverageMeter(),
+                                  'psnr': AverageMeter()}
             
             # Define vars used by the metric functions 
             self.metric_task = 'multiclass' # Keep as multiclass for enhance applications
@@ -169,9 +169,20 @@ class MetricManager(object):
 
         # Aggregate the measurements taken over each step
         if self.config.ddp:
-            # Note to self: # original code did not do this on train split, just logged the .avg for each metric name
-            average_metrics = {metric_name: torch.tensor(self.train_metrics[metric_name].avg).to(device=self.device) for metric_name in self.train_metrics.keys()}
-            average_metrics = {avg_metric_name: dist.all_reduce(avg_metric_val, op=torch.distributed.ReduceOp.AVG) for avg_metric_name, avg_metric_val in average_metrics.items()}
+            
+            average_metrics = dict()
+            for metric_name in self.train_metrics.keys():
+
+                batch_vals = torch.tensor(self.train_metrics[metric_name].vals).to(device=self.device)
+                batch_counts = torch.tensor(self.train_metrics[metric_name].counts).to(device=self.device)
+                batch_products = batch_vals * batch_counts
+
+                dist.all_reduce(batch_products, op=torch.distributed.ReduceOp.SUM)
+                dist.all_reduce(batch_counts, op=torch.distributed.ReduceOp.SUM)
+
+                total_products = sum(batch_products)
+                total_counts = sum(batch_counts)
+                average_metrics[metric_name] = total_products.item() / total_counts.item()
 
         else:
             average_metrics = {metric_name: self.train_metrics[metric_name].avg for metric_name in self.train_metrics.keys()}
@@ -186,7 +197,7 @@ class MetricManager(object):
 
         # Checkpoint the most recent model
         model_epoch = model_manager.module if self.config.ddp else model_manager 
-        model_epoch.save('last_checkpoint', epoch, optim, sched)   
+        model_epoch.save('last_epoch', epoch, optim, sched)   
 
     def on_eval_epoch_start(self):
         """
@@ -221,8 +232,8 @@ class MetricManager(object):
                 self.all_preds += [output]
                 self.all_labels += [labels]
 
-            elif self.config.task_type in ['seg','enhance']:
-                raise NotImplementedError('Exact metric computation not implemented for segmentation or enhancement; not needed for average Dice or average loss, etc.')
+            else:
+                raise NotImplementedError('Exact metric computation not implemented for segmentation or enhancement; not needed for average Dice or average loss.')
             
         # Update each metric with the outputs from this step 
         for metric_name in self.eval_metrics.keys():
@@ -262,10 +273,21 @@ class MetricManager(object):
                         metric_value = torch.mean(metric_value)
                     self.eval_metrics[metric_name].update(metric_value, n=self.all_preds.shape[0])
 
-        # Otherwise aggregate the measurements over the steps
+        # Aggregate the measurements over the steps
         if self.config.ddp:
-            average_metrics = {metric_name: torch.tensor(self.val_metrics[metric_name].avg).to(device=self.device) for metric_name in self.eval_metrics.keys()}
-            average_metrics = {avg_metric_name: dist.all_reduce(avg_metric_val, op=torch.distributed.ReduceOp.AVG) for avg_metric_name, avg_metric_val in average_metrics.items()}
+            average_metrics = dict()
+            for metric_name in self.eval_metrics.keys():
+
+                batch_vals = torch.tensor(self.eval_metrics[metric_name].vals).to(device=self.device)
+                batch_counts = torch.tensor(self.eval_metrics[metric_name].counts).to(device=self.device)
+                batch_products = batch_vals * batch_counts
+
+                dist.all_reduce(batch_products, op=torch.distributed.ReduceOp.SUM)
+                dist.all_reduce(batch_counts, op=torch.distributed.ReduceOp.SUM)
+
+                total_products = sum(batch_products)
+                total_counts = sum(batch_counts)
+                average_metrics[metric_name] = total_products.item() / total_counts.item()
 
         else:
             average_metrics = {metric_name: self.eval_metrics[metric_name].avg for metric_name in self.eval_metrics.keys()}
