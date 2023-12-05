@@ -28,7 +28,7 @@ import torch.nn as nn
 import torchvision
 
 from model.model_base import ModelManager
-from model.backbone import identity_model, omnivore_tiny, omnivore_small, omnivore_base, omnivore_large, STCNNT_HRnet_model, STCNNT_Unet_model, STCNNT_Mixed_Unetr_model
+from model.backbone import identity_model, omnivore, STCNNT_HRnet_model, STCNNT_Unet_model, STCNNT_Mixed_Unetr_model
 from model.backbone import STCNNT_HRnet, STCNNT_Mixed_Unetr, UpSample, set_window_patch_sizes_keep_num_window, set_window_patch_sizes_keep_window_size, STCNNT_Block
 from model.imaging_attention import *
 from model.task_heads import *
@@ -88,13 +88,13 @@ class STCNNT_MRI(ModelManager):
 
         if self.config.backbone_model=='Identity':
             self.pre_feature_channels = [32]
-        elif self.config.backbone_model=='omnivore_tiny':
+        elif self.config.backbone_model=='omnivore' and self.config.omnivore.size == 'tiny':
             self.pre_feature_channels = [32]
-        elif self.config.backbone_model=='omnivore_small':
+        elif self.config.backbone_model=='omnivore' and self.config.omnivore.size == 'small':
             self.pre_feature_channels = [32]
-        elif self.config.backbone_model=='omnivore_base':
+        elif self.config.backbone_model=='omnivore' and self.config.omnivore.size == 'base':
             self.pre_feature_channels = [32]
-        elif self.config.backbone_model=='omnivore_large':
+        elif self.config.backbone_model=='omnivore' and self.config.omnivore.size == 'large':
             self.pre_feature_channels = [32]
 
         if self.config.backbone_model == "STCNNT_HRNET":

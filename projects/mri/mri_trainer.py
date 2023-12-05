@@ -444,7 +444,7 @@ class MRITrainManager(TrainManager):
                         # Run metric logging for each epoch 
                         tm = start_timer(enable=c.with_timer) 
 
-                        self.metric_manager.on_train_epoch_end(epoch, rank)
+                        self.metric_manager.on_train_epoch_end(self.model_manager, optim, sched, epoch, rank)
 
                         # Print out metrics from this epoch
                         log_str = self.create_log_str(config, epoch, rank, 
@@ -479,11 +479,12 @@ class MRITrainManager(TrainManager):
 
                 # ----------------------------------------------------------------------------
 
-                self.model_manager.save(os.path.join(self.config.log_dir, self.config.run_name, 'last_checkpoint'), epoch, optim, sched)
-                if wandb_run is not None:
-                    wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_pre.pth'))
-                    wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_backbone.pth'))
-                    wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_post.pth'))
+                if rank <= 0:
+                    self.model_manager.save(os.path.join(self.config.log_dir, self.config.run_name, 'last_checkpoint'), epoch, optim, sched)
+                    if wandb_run is not None:
+                        wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_pre.pth'))
+                        wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_backbone.pth'))
+                        wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_post.pth'))
 
                 # Load the best model from training
                 if self.config.eval_train_set or self.config.eval_val_set or self.config.eval_test_set:

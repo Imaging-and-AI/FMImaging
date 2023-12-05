@@ -196,7 +196,7 @@ class MetricManager(object):
         self.average_train_metrics = average_metrics
 
         # Checkpoint the most recent model
-        model_epoch = model_manager.module if self.config.ddp else model_manager 
+        model_epoch = model_manager.module if hasattr(model_manager, 'module') else model_manager 
         model_epoch.save('last_epoch', epoch, optim, sched)   
 
     def on_eval_epoch_start(self):
