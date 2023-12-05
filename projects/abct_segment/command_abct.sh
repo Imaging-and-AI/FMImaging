@@ -1,9 +1,9 @@
 export CUDA_VISIBLE_DEVICES=1
 
 python ../../run.py --run_name="abct_refactor" \
-                    --log_dir="/home/hoopersm/refactor_v1_FMImaging/projects/abct_segment/logs" \
+                    --log_dir="/home/hoopersm/refactor_debug/logs" \
                     --data_dir="/home/hoopersm/preprocessed_data/abct" \
-                    --split_csv_path="/home/hoopersm/baseline_backbones/samplers/simple_abct_splits_seed_1.csv" \
+                    --split_csv_path="/home/hoopersm/archive/baseline_backbones/samplers/simple_abct_splits_seed_1.csv" \
                     --height=112 \
                     --width=112 \
                     --time=32 \
@@ -13,7 +13,8 @@ python ../../run.py --run_name="abct_refactor" \
                     --brightness_aug=True \
                     --gaussian_blur_aug=True \
                     --pre_model=Identity \
-                    --backbone_model=omnivore_tiny \
+                    --backbone_model=omnivore \
+                    --omnivore.size='tiny' \
                     --post_model=UperNet3D \
                     --task_type=seg \
                     --optim_type=adam \

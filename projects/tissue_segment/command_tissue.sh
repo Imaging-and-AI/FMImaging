@@ -1,9 +1,16 @@
-export CUDA_VISIBLE_DEVICES=2
+export CUDA_VISIBLE_DEVICES=6,7
 
-python ../../run.py --run_name="tissue_refactor" \
-                    --log_dir="/home/hoopersm/refactor_v1_FMImaging/projects/tissue_segment/logs" \
+torchrun --nnodes=1 \
+        --nproc_per_node=2 \
+        --max_restarts=0 \
+        --master_port=9050 \
+        --rdzv_id=100 \
+        --rdzv_backend="c10d" \
+        ../../run.py \
+                    --run_name="debug_refactor_inference" \
+                    --log_dir="/home/hoopersm/refactor_debug/logs" \
                     --data_dir="/home/hoopersm/preprocessed_data/tissue" \
-                    --split_csv_path="/home/hoopersm/baseline_backbones/samplers/simple_tissue_splits_seed_1.csv" \
+                    --split_csv_path="/home/hoopersm/archive/baseline_backbones/samplers/simple_tissue_splits_seed_1.csv" \
                     --height=256 \
                     --width=256 \
                     --time=1 \
@@ -13,7 +20,8 @@ python ../../run.py --run_name="tissue_refactor" \
                     --brightness_aug=True \
                     --gaussian_blur_aug=True \
                     --pre_model=Identity \
-                    --backbone_model=omnivore_tiny \
+                    --backbone_model=omnivore \
+                    --omnivore.size='tiny' \
                     --post_model=UperNet2D \
                     --task_type=seg \
                     --optim_type=adam \
@@ -21,9 +29,11 @@ python ../../run.py --run_name="tissue_refactor" \
                     --loss_type=CrossEntropy \
                     --device=cuda \
                     --num_workers=4 \
-                    --num_epochs=50 \
-                    --batch_size=32 \
+                    --num_epochs=2 \
+                    --batch_size=2 \
                     --optim.lr=0.0001 \
                     --optim.beta1=0.9 \
                     --optim.beta2=0.99 \
-                    
+                    --ddp \
+                    --override \ 
+                     

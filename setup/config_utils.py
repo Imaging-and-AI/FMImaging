@@ -124,6 +124,9 @@ def check_args(config):
        config.prefetch_factor = 2
     if len(config.optim.lr)==1:
         config.optim.lr = [config.optim.lr[0]]*3
-        
+    if "LOCAL_RANK" in os.environ or "WORLD_SIZE" in os.environ or "LOCAL_WORLD_SIZE" in os.environ:
+        config.ddp = True
+    if config.ddp and not ("LOCAL_RANK" in os.environ or "WORLD_SIZE" in os.environ or "LOCAL_WORLD_SIZE" in os.environ):
+        raise RuntimeError("--ddp specified but ddp environmental variables not available; remember to run with torchrun if using ddp.")
 
 

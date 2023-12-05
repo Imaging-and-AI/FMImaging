@@ -22,10 +22,8 @@ class model_parser(object):
 
         if 'omnivore' in model_type: 
             self.add_omnivore_args()
-            self.add_shared_STCNNT_args()
-            self.add_hrnet_STCNNT_args()
-        else:
-        #if 'STCNNT' in model_type: 
+
+        if 'STCNNT' in model_type: 
             self.add_shared_STCNNT_args()
             
         if model_type=='STCNNT_HRNET': 
@@ -38,7 +36,12 @@ class model_parser(object):
             self.add_mixed_unetr_STCNNT_args()
         
     def add_omnivore_args(self):  
-        self.parser.add_argument('--omnivore.out_feat_keys', type=str, default=['interim0','interim1','interim2','stage3'], help="Which features to get from inside the swin transformer")
+        self.parser.add_argument('--omnivore.size', type=str, default='tiny', choices=['tiny','small','base','large','custom'], help="Size of omnivore model")
+        self.parser.add_argument('--omnivore.patch_size', nargs='+', type=int, default=[1,1,1], help="Size of swin patches")
+        self.parser.add_argument('--omnivore.window_size', nargs='+', type=int, default=[7,7,7], help="Size of swin windows")
+        self.parser.add_argument('--omnivore.embed_dim', type=int, default=24, help="Size of embedding dimension")
+        self.parser.add_argument('--omnivore.depths', nargs='+', type=int, default=[2,2,6,2], help="Number of transformer blocks per resolution depth")
+        self.parser.add_argument('--omnivore.num_heads', nargs='+', type=int, default=[3,6,12,24], help="Number of attention heads per resolution depth")
         
     def add_shared_STCNNT_args(self):
         self.parser.add_argument("--cell_type", type=str, default="sequential", choices=['sequential', 'parallel'], help='cell type, sequential or parallel')
@@ -76,7 +79,6 @@ class model_parser(object):
         self.parser.add_argument("--temporal_flash_attention", action="store_true", help='if set, temporal attention uses flash attention implementation.')
         self.parser.add_argument('--activation_func', type=str, default="prelu", choices=['elu', 'relu', 'leakyrelu', 'prelu', 'relu6', 'selu', 'celu', 'gelu'], help="nonlinear activation function, elu, relu, leakyrelu, prelu, relu6, selu, celu, gelu ")
         self.parser.add_argument('--upsample_method', type=str, default="linear", choices=['NN', 'linear', 'bspline'], help="upsampling method in backbone, NN, linear or bspline ")
-    
 
     def add_hrnet_STCNNT_args(self):  
         self.parser.add_argument('--backbone_hrnet.C', type=int, default=32, help="number of channels in main body of hrnet")

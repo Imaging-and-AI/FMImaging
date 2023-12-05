@@ -23,200 +23,66 @@ sys.path.insert(1, str(Model_DIR))
 Project_DIR = Path(__file__).parents[2].resolve()
 sys.path.insert(1, str(Project_DIR))
 
-from imaging_attention import Conv3DExt
-from backbone_base import STCNNT_Base_Runtime
 
 """
-CODE FROM OMNIVORE GITHUB https://github.com/facebookresearch/omnivore/
+CODE MODIFIED FROM OMNIVORE GITHUB https://github.com/facebookresearch/omnivore/
 """
 
 #-------------------------------------------------------------------------------------
 
-class omnivore_base_class(STCNNT_Base_Runtime, ABC):
+def omnivore(config, pre_feature_channels):
+    """
+    Simple function to set up and return omnivore model.
+    Additionally, function computes feature_channels, a list of ints containing the number of channels in each feature returned by the model.
+    """
 
-    def __init__(self, config, pre_feature_channels) -> None:
-        """
-        @args:
-            - config (Namespace): runtime namespace for setup
-        """
-        super().__init__(config)
-        self.model, self.feature_channels = self.create_model(pre_feature_channels)
+    if config.omnivore.size=='tiny':
+        embed_dim = 96
+        depths = [2, 2, 6, 2]
+        num_heads = [3, 6, 12, 24]
+    elif config.omnivore.size=='small':
+        embed_dim = 96
+        depths = [2, 2, 18, 2]
+        num_heads = [3, 6, 12, 24]
+    elif config.omnivore.size=='base':
+        embed_dim = 128
+        depths = [2, 2, 18, 2]
+        num_heads = [4,8,16,32]
+    elif config.omnivore.size=='large':
+        embed_dim = 192
+        depths = [2, 2, 18, 2]
+        num_heads = [6, 12, 24, 48]
+    elif config.omnivore.size=='custom':
+        embed_dim = config.omnivore.embed_dim
+        depths =  config.omnivore.depths
+        num_heads =  config.omnivore.num_heads
+    else:
+        raise ValueError(f"Unknown model size {config.omnivore.size} specified in config.")
 
-    def permute(self, x):
-        return torch.permute(x, (0,2,1,3,4))
-
-    @abstractmethod
-    def create_model(self, pre_feature_channels):
-        pass
-
-    def forward(self, x):
-        res = self.model(x)
-        return res
-
-#-------------------------------------------------------------------------------------
-
-class omnivore_tiny(omnivore_base_class):
-
-    def __init__(self, config, pre_feature_channels) -> None:
-        super().__init__(config, pre_feature_channels)
-
-    def create_model(self, pre_feature_channels):
-        embed_dim=96
-        l_depths=4
-        model = SwinTransformer3D(pretrained=None,
-                            pretrained2d=None,
-                            pretrained3d=None,
-                            pretrained_model_key="base_model",
-                            patch_size=(2, 4, 4),
-                            in_chans=pre_feature_channels[-1],
-                            embed_dim=embed_dim,
-                            depths=[2, 2, 6, 2],
-                            num_heads=[3, 6, 12, 24],
-                            window_size=(8, 7, 7),
-                            mlp_ratio=4.0,
-                            qkv_bias=False,
-                            qk_scale=None,
-                            drop_rate=0.0,
-                            attn_drop_rate=0.0,
-                            drop_path_rate=0.0,
-                            norm_layer=nn.LayerNorm,
-                            patch_norm=False,
-                            frozen_stages=-1,
-                            depth_mode=None,
-                            depth_patch_embed_separate_params=True,
-                            out_feat_keys=self.config.omnivore.out_feat_keys
-                        )
-        feature_channels=[embed_dim * 2 ** (l_depths-i) for i in range(l_depths-1,0,-1)]+[embed_dim * 2 ** (l_depths)]
-        return model, feature_channels
+    model = SwinTransformer3D(patch_size=config.omnivore.patch_size,
+                        in_chans=pre_feature_channels[-1],
+                        embed_dim=embed_dim,
+                        depths=depths,
+                        num_heads=num_heads,
+                        window_size=config.omnivore.window_size,
+                        mlp_ratio=4.0,
+                        qkv_bias=False,
+                        qk_scale=None,
+                        drop_rate=0.0,
+                        attn_drop_rate=0.0,
+                        drop_path_rate=0.0,
+                        norm_layer=nn.LayerNorm,
+                        patch_norm=False,
+                        frozen_stages=-1,
+                        depth_patch_embed_separate_params=True,
+                        out_feat_keys=['stage0','stage1','stage2','stage3','stage4']
+                    )
+    
+    l_depths = len(depths)
+    feature_channels=[embed_dim * 2 ** (l_depths-i) for i in range(l_depths,0,-1)]+[embed_dim * 2 ** (l_depths)]
+    return model, feature_channels
 
 #-------------------------------------------------------------------------------------
-
-class omnivore_small(omnivore_base_class):
-
-    def __init__(self, config, pre_feature_channels) -> None:
-        super().__init__(config, pre_feature_channels)
-
-    def create_model(self, pre_feature_channels):
-        embed_dim=96
-        l_depths=4
-        model = SwinTransformer3D(pretrained=None,
-                            pretrained2d=None,
-                            pretrained3d=None,
-                            pretrained_model_key="base_model",
-                            patch_size=(2, 4, 4),
-                            in_chans=pre_feature_channels[-1],
-                            embed_dim=embed_dim,
-                            depths=[2, 2, 18, 2],
-                            num_heads=[3, 6, 12, 24],
-                            window_size=(8, 7, 7),
-                            mlp_ratio=4.0,
-                            qkv_bias=False,
-                            qk_scale=None,
-                            drop_rate=0.0,
-                            attn_drop_rate=0.0,
-                            drop_path_rate=0.0,
-                            norm_layer=nn.LayerNorm,
-                            patch_norm=False,
-                            frozen_stages=-1,
-                            depth_mode=None,
-                            depth_patch_embed_separate_params=True,
-                            out_feat_keys=self.config.omnivore.out_feat_keys
-                        )
-        feature_channels=[embed_dim * 2 ** (l_depths-i) for i in range(l_depths-1,0,-1)]+[embed_dim * 2 ** (l_depths)]
-        return model, feature_channels
-
-#-------------------------------------------------------------------------------------
-
-class omnivore_base(omnivore_base_class):
-
-    def __init__(self, config, pre_feature_channels) -> None:
-        super().__init__(config, pre_feature_channels)
-
-    def create_model(self, pre_feature_channels):
-        embed_dim=128
-        l_depths=4
-        model = SwinTransformer3D( # Base
-                            pretrained=None,
-                            pretrained2d=None,
-                            pretrained3d=None,
-                            pretrained_model_key="base_model",
-                            patch_size=(2, 4, 4),
-                            in_chans=pre_feature_channels[-1],
-                            embed_dim=embed_dim,
-                            depths=[2, 2, 18, 2],
-                            num_heads=[4,8,16,32],
-                            window_size=(8, 7, 7),
-                            mlp_ratio=4.0,
-                            qkv_bias=False,
-                            qk_scale=None,
-                            drop_rate=0.0,
-                            attn_drop_rate=0.0,
-                            drop_path_rate=0.0,
-                            norm_layer=nn.LayerNorm,
-                            patch_norm=False,
-                            frozen_stages=-1,
-                            depth_mode=None,
-                            depth_patch_embed_separate_params=True,
-                            out_feat_keys=self.config.omnivore.out_feat_keys
-                        )
-        feature_channels=[embed_dim * 2 ** (l_depths-i) for i in range(l_depths-1,0,-1)]+[embed_dim * 2 ** (l_depths)]
-
-        return model, feature_channels
-
-#-------------------------------------------------------------------------------------
-
-class omnivore_large(omnivore_base_class):
-
-    def __init__(self, config, pre_feature_channels) -> None:
-        super().__init__(config, pre_feature_channels)
-
-    def create_model(self, pre_feature_channels):
-        embed_dim=192
-        l_depths=4
-        model = SwinTransformer3D(pretrained=None,
-                            pretrained2d=None,
-                            pretrained3d=None,
-                            pretrained_model_key="base_model",
-                            patch_size=(2, 4, 4),
-                            in_chans=pre_feature_channels[-1],
-                            embed_dim=embed_dim,
-                            depths=[2, 2, 18, 2],
-                            num_heads=[6, 12, 24, 48],
-                            window_size=(8, 7, 7),
-                            mlp_ratio=4.0,
-                            qkv_bias=False,
-                            qk_scale=None,
-                            drop_rate=0.0,
-                            attn_drop_rate=0.0,
-                            drop_path_rate=0.0,
-                            norm_layer=nn.LayerNorm,
-                            patch_norm=False,
-                            frozen_stages=-1,
-                            depth_mode=None,
-                            depth_patch_embed_separate_params=True,
-                            out_feat_keys=self.config.omnivore.out_feat_keys
-                        )
-        feature_channels=[embed_dim * 2 ** (l_depths-i) for i in range(l_depths-1,0,-1)]+[embed_dim * 2 ** (l_depths)]
-        return model, feature_channels
-
-#-------------------------------------------------------------------------------------
-
-# class Im2Video(nn.Module):
-#     """Convert an image into a trivial video."""
-
-#     def __init__(self, time_dim=2):
-#         super().__init__()
-#         self.time_dim = time_dim
-
-#     def forward(self, x):
-#         if x.ndim == 4:
-#             # B, C, H, W -> B, C, T, H, W
-#             return x.unsqueeze(self.time_dim)
-#         elif x.ndim == 5:
-#             return x
-#         else:
-#             raise ValueError(f"Dimension incorrect {x.shape}")
-
 
 class Mlp(nn.Module):
     """Multilayer perceptron."""
@@ -245,7 +111,6 @@ class Mlp(nn.Module):
         x = self.drop(x)
         return x
 
-
 def window_partition(x, window_size):
     """
     Args:
@@ -273,7 +138,6 @@ def window_partition(x, window_size):
     )
     return windows
 
-
 def window_partition_image(x, window_size):
     """
     Args:
@@ -293,7 +157,6 @@ def window_partition_image(x, window_size):
         .view(-1, window_size[1], window_size[2], C)
     )
     return windows
-
 
 def window_reverse(windows, window_size, B, D, H, W):
     """
@@ -319,7 +182,6 @@ def window_reverse(windows, window_size, B, D, H, W):
     x = x.permute(0, 1, 4, 2, 5, 3, 6, 7).contiguous().view(B, D, H, W, -1)
     return x
 
-
 def get_window_size(x_size, window_size, shift_size=None):
     use_window_size = list(window_size)
     if shift_size is not None:
@@ -334,7 +196,6 @@ def get_window_size(x_size, window_size, shift_size=None):
         return tuple(use_window_size)
     else:
         return tuple(use_window_size), tuple(use_shift_size)
-
 
 class WindowAttention3D(nn.Module):
     """Window based multi-head self attention (W-MSA) module with relative position bias.
@@ -453,7 +314,6 @@ class WindowAttention3D(nn.Module):
         x = self.proj(x)
         x = self.proj_drop(x)
         return x
-
 
 class SwinTransformerBlock3D(nn.Module):
     """Swin Transformer Block.
@@ -577,7 +437,7 @@ class SwinTransformerBlock3D(nn.Module):
     def forward_part2(self, x):
         return self.drop_path(self.mlp(self.norm2(x)))
 
-    def forward(self, x, mask_matrix, use_checkpoint=False):
+    def forward(self, x, mask_matrix):
         """Forward function.
 
         Args:
@@ -586,21 +446,14 @@ class SwinTransformerBlock3D(nn.Module):
         """
 
         shortcut = x
-        if use_checkpoint:
-            x = checkpoint.checkpoint(
-                self.forward_part1, x, mask_matrix, use_reentrant=False
-            )
-        else:
-            x = self.forward_part1(x, mask_matrix)
+
+        x = self.forward_part1(x, mask_matrix)
+
         x = shortcut + self.drop_path(x)
 
-        if use_checkpoint:
-            x = x + checkpoint.checkpoint(self.forward_part2, x, use_reentrant=False)
-        else:
-            x = x + self.forward_part2(x)
+        x = x + self.forward_part2(x)
 
         return x
-
 
 class PatchMerging(nn.Module):
     """Patch Merging Layer
@@ -641,32 +494,6 @@ class PatchMerging(nn.Module):
 
         return x
 
-
-class LinearMerging(nn.Module):
-
-    def __init__(self, dim, norm_layer=nn.LayerNorm):
-        super().__init__()
-        self.dim = dim
-        self.expansion = nn.Linear(dim, 4 * dim, bias=False)
-        self.reduction = nn.Linear(4 * dim, 2 * dim, bias=False)
-        self.norm = norm_layer(4 * dim)
-
-    def forward(self, x, H=None, W=None):
-        """Forward function.
-
-        Args:
-            x: Input feature, tensor size (B, D, H, W, C).
-        """
-        if H is None:
-            B, D, H, W, C = x.shape
-
-        x = self.expansion(x)
-        x = self.norm(x)
-        x = self.reduction(x)
-
-        return x
-
-
 # cache each stage results
 @lru_cache()
 def compute_mask(D, H, W, window_size, shift_size, device):
@@ -696,7 +523,6 @@ def compute_mask(D, H, W, window_size, shift_size, device):
         attn_mask == 0, float(0.0)
     )
     return attn_mask
-
 
 class BasicLayer(nn.Module):
     """A basic Swin Transformer layer for one stage.
@@ -781,7 +607,7 @@ class BasicLayer(nn.Module):
         Wp = int(np.ceil(W / window_size[2])) * window_size[2]
         attn_mask = compute_mask(Dp, Hp, Wp, window_size, shift_size, x.device)
         for blk in self.blocks:
-            x = blk(x, attn_mask, use_checkpoint=use_checkpoint)
+            x = blk(x, attn_mask)
         x = x.view(B, D, H, W, -1)
 
         if self.downsample is not None:
@@ -842,7 +668,6 @@ class BasicLayer(nn.Module):
         else:
             return x, H, W, x, H, W
 
-
 class PatchEmbed3D(nn.Module):
     """Video to Patch Embedding.
 
@@ -859,45 +684,21 @@ class PatchEmbed3D(nn.Module):
         in_chans=3,
         embed_dim=96,
         norm_layer=None,
-        additional_variable_channels=None,
     ):
         super().__init__()
         self.patch_size = patch_size
 
         self.in_chans = in_chans
         self.embed_dim = embed_dim
-        self.additional_variable_channels = additional_variable_channels
 
         self.proj = nn.Conv3d(
             in_chans, embed_dim, kernel_size=patch_size, stride=patch_size
         )
-        if additional_variable_channels:
-            # we create var_proj separately from proj
-            # this makes it convenient to ignore var_proj on downstream tasks
-            # where we only use RGB
-            self.var_proj = [
-                nn.Conv3d(x, embed_dim, kernel_size=patch_size, stride=patch_size)
-                for x in additional_variable_channels
-            ]
-            self.var_proj = nn.ModuleList(self.var_proj)
-
+        
         if norm_layer is not None:
             self.norm = norm_layer(embed_dim)
         else:
             self.norm = None
-
-    def run_variable_channel_forward(self, x):
-        sidx = 0
-        out = None
-        for idx in range(len(self.additional_variable_channels)):
-            eidx = sidx + self.additional_variable_channels[idx]
-            c_out = self.var_proj[idx](x[:, sidx:eidx, ...])
-            if idx == 0:
-                out = c_out
-            else:
-                out += c_out
-            sidx = eidx
-        return out
 
     def forward(self, x):
         """Forward function."""
@@ -910,17 +711,8 @@ class PatchEmbed3D(nn.Module):
         if D % self.patch_size[0] != 0:
             x = F.pad(x, (0, 0, 0, 0, 0, self.patch_size[0] - D % self.patch_size[0]))
 
-        if self.additional_variable_channels:
-            x_rgb = x[:, :3, ...]
-            x_rem = x[:, 3:, ...]
-            x_rgb = self.proj(x_rgb)
-            if x.shape[1] > 3:
-                x_rem = self.run_variable_channel_forward(x_rem)
-                x = x_rgb + x_rem
-            else:
-                x = x_rgb
-        else:
-            x = self.proj(x)  # B C D Wh Ww
+        x = self.proj(x)  # B C D Wh Ww
+
         if self.norm is not None:
             D, Wh, Ww = x.size(2), x.size(3), x.size(4)
             x = x.flatten(2).transpose(1, 2)
@@ -928,7 +720,6 @@ class PatchEmbed3D(nn.Module):
             x = x.transpose(1, 2).view(-1, self.embed_dim, D, Wh, Ww)
 
         return x
-
 
 class SwinTransformer3D(nn.Module):
     """Swin Transformer backbone.
@@ -958,10 +749,6 @@ class SwinTransformer3D(nn.Module):
 
     def __init__(
         self,
-        pretrained=None,
-        pretrained2d=True,
-        pretrained3d=None,
-        pretrained_model_key="base_model",
         patch_size=(4, 4, 4),
         in_chans=3,
         embed_dim=96,
@@ -977,17 +764,11 @@ class SwinTransformer3D(nn.Module):
         norm_layer=nn.LayerNorm,
         patch_norm=False,
         frozen_stages=-1,
-        depth_mode=None,
         depth_patch_embed_separate_params=True,
         out_feat_keys=['stage3']
     ):
         super().__init__()
 
-        # self.im2vid = Im2Video()
-        self.pretrained = pretrained
-        self.pretrained2d = pretrained2d
-        self.pretrained3d = pretrained3d
-        self.pretrained_model_key = pretrained_model_key
         self.num_layers = len(depths)
         self.embed_dim = embed_dim
         self.patch_norm = patch_norm
@@ -996,9 +777,6 @@ class SwinTransformer3D(nn.Module):
         self.patch_size = patch_size
         self.out_feat_keys = out_feat_keys
 
-        self.depth_mode = depth_mode
-        depth_chans = None
-
         # split image into non-overlapping patches
         self.patch_embed = PatchEmbed3D(
             patch_size=patch_size,
@@ -1006,49 +784,6 @@ class SwinTransformer3D(nn.Module):
             embed_dim=embed_dim,
             norm_layer=norm_layer if self.patch_norm else None,
         )
-
-        if depth_mode is not None:
-            msg = f"Using depth mode {depth_mode}"
-            logging.info(msg)
-            assert depth_mode in ["separate_d_tokens", "summed_rgb_d_tokens", "rgbd"]
-            if depth_mode in ["separate_d_tokens", "summed_rgb_d_tokens"]:
-                depth_chans = 1
-                assert (
-                    depth_patch_embed_separate_params
-                ), "separate tokenization needs separate parameters"
-                if depth_mode == "separate_d_tokens":
-                    raise NotImplementedError()
-            else:
-                assert depth_mode == "rgbd"
-                depth_chans = 4
-
-            self.depth_patch_embed_separate_params = depth_patch_embed_separate_params
-
-            if depth_patch_embed_separate_params:
-                self.depth_patch_embed = PatchEmbed3D(
-                    patch_size=patch_size,
-                    in_chans=depth_chans,
-                    embed_dim=embed_dim,
-                    norm_layer=norm_layer if self.patch_norm else None,
-                )
-            else:
-                # share parameters with patch_embed
-                # delete the layer we built above
-                del self.patch_embed
-                assert depth_chans == 4
-                logging.info(
-                    "Certain channels of patch projection may not be used in forward pass"
-                )
-                logging.info(
-                    "Make sure config.DISTRIBUTED.FIND_UNUSED_PARAMETERS is set to True"
-                )
-                self.patch_embed = PatchEmbed3D(
-                    patch_size=patch_size,
-                    in_chans=3,
-                    embed_dim=embed_dim,
-                    additional_variable_channels=[1],
-                    norm_layer=norm_layer if self.patch_norm else None,
-                )
 
         self.pos_drop = nn.Dropout(p=drop_rate)
 
@@ -1072,7 +807,7 @@ class SwinTransformer3D(nn.Module):
                 attn_drop=attn_drop_rate,
                 drop_path=dpr[sum(depths[:i_layer]) : sum(depths[: i_layer + 1])],
                 norm_layer=norm_layer,
-                downsample=LinearMerging #PatchMerging #if i_layer < self.num_layers - 1 else None,
+                downsample=PatchMerging #if i_layer < self.num_layers - 1 else None,
             )
             self.layers.append(layer)
 
@@ -1100,178 +835,6 @@ class SwinTransformer3D(nn.Module):
                 for param in m.parameters():
                     param.requires_grad = False
 
-    def inflate_weights(self, logger):
-        """Inflate the swin2d parameters to swin3d.
-        The differences between swin3d and swin2d mainly lie in an extra
-        axis. To utilize the pretrained parameters in 2d model,
-        the weight of swin2d models should be inflated to fit in the shapes of
-        the 3d counterpart.
-        Args:
-            logger (logging.Logger): The logger used to print
-                debugging infomation.
-        """
-        checkpoint = load_and_broadcast_checkpoint_list(self.pretrained)
-
-        if "classy_state_dict" in checkpoint:
-            # checkpoints trained in omnivore
-            state_dict = checkpoint["classy_state_dict"][self.pretrained_model_key][
-                "model"
-            ]["trunk"]
-        else:
-            # checkpoints trained outside omnivore
-            state_dict = checkpoint["model"]
-
-        # delete relative_position_index since we always re-init it
-        relative_position_index_keys = [
-            k for k in state_dict.keys() if "relative_position_index" in k
-        ]
-        for k in relative_position_index_keys:
-            del state_dict[k]
-
-        # delete attn_mask since we always re-init it
-        attn_mask_keys = [k for k in state_dict.keys() if "attn_mask" in k]
-        for k in attn_mask_keys:
-            del state_dict[k]
-
-        if state_dict["patch_embed.proj.weight"].ndim == 4:
-            state_dict["patch_embed.proj.weight"] = state_dict[
-                "patch_embed.proj.weight"
-            ].unsqueeze(2)
-        state_dict["patch_embed.proj.weight"] = (
-            state_dict["patch_embed.proj.weight"].repeat(1, 1, self.patch_size[0], 1, 1)
-            / self.patch_size[0]
-        )
-        if (
-            "depth_patch_embed.proj.weight" in state_dict
-            and state_dict["depth_patch_embed.proj.weight"].ndim == 4
-        ):
-            state_dict["depth_patch_embed.proj.weight"] = state_dict[
-                "depth_patch_embed.proj.weight"
-            ].unsqueeze(2)
-
-        # bicubic interpolate relative_position_bias_table if not match
-        relative_position_bias_table_keys = [
-            k for k in state_dict.keys() if "relative_position_bias_table" in k
-        ]
-        for k in relative_position_bias_table_keys:
-            relative_position_bias_table_pretrained = state_dict[k]
-            relative_position_bias_table_current = self.state_dict()[k]
-            L1, nH1 = relative_position_bias_table_pretrained.size()
-            L2, nH2 = relative_position_bias_table_current.size()
-            L2 = (2 * self.window_size[1] - 1) * (2 * self.window_size[2] - 1)
-            wd = self.window_size[0]
-            if nH1 != nH2:
-                logger.warning(f"Error in loading {k}, passing")
-            else:
-                if L1 != L2:
-                    S1 = int(L1**0.5)
-                    relative_position_bias_table_pretrained_resized = (
-                        torch.nn.functional.interpolate(
-                            relative_position_bias_table_pretrained.permute(1, 0).view(
-                                1, nH1, S1, S1
-                            ),
-                            size=(
-                                2 * self.window_size[1] - 1,
-                                2 * self.window_size[2] - 1,
-                            ),
-                            mode="bicubic",
-                        )
-                    )
-                    relative_position_bias_table_pretrained = (
-                        relative_position_bias_table_pretrained_resized.view(
-                            nH2, L2
-                        ).permute(1, 0)
-                    )
-            state_dict[k] = relative_position_bias_table_pretrained.repeat(
-                2 * wd - 1, 1
-            )
-        msg = self.load_state_dict(state_dict, strict=False)
-        logger.info(msg)
-        logger.info(f"=> loaded successfully '{self.pretrained}'")
-        del checkpoint
-        torch.cuda.empty_cache()
-
-    def load_and_interpolate_3d_weights(self, logger):
-        checkpoint = load_and_broadcast_checkpoint_list(self.pretrained)
-        assert self.pretrained3d is not None and self.pretrained2d is False
-
-        if "classy_state_dict" in checkpoint:
-            # checkpoints trained in omnivore
-            state_dict = checkpoint["classy_state_dict"][self.pretrained_model_key][
-                "model"
-            ]["trunk"]
-        else:
-            # checkpoints trained outside omnivore
-            state_dict = checkpoint["model"]
-
-        # delete relative_position_index since we always re-init it
-        relative_position_index_keys = [
-            k for k in state_dict.keys() if "relative_position_index" in k
-        ]
-        for k in relative_position_index_keys:
-            del state_dict[k]
-
-        # delete attn_mask since we always re-init it
-        attn_mask_keys = [k for k in state_dict.keys() if "attn_mask" in k]
-        for k in attn_mask_keys:
-            del state_dict[k]
-
-        # bicubic interpolate relative_position_bias_table if not match
-        relative_position_bias_table_keys = [
-            k for k in state_dict.keys() if "relative_position_bias_table" in k
-        ]
-        pretrained_window_size = self.pretrained3d
-        T1 = 2 * pretrained_window_size[0] - 1
-        S11 = 2 * pretrained_window_size[1] - 1
-        S12 = 2 * pretrained_window_size[2] - 1
-        assert (
-            pretrained_window_size[0] == self.window_size[0]
-        ), "Interpolating along time not supported"
-
-        for k in relative_position_bias_table_keys:
-            relative_position_bias_table_pretrained = state_dict[k]
-            relative_position_bias_table_current = self.state_dict()[k]
-            L1, nH1 = relative_position_bias_table_pretrained.size()
-            L2, nH2 = relative_position_bias_table_current.size()
-            L2 = (
-                (2 * self.window_size[0] - 1)
-                * (2 * self.window_size[1] - 1)
-                * (2 * self.window_size[2] - 1)
-            )
-            if nH1 != nH2:
-                logger.warning(f"Error in loading {k}, passing")
-            else:
-                if L1 != L2:
-                    pretrained_bias = relative_position_bias_table_pretrained.view(
-                        T1, S11, S12, nH1
-                    )
-                    pretrained_bias = pretrained_bias.permute(0, 3, 1, 2)
-                    relative_position_bias_table_pretrained_resized = (
-                        torch.nn.functional.interpolate(
-                            pretrained_bias,
-                            size=(
-                                2 * self.window_size[1] - 1,
-                                2 * self.window_size[2] - 1,
-                            ),
-                            mode="bicubic",
-                        )
-                    )
-                    relative_position_bias_table_pretrained_resized = (
-                        relative_position_bias_table_pretrained_resized.permute(
-                            0, 2, 3, 1
-                        )
-                    )
-                    relative_position_bias_table_pretrained = (
-                        relative_position_bias_table_pretrained_resized.reshape(L2, nH2)
-                    )
-
-            state_dict[k] = relative_position_bias_table_pretrained
-        msg = self.load_state_dict(state_dict, strict=False)
-        logger.info(msg)
-        logger.info(f"=> loaded successfully '{self.pretrained}'")
-        del checkpoint
-        torch.cuda.empty_cache()
-
     def init_weights(self, pretrained=None):
         """Initialize the weights in backbone.
         Args:
@@ -1288,36 +851,12 @@ class SwinTransformer3D(nn.Module):
                 nn.init.constant_(m.bias, 0)
                 nn.init.constant_(m.weight, 1.0)
 
-        if pretrained:
-            self.pretrained = pretrained
-        if isinstance(self.pretrained, str) or isinstance(self.pretrained, list):
-            self.apply(_init_weights)
-            logging.info(f"load model from: {self.pretrained}")
-
-            if self.pretrained2d:
-                # Inflate 2D model into 3D model.
-                logging.info(f"Inflating with {self.pretrained_model_key}")
-                self.inflate_weights(logging)
-            elif self.pretrained3d:
-                logging.info(f"Loading 3D model with {self.pretrained_model_key}")
-                self.load_and_interpolate_3d_weights(logging)
-            else:
-                raise ValueError(
-                    "Use VISSL loading for this. This code "
-                    "is only for Swin inflation."
-                )
-                # # Directly load 3D model.
-                # load_checkpoint(self, self.pretrained, strict=False, logger=logger)
-        elif self.pretrained is None:
-            self.apply(_init_weights)
-        else:
-            raise TypeError(
-                f"pretrained must be a str or None but found: {type(self.pretrained)}"
-            )
+        self.apply(_init_weights)
 
     def _apply_norm(self, x):
+        n, ch, d, h, w = x.size()
         x = rearrange(x, "n c d h w -> n d h w c")
-        x = self.norm(x)
+        x = F.layer_norm(x, [ch])
         x = rearrange(x, "n d h w c -> n c d h w")
         return x
 
@@ -1344,33 +883,23 @@ class SwinTransformer3D(nn.Module):
             out_features.append(feat)
         return out_features
 
-    def get_patch_embedding(self, x):
-        # x: B x C x T x H x W
-        assert x.ndim == 5
-        x = self.patch_embed(x)
-        return x
-
     def forward(
         self,
         x: torch.Tensor,
     ) -> List[torch.Tensor]:
         """Forward function."""
-        # Convert to singleton video if not already
         
-        # x = self.im2vid(x)
-
-        x = self.get_patch_embedding(x)
+        x = self.patch_embed(x)
 
         x = self.pos_drop(x)
 
-        stage_outputs = []
+        stage_outputs = [x]
 
         for layer in self.layers:
             x = layer(x.contiguous(), use_checkpoint=False)
             stage_outputs.append(x)
 
         return self.forward_intermediate_features(stage_outputs, self.out_feat_keys)
-    
        
     def train(self, mode=True):
         """Convert the model into training mode while keep layers freezed."""

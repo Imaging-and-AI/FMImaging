@@ -1,5 +1,5 @@
 """
-Utilities functions for tasks and projects
+Utility functions for tasks and projects
 """
 import os
 import cv2
