@@ -174,6 +174,8 @@ python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellma
 
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_190304911_190304920_408_20180906-123716/cloud_flow_res/DebugOutput --output_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_190304911_190304920_408_20180906-123716/cloud_flow_res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
 
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_high_res_2023/20230905/Perfusion_AIF_41837_2049151441_2049151450_879_20230905-144000/DebugOutput/ --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_high_res_2023/20230905/Perfusion_AIF_41837_2049151441_2049151450_879_20230905-144000/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
 # ======================================================================
 # snr level testcd
 
