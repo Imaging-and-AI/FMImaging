@@ -85,13 +85,13 @@ class MRITrainManager(TrainManager):
         self.config.width = self.config.mri_width[0]
 
     # -------------------------------------------------------------------------------------------------
-            
+
     def _train_model(self, rank, global_rank):
 
         # -----------------------------------------------
         c = self.config
         config = self.config
-        
+
         self.metric_manager.setup_wandb_and_metrics(rank)
         if rank<=0:
             wandb_run = self.metric_manager.wandb_run
@@ -185,6 +185,8 @@ class MRITrainManager(TrainManager):
         if rank <=0:
             logging.info(f"{rank_str}, {Fore.YELLOW}Yaml file for this run is {self.config.yaml_file}{Style.RESET_ALL}")
 
+        #c.prefetch_factor = 1
+
         if isinstance(self.train_sets,list):
             train_loaders = [DataLoader(dataset=train_set, batch_size=c.batch_size, shuffle=shuffle, sampler=samplers[ind],
                                         num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor, drop_last=True,
@@ -275,7 +277,7 @@ class MRITrainManager(TrainManager):
                 model_manager.module.check_model_learnable_status(rank_str)
             else:
                 model_manager.check_model_learnable_status(rank_str)
-            
+
             image_save_step_size = int(total_iters // config.num_saved_samples)
             if image_save_step_size == 0: image_save_step_size = 1
 
@@ -290,6 +292,10 @@ class MRITrainManager(TrainManager):
                     train_loader_iters = [iter(train_loader) for train_loader in train_loaders]
 
                     images_saved = 0
+                    images_logged = 0
+
+                    num_iters_to_log_tra = c.num_uploaded / c.batch_size
+                    num_iters_to_log_tra = 1 if num_iters_to_log_tra<1 else num_iters_to_log_tra
 
                     train_snr_meter.reset()
 
@@ -308,7 +314,7 @@ class MRITrainManager(TrainManager):
                             data_type = train_set_type[loader_ind]
                             x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = loader_outputs
                             end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
-                            
+
                             # -------------------------------------------------------
                             tm = start_timer(enable=c.with_timer)
                             y_for_loss = y
@@ -320,6 +326,8 @@ class MRITrainManager(TrainManager):
                             y_for_loss = y_for_loss.to(device)
                             noise_sigmas = noise_sigmas.to(device)
                             gmaps_median = gmaps_median.to(device)
+
+                            #print(noise_sigmas.detach().cpu().numpy())
 
                             B, C, T, H, W = x.shape
 
@@ -438,6 +446,16 @@ class MRITrainManager(TrainManager):
 
                             pbar.set_description_str(log_str)
 
+                            # -------------------------------------------------------
+                            # log train samples
+                            # if rank<=0 and idx >= total_iters-num_iters_to_log_tra:
+                            #     title = f"tra_{idx}_{x.shape}"
+                            #     if output_1st_net is None: 
+                            #         output_1st_net = output
+                            #     vid = self.save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True), y_2x.numpy(force=True), output_1st_net.numpy(force=True))
+                            #     caption = self.metric_manager.compute_batch_statistics(x, output, y, gmaps_median, noise_sigmas)
+                            #     wandb_run.log({title: wandb.Video(vid, caption=f"epoch {epoch}, {idx} out of {total_iters}, {caption}", fps=1, format="gif")})
+                            # -------------------------------------------------------
                             end_timer(enable=c.with_timer, t=tm, msg="---> epoch step logging and measuring took ")
                         # ------------------------------------------------------------------------------------------------------
 
@@ -462,11 +480,11 @@ class MRITrainManager(TrainManager):
                         if rank<=0: 
                             logging.getLogger("file_only").info(log_str)
 
-                        end_timer(enable=c.with_timer, t=tm, msg="---> epoch end logging and measuring took ")                
+                        end_timer(enable=c.with_timer, t=tm, msg="---> epoch end logging and measuring took ")
                     # ------------------------------------------------------------------------------------------------------
 
-                    if epoch % c.eval_frequency==0 or epoch==c.num_epochs:
-                        self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="val_in_training", split="val", final_eval=False, scaling_factor=1)
+                    self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.tra_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="tra_in_training", split="tra", final_eval=False, scaling_factor=1, ratio_to_eval=c.ratio_to_eval)
+                    self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="val_in_training", split="val", final_eval=False, scaling_factor=1, ratio_to_eval=c.ratio_to_eval)
 
                     if c.scheduler_type != "OneCycleLR":
                         if c.scheduler_type == "ReduceLROnPlateau":
@@ -529,14 +547,14 @@ class MRITrainManager(TrainManager):
         # -----------------------------------------------
         # Evaluate models of each split
         if self.config.eval_train_set: 
-            logging.info(f"{Fore.CYAN}Evaluating the best model on the train set ... {Style.RESET_ALL}")
-            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.train_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="train", split="train", final_eval=True, scaling_factor=1)
+            logging.info(f"{Fore.CYAN}----> Evaluating the best model on the train set ... <----{Style.RESET_ALL}")
+            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.train_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="train", split="train", final_eval=True, scaling_factor=1, ratio_to_eval=self.config.ratio_to_eval)
         if self.config.eval_val_set: 
-            logging.info(f"{Fore.CYAN}Evaluating the best model on the val set ... {Style.RESET_ALL}")
-            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="val", split="val", final_eval=True, scaling_factor=1)
+            logging.info(f"{Fore.CYAN}----> Evaluating the best model on the val set ... <----{Style.RESET_ALL}")
+            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="val", split="val", final_eval=True, scaling_factor=1, ratio_to_eval=1.0)
         if self.config.eval_test_set: 
-            logging.info(f"{Fore.CYAN}Evaluating the best model on the test set ... {Style.RESET_ALL}")
-            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.test_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="test", split="test", final_eval=True, scaling_factor=1)
+            logging.info(f"{Fore.CYAN}----> Evaluating the best model on the test set ... <----{Style.RESET_ALL}")
+            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.test_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="test", split="test", final_eval=True, scaling_factor=1, ratio_to_eval=1.0)
 
         # -----------------------------------------------
 
@@ -561,7 +579,7 @@ class MRITrainManager(TrainManager):
 
     # =============================================================================================================================
 
-    def _eval_model(self, rank, model_manager, data_sets, epoch, device, optim, sched, id, split, final_eval, scaling_factor=1):
+    def _eval_model(self, rank, model_manager, data_sets, epoch, device, optim, sched, id, split, final_eval, scaling_factor=1, ratio_to_eval=1.0):
 
         c = self.config
         curr_lr = optim.param_groups[0]['lr']
@@ -590,13 +608,16 @@ class MRITrainManager(TrainManager):
         # Set up data loader to evaluate        
         batch_size = c.batch_size if isinstance(data_sets[0], MRIDenoisingDatasetTrain) else 1
         num_workers_per_loader = c.num_workers // (2 * len(data_sets))
-        
+
+        #num_workers_per_loader = 1
+        #c.prefetch_factor = 1
+
         if isinstance(data_sets, list):
-            data_loaders = [DataLoader(dataset=data_set, batch_size=batch_size, shuffle=False, sampler=samplers[ind],
+            data_loaders = [DataLoader(dataset=data_set, batch_size=batch_size, shuffle=True, sampler=samplers[ind],
                                     num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor, drop_last=True,
                                     persistent_workers=c.num_workers>0) for ind, data_set in enumerate(data_sets)]
         else:
-            data_loaders = [DataLoader(dataset=data_sets, batch_size=batch_size, shuffle=False, sampler=samplers,
+            data_loaders = [DataLoader(dataset=data_sets, batch_size=batch_size, shuffle=True, sampler=samplers,
                                     num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor, drop_last=True,
                                     persistent_workers=c.num_workers>0) ]
 
@@ -621,6 +642,11 @@ class MRITrainManager(TrainManager):
 
         data_loader_iters = [iter(data_loader) for data_loader in data_loaders]
         total_iters = sum([len(data_loader) for data_loader in data_loaders]) if not c.debug else 3
+
+        if ratio_to_eval < 1:
+            total_iters = int(total_iters*ratio_to_eval)
+            total_iters = 1 if total_iters < 1 else total_iters
+            logging.info(f"Eval {ratio_to_eval*100:.1f}% of total data ... ")
 
         # ------------------------------------------------------------------------
 
@@ -647,13 +673,15 @@ class MRITrainManager(TrainManager):
                     B = x.shape[0]
                     noise_sigmas = torch.reshape(noise_sigmas, (B, 1, 1, 1, 1))
 
+                    #print(noise_sigmas.detach().cpu().numpy())
+
                     if self.config.super_resolution:
                         y = y_2x
 
                     x = x.to(device)
                     y = y.to(device)
 
-                    if batch_size >1 and x.shape[-1]==c.mri_width[-1]:
+                    if batch_size >1 and (x.shape[-1]==c.mri_width[-1] or x.shape[-1]==c.mri_width[0]):
                         output = self.model_manager(x)
                         if isinstance(output, tuple):
                             output_1st_net = output[1]
@@ -696,26 +724,16 @@ class MRITrainManager(TrainManager):
                         loss = loss_f(output, y)
 
                     # Update evaluation metrics
-                    self.metric_manager.on_eval_step_end(loss.item(), (output, output_1st_net), loader_outputs, f"{idx}", rank, save_samples, split)
+                    caption, _ = self.metric_manager.on_eval_step_end(loss.item(), (output, output_1st_net), loader_outputs, f"{idx}", rank, save_samples, split)
 
-                    if rank<=0 and images_logged < self.config.num_uploaded and wandb_run is not None:
-                        images_logged += 1
-                        title = f"{id.upper()}_{images_logged}_{x.shape}"
-                        if output_1st_net is None: 
-                            output_1st_net = output
-                        vid = self.save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True), y_2x.numpy(force=True), output_1st_net.numpy(force=True))
-                        wandb_run.log({title: wandb.Video(vid, 
-                            caption=f"epoch {epoch}, \
-                                        x {torch.mean(torch.abs(x)).item():.2f}, \
-                                        y_hat {torch.mean(torch.abs(output)).item():.2f}, \
-                                        y {torch.mean(torch.abs(y)).item():.2f}, \
-                                        gmap {torch.mean(gmaps_median).item():.2f}, \
-                                        noise {torch.mean(noise_sigmas).item():.2f}, \
-                                        mse {self.metric_manager.eval_metrics['mse'].val:.2f}, \
-                                        ssim {self.metric_manager.eval_metrics['ssim'].val:.2f}, \
-                                        psnr {self.metric_manager.eval_metrics['psnr'].val:.2f}, \
-                                        vgg {self.metric_manager.eval_metrics['vgg'].val:.2f}", 
-                            fps=1, format="gif")})
+                    if rank<=0:
+                        if images_logged < self.config.num_uploaded and wandb_run is not None:
+                            images_logged += 1
+                            title = f"{id.upper()}_{images_logged}_{x.shape}"
+                            if output_1st_net is None: 
+                                output_1st_net = output
+                            vid = self.save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True), y_2x.numpy(force=True), output_1st_net.numpy(force=True))
+                            wandb_run.log({title: wandb.Video(vid, caption=f"epoch {epoch}, {caption}", fps=1, format="gif")})
 
                     # Print evaluation metrics to terminal
                     pbar.update(1)

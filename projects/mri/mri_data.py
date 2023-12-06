@@ -160,6 +160,8 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
             - gmap_median (0D torch.Tensor): median value for the gmap patches
             - noise_sigma (0D torch.Tensor): noise sigma added to the image patch
         """
+        self.rng = np.random.Generator(np.random.PCG64(int(time.time())))
+
         # get the image
         data = self.images[i][0]
         gmaps = self.images[i][1]

@@ -110,7 +110,8 @@ class mri_parser(object):
         self.parser.add_argument('--post_mixed_unetr.separable_conv', dest='post_mixed_unetr.separable_conv', action="store_true", help="post network, whether to use separable convolution.")
 
         # training
-        self.parser.add_argument('--num_uploaded', type=int, default=12, help='number of images uploaded to wandb')
+        self.parser.add_argument('--num_uploaded', type=int, default=32, help='number of images uploaded to wandb')
+        self.parser.add_argument('--ratio_to_eval', type=float, default=0.1, help='ratio to evaluate in tra')
         self.parser.add_argument("--num_saved_samples", type=int, default=32, help='number of samples to save')
         self.parser.add_argument("--model_type", type=str, default="STCNNT_MRI", choices=["STCNNT_MRI", "MRI_hrnet", "MRI_double_net", "omnivore_MRI"],  help="STCNNT_MRI or MRI_hrnet, MRI_double_net, omnivore_MRI")
 

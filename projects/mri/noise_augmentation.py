@@ -494,7 +494,8 @@ def generate_3D_MR_correlated_noise(T=30, RO=192, E1=144, REP=1,
                                     verbose=False):
 
     # create noise
-    noise_sigma = (max_noise_level - min_noise_level) * rng.random() + min_noise_level
+    #noise_sigma = (max_noise_level - min_noise_level) * rng.random() + min_noise_level
+    noise_sigma = (max_noise_level - min_noise_level) * np.random.random_sample() + min_noise_level
     if(REP>1):
         nns = create_complex_noise(noise_sigma, (T, RO, E1, REP))
     else:

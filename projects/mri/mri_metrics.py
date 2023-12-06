@@ -44,6 +44,9 @@ class MriMetricManager(MetricManager):
         self.best_backbone_model_file = None
         self.best_post_model_file = None
 
+        self.input_snr = None
+        self.mse = None
+
     # ---------------------------------------------------------------------------------------
     def setup_wandb_and_metrics(self, rank):
 
@@ -139,6 +142,16 @@ class MriMetricManager(MetricManager):
         
         self.eval_metric_functions = copy.deepcopy(self.train_metric_functions)
 
+        self.eval_sample_metrics = {
+                              'mse':AverageMeter(),
+                              'psnr':AverageMeter(),
+                              'ssim':AverageMeter(),
+                              'vgg':AverageMeter(),
+                              'input_snr':AverageMeter(),
+                              'gmap':AverageMeter(),
+                              'noise_sigma':AverageMeter()
+                              }
+
         if rank<=0:
             # Initialize metrics to track in wandb
             if self.wandb_run:
@@ -195,6 +208,37 @@ class MriMetricManager(MetricManager):
                 self.eval_metrics['ssim_2dt'].avg, \
                 self.eval_metrics['psnr_2dt'].avg
 
+    def compute_batch_statistics(self, x, output, y, gmaps_median, noise_sigmas):
+
+        B, C, T, H, W = x.shape
+
+        v_x = np.zeros(B)
+        v_y = np.zeros(B)
+        v_y_hat = np.zeros(B)
+        mse = np.zeros(B)
+        ssim = np.zeros(B)
+        psnr = np.zeros(B)
+        vgg = np.zeros(B)
+
+        caption =""
+        new_line = '\n'
+
+        for b in range(B):
+            v_x[b] = torch.mean(torch.abs(x[b, :2])).item()
+            v_y[b] = torch.mean(torch.abs(y[b])).item()
+            v_y_hat[b] = torch.mean(torch.abs(output[b])).item()
+
+            y_hat_b = torch.unsqueeze(output[b], dim=0)
+            y_b = torch.unsqueeze(y[b], dim=0)
+            mse[b] = self.mse_loss_func(y_hat_b, y_b)
+            ssim[b] = self.ssim_func(y_hat_b, y_b)
+            psnr[b] = self.psnr_func(y_hat_b, y_b)
+            vgg[b] = self.vgg_func(y_hat_b, y_b)
+
+            caption += f"{b} -- x {v_x[b]:.2f}, y_hat {v_y_hat[b]:.2f}, y {v_y[b]:.2f}, gmap {gmaps_median[b].item():.2f}, noise {noise_sigmas[b].item():.2f}, mse {mse[b]:.2f}, ssim {ssim[b]:.2f}, psnr {psnr[b]:.2f}, vgg {vgg[b]:.2f}{new_line}"
+
+        return caption, (v_x, v_y, v_y_hat, mse, ssim, psnr, vgg)
+
     # ---------------------------------------------------------------------------------------
     def parse_output(self, output):
         if self.config.model_type == "STCNNT_MRI" or self.config.model_type == "MRI_hrnet" or self.config.model_type == "omnivore_MRI":
@@ -249,6 +293,12 @@ class MriMetricManager(MetricManager):
             self.save_batch_samples(save_path, f"epoch_{epoch}_{ids}", x.cpu(), y.cpu(), y_hat.detach().cpu(), y_for_loss.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item(), output_1st_net)
 
     # ---------------------------------------------------------------------------------------
+    def on_eval_epoch_start(self):
+        super().on_eval_epoch_start()
+        for metric_name in self.eval_sample_metrics.keys():
+            self.eval_sample_metrics[metric_name].reset()
+
+    # ---------------------------------------------------------------------------------------
     def on_eval_step_end(self, loss, output, labels, ids, rank, save_samples, split):
 
         with torch.inference_mode():
@@ -279,6 +329,19 @@ class MriMetricManager(MetricManager):
 
             y_hat = y_hat.to(torch.float32)
             y_for_loss = y_for_loss.to(device=y_hat.device, dtype=torch.float32)
+
+            caption, record = self.compute_batch_statistics(x, y_hat, y_for_loss, gmaps_median, noise_sigmas)
+            v_x, v_y, v_y_hat, mse, ssim, psnr, vgg = record
+
+            for b in range(B):
+                input_snr = v_y[b] / (noise_sigmas[b]*gmaps_median[b])
+                self.eval_sample_metrics["input_snr"].update(input_snr.item())
+                self.eval_sample_metrics["gmap"].update(gmaps_median[b].item())
+                self.eval_sample_metrics["noise_sigma"].update(noise_sigmas[b].item())
+                self.eval_sample_metrics["mse"].update(mse[b])
+                self.eval_sample_metrics["ssim"].update(ssim[b])
+                self.eval_sample_metrics["psnr"].update(psnr[b])
+                self.eval_sample_metrics["vgg"].update(vgg[b])
 
         if T == 1:
             for metric_name in self.eval_metrics.keys():
@@ -313,11 +376,15 @@ class MriMetricManager(MetricManager):
                 output_1st_net *= noise_sigmas.cpu()
             self.save_batch_samples(save_path, f"{ids}", x.cpu(), y.cpu(), y_hat.detach().cpu(), y_for_loss.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item(), output_1st_net)
 
+        return caption, record
+
     # ---------------------------------------------------------------------------------------        
     def on_eval_epoch_end(self, rank, epoch, model_manager, optim, sched, split, final_eval):
         """
         Runs at the end of the evaluation loop
         """
+        save_path = os.path.join(self.config.log_dir, self.config.run_name)
+        logging.info(f"{Fore.YELLOW}--> epoch {epoch}, {split}, save path is {Fore.RED}{save_path}{Style.RESET_ALL}")
 
         # Directly compute metrics from saved predictions if using exact metrics
         if self.config.exact_metrics:
@@ -351,7 +418,6 @@ class MriMetricManager(MetricManager):
         if rank<=0: 
 
             if not final_eval:
-
                 # Determine whether to checkpoint this model
                 model_epoch = model_manager.module if self.config.ddp else model_manager 
                 checkpoint_model = False
@@ -361,7 +427,6 @@ class MriMetricManager(MetricManager):
 
                 # Save model and update best metrics
                 if checkpoint_model:
-                    save_path = os.path.join(self.config.log_dir, self.config.run_name)
                     self.best_pre_model_file, self.best_backbone_model_file, self.best_post_model_file = model_epoch.save(os.path.join(save_path, f"best_checkpoint_epoch_{epoch}"), epoch, optim, sched) 
                     if self.wandb_run: self.wandb_run.log({"epoch":epoch, "best_val_loss":self.best_val_loss})
                     logging.info(f"--> val loss {self.best_val_loss}, save best model for epoch {epoch} to {self.best_pre_model_file}, {self.best_pre_model_file, self.best_backbone_model_file}, {self.best_post_model_file}")
@@ -372,6 +437,22 @@ class MriMetricManager(MetricManager):
             else:
                 for metric_name, avg_metric_eval in average_metrics.items():
                     if self.wandb_run: self.wandb_run.summary[f"final_{split}_{metric_name}"] = avg_metric_eval
+
+                # update for per sample metrics
+                snr = self.eval_sample_metrics["input_snr"].vals
+                np.save(os.path.join(save_path, f"final_{split}_snr.npy"), np.array(snr))
+
+                for metric_name in self.eval_sample_metrics.keys():
+                    if metric_name == "input_snr":
+                        continue
+
+                    metrics = self.eval_sample_metrics[metric_name].vals
+                    data = [[x, y] for (x, y) in zip(snr, metrics)]
+                    table = wandb.Table(data=data, columns=["snr", metric_name])
+                    title = f"{split}_epoch_{epoch}_snr_vs_{metric_name}"
+                    wandb.log({title: wandb.plot.scatter(table, "snr", metric_name, title=title)})
+
+                    np.save(os.path.join(save_path, f"final_{split}_{metric_name}.npy"), np.array(metrics))
 
     # ---------------------------------------------------------------------------------------
     def on_training_end(self, rank, epoch, model_manager, optim, sched, ran_training):

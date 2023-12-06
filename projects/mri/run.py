@@ -170,6 +170,8 @@ def main():
     min_noise_level = config.min_noise_level
     max_noise_level = config.max_noise_level
 
+    ratio_to_eval = config.ratio_to_eval
+    eval_train_set = config.eval_train_set
     eval_val_set = config.eval_val_set
 
     ddp = config.ddp
@@ -241,6 +243,9 @@ def main():
 
         config.ddp = ddp
 
+        config.ratio_to_eval = ratio_to_eval
+
+        config.eval_train_set = eval_train_set
         config.eval_val_set = eval_val_set
 
         logging.info(f"{rank_str}, {Fore.WHITE}=============================================================={Style.RESET_ALL}")
