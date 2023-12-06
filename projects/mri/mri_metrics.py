@@ -235,7 +235,9 @@ class MriMetricManager(MetricManager):
             psnr[b] = self.psnr_func(y_hat_b, y_b)
             vgg[b] = self.vgg_func(y_hat_b, y_b)
 
-            caption += f"{b} -- x {v_x[b]:.2f}, y_hat {v_y_hat[b]:.2f}, y {v_y[b]:.2f}, gmap {gmaps_median[b].item():.2f}, noise {noise_sigmas[b].item():.2f}, mse {mse[b]:.2f}, ssim {ssim[b]:.2f}, psnr {psnr[b]:.2f}, vgg {vgg[b]:.2f}{new_line}"
+            snr = v_y[b] / (gmaps_median[b].item() * noise_sigmas[b].item())
+
+            caption += f"{b} -- x {v_x[b]:.2f}, y_hat {v_y_hat[b]:.2f}, y {v_y[b]:.2f}, gmap {gmaps_median[b].item():.2f}, noise {noise_sigmas[b].item():.2f}, snr {snr:.2f}, mse {mse[b]:.2f}, ssim {ssim[b]:.2f}, psnr {psnr[b]:.2f}, vgg {vgg[b]:.2f}{new_line}"
 
         return caption, (v_x, v_y, v_y_hat, mse, ssim, psnr, vgg)
 
