@@ -457,17 +457,17 @@ class MriMetricManager(MetricManager):
                     np.save(os.path.join(save_path, f"final_{split}_{metric_name}.npy"), np.array(metrics))
 
                 # generate snr vs. ssim, snr vs. psnr plots and computing AUC
-                x = np.clone(np.array(snr))
+                x = np.copy(np.array(snr))
                 y = np.array(self.eval_sample_metrics['ssim'].vals)
                 bin_means, bin_sds, bin_edges, binnumber = compute_binned_mean_sd(x, y, min_x=0.01, max_x=10, bins=50)
-                fig_ssim, auc_ssim = plot_with_CI(x, y, min_x=0.1, max_x=10.0, bin_means=bin_means, bin_sds=bin_sds, bin_edges=bin_edges, xlabel='snr', ylabel='ssim', ylim=[0, 1])
+                fig_ssim, auc_ssim = plot_with_CI(x, y, min_x=0.01, max_x=10.0, bin_means=bin_means, bin_sds=bin_sds, bin_edges=bin_edges, xlabel='snr', ylabel='ssim', ylim=[0, 1])
                 fig_ssim.savefig(os.path.join(save_path, f"final_{split}_ssim_CI.png"), dpi=600)
                 if self.wandb_run: self.wandb_run.log({f"final_{split}_ssim_CI": wandb.Image(fig_ssim)})
 
-                x = np.clone(np.array(snr))
+                x = np.copy(np.array(snr))
                 y = np.array(self.eval_sample_metrics['psnr'].vals)
                 bin_means, bin_sds, bin_edges, binnumber = compute_binned_mean_sd(x, y, min_x=0.01, max_x=10, bins=50)
-                fig_psnr, auc_psnr = plot_with_CI(x, y, min_x=0.0, max_x=10.0, bin_means=bin_means, bin_sds=bin_sds, bin_edges=bin_edges, xlabel='snr', ylabel='psnr', ylim=[0, np.max(y)+0.1])
+                fig_psnr, auc_psnr = plot_with_CI(x, y, min_x=0.01, max_x=10.0, bin_means=bin_means, bin_sds=bin_sds, bin_edges=bin_edges, xlabel='snr', ylabel='psnr', ylim=[0, np.max(y)+0.1])
                 fig_psnr.savefig(os.path.join(save_path, f"final_{split}_psnr_CI.png"), dpi=600)
                 if self.wandb_run: self.wandb_run.log({f"final_{split}_psnr_CI": wandb.Image(fig_psnr)})
 

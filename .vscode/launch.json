@@ -97,7 +97,7 @@
                 "--num_uploaded", "12", 
                 "--snr_perturb", "10.0", 
                 "--post_hrnet.block_str", "T1L1G1", "T1L1G1", 
-                "--ratio", "1", "8", "100", 
+                "--ratio", "1", "1", "100", 
                 "--max_load", "-1", 
                 "--model_type", "STCNNT_MRI", 
                 "--train_files", "train_3D_3T_retro_cine_2018.h5", // "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5", "VIDA_train_clean_0430.h5", //"BARTS_RetroCine_3T_2023.h5", "BARTS_RetroCine_1p5T_2023.h5", "MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", "MINNESOTA_UHVC_RetroCine_1p5T_2022.h5", 
