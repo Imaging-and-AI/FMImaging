@@ -25,11 +25,11 @@ sys.path.append(str(REPO_DIR))
 from noise_augmentation import *
 
 
-base_file_path = "/data1/mri/data"
+base_file_path = "/data/FM_data_repo/mri"
 base_file_name = "BARTS_RetroCine_3T_2023.h5"
 
 min_noise_level=2.0
-max_noise_level=40.0
+max_noise_level=80.0
 matrix_size_adjust_ratio=[0.5, 0.75, 1.0, 1.25, 1.5]
 kspace_filter_sigma=[0.8, 1.0, 1.5, 2.0, 2.25]
 pf_filter_ratio=[1.0, 0.875, 0.75, 0.625]
@@ -68,8 +68,13 @@ def create_2d(write_path, N=1000):
 
     h5_file_2d = h5py.File(write_path, mode="w", libver="earliest")
 
+    indices = np.arange(N)
+    random.shuffle(indices)
+
     with tqdm.tqdm(total=N) as pbar:
-        for i in range(N):
+        for k in range(N):
+
+            i = indices[k]
 
             data = np.array(h5_file[keys[i]+"/image"])
             gmap = load_gmap(h5_file[keys[i]+"/gmap"][:], random_factor=-1)
@@ -225,13 +230,21 @@ def create_3d_repeated(write_path, N=20, sigmas=[1,11,1], random_mask=False):
 
 def main():
 
-    write_path_2d = f"{base_file_path}/test_2D_sig_2_40_1000.h5"
-    create_2d(write_path=write_path_2d, N=1000)
+    write_path_2d = f"{base_file_path}/test_2D_sig_2_80_500.h5"
+    create_2d(write_path=write_path_2d, N=500)
     print(f"{write_path_2d} - done")
 
-    # write_path_3d = f"{base_file_path}/test_2DT_sig_2_40_2000.h5"
-    # create_3d(write_path=write_path_3d, N=2000)
-    # print(f"{write_path_3d} - done")
+    write_path_3d = f"{base_file_path}/test_2DT_sig_2_80_1000.h5"
+    create_3d(write_path=write_path_3d, N=1000)
+    print(f"{write_path_3d} - done")
+
+    write_path_3d = f"{base_file_path}/test_2DT_sig_2_80_2000.h5"
+    create_3d(write_path=write_path_3d, N=2000)
+    print(f"{write_path_3d} - done")
+
+    write_path_3d = f"{base_file_path}/test_2DT_sig_2_80_3000.h5"
+    create_3d(write_path=write_path_3d, N=3000)
+    print(f"{write_path_3d} - done")
 
    # write_path_20_3d_repeated = f"{base_file_path}/train_3D_3T_retro_cine_2020_20_sample_sig_2_30_repeated_test.h5"    
     # create_3d_repeated(write_path=write_path_20_3d_repeated)

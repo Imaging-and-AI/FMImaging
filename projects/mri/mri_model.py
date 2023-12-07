@@ -110,7 +110,7 @@ class STCNNT_MRI(ModelManager):
         self.pre["in_conv"] = Conv2DExt(config.no_in_channel, self.pre_feature_channels[0], kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True, channel_first=True)
         self.paras = torch.nn.ParameterDict()
         self.paras["a"] = torch.nn.Parameter(torch.tensor(5.0))
-        self.paras["b"] = torch.nn.Parameter(torch.tensor(4.0))
+        self.paras["b"] = torch.nn.Parameter(torch.tensor(1.5))
         self.pre["paras"] = self.paras
 
     def create_post(self):
@@ -163,7 +163,8 @@ class STCNNT_MRI(ModelManager):
             return logits
 
     def compute_weights(self, snr, base_snr_t):
-        weights = self.pre["paras"]["a"] - self.pre["paras"]["b"] * torch.sigmoid(snr-base_snr_t)
+        #weights = self.pre["paras"]["a"] - self.pre["paras"]["b"] * torch.sigmoid(snr-base_snr_t)
+        weights = 1 + self.pre["paras"]["a"] * torch.sigmoid( self.pre["paras"]["b"] - snr )
         return weights
 
 # -------------------------------------------------------------------------------------------------

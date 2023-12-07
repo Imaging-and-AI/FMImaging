@@ -340,11 +340,18 @@ class MRITrainManager(TrainManager):
 
                                 weights_t = torch.mean(std_t, dim=(-2, -1)).to(device)
 
-                            # compute snr
-                            signal = torch.mean(torch.linalg.norm(y, dim=1, keepdim=True), dim=(1, 2, 3, 4)).to(device)
+                            # compute input snr
+                            #signal = torch.mean(torch.linalg.norm(y, dim=1, keepdim=True), dim=(1, 2, 3, 4)).to(device)
                             #snr = signal / (noise_sigmas*gmaps_median)
-                            snr = signal / gmaps_median
+                            #snr = signal / gmaps_median
                             #snr = snr.to(device)
+
+                            if C == 3:
+                                snr_map = torch.sqrt(x[:,0]*x[:,0] + x[:,1]*x[:,1]) / x[:,2]
+                            else:
+                                snr_map = torch.abs(x[:,0] / x[:,2])
+
+                            snr = torch.unsqueeze(torch.mean(snr_map, dim=(1, 2, 3), keepdim=True).to(device), dim=1)
 
                             # base_snr : original snr in the clean patch
                             # noise_sigmas: added noise

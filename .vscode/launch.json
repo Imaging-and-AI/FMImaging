@@ -133,11 +133,12 @@
                 "--post_backbone", "STCNNT_HRNET", 
                 "--losses", "mse", "perpendicular", "psnr", "l1", "gaussian", "gaussian3D", "ssim", "perceptual", "charbonnier",
                 "--loss_weights", "1", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0",
-                "--min_noise_level", "1.0", "--max_noise_level", "100.0", 
+                "--min_noise_level", "100.0", "--max_noise_level", "100.0", 
                 "--run_name", "1st", 
                 "--run_notes", "1st", 
                 "--n_head", "32",
-                "--override", "--disable_LSUV"//, "--with_data_degrading"
+                "--override", "--disable_LSUV",//, "--with_data_degrading"
+                "--weighted_loss_snr" 
             ]
         },
         // -----------------------------------------------------------------------------------------
