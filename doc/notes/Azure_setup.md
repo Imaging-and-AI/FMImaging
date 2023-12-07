@@ -91,13 +91,13 @@ sudo chmod a+x /usr/bin/azcopy
 # install packages
 
 pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu118
-pip3 install wandb tqdm h5py torchinfo tifffile opencv-python scikit-image einops onnx numpy scipy moviepy imageio matplotlib torchmetrics gputil onnxruntime gif prettytable timm
+pip3 install wandb tqdm h5py torchinfo tifffile opencv-python scikit-image einops onnx numpy scipy moviepy imageio matplotlib torchmetrics gputil onnxruntime gif prettytable timm monai
 pip3 install torch-interpol
 
 cd ~/mrprogs
 git clone https://github.com/fbcotter/pytorch_wavelets
 cd pytorch_wavelets
-pip3 install .
+pip3 install . --break-system-packages
 
 cd ~/mrprogs
 git clone git@github.com:aleximmer/Laplace.git
