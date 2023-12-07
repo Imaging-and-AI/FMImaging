@@ -351,7 +351,7 @@ class MRITrainManager(TrainManager):
                             else:
                                 snr_map = torch.abs(x[:,0] / x[:,2])
 
-                            snr = torch.unsqueeze(torch.mean(snr_map, dim=(1, 2, 3), keepdim=True).to(device), dim=1)
+                            snr = torch.mean(snr_map, dim=(1, 2, 3)).to(device)
 
                             # base_snr : original snr in the clean patch
                             # noise_sigmas: added noise

@@ -109,7 +109,7 @@ class STCNNT_MRI(ModelManager):
         self.pre = nn.ModuleDict()
         self.pre["in_conv"] = Conv2DExt(config.no_in_channel, self.pre_feature_channels[0], kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True, channel_first=True)
         self.paras = torch.nn.ParameterDict()
-        self.paras["a"] = torch.nn.Parameter(torch.tensor(5.0))
+        self.paras["a"] = torch.nn.Parameter(torch.tensor(10.0))
         self.paras["b"] = torch.nn.Parameter(torch.tensor(1.5))
         self.pre["paras"] = self.paras
 
