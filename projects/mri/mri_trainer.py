@@ -483,8 +483,8 @@ class MRITrainManager(TrainManager):
                         end_timer(enable=c.with_timer, t=tm, msg="---> epoch end logging and measuring took ")
                     # ------------------------------------------------------------------------------------------------------
 
-                    self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.tra_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="tra_in_training", split="tra", final_eval=False, scaling_factor=1, ratio_to_eval=c.ratio_to_eval)
-                    self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="val_in_training", split="val", final_eval=False, scaling_factor=1, ratio_to_eval=c.ratio_to_eval)
+                    # self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.tra_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="tra_in_training", split="tra", final_eval=False, scaling_factor=1, ratio_to_eval=c.ratio_to_eval)
+                    self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="val_in_training", split="val", final_eval=False, scaling_factor=1, ratio_to_eval=1.0)
 
                     if c.scheduler_type != "OneCycleLR":
                         if c.scheduler_type == "ReduceLROnPlateau":
@@ -613,11 +613,11 @@ class MRITrainManager(TrainManager):
         #c.prefetch_factor = 1
 
         if isinstance(data_sets, list):
-            data_loaders = [DataLoader(dataset=data_set, batch_size=batch_size, shuffle=True, sampler=samplers[ind],
+            data_loaders = [DataLoader(dataset=data_set, batch_size=batch_size, shuffle=False, sampler=samplers[ind],
                                     num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor, drop_last=True,
                                     persistent_workers=c.num_workers>0) for ind, data_set in enumerate(data_sets)]
         else:
-            data_loaders = [DataLoader(dataset=data_sets, batch_size=batch_size, shuffle=True, sampler=samplers,
+            data_loaders = [DataLoader(dataset=data_sets, batch_size=batch_size, shuffle=False, sampler=samplers,
                                     num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor, drop_last=True,
                                     persistent_workers=c.num_workers>0) ]
 

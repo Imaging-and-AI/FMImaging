@@ -209,7 +209,9 @@ class mri_ddp_base(run_ddp_base):
 
         self.cmd.extend(["--snr_perturb_prob", f"{config.snr_perturb_prob}"])
 
-        self.cmd.extend(["--snr_perturb_prob", f"{config.snr_perturb_prob}"])
+        self.cmd.extend(["--eval_train_set", "True"])
+        self.cmd.extend(["--eval_val_set", "True"])
+        self.cmd.extend(["--eval_test_set", "True"])
 
     def set_up_variables(self, config):
 

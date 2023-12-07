@@ -3,152 +3,9 @@
 ```
 # patch_v2 branch
 
-# 1st, unet, TLG, TLG
-model=/export/Lab-Xue/projects/mri-main/logs/mri-main-1st_STCNNT_UNET_T1L1G1_T1L1G1_20231027_201703_437806_STCNNT_MRI_C-32-1_amp-True_complex_residual-T1L1G1_T1L1G1/mri-main-1st_STCNNT_UNET_T1L1G1_T1L1G1_20231027_201703_437806_STCNNT_MRI_C-32-1_amp-True_complex_residual-T1L1G1_T1L1G1_epoch-50.pth 
-
-RES_DIR=res_1st_unet_TLG_TLG
-model_type_str=STCNNT_MRI
-scaling_factor=1.0
-
-model=/export/Lab-Xue/projects/mri/test/mri-main-1st_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20231029_195046_933339_STCNNT_MRI_C-32-1_amp-True_complex_residual-T1L1G1_T1L1G1T1L1G1/mri-main-1st_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20231029_195046_933339_STCNNT_MRI_C-32-1_amp-True_complex_residual-T1L1G1_T1L1G1T1L1G1_epoch-50.pth
-
-RES_DIR=res_1st_hrnet_TLG_TLGTLG
-model_type_str=STCNNT_MRI
-scaling_factor=1.0
-
-# 2nd, unet
-model=/export/Lab-Xue/projects/mri/test/mri-main-2nd_STCNNT_UNET_T1L1G1_T1L1G1_20231030_194521_497809_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_8
-
-# 2nd, hrnet, good ssim
-
-model=/export/Lab-Xue/projects/mri-main/logs/mri-main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20231104_204006_398966_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_12
-
-model=/export/Lab-Xue/projects/mri-main/logs/mri-main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20231104_204006_398966_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_12
-
-model=/export/Lab-Xue/projects/mri-main/logs/mri-main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20231106_221712_582764_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_14
-
-model=/export/Lab-Xue/projects/mri/test/mri-main-1st_STCNNT_HRNET_T1L1G1_T1L1G1_20231107_131054_114694_STCNNT_MRI_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1/mri-main-1st_STCNNT_HRNET_T1L1G1_T1L1G1_20231107_131054_114694_STCNNT_MRI_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1_epoch-50.pth
-
-model=/export/Lab-Xue/projects/mri-main/logs/mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231113_125144_783329_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_16
-
-model=/export/Lab-Xue/projects/mri-main/logs/mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231113_125144_783329_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1/mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231113_125144_783329_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1_epoch-20.pth
-
-model=/export/Lab-Xue/projects/mri-main/logs/mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231114_090037_843822_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_3
-
-model=/export/Lab-Xue/projects/mri-main/logs/mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231115_213057_794008_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1/mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231115_213057_794008_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1_epoch-20.pth
-
-model=/export/Lab-Xue/projects/mri-main/logs/mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231116_221321_671150_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_0
-
-model=/export/Lab-Xue/projects/mri-main/logs/mri_main-2nd_only_cine_no_percp_STCNNT_HRNET_T1L1G1_T1L1G1_20231116_083832_235452_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1/mri_main-2nd_only_cine_no_percp_STCNNT_HRNET_T1L1G1_T1L1G1_20231116_083832_235452_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1_epoch-10.pth
-
-model=/export/Lab-Xue/projects/mri-main/logs/mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231117_212634_200520_MRI_double_net_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_15
-
-model=/export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231119_200635_979194_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/mri_main-2nd_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231119_200635_979194_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1_epoch-10.pth
-
-RES_DIR=res_2nd_hrnet_NN_40_TLG_TLG
-model_type_str=MRI_double_net
-scaling_factor=1.0
-
-model=model=/export/Lab-Xue/projects/data/logs/mri-main-1st_NN_40_STCNNT_HRNET_T1T1T1_T1T1T1_20231119_124856_509059_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1T1T1_T1T1T1/mri-main-1st_NN_40_STCNNT_HRNET_T1T1T1_T1T1T1_20231119_124856_509059_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1T1T1_T1T1T1_epoch-30.pth
-
-RES_DIR=res_1st_net_TTT_TTT
-model_type_str=STCNNT_MRI
-scaling_factor=1.0
-
-
-model=/export/Lab-Xue/projects/data/logs/mri-main-1st_perp_charb_vgg_with_perf_STCNNT_HRNET_T1L1G1_T1L1G1_20231115_223334_623623_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/mri-main-1st_perp_charb_vgg_with_perf_STCNNT_HRNET_T1L1G1_T1L1G1_20231115_223334_623623_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1_epoch-30.pth
-
-model=/export/Lab-Xue/projects/data/logs/mri-main-1st_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231118_040652_735337_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_24
-
-model=/export/Lab-Xue/projects/data/logs/mri-main-1st_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231118_040652_735337_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/mri-main-1st_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231118_040652_735337_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1_epoch-30.pth
-
-model=/export/Lab-Xue/projects/data/logs/mri_main-1st_BN_NN_80_STCNNT_HRNET_T1L1G1_T1L1G1_20231121_031351_308529_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/ mri_main-1st_BN_NN_80_STCNNT_HRNET_T1L1G1_T1L1G1_20231121_031351_308529_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1_epoch-30.pth
-
-
-RES_DIR=res_1st_hrnet_TLG_TLG
-model_type_str=STCNNT_MRI
-scaling_factor=1.0
-
-model=/export/Lab-Xue/projects/data/logs/mri-main-1st_NN_80_no_dense_connection_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231123_140539_682914_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-main-1st_NN_80_no_dense_connection_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231123_140539_682914_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-30.pth
-
-RES_DIR=res_1st_hrnet_T1L1G1T1L1G1_T1L1G1T1L1G1
-model_type_str=STCNNT_MRI
-scaling_factor=1.0
-
-model=/export/Lab-Xue/projects/data/logs/mri-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231125_144050_460800_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/mri-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231125_144050_460800_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1_epoch-10.pth'3d'/
-
-model=/export/Lab-Xue/projects/data/logs/mri-2nd_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231128_162609_572188_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_3
-
-RES_DIR=res_2nd_hrnet_TLGTLG_TLGTLG
-model_type_str=MRI_double_net
-scaling_factor=1.0
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_BN_STCNNT_HRNET_T1T1T1_T1T1T1_20231125_050827_201278_STCNNT_MRI_C-32-1_amp-False_complex_residual-T1T1T1_T1T1T1/mri-1st_BN_STCNNT_HRNET_T1T1T1_T1T1T1_20231125_050827_201278_STCNNT_MRI_C-32-1_amp-False_complex_residual-T1T1T1_T1T1T1_epoch-30.pth
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_BN_T_STCNNT_HRNET_T1T1T1_T1T1T1_20231126_125003_869998_STCNNT_MRI_C-32-1_amp-False_complex_residual-T1T1T1_T1T1T1/best_checkpoint_epoch_6.onnx
-
-RES_DIR=res_1st_hrnet_TTT_TTT
-model_type_str=STCNNT_MRI
-scaling_factor=1.0
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_NN60_STCNNT_HRNET_T1L1G1_T1L1G1_20231127_212736_104123_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_20
-RES_DIR=res_1st_hrnet_TLG_TLG
-model_type_str=STCNNT_MRI
-scaling_factor=1.0
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231126_141320_915089_STCNNT_MRI_C-64-1_amp-False_complex_residual_with_data_degrading-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_30
-RES_DIR=res_1st_hrnet_TLG_TLG
-model_type_str=STCNNT_MRI
-scaling_factor=1.0
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231126_141320_915089_STCNNT_MRI_C-64-1_amp-False_complex_residual_with_data_degrading-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-1st_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231126_141320_915089_STCNNT_MRI_C-64-1_amp-False_complex_residual_with_data_degrading-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-50.pth
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231130_174229_731370_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_16
-RES_DIR=res_1st_hrnet_TLGTLG_TLGTLG_NN100
-model_type_str=STCNNT_MRI
-scaling_factor=1.0
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231130_142057_378761_STCNNT_MRI_C-128-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_3
-
-RES_DIR=res_1st_hrnet_TLGTLG_TLGTLG_TLGTLG
-model_type_str=STCNNT_MRI
-scaling_factor=1.0
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1_20231129_211857_519244_STCNNT_MRI_C-64-1_amp-True_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1/best_checkpoint_epoch_3
-RES_DIR=res_1st_hrnet_TLGTLG_TLGTLG_TLGTLG
-model_type_str=STCNNT_MRI
-scaling_factor=1.0
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_only_perf_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231201_140954_771812_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-1st_more_epochs_only_perf_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231201_140954_771812_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-20.pth
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231201_161610_042536_STCNNT_MRI_NN_40.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_0
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231201_171522_419846_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_0
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231130_174229_731370_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_39
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231201_171522_419846_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_7
-
-RES_DIR=res_1st_hrnet_TLGTLG_TLGTLG_perf
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_NN200_weighted_loss_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231201_211540_823483_STCNNT_MRI_NN_200.0_C-64-1_amp-False_complex_residual_weighted_loss_snr_added_noise-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-1st_more_epochs_perf_cine_NN200_weighted_loss_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231201_211540_823483_STCNNT_MRI_NN_200.0_C-64-1_amp-False_complex_residual_weighted_loss_snr_added_noise-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-20.pth
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_NN200_weighted_loss_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231202_091151_978175_STCNNT_MRI_NN_200.0_C-64-1_amp-False_complex_residual_weighted_loss_snr_temporal_added_noise-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_1
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_NN200_weighted_loss_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231202_114128_338552_STCNNT_MRI_NN_200.0_C-64-1_amp-False_complex_residual_weighted_loss_added_noise-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-1st_more_epochs_perf_cine_NN200_weighted_loss_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231202_114128_338552_STCNNT_MRI_NN_200.0_C-64-1_amp-False_complex_residual_weighted_loss_added_noise-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-20.pth
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_NN200_weighted_loss_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231203_092235_907705_STCNNT_MRI_NN_80.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_16
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_NN80_perp1_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231203_182829_444947_STCNNT_MRI_NN_80.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_0
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_NN80_perp1_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231203_182829_444947_STCNNT_MRI_NN_80.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-1st_more_epochs_perf_cine_NN80_perp1_
-STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231203_182829_444947_STCNNT_MRI_NN_80.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-20.pth
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_NN80_perp1_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231204_080404_239404_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_6
-
 model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_perf_cine_NN80_perp1_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231204_080404_239404_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-1st_more_epochs_perf_cine_NN80_perp1_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231204_080404_239404_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-40.pth
 
-RES_DIR=res_1st_hrnet_TLGTLG_TLGTLG_perf_cine_NN200
+RES_DIR=res_1st_hrnet_TLGTLG_TLGTLG_perf_cine_NN100
 
 model_type_str=STCNNT_MRI
 scaling_factor=1.0
@@ -175,6 +32,12 @@ python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellma
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_190304911_190304920_408_20180906-123716/cloud_flow_res/DebugOutput --output_dir /export/Lab-Kellman/Share/data/perfusion/cloud/cloud_ai/Perfusion_AIF_2E_NL_Cloud_42170_190304911_190304920_408_20180906-123716/cloud_flow_res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
 
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_high_res_2023/20230905/Perfusion_AIF_41837_2049151441_2049151450_879_20230905-144000/DebugOutput/ --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_high_res_2023/20230905/Perfusion_AIF_41837_2049151441_2049151450_879_20230905-144000/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+scaling_factor=2
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20231205_Contrast_PT/meas_MID00169_FID22479_G33_Perfusion_trufi_sr_tpat_3_192res_TI120_BW450/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20231205_Contrast_PT/meas_MID00169_FID22479_G33_Perfusion_trufi_sr_tpat_3_192res_TI120_BW450/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20231205_Contrast_PT/meas_MID00173_FID22483_G33_Perfusion_trufi_sr_tpat_4_256res_TI120_BW450/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20231205_Contrast_PT/meas_MID00173_FID22483_G33_Perfusion_trufi_sr_tpat_4_256res_TI120_BW450/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
 
 # ======================================================================
 # snr level testcd
