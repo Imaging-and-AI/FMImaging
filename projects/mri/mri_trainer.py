@@ -103,7 +103,9 @@ class MRITrainManager(TrainManager):
 
         total_num_samples = sum([len(s) for s in self.train_sets])
         total_steps = compute_total_steps(config, total_num_samples)
-        logging.info(f"{rank_str}, total_steps for this run: {total_steps}, len(train_set) {[len(s) for s in self.train_sets]}, batch {config.batch_size}")
+        val_total_num_samples = sum([len(s) for s in self.val_sets])
+
+        logging.info(f"{rank_str}, total_steps for this run: {total_steps}, len(train_set) {[len(s) for s in self.train_sets]}, len(val_set) {[len(s) for s in self.val_sets]}, batch {config.batch_size}")
 
         # -----------------------------------------------
 
@@ -490,8 +492,18 @@ class MRITrainManager(TrainManager):
                         end_timer(enable=c.with_timer, t=tm, msg="---> epoch end logging and measuring took ")
                     # ------------------------------------------------------------------------------------------------------
 
-                    # self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.tra_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="tra_in_training", split="tra", final_eval=False, scaling_factor=1, ratio_to_eval=c.ratio_to_eval)
-                    self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="val_in_training", split="val", final_eval=False, scaling_factor=1, ratio_to_eval=1.0)
+                    self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.train_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="tra_in_tra", split="tra_in_tra", final_eval=False, scaling_factor=1, ratio_to_eval=val_total_num_samples/total_num_samples)
+                    if rank <=0:
+                        average_tra_in_tra_metrics = self.metric_manager.average_eval_metrics
+
+                    self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="val_in_tra", split="val", final_eval=False, scaling_factor=1, ratio_to_eval=1.0)
+                    if rank <=0:
+                        average_val_in_tra_metrics = self.metric_manager.average_eval_metrics
+
+                        # log them together
+                        if wandb_run:
+                            for metric_name, avg_metric_eval in average_val_in_tra_metrics.items():
+                                wandb_run.log({"epoch":epoch, f"In_tra/val_in_tra_{metric_name}": avg_metric_eval, f"In_tra/tra_in_tra_{metric_name}": average_tra_in_tra_metrics[metric_name]})
 
                     if c.scheduler_type != "OneCycleLR":
                         if c.scheduler_type == "ReduceLROnPlateau":
@@ -555,10 +567,10 @@ class MRITrainManager(TrainManager):
         # Evaluate models of each split
         if self.config.eval_train_set: 
             logging.info(f"{Fore.CYAN}----> Evaluating the best model on the train set ... <----{Style.RESET_ALL}")
-            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.train_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="train", split="train", final_eval=True, scaling_factor=1, ratio_to_eval=self.config.ratio_to_eval)
+            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.train_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="train", split="train_in_final", final_eval=True, scaling_factor=1, ratio_to_eval=self.config.ratio_to_eval)
         if self.config.eval_val_set: 
             logging.info(f"{Fore.CYAN}----> Evaluating the best model on the val set ... <----{Style.RESET_ALL}")
-            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="val", split="val", final_eval=True, scaling_factor=1, ratio_to_eval=1.0)
+            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="val", split="val_in_final", final_eval=True, scaling_factor=1, ratio_to_eval=1.0)
         if self.config.eval_test_set: 
             logging.info(f"{Fore.CYAN}----> Evaluating the best model on the test set ... <----{Style.RESET_ALL}")
             self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.test_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="test", split="test", final_eval=True, scaling_factor=1, ratio_to_eval=1.0)
@@ -593,14 +605,14 @@ class MRITrainManager(TrainManager):
 
         # ------------------------------------------------------------------------
         # Determine if we will save the predictions to files for thie eval 
-        if split=='train': 
+        if 'tra' in split: 
             save_samples = final_eval and self.config.save_train_samples
-        elif split=='val': 
+        elif 'val' in split: 
             save_samples = final_eval and self.config.save_val_samples
         elif split=='test': 
             save_samples = final_eval and self.config.save_test_samples
             self.config.num_uploaded *= 4
-        else: raise ValueError(f"Unknown split {split} specified, should be in [train, val, test]")
+        else: raise ValueError(f"Unknown split {split} specified, should be in [train/tra, val, test]")
 
         loss_f = self.loss_f
 

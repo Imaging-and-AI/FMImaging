@@ -25,10 +25,11 @@ class model_parser(object):
 
         #if 'STCNNT' in model_type: 
         self.add_shared_STCNNT_args()
+        self.add_hrnet_STCNNT_args()
 
-        if model_type=='STCNNT_HRNET': 
-            self.add_hrnet_STCNNT_args()
-            
+        # if model_type=='STCNNT_HRNET': 
+        #     self.add_hrnet_STCNNT_args()
+
         if model_type=='STCNNT_UNET': 
             self.add_unet_STCNNT_args()
             

@@ -279,12 +279,12 @@ class MriMetricManager(MetricManager):
                 self.train_metrics[metric_name].update(metric_value.item(), n=x.shape[0])
 
         if rank<=0 and self.wandb_run: 
-            self.wandb_run.log({"lr": curr_lr})
+            self.wandb_run.log({"running_train/lr": curr_lr})
             for metric_name in self.train_metrics.keys():
                 if metric_name=='loss':
-                    self.wandb_run.log({"running_train_loss": loss})
+                    self.wandb_run.log({"running_train/loss": loss})
                 else:
-                    self.wandb_run.log({f"running_train_{metric_name}": self.train_metrics[metric_name].avg})
+                    self.wandb_run.log({f"running_train/{metric_name}": self.train_metrics[metric_name].avg})
 
         # Save outputs if desired
         if save_samples and rank<=0:
@@ -435,7 +435,7 @@ class MriMetricManager(MetricManager):
 
                 # Update wandb with eval metrics
                 for metric_name, avg_metric_eval in average_metrics.items():
-                    if self.wandb_run: self.wandb_run.log({"epoch":epoch, f"{split}_{metric_name}": avg_metric_eval})
+                    if self.wandb_run: self.wandb_run.log({"epoch":epoch, f"{split}/{metric_name}": avg_metric_eval})
             else:
                 for metric_name, avg_metric_eval in average_metrics.items():
                     if self.wandb_run: self.wandb_run.summary[f"final_{split}_{metric_name}"] = avg_metric_eval

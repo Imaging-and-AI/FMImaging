@@ -134,8 +134,7 @@ class run_ddp_base(object):
 
         if bk=='STCNNT_HRNET': 
             cmd_run.extend(["--backbone_hrnet.C", f"{c}", 
-                            "--backbone_hrnet.use_interpolation", "1",
-                            "--backbone_hrnet.num_resolution_levels", "2"
+                            "--backbone_hrnet.use_interpolation", "1"
                         ])
         
  

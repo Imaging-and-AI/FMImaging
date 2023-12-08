@@ -190,7 +190,7 @@ class MetricManager(object):
         # Log the metrics for this epoch to wandb
         if rank<=0: # main or master process
             for metric_name, avg_metric_val in average_metrics.items():
-                if self.wandb_run is not None: self.wandb_run.log({"epoch": epoch, "train_"+metric_name: avg_metric_val})
+                if self.wandb_run is not None: self.wandb_run.log({"epoch": epoch, "train/"+metric_name: avg_metric_val})
 
         # Save the average metrics for this epoch into self.average_train_metrics
         self.average_train_metrics = average_metrics
