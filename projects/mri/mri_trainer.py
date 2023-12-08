@@ -617,11 +617,13 @@ class MRITrainManager(TrainManager):
         loss_f = self.loss_f
 
         if c.ddp:
-            if isinstance(data_sets, list): samplers = [DistributedSampler(data_set) for data_set in data_sets]
-            else: samplers = DistributedSampler(data_sets)
+            if isinstance(data_sets, list): samplers = [DistributedSampler(data_set, shuffle=True) for data_set in data_sets]
+            else: samplers = DistributedSampler(data_sets, shuffle=True)
+            shuffle = False
         else:
             if isinstance(data_sets, list): samplers = [None] * len(data_sets)
             else: samplers = None
+            shuffle = True
 
         # ------------------------------------------------------------------------
         # Set up data loader to evaluate        
@@ -632,11 +634,11 @@ class MRITrainManager(TrainManager):
         #c.prefetch_factor = 1
 
         if isinstance(data_sets, list):
-            data_loaders = [DataLoader(dataset=data_set, batch_size=batch_size, shuffle=False, sampler=samplers[ind],
+            data_loaders = [DataLoader(dataset=data_set, batch_size=batch_size, shuffle=shuffle, sampler=samplers[ind],
                                     num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor, drop_last=True,
                                     persistent_workers=c.num_workers>0) for ind, data_set in enumerate(data_sets)]
         else:
-            data_loaders = [DataLoader(dataset=data_sets, batch_size=batch_size, shuffle=False, sampler=samplers,
+            data_loaders = [DataLoader(dataset=data_sets, batch_size=batch_size, shuffle=shuffle, sampler=samplers,
                                     num_workers=num_workers_per_loader, prefetch_factor=c.prefetch_factor, drop_last=True,
                                     persistent_workers=c.num_workers>0) ]
 

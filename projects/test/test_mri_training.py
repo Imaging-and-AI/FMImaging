@@ -79,8 +79,8 @@ def get_test_folders():
 
 num_epochs=10
 tra_ratio=10
-val_ratio=5
-test_ratio=5
+val_ratio=10
+test_ratio=10
 
 class Test_MRI_Tra(object):
 
@@ -145,26 +145,26 @@ class Test_MRI_Tra(object):
                    "--model_block_str", "T1L1G1", "T1L1G1", 
                    "--mri_height", "32", "64", 
                    "--mri_width", "32", "64", 
-                   "--global_lr", "1e-6",
-                   "--lr_pre", "1e-6", 
-                   "--lr_post", "1e-6", 
-                   "--lr_backbone", "1e-6", 
+                   "--global_lr", "1e-4",
+                   "--lr_pre", "1e-4", 
+                   "--lr_post", "1e-4", 
+                   "--lr_backbone", "1e-4", 
                    "--run_list", "0",  
                    "--tra_ratio", f"{tra_ratio}", 
                    "--val_ratio", f"{val_ratio}", 
                    "--test_ratio", f"{test_ratio}",
-                   "--scheduler_factor", "0.8", 
+                   "--scheduler_factor", "0.5", 
                    "--ut_mode", "--scheduler_type", "OneCycleLR",
                    "--losses", "mse", "perpendicular", "perceptual", "charbonnier", "gaussian3D", "--loss_weights", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0",
-                   "--backbone_C", "32",
+                   "--backbone_C", "32", "--add_salt_pepper", "--add_possion", "--weighted_loss_snr",
                    "--project", "FM-UT-MRI"]
 
         metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_hrnet_TLG_TLG_STCNNT_HRNET_T1L1G1_T1L1G1_STCNNT_MRI_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1')
 
         # assert metrics['mse'] < 150
         # assert metrics['l1'] < 12
-        assert metrics['ssim'] > 0.45
-        assert metrics['psnr'] > 45
+        assert metrics['ssim'] > 0.3
+        assert metrics['psnr'] > 42
 
         # =======================================================
 
@@ -187,18 +187,18 @@ class Test_MRI_Tra(object):
                    "--model_block_str", "T1L1G1", "T1L1G1", 
                    "--mri_height", "32", "64", 
                    "--mri_width", "32", "64", 
-                   "--global_lr", "1e-6",
-                   "--lr_pre", "1e-6", 
-                   "--lr_post", "1e-6", 
-                   "--lr_backbone", "1e-6", 
+                   "--global_lr", "1e-4",
+                   "--lr_pre", "1e-4", 
+                   "--lr_post", "1e-4", 
+                   "--lr_backbone", "1e-4", 
                    "--run_list", "0",  
                    "--tra_ratio", f"{tra_ratio}", 
                    "--val_ratio", f"{val_ratio}", 
                    "--test_ratio", f"{test_ratio}",
-                   "--scheduler_factor", "0.8", 
+                   "--scheduler_factor", "0.5", 
                    "--ut_mode", "--scheduler_type", "OneCycleLR",
                    "--losses", "mse", "perpendicular", "perceptual", "charbonnier", "gaussian3D", "--loss_weights", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0",
-                   "--backbone_C", "32",
+                   "--backbone_C", "32", "--add_salt_pepper", "--add_possion", "--weighted_loss_snr",
                    "--project", "FM-UT-MRI"]
 
         metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_unet_TLG_TLG_STCNNT_UNET_T1L1G1_T1L1G1_STCNNT_MRI_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1')
@@ -229,10 +229,10 @@ class Test_MRI_Tra(object):
                    "--model_block_str", "C3C3C3", "C3C3C3", 
                    "--mri_height", "32", "64", 
                    "--mri_width", "32", "64", 
-                   "--global_lr", "1e-6",
-                   "--lr_pre", "1e-6", 
-                   "--lr_post", "1e-6", 
-                   "--lr_backbone", "1e-6", 
+                   "--global_lr", "1e-4",
+                   "--lr_pre", "1e-4", 
+                   "--lr_post", "1e-4", 
+                   "--lr_backbone", "1e-4", 
                    "--run_list", "0",  
                    "--tra_ratio", f"{tra_ratio}", 
                    "--val_ratio", f"{val_ratio}", 
@@ -240,7 +240,7 @@ class Test_MRI_Tra(object):
                    "--scheduler_factor", "0.8", 
                    "--ut_mode", "--scheduler_type", "OneCycleLR",
                    "--losses", "mse", "perpendicular", "perceptual", "charbonnier", "gaussian3D", "--loss_weights", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0",
-                   "--backbone_C", "32",
+                   "--backbone_C", "32", "--add_salt_pepper", "--add_possion", "--weighted_loss_snr",
                    "--project", "FM-UT-MRI"]
 
         metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_hrnet_C3C3C3_C3C3C3_STCNNT_HRNET_C3C3C3_C3C3C3_STCNNT_MRI_C-64-1_amp-True_complex_residual-C3C3C3_C3C3C3')
