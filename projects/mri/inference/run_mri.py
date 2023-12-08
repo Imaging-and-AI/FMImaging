@@ -141,6 +141,13 @@ class mri_ddp_base(run_ddp_base):
         self.cmd.extend(["--max_load", f"{int(config.max_load)}"])
 
         self.cmd.extend(["--model_type", f"{config.model_type}"])
+        if 'omnivore' in config.model_type: 
+            self.cmd.extend(["--omnivore.size", "custom"])
+            self.cmd.extend(["--omnivore.patch_size", "1", "1", "1"])
+            self.cmd.extend(["--omnivore.window_size", "14", "7", "7"])
+            self.cmd.extend(["--omnivore.embed_dim", "24"])
+            self.cmd.extend(["--omnivore.depths", "2", "2", "6", "2"])
+            self.cmd.extend(["--omnivore.num_heads", "3","6", "12", "24"])
 
         if config.add_salt_pepper:
             self.cmd.extend(["--add_salt_pepper"])
@@ -499,7 +506,7 @@ class mri_ddp_base(run_ddp_base):
         parser.add_argument("--max_load", type=int, default=-1, help="number of max loaded samples into the RAM")
 
         parser.add_argument("--model_type", type=str, default="STCNNT_MRI", help="STCNNT_MRI or MRI_hrnet or MRI_double_net or omnivore_MRI")
-        parser.add_argument('--model_backbone', type=str, default="STCNNT_HRNET", help="which backbone model to use, 'STCNNT_HRNET', 'STCNNT_UNET', 'omnivore_tiny', 'omnivore_base', 'omnivore_small' ")
+        parser.add_argument('--model_backbone', type=str, default="STCNNT_HRNET", help="which backbone model to use, 'STCNNT_HRNET', 'STCNNT_UNET', 'omnivore' ")
 
         parser.add_argument('--model_block_str', nargs='+', type=str, default=None, help="block string to define the attention layers in blocks; if multiple strings are given, each is for a resolution level.")
 

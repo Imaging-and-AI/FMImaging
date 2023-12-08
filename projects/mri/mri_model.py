@@ -170,7 +170,7 @@ class STCNNT_MRI(ModelManager):
 # -------------------------------------------------------------------------------------------------
 # MRI model
 
-class omnivore_MRI(STCNNT_MRI):
+class omnivore_MRI(ModelManager):
     """
     omnivore for MRI data
     Just the base CNNT with care to complex_i and residual
@@ -178,44 +178,24 @@ class omnivore_MRI(STCNNT_MRI):
     def __init__(self, config):
         super().__init__(config)
 
+    def create_pre(self):
+        self.pre = nn.ModuleDict()
+        self.pre["in"], self.pre_feature_channels = identity_model(self.config)
+        self.paras = torch.nn.ParameterDict()
+        self.paras["a"] = torch.nn.Parameter(torch.tensor(10.0))
+        self.paras["b"] = torch.nn.Parameter(torch.tensor(1.5))
+        self.pre["paras"] = self.paras
+
     def create_backbone(self):
-
-        self.backbone = nn.ModuleDict()
-
-        if self.config.backbone_model=='omnivore_tiny':
-            self.omnivore = omnivore_tiny(self.config, self.pre_feature_channels)
-            self.backbone["omnivore"] = self.omnivore
-            self.feature_channels = self.omnivore.feature_channels
-        elif self.config.backbone_model=='omnivore_small':
-            self.omnivore = omnivore_small(self.config, self.pre_feature_channels)
-            self.backbone["omnivore"] = self.omnivore
-            self.feature_channels = self.omnivore.feature_channels
-        elif self.config.backbone_model=='omnivore_base':
-            self.omnivore = omnivore_base(self.config, self.pre_feature_channels)
-            self.backbone["omnivore"] = self.omnivore
-            self.feature_channels = self.omnivore.feature_channels
-        elif self.config.backbone_model=='omnivore_large':
-            self.omnivore = omnivore_large(self.config, self.pre_feature_channels)
-            self.backbone["omnivore"] = self.omnivore
-            self.feature_channels = self.omnivore.feature_channels
-        else:
-            raise NotImplementedError(f"Backbone model not implemented: {self.config.backbone_model}")
-
-        config = copy.deepcopy(self.config)
-        config.no_out_channel = self.feature_channels[0]
-        self.backbone["mixer"] = UperNet3D(config, feature_channels=self.feature_channels)
-
-        # # upsample 3D along T, H, W
-        # self.backbone["upsample_3d"] = UpSample(N=1, C_in=self.feature_channels[0], C_out=self.feature_channels[0], method='linear', with_conv=True, is_3D=True)
-
-        # self.backbone["o_nl"] = nn.GELU(approximate="tanh")
-
-        # # upsample 2D, along H, W
-        # self.backbone["upsample_2d"] = UpSample(N=2, C_in=self.feature_channels[0], C_out=self.feature_channels[0], method='linear', with_conv=True, is_3D=False)
+        self.backbone, self.feature_channels = omnivore(self.config, self.pre_feature_channels)
 
     def create_post(self):
-        config = self.config
-        self.post = Conv2DExt(self.feature_channels[0], config.no_out_channel, kernel_size=config.kernel_size, stride=config.stride, padding=config.padding, bias=True, channel_first=True)
+        self.post = UNETR3D(self.config, self.feature_channels)
+
+    def compute_weights(self, snr, base_snr_t):
+        #weights = self.pre["paras"]["a"] - self.pre["paras"]["b"] * torch.sigmoid(snr-base_snr_t)
+        weights = 1 + self.pre["paras"]["a"] * torch.sigmoid( self.pre["paras"]["b"] - snr )
+        return weights
 
     def forward(self, x, snr=None, base_snr_t=None):
         """
@@ -224,16 +204,10 @@ class omnivore_MRI(STCNNT_MRI):
         @rets:
             - output (5D torch.Tensor): output image (denoised)
         """
-        res_pre = self.pre["in_conv"](x)
-        B, C, T, H, W = res_pre.shape
-        
-        res_backbone = self.backbone["omnivore"](res_pre)
-        y_hat = self.backbone["mixer"](res_backbone, output_size=(T, H, W))
-
-        if self.residual:
-            y_hat[:, :C, :, :, :] = res_pre + y_hat[:, :C, :, :, :]
-
-        logits = self.post(y_hat) # + x[:, :, :self.config.no_out_channel, :, :]
+        pre_output = self.pre["in"](x)
+        backbone_output = self.backbone(pre_output[-1])
+        post_output = self.post(x,backbone_output)
+        logits = post_output[-1] + x[:,:2]
 
         if base_snr_t is not None:
             weights = self.compute_weights(snr=snr, base_snr_t=base_snr_t)
