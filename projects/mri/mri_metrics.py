@@ -416,9 +416,57 @@ class MriMetricManager(MetricManager):
         self.average_eval_metrics = average_metrics
         #print(f"--> epoch {epoch}, average_metrics {average_metrics}")
 
+        # update for per sample metrics
+        # if ddp, aggregate metrics
+        if final_eval:
+            if self.config.ddp:
+                world_size = int(os.environ["WORLD_SIZE"])
+                #print(f"--> epoch {epoch}, rank {rank}, world_size {world_size} ... ")
+                snr = self.eval_sample_metrics["input_snr"].vals
+                num = len(snr)
+                tensor_in = torch.tensor(snr, dtype=torch.float32, device=self.config.device)
+                tensor_out = torch.zeros(num * world_size, dtype=torch.float32, device=self.config.device)
+                dist.all_gather_into_tensor(tensor_out, tensor_in)
+                snr = tensor_out.cpu().numpy()
+                #print(f"--> epoch {epoch}, rank {rank}, tensor_in {tensor_in.shape},  tensor_out {tensor_out.shape}, snr {snr.shape} ... ")
+
+                metrics = dict()
+                for metric_name in self.eval_sample_metrics.keys():
+                    if metric_name == "input_snr":
+                        continue
+
+                    v = self.eval_sample_metrics[metric_name].vals
+                    num = len(v)
+                    tensor_in = torch.tensor(v, dtype=torch.float32, device=self.config.device)
+                    tensor_out = torch.zeros(num * world_size, dtype=torch.float32, device=self.config.device)
+                    dist.all_gather_into_tensor(tensor_out, tensor_in)
+                    metrics[metric_name] = tensor_out.cpu().numpy()
+            else:
+                snr = self.eval_sample_metrics["input_snr"].vals
+                np.save(os.path.join(save_path, f"final_{split}_snr.npy"), np.array(snr))
+
+                metrics = dict()
+                for metric_name in self.eval_sample_metrics.keys():
+                    if metric_name == "input_snr":
+                        continue
+
+                    metrics[metric_name] = self.eval_sample_metrics[metric_name].vals
+
+            #print(f"--> epoch {epoch}, rank {rank}, snr {snr.shape} ... ")
+
+            for metric_name in self.eval_sample_metrics.keys():
+                if metric_name == "input_snr":
+                    continue
+
+                data = [[x, y] for (x, y) in zip(snr, metrics[metric_name])]
+                table = wandb.Table(data=data, columns=["snr", metric_name])
+                title = f"{split}_epoch_{epoch}_snr_vs_{metric_name}"
+                if self.wandb_run: self.wandb_run.log({title: wandb.plot.scatter(table, "snr", metric_name, title=title)})
+
+                np.save(os.path.join(save_path, f"final_{split}_{metric_name}.npy"), np.array(metrics[metric_name]))
+
         # Checkpoint best models during training
         if rank<=0: 
-
             if not final_eval:
                 # Determine whether to checkpoint this model
                 model_epoch = model_manager.module if self.config.ddp else model_manager 
@@ -440,32 +488,16 @@ class MriMetricManager(MetricManager):
                 for metric_name, avg_metric_eval in average_metrics.items():
                     if self.wandb_run: self.wandb_run.summary[f"final_{split}_{metric_name}"] = avg_metric_eval
 
-                # update for per sample metrics
-                snr = self.eval_sample_metrics["input_snr"].vals
-                np.save(os.path.join(save_path, f"final_{split}_snr.npy"), np.array(snr))
-
-                for metric_name in self.eval_sample_metrics.keys():
-                    if metric_name == "input_snr":
-                        continue
-
-                    metrics = self.eval_sample_metrics[metric_name].vals
-                    data = [[x, y] for (x, y) in zip(snr, metrics)]
-                    table = wandb.Table(data=data, columns=["snr", metric_name])
-                    title = f"{split}_epoch_{epoch}_snr_vs_{metric_name}"
-                    if self.wandb_run: self.wandb_run.log({title: wandb.plot.scatter(table, "snr", metric_name, title=title)})
-
-                    np.save(os.path.join(save_path, f"final_{split}_{metric_name}.npy"), np.array(metrics))
-
                 # generate snr vs. ssim, snr vs. psnr plots and computing AUC
                 x = np.copy(np.array(snr))
-                y = np.array(self.eval_sample_metrics['ssim'].vals)
+                y = np.array(metrics['ssim'])
                 bin_means, bin_sds, bin_edges, binnumber = compute_binned_mean_sd(x, y, min_x=0.01, max_x=10, bins=50)
                 fig_ssim, auc_ssim = plot_with_CI(x, y, min_x=0.01, max_x=10.0, bin_means=bin_means, bin_sds=bin_sds, bin_edges=bin_edges, xlabel='snr', ylabel='ssim', ylim=[0, 1])
                 fig_ssim.savefig(os.path.join(save_path, f"final_{split}_ssim_CI.png"), dpi=600)
                 if self.wandb_run: self.wandb_run.log({f"final_{split}_ssim_CI": wandb.Image(fig_ssim)})
 
                 x = np.copy(np.array(snr))
-                y = np.array(self.eval_sample_metrics['psnr'].vals)
+                y = np.array(metrics['psnr'])
                 bin_means, bin_sds, bin_edges, binnumber = compute_binned_mean_sd(x, y, min_x=0.01, max_x=10, bins=50)
                 fig_psnr, auc_psnr = plot_with_CI(x, y, min_x=0.01, max_x=10.0, bin_means=bin_means, bin_sds=bin_sds, bin_edges=bin_edges, xlabel='snr', ylabel='psnr', ylim=[0, np.max(y)+0.1])
                 fig_psnr.savefig(os.path.join(save_path, f"final_{split}_psnr_CI.png"), dpi=600)
