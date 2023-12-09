@@ -97,6 +97,11 @@ pip3 install torch-interpol laplace-torch pytorch_wavelets
 bash ./doc/notes/download_data.sh
 ll -ltr /export/Lab-Xue/projects/mri/data
 
+ulimit -n 65536
+
+wandb login
+3420ade4920debef5eb73377a2bb8f600e26a2c8
+
 cd ~/mrprogs
 git clone https://github.com/fbcotter/pytorch_wavelets
 cd pytorch_wavelets

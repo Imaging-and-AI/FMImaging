@@ -51,10 +51,10 @@ ln -s /export/Lab-Xue/projects/imagenet/VIDA_train_clean_0430.h5 /export/Lab-Xue
 ln -s /export/Lab-Xue/projects/imagenet/test_2DT_sig_2_80_2000.h5 /export/Lab-Xue/projects/mri/data/test_2DT_sig_2_80_2000.h5
 
 # test data
-azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2DT_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
-azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2D_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
-azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_3D_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
-azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_500_samples.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+# azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2DT_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+# azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_2D_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+# azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_small_3D_test.h5?${SAS}" /export/Lab-Xue/projects/mri/data
+# azcopy copy "${data_src}/train_3D_3T_retro_cine_2020_500_samples.h5?${SAS}" /export/Lab-Xue/projects/mri/data
 
 # cine
 azcopy copy "${data_src}/BARTS_3D_3T_retro_cine_2023.h5?${SAS}" /export/Lab-Xue/projects/data
