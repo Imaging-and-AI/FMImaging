@@ -82,6 +82,8 @@ tra_ratio=10
 val_ratio=10
 test_ratio=10
 
+batch_size = 4
+
 class Test_MRI_Tra(object):
 
     @classmethod
@@ -135,7 +137,7 @@ class Test_MRI_Tra(object):
                    "--nproc_per_node", f"{torch.cuda.device_count()}", 
                    "--use_amp", 
                    "--num_epochs", f"{num_epochs}", 
-                   "--batch_size", "2", 
+                   "--batch_size", f"{batch_size}", 
                    "--data_root", data_root, 
                    "--log_root", log_root, 
                    "--run_extra_note", "test_hrnet_TLG_TLG", 
@@ -159,7 +161,7 @@ class Test_MRI_Tra(object):
                    "--backbone_C", "32", "--add_salt_pepper", "--add_possion", "--weighted_loss_snr", "--disable_LSUV",
                    "--project", "FM-UT-MRI"]
 
-        metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_hrnet_TLG_TLG_STCNNT_HRNET_T1L1G1_T1L1G1_STCNNT_MRI_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1')
+        metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_hrnet_TLG_TLG_STCNNT_HRNET_T1L1G1_T1L1G1_STCNNT_MRI_NN_24.0_C-32-1_amp-True_complex_residual_weighted_loss_snr-T1L1G1_T1L1G1')
 
         # assert metrics['mse'] < 150
         # assert metrics['l1'] < 12
@@ -177,7 +179,7 @@ class Test_MRI_Tra(object):
                    "--nproc_per_node", f"{torch.cuda.device_count()}", 
                    "--use_amp", 
                    "--num_epochs", f"{num_epochs}", 
-                   "--batch_size", "2", 
+                   "--batch_size", f"{batch_size}", 
                    "--data_root", data_root, 
                    "--log_root", log_root, 
                    "--run_extra_note", "test_unet_TLG_TLG", 
@@ -201,7 +203,7 @@ class Test_MRI_Tra(object):
                    "--backbone_C", "32", "--add_salt_pepper", "--add_possion", "--weighted_loss_snr", "--disable_LSUV",
                    "--project", "FM-UT-MRI"]
 
-        metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_unet_TLG_TLG_STCNNT_UNET_T1L1G1_T1L1G1_STCNNT_MRI_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1')
+        metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_unet_TLG_TLG_STCNNT_UNET_T1L1G1_T1L1G1_STCNNT_MRI_NN_24.0_C-32-1_amp-True_complex_residual_weighted_loss_snr-T1L1G1_T1L1G1')
 
         assert metrics['mse'] < 150
         assert metrics['l1'] < 12
@@ -219,7 +221,7 @@ class Test_MRI_Tra(object):
                    "--nproc_per_node", f"{torch.cuda.device_count()}", 
                    "--use_amp", 
                    "--num_epochs", f"{num_epochs}", 
-                   "--batch_size", "2", 
+                   "--batch_size", f"{batch_size}", 
                    "--data_root", data_root, 
                    "--log_root", log_root, 
                    "--run_extra_note", "test_hrnet_C3C3C3_C3C3C3", 
@@ -243,7 +245,7 @@ class Test_MRI_Tra(object):
                    "--backbone_C", "32", "--add_salt_pepper", "--add_possion", "--weighted_loss_snr", "--disable_LSUV",
                    "--project", "FM-UT-MRI"]
 
-        metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_hrnet_C3C3C3_C3C3C3_STCNNT_HRNET_C3C3C3_C3C3C3_STCNNT_MRI_C-64-1_amp-True_complex_residual-C3C3C3_C3C3C3')
+        metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_hrnet_C3C3C3_C3C3C3_STCNNT_HRNET_C3C3C3_C3C3C3_STCNNT_MRI_NN_24.0_C-32-1_amp-True_complex_residual_weighted_loss_snr-C3C3C3_C3C3C3')
 
         assert metrics['mse'] < 420
         assert metrics['l1'] < 17.5
