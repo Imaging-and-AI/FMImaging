@@ -156,7 +156,7 @@ class Test_MRI_Tra(object):
                    "--scheduler_factor", "0.5", 
                    "--ut_mode", "--scheduler_type", "OneCycleLR",
                    "--losses", "mse", "perpendicular", "perceptual", "charbonnier", "gaussian3D", "--loss_weights", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0",
-                   "--backbone_C", "32", "--add_salt_pepper", "--add_possion", "--weighted_loss_snr",
+                   "--backbone_C", "32", "--add_salt_pepper", "--add_possion", "--weighted_loss_snr", "--disable_LSUV",
                    "--project", "FM-UT-MRI"]
 
         metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_hrnet_TLG_TLG_STCNNT_HRNET_T1L1G1_T1L1G1_STCNNT_MRI_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1')
@@ -198,7 +198,7 @@ class Test_MRI_Tra(object):
                    "--scheduler_factor", "0.5", 
                    "--ut_mode", "--scheduler_type", "OneCycleLR",
                    "--losses", "mse", "perpendicular", "perceptual", "charbonnier", "gaussian3D", "--loss_weights", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0",
-                   "--backbone_C", "32", "--add_salt_pepper", "--add_possion", "--weighted_loss_snr",
+                   "--backbone_C", "32", "--add_salt_pepper", "--add_possion", "--weighted_loss_snr", "--disable_LSUV",
                    "--project", "FM-UT-MRI"]
 
         metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_unet_TLG_TLG_STCNNT_UNET_T1L1G1_T1L1G1_STCNNT_MRI_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1')
@@ -237,10 +237,10 @@ class Test_MRI_Tra(object):
                    "--tra_ratio", f"{tra_ratio}", 
                    "--val_ratio", f"{val_ratio}", 
                    "--test_ratio", f"{test_ratio}",
-                   "--scheduler_factor", "0.8", 
+                   "--scheduler_factor", "0.5", 
                    "--ut_mode", "--scheduler_type", "OneCycleLR",
                    "--losses", "mse", "perpendicular", "perceptual", "charbonnier", "gaussian3D", "--loss_weights", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0",
-                   "--backbone_C", "32", "--add_salt_pepper", "--add_possion", "--weighted_loss_snr",
+                   "--backbone_C", "32", "--add_salt_pepper", "--add_possion", "--weighted_loss_snr", "--disable_LSUV",
                    "--project", "FM-UT-MRI"]
 
         metrics = self.run_training(data_root, log_root, cmd_run, 'FM-UT-MRI-test_hrnet_C3C3C3_C3C3C3_STCNNT_HRNET_C3C3C3_C3C3C3_STCNNT_MRI_C-64-1_amp-True_complex_residual-C3C3C3_C3C3C3')
