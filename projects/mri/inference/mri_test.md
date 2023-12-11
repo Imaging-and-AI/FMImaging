@@ -65,6 +65,8 @@ model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G
 
 model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_C3C3C3_C3C3C3_20231209_230150_618208_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-C3C3C3_C3C3C3/best_checkpoint_epoch_1
 
+model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_C3C3C3_C3C3C3_20231209_230150_618208_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-C3C3C3_C3C3C3/best_checkpoint_epoch_1
+
 test_sets="test_2D_sig_2_80_500.h5 test_2DT_sig_2_80_1000.h5"
 test_sets="test_2DT_sig_2_80_2000.h5"
 

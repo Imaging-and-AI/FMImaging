@@ -264,6 +264,7 @@ def main():
     # -----------------------------------------------
     logging.info(f"{rank_str}, load saved model, continued_training - {continued_training}")
     if continued_training:
+        config.device = device
 
         model.load_pre(config.pre_model_load_path, device=device)
 
