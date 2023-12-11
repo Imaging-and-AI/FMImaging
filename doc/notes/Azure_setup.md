@@ -207,3 +207,14 @@ cd ~/mrprogs
 git clone git@github.com:xueh2/matlab_mrrecon.git
 git clone git@github.com:xueh2/imagescn.git
 ```
+
+```
+doskey fsi1=ssh -i ~/.ssh/xueh2-a100.pem gtuser@fsi1.eastus2.cloudapp.azure.com
+doskey fsi2=ssh -i ~/.ssh/xueh2-a100.pem gtuser@fsi2.eastus2.cloudapp.azure.com
+doskey fsi3=ssh -i ~/.ssh/xueh2-a100.pem gtuser@fsi3.eastus2.cloudapp.azure.com
+doskey fsi4=ssh -i ~/.ssh/xueh2-a100.pem gtuser@fsi4.eastus2.cloudapp.azure.com
+doskey fsi5=ssh -i ~/.ssh/xueh2-a100.pem gtuser@fsi5.eastus2.cloudapp.azure.com
+doskey fsi6=ssh -i ~/.ssh/xueh2-a100.pem gtuser@fsi6.eastus2.cloudapp.azure.com
+doskey fsi7=ssh -i ~/.ssh/xueh2-a100.pem gtuser@fsi7.eastus2.cloudapp.azure.com
+doskey fsi8=ssh -i ~/.ssh/xueh2-a100.pem gtuser@fsi8.eastus2.cloudapp.azure.com
+```
