@@ -179,7 +179,7 @@ def main():
     # -----------------------------------------------        
 
     if config.pre_model_load_path is not None:
-        status = torch.load(config.pre_model_load_path)
+        status = torch.load(config.pre_model_load_path, map_location=device)
         config = status['config']
 
         # overwrite the config parameters with current settings
