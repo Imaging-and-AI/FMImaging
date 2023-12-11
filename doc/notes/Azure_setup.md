@@ -90,13 +90,21 @@ sudo chmod a+x /usr/bin/azcopy
 
 # install packages
 
+pip3 uninstall -y torch torchvision torchaudio
 pip3 install torch torchvision torchaudio
 pip3 install wandb tqdm h5py torchinfo tifffile opencv-python nibabel piq colorama scikit-image einops onnx numpy scipy moviepy imageio matplotlib torchmetrics gputil onnxruntime gif prettytable timm monai
 pip3 install torch-interpol laplace-torch pytorch_wavelets
 
+cd ~/mrprogs
+git clone git@github.com:NHLBI-MR/FMImaging.git
+
+cd ~/mrprogs/FMImaging
+bash ./doc/notes/set_up_VM.sh
+
 bash ./doc/notes/download_data.sh
 ll -ltr /export/Lab-Xue/projects/mri/data
 
+wandb login
 ulimit -n 65536
 
 wandb login

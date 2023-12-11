@@ -488,24 +488,48 @@ class MriMetricManager(MetricManager):
                 for metric_name, avg_metric_eval in average_metrics.items():
                     if self.wandb_run: self.wandb_run.summary[f"final_{split}_{metric_name}"] = avg_metric_eval
 
-                # generate snr vs. ssim, snr vs. psnr plots and computing AUC
+                # -----------------------------------------------------
+
+                def do_auc(x, y, min_x, max_x, key_str):
+                    try:
+                        x = np.copy(x)
+                        y = np.copy(y)
+                        bin_means, bin_sds, bin_edges, binnumber = compute_binned_mean_sd(x, y, min_x=min_x, max_x=max_x, bins=50)
+                        fig, auc = plot_with_CI(x, y, min_x=min_x, max_x=max_x, bin_means=bin_means, bin_sds=bin_sds, bin_edges=bin_edges, xlabel='snr', ylabel=key_str, ylim=[0, 1])
+                        fig.savefig(os.path.join(save_path, f"final_{split}_{key_str}_CI_{min_x}_{max_x}.png"), dpi=600)
+                        if self.wandb_run: 
+                            self.wandb_run.log({f"final_{split}_{key_str}_CI_{min_x}_{max_x}": wandb.Image(fig)})
+                            self.wandb_run.summary[f"final_{split}_auc_{key_str}_{min_x}_{max_x}"] = auc
+
+                        indices = np.where(np.logical_and(x >= min_x, x < max_x))
+                        p = np.percentile(x[indices], [5, 95])
+                        py = np.percentile(y[indices], [5, 95])
+                        logging.info(f"--> compute auc, {split}, {key_str}, {min_x} to {max_x}, auc {auc:.4f}, x - {np.mean(x[indices]):.4f}+/-{np.std(x[indices]):.4f}, median {np.median(x[indices]):.4f}, 5-95% {p[0]:.4f}, {p[1]:.4f}, y - {np.mean(y[indices]):.4f}+/-{np.std(y[indices]):.4f}, median {np.median(y[indices]):.4f}, 5-95% {py[0]:.4f}, {py[1]:.4f}")
+                    except:
+                        logging.info(f"--> compute auc, {split}, {key_str}, {min_x} to {max_x}, error ...")
+
                 x = np.copy(np.array(snr))
                 y = np.array(metrics['ssim'])
-                bin_means, bin_sds, bin_edges, binnumber = compute_binned_mean_sd(x, y, min_x=0.01, max_x=10, bins=50)
-                fig_ssim, auc_ssim = plot_with_CI(x, y, min_x=0.01, max_x=10.0, bin_means=bin_means, bin_sds=bin_sds, bin_edges=bin_edges, xlabel='snr', ylabel='ssim', ylim=[0, 1])
-                fig_ssim.savefig(os.path.join(save_path, f"final_{split}_ssim_CI.png"), dpi=600)
-                if self.wandb_run: self.wandb_run.log({f"final_{split}_ssim_CI": wandb.Image(fig_ssim)})
+                np.save(os.path.join(save_path, f"{split}_input_snr.npy"), x)
+                np.save(os.path.join(save_path, f"{split}_ssim.npy"), y)
+                do_auc(x=x, y=y, min_x=0.1, max_x=10, key_str='ssim')
+                do_auc(x=x, y=y, min_x=0.1, max_x=1, key_str='ssim')
+                do_auc(x=x, y=y, min_x=1, max_x=10, key_str='ssim')
+                do_auc(x=x, y=y, min_x=1, max_x=5, key_str='ssim')
+                do_auc(x=x, y=y, min_x=5, max_x=10, key_str='ssim')
+
+                # -----------------------------------------------------
 
                 x = np.copy(np.array(snr))
                 y = np.array(metrics['psnr'])
-                bin_means, bin_sds, bin_edges, binnumber = compute_binned_mean_sd(x, y, min_x=0.01, max_x=10, bins=50)
-                fig_psnr, auc_psnr = plot_with_CI(x, y, min_x=0.01, max_x=10.0, bin_means=bin_means, bin_sds=bin_sds, bin_edges=bin_edges, xlabel='snr', ylabel='psnr', ylim=[0, np.max(y)+0.1])
-                fig_psnr.savefig(os.path.join(save_path, f"final_{split}_psnr_CI.png"), dpi=600)
-                if self.wandb_run: self.wandb_run.log({f"final_{split}_psnr_CI": wandb.Image(fig_psnr)})
+                np.save(os.path.join(save_path, f"{split}_psnr.npy"), y)
+                do_auc(x=x, y=y, min_x=0.1, max_x=10, key_str='psnr')
+                do_auc(x=x, y=y, min_x=0.1, max_x=1, key_str='psnr')
+                do_auc(x=x, y=y, min_x=1, max_x=10, key_str='psnr')
+                do_auc(x=x, y=y, min_x=1, max_x=5, key_str='psnr')
+                do_auc(x=x, y=y, min_x=5, max_x=10, key_str='psnr')
 
-                if self.wandb_run: 
-                    self.wandb_run.summary[f"final_{split}_auc_ssim"] = auc_ssim
-                    self.wandb_run.summary[f"final_{split}_auc_psnr"] = auc_psnr
+                # -----------------------------------------------------
 
     # ---------------------------------------------------------------------------------------
     def on_training_end(self, rank, epoch, model_manager, optim, sched, ran_training):
