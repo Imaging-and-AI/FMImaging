@@ -515,10 +515,10 @@ class MriMetricManager(MetricManager):
                         logging.info(f"--> compute auc, {split}, {key_str}, {min_x} to {max_x}, error ...")
 
                 metric_fname = os.path.join(save_path, f"final_{split}_metrics.pkl")
-                with open(metric_fname, 'w') as f:
-                    pickle.dump(f, metrics)
+                with open(metric_fname, 'wb') as f:
+                    pickle.dump(metrics, f)
 
-                if self.wandb_run: 
+                if self.wandb_run:
                     self.wandb_run.save(metric_fname)
 
                 x = np.copy(np.array(snr))
