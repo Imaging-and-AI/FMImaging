@@ -611,7 +611,7 @@ class MRITrainManager(TrainManager):
             save_samples = final_eval and self.config.save_val_samples
         elif split=='test': 
             save_samples = final_eval and self.config.save_test_samples
-            self.config.num_uploaded *= 4
+            self.config.num_uploaded *= 8
         else: raise ValueError(f"Unknown split {split} specified, should be in [train/tra, val, test]")
 
         loss_f = self.loss_f
@@ -623,7 +623,10 @@ class MRITrainManager(TrainManager):
         else:
             if isinstance(data_sets, list): samplers = [None] * len(data_sets)
             else: samplers = None
-            shuffle = True
+            if split=='test':
+                shuffle = False
+            else:
+                shuffle = True
 
         # ------------------------------------------------------------------------
         # Set up data loader to evaluate        

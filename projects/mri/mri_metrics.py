@@ -505,6 +505,12 @@ class MriMetricManager(MetricManager):
                         p = np.percentile(x[indices], [5, 95])
                         py = np.percentile(y[indices], [5, 95])
                         logging.info(f"--> compute auc, {split}, {key_str}, {min_x} to {max_x}, auc {auc:.4f}, x - {np.mean(x[indices]):.4f}+/-{np.std(x[indices]):.4f}, median {np.median(x[indices]):.4f}, 5-95% {p[0]:.4f}, {p[1]:.4f}, y - {np.mean(y[indices]):.4f}+/-{np.std(y[indices]):.4f}, median {np.median(y[indices]):.4f}, 5-95% {py[0]:.4f}, {py[1]:.4f}")
+                        if self.wandb_run: 
+                            self.wandb_run.summary[f"final_{split}_{key_str}_mean_{min_x}_to_{max_x}"] = np.mean(y[indices])
+                            self.wandb_run.summary[f"final_{split}_{key_str}_std_{min_x}_to_{max_x}"] = np.std(y[indices])
+                            self.wandb_run.summary[f"final_{split}_{key_str}_median_{min_x}_to_{max_x}"] = np.median(y[indices])
+                            self.wandb_run.summary[f"final_{split}_{key_str}_5%_{min_x}_to_{max_x}"] = py[0]
+                            self.wandb_run.summary[f"final_{split}_{key_str}_95%_{min_x}_to_{max_x}"] = py[1]
                     except:
                         logging.info(f"--> compute auc, {split}, {key_str}, {min_x} to {max_x}, error ...")
 
@@ -515,6 +521,8 @@ class MriMetricManager(MetricManager):
                 do_auc(x=x, y=y, min_x=0.1, max_x=10, key_str='ssim')
                 do_auc(x=x, y=y, min_x=0.1, max_x=1, key_str='ssim')
                 do_auc(x=x, y=y, min_x=1, max_x=10, key_str='ssim')
+                do_auc(x=x, y=y, min_x=0.1, max_x=0.5, key_str='ssim')
+                do_auc(x=x, y=y, min_x=0.5, max_x=1, key_str='ssim')
                 do_auc(x=x, y=y, min_x=1, max_x=5, key_str='ssim')
                 do_auc(x=x, y=y, min_x=5, max_x=10, key_str='ssim')
 
@@ -526,6 +534,8 @@ class MriMetricManager(MetricManager):
                 do_auc(x=x, y=y, min_x=0.1, max_x=10, key_str='psnr')
                 do_auc(x=x, y=y, min_x=0.1, max_x=1, key_str='psnr')
                 do_auc(x=x, y=y, min_x=1, max_x=10, key_str='psnr')
+                do_auc(x=x, y=y, min_x=0.1, max_x=0.5, key_str='psnr')
+                do_auc(x=x, y=y, min_x=0.5, max_x=1, key_str='psnr')
                 do_auc(x=x, y=y, min_x=1, max_x=5, key_str='psnr')
                 do_auc(x=x, y=y, min_x=5, max_x=10, key_str='psnr')
 
