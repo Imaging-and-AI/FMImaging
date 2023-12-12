@@ -57,15 +57,16 @@ python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/pr
 # ======================================================================
 # val and test data
 
-model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1_20231204_194332_632800_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1_T1L1G1/best_checkpoint_epoch_46
-
 model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1L1G1_T1L1G1_20231206_221309_194177_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/last_epoch
+model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1L1G1_T1L1G1_20231207_144811_706305_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual_weighted_loss_snr-T1L1G1_T1L1G1/final_epoch
+model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20231209_024351_542954_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/final_epoch
+model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231207_032002_166088_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/final_epoch
+model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1T1T1_T1T1T1T1T1T1_20231209_044111_071741_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1T1T1_T1T1T1T1T1T1/final_epoch
+model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_C3C3C3_C3C3C3_20231209_031038_755604_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-C3C3C3_C3C3C3/final_epoch
 
-model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231207_032002_166088_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/last_checkpoint
+model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_UNET_T1L1G1_T1L1G1_20231209_031349_460210_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/final_epoch
 
-model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_C3C3C3_C3C3C3_20231209_230150_618208_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-C3C3C3_C3C3C3/best_checkpoint_epoch_1
-
-model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_C3C3C3_C3C3C3_20231209_230150_618208_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-C3C3C3_C3C3C3/best_checkpoint_epoch_1
+model=/export/Lab-Xue/projects/data/logs/mri-1st_lr1e-4_omnivore_T1L1G1_T1L1G1_20231210_160530_129063_omnivore_MRI_NN_100.0_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1/final_epoch
 
 test_sets="test_2D_sig_2_80_500.h5 test_2DT_sig_2_80_1000.h5"
 test_sets="test_2DT_sig_2_80_2000.h5"
@@ -74,7 +75,10 @@ model_type_str=STCNNT_MRI
 
 torchrun --standalone --nproc_per_node 4 ./projects/mri/run.py --ddp --data_dir /export/Lab-Xue/projects/mri/data --log_dir /export/Lab-Xue/projects/data/logs --complex_i --train_model False --continued_training True --project mri --prefetch_factor 8 --batch_size 16 --time 12 --num_uploaded 128 --ratio 50 50 100 --max_load -1 --model_type ${model_type_str} --train_files BARTS_RetroCine_3T_2023.h5 --test_files ${test_sets} --train_data_types 2dt 2dt 2dt 2dt 2dt 2dt 2dt 2dt 3d --test_data_types 2dt 2dt 2d 2dt --backbone_model STCNNT_HRNET --wandb_dir /export/Lab-Xue/projects/mri/wandb --override --pre_model_load_path ${model}_pre.pth --backbone_model_load_path ${model}_backbone.pth --post_model_load_path ${model}_post.pth --post_model_of_1st_net ${model}_post.pth --freeze_pre True --freeze_backbone True --disable_LSUV --post_backbone STCNNT_HRNET --post_hrnet.block_str T1L1G1 T1L1G1 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --min_noise_level 2.0 --max_noise_level 80.0 --mri_height 32 64 --mri_width 32 64 --run_name Test_${model} --run_notes Test_${model} --n_head 64 --eval_train_set False --eval_val_set False --eval_test_set True
 
+model=/export/Lab-Xue/projects/data/logs/mri-1st_lr1e-4_omnivore_T1L1G1_T1L1G1_20231210_160530_129063_omnivore_MRI_NN_100.0_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1/final_epoch
+model_type_str=STCNNT_MRI
 
+torchrun --standalone --nproc_per_node 4 ./projects/mri/run.py --ddp --data_dir /export/Lab-Xue/projects/mri/data --log_dir /export/Lab-Xue/projects/data/logs --complex_i --train_model False --continued_training True --project mri --prefetch_factor 8 --batch_size 16 --time 12 --num_uploaded 128 --ratio 50 50 100 --max_load -1 --model_type omnivore_MRI --train_files BARTS_RetroCine_3T_2023.h5 --test_files ${test_sets} --train_data_types 2dt 2dt 2dt 2dt 2dt 2dt 2dt 2dt 3d --test_data_types 2dt 2dt 2d 2dt --backbone_model omnivore --wandb_dir /export/Lab-Xue/projects/mri/wandb --override --pre_model_load_path ${model}_pre.pth --backbone_model_load_path ${model}_backbone.pth --post_model_load_path ${model}_post.pth --post_model_of_1st_net ${model}_post.pth --freeze_pre True --freeze_backbone True --disable_LSUV --post_backbone STCNNT_HRNET --post_hrnet.block_str T1L1G1 T1L1G1 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --min_noise_level 2.0 --max_noise_level 80.0 --mri_height 32 64 --mri_width 32 64 --run_name Test_${model} --run_notes Test_${model} --n_head 64 --eval_train_set False --eval_val_set False --eval_test_set True
 
 # ======================================================================
 

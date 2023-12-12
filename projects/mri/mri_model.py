@@ -186,7 +186,7 @@ class omnivore_MRI(ModelManager):
         self.paras = torch.nn.ParameterDict()
         self.paras["a"] = torch.nn.Parameter(torch.tensor(10.0))
         self.paras["b"] = torch.nn.Parameter(torch.tensor(1.5))
-        self.paras["c"] = torch.nn.Parameter(torch.tensor(1.0))
+        #self.paras["c"] = torch.nn.Parameter(torch.tensor(1.0))
         self.pre["paras"] = self.paras
 
     def create_backbone(self):
@@ -197,7 +197,7 @@ class omnivore_MRI(ModelManager):
 
     def compute_weights(self, snr, base_snr_t):
         #weights = self.pre["paras"]["a"] - self.pre["paras"]["b"] * torch.sigmoid(snr-base_snr_t)
-        weights = 1 + self.pre["paras"]["a"] * torch.sigmoid( self.pre["paras"]["b"] - snr * self.pre["paras"]["c"] )
+        weights = 1 + self.pre["paras"]["a"] * torch.sigmoid( self.pre["paras"]["b"] - snr )
         return weights
 
     def forward(self, x, snr=None, base_snr_t=None):
