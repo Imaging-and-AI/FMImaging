@@ -204,7 +204,7 @@ class run_ddp_base(object):
                             "--scheduler.patience", "0",
                             "--scheduler.cooldown", "0",
                             "--scheduler.factor", f"{config.scheduler_factor}",
-                            "--scheduler.min_lr", "1e-7"
+                            "--scheduler.min_lr", "1e-8"
                         ])
                        
         if config.scheduler_type=='OneCycleLR': 
