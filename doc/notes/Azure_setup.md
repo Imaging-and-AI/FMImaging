@@ -226,3 +226,9 @@ doskey fsi6=ssh -i ~/.ssh/xueh2-a100.pem gtuser@fsi6.eastus2.cloudapp.azure.com
 doskey fsi7=ssh -i ~/.ssh/xueh2-a100.pem gtuser@fsi7.eastus2.cloudapp.azure.com
 doskey fsi8=ssh -i ~/.ssh/xueh2-a100.pem gtuser@fsi8.eastus2.cloudapp.azure.com
 ```
+```
+for VARIABLE in 1 2 3 4 6 7 8 9
+do
+    bash ./doc/notes/scp_to_fsi.sh fsi${VARIABLE} /export/Lab-Xue/projects/data/logs/mri-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231214_213835_461207_MRI_double_net_NN_100.0_C-64-1_amp-False_complex_residual_weighted_loss_snr-T1L1G1_T1L1G1
+done
+```

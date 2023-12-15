@@ -10,6 +10,9 @@ export data_src_qperf=https://stcnnt.blob.core.windows.net/qperf
 
 export SAS2="sp=racwdli&st=2023-10-29T19:02:56Z&se=2025-10-30T03:02:56Z&spr=https&sv=2022-11-02&sr=c&sig=WbK6S7bLpXJ%2F4838iQTMrYPCcY%2FdH5w9k8bw6gz9uTk%3D"
 
+export SAS_FMI_DATA="sp=racwdli&st=2023-12-15T13:21:23Z&se=2024-12-15T21:21:23Z&spr=https&sv=2022-11-02&sr=c&sig=G6oPpi9XDEAZebFPa9f5NjKLFWYZeQJCI1UDMP9RX6Y%3D"
+azcopy copy "./val/" "https://stcnnt.blob.core.windows.net/fmi-data?${SAS_FMI_DATA}" --recursive
+
 # azcopy copy "./val/" "${data_src}?${SAS}" --recursive
 # azcopy copy "./val/" "https://stcnnt.blob.core.windows.net/qperf/?${SAS_qperf}" --recursive
 # azcopy copy "https://stcnnt.blob.core.windows.net/qperf/h5_data?${SAS_qperf}" . --recursive
