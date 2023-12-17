@@ -475,11 +475,14 @@ class MriMetricManager(MetricManager):
                     self.best_val_loss = average_metrics['loss']
                     checkpoint_model = True
 
+                self.epoch_pre_model_file, self.epoch_backbone_model_file, self.epoch_post_model_file = model_epoch.save(os.path.join(save_path, f"checkpoint_epoch_{epoch}"), epoch, optim, sched) 
+                logging.info(f"--> val loss {average_metrics['loss']}, save model for epoch {epoch} to {self.epoch_pre_model_file}, {self.epoch_backbone_model_file}, {self.epoch_post_model_file}")
+
                 # Save model and update best metrics
                 if checkpoint_model:
                     self.best_pre_model_file, self.best_backbone_model_file, self.best_post_model_file = model_epoch.save(os.path.join(save_path, f"best_checkpoint_epoch_{epoch}"), epoch, optim, sched) 
                     if self.wandb_run: self.wandb_run.log({"epoch":epoch, "best_val_loss":self.best_val_loss})
-                    logging.info(f"--> val loss {self.best_val_loss}, save best model for epoch {epoch} to {self.best_pre_model_file}, {self.best_pre_model_file, self.best_backbone_model_file}, {self.best_post_model_file}")
+                    logging.info(f"--> val loss {self.best_val_loss}, save best model for epoch {epoch} to {self.best_pre_model_file}, {self.best_backbone_model_file}, {self.best_post_model_file}")
 
                 # Update wandb with eval metrics
                 for metric_name, avg_metric_eval in average_metrics.items():
