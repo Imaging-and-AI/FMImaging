@@ -80,7 +80,7 @@ class mri_ddp_base(run_ddp_base):
         #"--loss_weights", "1.0", "1.0",
         # "--mri_height", "32", "64",
         # "--mri_width", "32", "64",
-        "--time", "24",
+        "--time", "12",
         "--num_uploaded", "32",
         #"--snr_perturb_prob", "0.25",
         "--snr_perturb", "10.0",
