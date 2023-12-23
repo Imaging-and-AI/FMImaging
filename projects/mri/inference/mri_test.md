@@ -39,6 +39,7 @@ model=/export/Lab-Xue/projects/data/logs/mri-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_2023
 model_type_str=MRI_double_net
 scaling_factor=1.0
 
+RES_DIR=res_2nd_hrnet_TLGTLG_TLGTLG_more_epochs_super_resolution
 
 export CUDA_VISIBLE_DEVICES=0
 export DISABLE_FLOAT16_INFERENCE=True

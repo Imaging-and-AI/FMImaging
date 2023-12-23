@@ -54,6 +54,22 @@ python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node 4 --nu
 
 python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node 4 --num_epochs 30 --batch_size 8 --run_extra_note 1st_tra20_val10 --num_workers 32 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 20 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 100 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root /data/FM_data_repo/mri --log_root /export/Lab-Xue/projects/data/logs --add_salt_pepper --add_possion --weighted_loss_snr
 
+# test for PCA uncertainty
+python3 ./projects/mri/inference/run_inference_for_uncertainty_PCA.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_529_20230616-173849 --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_529_20230616-173849/res_test --scaling_factor 1.0 --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im_c --gmap_fname gmap_c --saved_model_path /export/Lab-Xue/projects/data/logs/mri-1st_vgg10_30_more_epochs_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231214_200159_581006_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual_weighted_loss_snr-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-1st_vgg10_30_more_epochs_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231214_200159_581006_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual_weighted_loss_snr-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-30.pth --model_type STCNNT_MRI --data_root /data/FM_data_repo/mri --train_files train_3D_3T_retro_cine_2020.h5 --ratio 10 5 10 --data_x_y_mode True --complex_i 
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_vgg10_30_more_epochs_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231214_200159_581006_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual_weighted_loss_snr-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-1st_vgg10_30_more_epochs_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231214_200159_581006_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual_weighted_loss_snr-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-30.pth
+res_dir=res
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_vgg10_30_more_epochs_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231214_200159_581006_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual_weighted_loss_snr-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-1st_vgg10_30_more_epochs_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231214_200159_581006_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual_weighted_loss_snr-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-30.pth
+res_dir=res
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_vgg10_30_more_epochs_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231214_200159_581006_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual_weighted_loss_snr-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-1st_vgg10_30_more_epochs_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231214_200159_581006_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual_weighted_loss_snr-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-30.pth
+res_dir=res
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_lr1e-4_omnivore_T1L1G1_T1L1G1_20231210_160530_129063_omnivore_MRI_NN_100.0_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1/mri-1st_lr1e-4_omnivore_T1L1G1_T1L1G1_20231210_160530_129063_omnivore_MRI_NN_100.0_C-64-1_amp-True_complex_residual-T1L1G1_T1L1G1_epoch-30.pth
+res_dir=res_omnivore
+
+python3 ./projects/mri/inference/run_inference_for_uncertainty_PCA.py --input_dir /export/Lab-Xue/projects/mri/data/mri_test/Retro_Lin_Cine_2DT_LAX_GLS_66016_026197138_026197147_246_20230522-132310_slc_1 --output_dir /export/Lab-Xue/projects/mri/data/mri_test/Retro_Lin_Cine_2DT_LAX_GLS_66016_026197138_026197147_246_20230522-132310_slc_1/${res_dir} --scaling_factor 1.0 --im_scaling 1.0 --gmap_scaling 1.0 --input_fname noisy_c --gmap_fname gmap_c --saved_model_path ${model} --model_type STCNNT_MRI --data_root /data/FM_data_repo/mri --train_files train_3D_3T_retro_cine_2020.h5 --ratio 10 5 10 --data_x_y_mode True --complex_i --low_acc 
 
 # ---------------------------------
 # second stage training
