@@ -527,7 +527,39 @@
                 // "--post_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_post.pth",
                 // "--load_optim_and_sched", "True"
             ]
-        }
+        },
+        // -----------------------------------------------------------------------------------------
+        {
+            "name": "test ct",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/ct_denoise/ct_run.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "0"},
+            "args": [
+                "-D",
+                "--run_name", "ct_debugging",
+                "--log_dir", "/home/gtuser/rehmana2/projects/stcnnt/logs",
+                "--override",
+                "--model_type", "STCNNT_CT",
+                "--data_root", "/data/FM_data_repo/ct/data/",
+                "--train_files", "ct_phantom_train.h5",
+                "--test_files", "ct_phantom_test.h5",
+                "--clean_name", "high_piqe_512",
+                "--device", "cuda",
+                "--task_type", "enhance",
+                "--num_workers", "2",
+                "--prefetch_factor", "2",
+                "--num_epochs", "2",
+                "--batch_size", "4",
+                "--ct_height", "32",
+                "--ct_width", "32",
+                "--ct_time", "8",
+                "--no_in_channel", "1",
+                "--no_out_channel", "1",
+            ]
+        },
     ]
 }
 
