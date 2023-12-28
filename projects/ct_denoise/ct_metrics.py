@@ -215,7 +215,7 @@ class CTMetricManager(MetricManager):
             mse[b] = self.mse_loss_func(y_hat_b, y_b)
             ssim[b] = self.ssim_func(y_hat_b, y_b)
             psnr[b] = self.psnr_func(y_hat_b, y_b)
-            vgg[b] = 0 # self.vgg_func(y_hat_b, y_b) gives OOM error
+            # vgg[b] = self.vgg_func(y_hat_b, y_b) gives OOM error
 
             caption += f"{b} -- x {v_x[b]:.2f}, y_hat {v_y_hat[b]:.2f}, y {v_y[b]:.2f}, mse {mse[b]:.2f}, ssim {ssim[b]:.2f}, psnr {psnr[b]:.2f}, vgg {vgg[b]:.2f}{new_line}"
 

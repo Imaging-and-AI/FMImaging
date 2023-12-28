@@ -34,7 +34,7 @@ from metrics.metrics_utils import AverageMeter
 from optim.optim_utils import compute_total_steps
 
 from ct_dataset import CTDatasetTrain
-from mri.running_inference import running_inference
+from temp_utils.running_inference import running_inference
 
 # -------------------------------------------------------------------------------------------------
 
