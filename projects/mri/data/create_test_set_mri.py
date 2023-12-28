@@ -28,7 +28,7 @@ from noise_augmentation import *
 base_file_path = "/data/FM_data_repo/mri"
 base_file_name = "BARTS_RetroCine_3T_2023.h5"
 
-min_noise_level=2.0
+min_noise_level=1.0
 max_noise_level=80.0
 matrix_size_adjust_ratio=[0.5, 0.75, 1.0, 1.25, 1.5]
 kspace_filter_sigma=[0.8, 1.0, 1.5, 2.0, 2.25]
@@ -230,19 +230,19 @@ def create_3d_repeated(write_path, N=20, sigmas=[1,11,1], random_mask=False):
 
 def main():
 
-    write_path_2d = f"{base_file_path}/test_2D_sig_2_80_500.h5"
+    write_path_2d = f"{base_file_path}/test_2D_sig_1_80_500.h5"
     create_2d(write_path=write_path_2d, N=500)
     print(f"{write_path_2d} - done")
 
-    write_path_3d = f"{base_file_path}/test_2DT_sig_2_80_1000.h5"
+    write_path_3d = f"{base_file_path}/test_2DT_sig_1_80_1000.h5"
     create_3d(write_path=write_path_3d, N=1000)
     print(f"{write_path_3d} - done")
 
-    write_path_3d = f"{base_file_path}/test_2DT_sig_2_80_2000.h5"
+    write_path_3d = f"{base_file_path}/test_2DT_sig_1_80_2000.h5"
     create_3d(write_path=write_path_3d, N=2000)
     print(f"{write_path_3d} - done")
 
-    write_path_3d = f"{base_file_path}/test_2DT_sig_2_80_3000.h5"
+    write_path_3d = f"{base_file_path}/test_2DT_sig_1_80_3000.h5"
     create_3d(write_path=write_path_3d, N=3000)
     print(f"{write_path_3d} - done")
 

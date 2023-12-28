@@ -99,14 +99,14 @@
                 "--post_hrnet.block_str", "T1L1G1", "T1L1G1", 
                 "--ratio", "0.2", "0.2", "1", 
                 "--max_load", "-1", 
-                "--model_type", "omnivore_MRI", 
+                "--model_type", "STCNNT_MRI", 
                 "--train_files", "train_3D_3T_retro_cine_2018.h5", // "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5", "VIDA_train_clean_0430.h5", //"BARTS_RetroCine_3T_2023.h5", "BARTS_RetroCine_1p5T_2023.h5", "MINNESOTA_UHVC_RetroCine_1p5T_2023.h5", "MINNESOTA_UHVC_RetroCine_1p5T_2022.h5", 
                 "--test_files", "test_2DT_sig_2_80_2000.h5", //"train_3D_3T_retro_cine_2020_small_2D_test.h5", "train_3D_3T_retro_cine_2020_500_samples.h5", "test_2D_sig_1_16_1000.h5", "test_2DT_sig_1_16_2000.h5",
                 "--train_data_types", "2dt", "2dt", "2dt", "3d", "2dt", "2dt", "2dt", "2dt", "3d", 
                 "--test_data_types", "2dt", "2dt", "2d", "2dt", "2dt", "2dt", 
                 "--snr_perturb_prob", "0.0", 
                 "--optim_type", "sophia", 
-                "--backbone_model", "omnivore", 
+                "--backbone_model", "STCNNT_UNET", 
                 "--a_type", "conv", 
                 "--cell_type", "parallel", 
                 "--cosine_att", "1", 
@@ -121,7 +121,7 @@
                 "--backbone_hrnet.C", "64", 
                 "--backbone_hrnet.num_resolution_levels", "2", 
                 "--backbone_hrnet.block_str", "T1L1G1", "T1L1G1", 
-                // "--backbone_unet.block_str", "T1L1G1", "T1L1G1",
+                "--backbone_unet.block_str", "T1T1T1", "T1T1T1T1T1T1",
                 "--mixer_kernel_size", "3", 
                 "--mixer_padding", "1", 
                 "--mixer_stride", "1", 
@@ -139,12 +139,12 @@
                 "--n_head", "32",
                 "--override", "--disable_LSUV",//, "--with_data_degrading"
                 "--weighted_loss_snr" ,
-                "--omnivore.size", "custom",
-                "--omnivore.patch_size", "1", "1", "1",
-                "--omnivore.window_size", "14", "7", "7",
-                "--omnivore.embed_dim", "24",
-                "--omnivore.depths", "2", "2", "6", "2",
-                "--omnivore.num_heads", "3","6", "12", "24"
+                // "--omnivore.size", "custom",
+                // "--omnivore.patch_size", "1", "1", "1",
+                // "--omnivore.window_size", "14", "7", "7",
+                // "--omnivore.embed_dim", "24",
+                // "--omnivore.depths", "2", "2", "6", "2",
+                // "--omnivore.num_heads", "3","6", "12", "24"
             ]
         },
         // -----------------------------------------------------------------------------------------
@@ -318,6 +318,29 @@
                 "--model_type", "STCNNT_MRI", 
                 "--data_root", "/data/FM_data_repo/mri", "--train_files", "train_3D_3T_retro_cine_2020.h5", "--ratio", "10", "5", "10", 
                 "--data_x_y_mode", "True", "--complex_i"
+            ]
+        },
+        // -----------------------------------------------------------------------------------------
+        {
+            "name": "run_inference_for_uncertainty_PCA.py, mri",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/mri/inference/run_inference_for_uncertainty_PCA.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "4", "DISABLE_FLOAT16_INFERENCE": "True"},
+            "args": [
+                "--input_dir", "/export/Lab-Xue/projects/mri/data/mri_test/Retro_Lin_Cine_2DT_LAX_GLS_66016_026197138_026197147_246_20230522-132310_slc_1",
+                "--output_dir", "/export/Lab-Xue/projects/mri/data/mri_test/Retro_Lin_Cine_2DT_LAX_GLS_66016_026197138_026197147_246_20230522-132310_slc_1/res",
+                "--scaling_factor", "1.0",
+                "--im_scaling", "1.0",
+                "--gmap_scaling", "1.0",
+                "--input_fname", "noisy_c",
+                "--gmap_fname", "gmap_c",
+                "--saved_model_path", "/export/Lab-Xue/projects/data/logs/mri-1st_vgg10_30_more_epochs_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231214_200159_581006_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual_weighted_loss_snr-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-1st_vgg10_30_more_epochs_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231214_200159_581006_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual_weighted_loss_snr-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-30.pth",
+                "--model_type", "STCNNT_MRI", 
+                "--data_root", "/data/FM_data_repo/mri", "--train_files", "train_3D_3T_retro_cine_2020.h5", "--ratio", "10", "5", "10", 
+                "--data_x_y_mode", "True", "--complex_i", "--low_acc"
             ]
         },
         // -----------------------------------------------------------------------------------------
