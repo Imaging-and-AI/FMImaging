@@ -345,7 +345,7 @@ class MicroscopyTrainManager(TrainManager):
 
                     B, C, T, H, W = inputs.shape
 
-                    if B > 1 and (W==c.micro_width[-1] or W==c.micro_width[0]):
+                    if (H==c.micro_height[0] or H==c.micro_height[-1]) and (W==c.micro_width[0] or W==c.micro_width[-1]):
                         output = model_manager(inputs)
                         if isinstance(output, tuple):
                             output_1st_net = output[1]
@@ -362,7 +362,7 @@ class MicroscopyTrainManager(TrainManager):
                             cutout_in = (T, c.micro_height[-1], c.micro_width[-1])
                             overlap_in = (0, c.micro_height[-1]//2, c.micro_width[-1]//2)
 
-                        _, output = running_inference(model_manager, inputs, cutout=cutout_in, overlap=overlap_in, device=device)
+                        _, output = running_inference(model_manager, inputs, cutout=cutout_in, overlap=overlap_in, device=device, batch_size=c.batch_size)
                         output_1st_net = None
 
                         inputs = torch.permute(inputs, (0, 2, 1, 3, 4))
@@ -378,12 +378,13 @@ class MicroscopyTrainManager(TrainManager):
                     pbar.update(1)
                     pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} {split}, rank {rank}, {id} {inputs.shape}, lr {curr_lr:.8f}, loss {loss.item():.4f}{Style.RESET_ALL}")
 
-
+                # TODO: test what happens to avg when one node has no data
                 # Update evaluation metrics
                 self.metric_manager.on_eval_epoch_end(rank, epoch, model_manager, optim, sched, split, final_eval)
 
                 # Print evaluation metrics to terminal
-                pbar_str = f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} {split}, rank {rank}, {id} {inputs.shape}, lr {curr_lr:.8f}"
+                shape = "no inputs" if total_iters == 0 else inputs.shape
+                pbar_str = f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} {split}, rank {rank}, {id} {shape}, lr {curr_lr:.8f}"
                 if hasattr(self.metric_manager, 'average_eval_metrics'):
                     if isinstance(self.metric_manager.average_eval_metrics, dict):
                         for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():

@@ -378,38 +378,40 @@ class MicroscopyMetricManager(MetricManager):
 
         # update for per sample metrics
         # if ddp, aggregate metrics
-        if final_eval:
-            if self.config.ddp:
-                world_size = int(os.environ["WORLD_SIZE"])
-                #print(f"--> epoch {epoch}, rank {rank}, world_size {world_size} ... ")
-                mse = self.eval_sample_metrics["mse"].vals
-                num = len(mse)
-                tensor_in = torch.tensor(mse, dtype=torch.float32, device=self.config.device)
-                tensor_out = torch.zeros(num * world_size, dtype=torch.float32, device=self.config.device)
-                dist.all_gather_into_tensor(tensor_out, tensor_in)
-                mse = tensor_out.cpu().numpy()
+        # if final_eval:
+        #     if self.config.ddp:
+        #         world_size = int(os.environ["WORLD_SIZE"])
+        #         mse = self.eval_sample_metrics["mse"].vals
+        #         num = len(mse)
+        #         tensor_in = torch.tensor(mse, dtype=torch.float32, device=self.config.device)
+        #         tensor_out = torch.zeros(num * world_size, dtype=torch.float32, device=self.config.device)
+        #         dist.all_gather_into_tensor(tensor_out, tensor_in)
+        #         mse = tensor_out.cpu().numpy()
 
-                metrics = dict()
-                for metric_name in self.eval_sample_metrics.keys():
-                    if metric_name == "mse":
-                        continue
+        #         metrics = dict()
+        #         for metric_name in self.eval_sample_metrics.keys():
+        #             if metric_name == "mse":
+        #                 continue
+        #             v = torch.tensor(self.eval_metrics[metric_name].avg).to(device=self.device)
+        #             dist.all_reduce(v, op=torch.distributed.ReduceOp.AVG)
+        #             average_metrics[metric_name] = v.item()
 
-                    v = self.eval_sample_metrics[metric_name].vals
-                    num = len(v)
-                    tensor_in = torch.tensor(v, dtype=torch.float32, device=self.config.device)
-                    tensor_out = torch.zeros(num * world_size, dtype=torch.float32, device=self.config.device)
-                    dist.all_gather_into_tensor(tensor_out, tensor_in)
-                    metrics[metric_name] = tensor_out.cpu().numpy()
-            else:
-                mse = self.eval_sample_metrics["mse"].vals
-                np.save(os.path.join(save_path, f"final_{split}.npy"), np.array(mse))
+        #             v = self.eval_sample_metrics[metric_name].vals
+        #             num = len(v)
+        #             tensor_in = torch.tensor(v, dtype=torch.float32, device=self.config.device)
+        #             tensor_out = torch.zeros(num * world_size, dtype=torch.float32, device=self.config.device)
+        #             dist.all_gather_into_tensor(tensor_out, tensor_in)
+        #             metrics[metric_name] = tensor_out.cpu().numpy()
+        #     else:
+        #         mse = self.eval_sample_metrics["mse"].vals
+        #         np.save(os.path.join(save_path, f"final_{split}.npy"), np.array(mse))
 
-                metrics = dict()
-                for metric_name in self.eval_sample_metrics.keys():
-                    if metric_name == "mse":
-                        continue
+        #         metrics = dict()
+        #         for metric_name in self.eval_sample_metrics.keys():
+        #             if metric_name == "mse":
+        #                 continue
 
-                    metrics[metric_name] = self.eval_sample_metrics[metric_name].vals
+        #             metrics[metric_name] = self.eval_sample_metrics[metric_name].vals
 
         # Checkpoint best models during training
         if rank<=0:

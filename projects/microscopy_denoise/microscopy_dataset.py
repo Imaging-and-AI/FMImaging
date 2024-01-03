@@ -430,7 +430,6 @@ def load_microscopy_data_all(config):
             train_set[-1].images = images[:c.train_samples] if c.train_samples>0 else images
 
     # kwargs for val set
-    kwargs["samples_per_image"] = 1
     kwargs["cutout_shape"] = (c.micro_height[-1], c.micro_width[-1])
     kwargs["max_load"] = c.max_load
 

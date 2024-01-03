@@ -133,6 +133,10 @@ class microscopy_ddp_base(run_ddp_base):
             self.cmd.extend(["--train_files"])
             self.cmd.extend(config.train_files)
 
+        if config.test_files is not None:
+            self.cmd.extend(["--test_files"])
+            self.cmd.extend(config.test_files)
+
         self.cmd.extend(["--eval_train_set", "False"])
         self.cmd.extend(["--eval_val_set", "False"])
         self.cmd.extend(["--eval_test_set", "True"])
@@ -166,7 +170,7 @@ class microscopy_ddp_base(run_ddp_base):
                             #["C3C3C3", "C3C3C3C3C3C3", "C3C3C3", "C3C3C3"],
                             ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
                             #["T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1"],
-                            ["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
+                            #["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
                             #["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],
                             #["T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1", "T1L1G1T1L1G1T1L1G1"],
                          ],
