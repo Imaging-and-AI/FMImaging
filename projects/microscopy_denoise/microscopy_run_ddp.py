@@ -75,7 +75,7 @@ class microscopy_ddp_base(run_ddp_base):
         # "--micro_height", "32", "64",
         # "--micro_width", "32", "64",
         "--micro_time", "16",
-        "--num_uploaded", "32",
+        "--num_uploaded", "8",
         "--samples_per_image", "32",
 
         "--no_in_channel", "1",

@@ -231,7 +231,7 @@ class run_ddp_base(object):
             cmd_run.extend(["--separable_conv"])
 
         if config.save_samples:
-            cmd_run.extend(["--save_train_samples", "False", "--save_val_samples", "False", "--save_test_samples", "True"])
+            cmd_run.extend(["--save_train_samples", "True", "--save_val_samples", "True", "--save_test_samples", "True"])
         else:
             cmd_run.extend(["--save_train_samples", "False", "--save_val_samples", "False", "--save_test_samples", "False"])
 

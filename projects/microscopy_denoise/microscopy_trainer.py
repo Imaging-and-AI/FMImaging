@@ -4,7 +4,10 @@ Training and evaluation loops for Microscopy
 
 import os
 import sys
+import cv2
+import wandb
 import logging
+import numpy as np
 
 import torch
 import torch.nn as nn
@@ -28,6 +31,7 @@ sys.path.append(str(Project_DIR))
 REPO_DIR = Path(__file__).parents[2].resolve()
 sys.path.append(str(REPO_DIR))
 
+from utils import *
 from trainer import *
 from utils.status import model_info, start_timer, end_timer, support_bfloat16, count_parameters
 from metrics.metrics_utils import AverageMeter
@@ -94,6 +98,9 @@ class MicroscopyTrainManager(TrainManager):
             logging.info(f"Model Summary:\n{str(model_summary)}")
             logging.info(f"Wandb name:\n{self.metric_manager.wandb_run.name}")
             self.metric_manager.wandb_run.watch(self.model_manager)
+            wandb_run = self.metric_manager.wandb_run
+        else:
+            wandb_run = None
 
         if c.ddp:
             dist.barrier()
@@ -129,6 +136,29 @@ class MicroscopyTrainManager(TrainManager):
             if c.ddp:
                 setup_logger(self.config) # setup master process logging; I don't know if this needs to be here, it is also in setup.py
 
+            if wandb_run is not None:
+                wandb_run.summary["trainable_params"] = c.trainable_params
+                wandb_run.summary["total_params"] = c.total_params
+                wandb_run.summary["total_mult_adds"] = c.total_mult_adds 
+
+                wandb_run.save(self.config.yaml_file)
+
+                # log a few training examples
+                for i, train_set_x in enumerate(self.train_sets):
+                    ind = np.random.randint(0, len(train_set_x), 4)
+                    noisy, clean, _ = train_set_x[ind[0]]
+                    noisy = np.expand_dims(noisy, axis=0)
+                    clean = np.expand_dims(clean, axis=0)
+                    for ii in range(1, len(ind)):
+                        a_x, a_y, _ = train_set_x[ind[ii]]
+                        noisy = np.concatenate((noisy, np.expand_dims(a_x, axis=0)), axis=0)
+                        clean = np.concatenate((clean, np.expand_dims(a_y, axis=0)), axis=0)
+
+                    title = f"Tra_samples_{i}_Noisy_Noisy_GT_{noisy.shape}"
+                    vid = self.create_image_batch(c.complex_i, noisy, noisy, clean)
+                    if wandb_run is not None: wandb_run.log({title:wandb.Video(vid, caption=f"Tra sample {i}", fps=1, format='gif')})
+                    logging.info(f"{Fore.YELLOW}---> Upload tra sample - {title}")
+
         # Handle mix precision training
         scaler = torch.cuda.amp.GradScaler(enabled=c.use_amp)
 
@@ -150,6 +180,8 @@ class MicroscopyTrainManager(TrainManager):
                 if c.ddp: [train_loader.sampler.set_epoch(epoch) for train_loader in train_loaders]
                 self.metric_manager.on_train_epoch_start()
                 train_loader_iters = [iter(train_loader) for train_loader in train_loaders]
+
+                images_logged = 0
 
                 with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
                     for idx in range(total_iters):
@@ -196,6 +228,14 @@ class MicroscopyTrainManager(TrainManager):
 
                         self.metric_manager.on_train_step_end(loss.item(), output, (inputs, targets), rank, curr_lr, self.config.save_train_samples, epoch, "tra")
 
+                        # log some train samples as well
+                        if rank<=0:
+                            if images_logged < self.config.num_uploaded and wandb_run is not None:
+                                images_logged += 1
+                                title = f"Train_image_{images_logged}_{inputs.shape}"
+                                vid = self.create_image_batch(c.complex_i, inputs.numpy(force=True), output.numpy(force=True), targets.numpy(force=True))
+                                wandb_run.log({title: wandb.Video(vid, caption=f"epoch {epoch}, image {images_logged}", fps=1, format="gif")})
+
                         pbar.update(1)
                         pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} tra, rank {rank}, {inputs.shape}, lr {curr_lr:.8f}, loss {loss.item():.4f}{Style.RESET_ALL}")
 
@@ -223,7 +263,7 @@ class MicroscopyTrainManager(TrainManager):
                     end_timer(enable=c.with_timer, t=tm, msg="---> epoch end logging and measuring took ")
 
                 if epoch % c.eval_frequency==0 or epoch==c.num_epochs:
-                    self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="", split="val", final_eval=False)
+                    self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="Val", split="val", final_eval=False)
 
                 if c.scheduler_type != "OneCycleLR":
                     if c.scheduler_type == "ReduceLROnPlateau":
@@ -252,13 +292,13 @@ class MicroscopyTrainManager(TrainManager):
         # Evaluate models of each split
         if self.config.eval_train_set:
             logging.info(f"{Fore.CYAN}Evaluating train set...{Style.RESET_ALL}")
-            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.train_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="train", final_eval=True)
+            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.train_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="Tra_final", split="train", final_eval=True)
         if self.config.eval_val_set:
             logging.info(f"{Fore.CYAN}Evaluating val set...{Style.RESET_ALL}")
-            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="val", final_eval=True)
+            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="Val_final", split="val", final_eval=True)
         if self.config.eval_test_set:
             logging.info(f"{Fore.CYAN}Evaluating test set...{Style.RESET_ALL}")
-            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.test_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="test", final_eval=True)
+            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.test_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="Tes_final", split="test", final_eval=True)
 
         if rank <= 0 and self.config.train_model:
             save_path, save_file_name, config_yaml_file = self.model_manager.save_entire_model(epoch=self.config.num_epochs)
@@ -290,7 +330,7 @@ class MicroscopyTrainManager(TrainManager):
 
         # Determine if we will save the predictions to files for thie eval
         if split=='train': save_samples = final_eval and self.config.save_train_samples
-        elif split=='val': save_samples = final_eval and self.config.save_val_samples
+        elif split=='val': save_samples = self.config.save_val_samples
         elif split=='test': save_samples = final_eval and self.config.save_test_samples
         else: raise ValueError(f"Unknown split {split} specified, should be in [train, val, test]")
 
@@ -325,6 +365,12 @@ class MicroscopyTrainManager(TrainManager):
         data_loader_iters = [iter(data_loader) for data_loader in data_loaders]
         total_iters = sum([len(data_loader) for data_loader in data_loaders]) 
         total_iters = total_iters if not c.debug else min(total_iters, 3)
+
+        if rank<=0:
+            wandb_run = self.metric_manager.wandb_run
+        else:
+            wandb_run = None
+        images_logged = 0
 
         # Evaluation loop
         with torch.inference_mode():
@@ -372,7 +418,16 @@ class MicroscopyTrainManager(TrainManager):
                         loss = loss_f(output, targets)
 
                     # Update evaluation metrics
-                    self.metric_manager.on_eval_step_end(loss.item(), output, (inputs,targets), ids, rank, save_samples, split)
+                    caption, _ = self.metric_manager.on_eval_step_end(loss.item(), output, (inputs,targets), ids, rank, save_samples, split)
+
+                    if rank<=0:
+                        if images_logged < self.config.num_uploaded and wandb_run is not None:
+                            images_logged += 1
+                            title = f"{id.upper()}_{images_logged}_{inputs.shape}"
+                            if output_1st_net is None: 
+                                output_1st_net = output
+                            vid = self.create_image_batch(c.complex_i, inputs.numpy(force=True), output.numpy(force=True), targets.numpy(force=True))
+                            wandb_run.log({title: wandb.Video(vid, caption=f"epoch {epoch}, {caption}", fps=1, format="gif")})
 
                     # Print evaluation metrics to terminal
                     pbar.update(1)
@@ -406,3 +461,91 @@ class MicroscopyTrainManager(TrainManager):
                     logging.getLogger("file_only").info(pbar_str)
 
         return
+    
+    # -------------------------------------------------------------------------------------------------
+    
+    def create_image_batch(self, complex_i, noisy, predi, clean):
+        """
+        Logs the image to wandb as a 5D gif [B,T,C,H,W]
+        If complex image then save the magnitude using first 2 channels
+        Else use just the first channel
+        @args:
+            - complex_i (bool): complex images or not
+            - noisy (5D numpy array): the noisy image [B, C+1, T, H, W]
+            - predi (5D numpy array): the predicted image [B, C, T, H, W]
+            - clean (5D numpy array): the clean image [B, C, T, H, W]
+        @rets:
+            - video (4D numpy array): [T, C, H, W] The standard video format. (C=1)
+        """
+
+        if noisy.ndim == 4:
+            noisy = np.expand_dims(noisy, axis=0)
+            predi = np.expand_dims(predi, axis=0)
+            clean = np.expand_dims(clean, axis=0)
+
+        if complex_i:
+            save_x = np.sqrt(np.square(noisy[:,0,:,:,:]) + np.square(noisy[:,1,:,:,:]))
+            save_p = np.sqrt(np.square(predi[:,0,:,:,:]) + np.square(predi[:,1,:,:,:]))
+            save_y = np.sqrt(np.square(clean[:,0,:,:,:]) + np.square(clean[:,1,:,:,:]))
+        else:
+            save_x = noisy[:,0,:,:,:]
+            save_p = predi[:,0,:,:,:]
+            save_y = clean[:,0,:,:,:]
+
+        B, T, H, W = save_y.shape
+
+        def resize_img(im, H_2x, W_2x):
+            H, W = im.shape
+            if H != H_2x or W != W_2x:
+                res = cv2.resize(src=im, dsize=(W_2x, H_2x), interpolation=cv2.INTER_NEAREST)
+                return res
+            else:
+                return im
+
+        max_col = 16
+        if B>max_col:
+            num_row = B//max_col
+            if max_col*num_row < B: 
+                num_row += 1
+            composed_res = np.zeros((T, 3*H*num_row, max_col*W))
+            for b in range(B):
+                r = b//max_col
+                c = b - r*max_col
+                for t in range(T):
+                    S = 3*r
+                    composed_res[t, S*H:(S+1)*H, c*W:(c+1)*W] = normalize_image(save_x[b,t], percentiles=(2,99))
+                    composed_res[t, (S+1)*H:(S+2)*H, c*W:(c+1)*W] = normalize_image(save_p[b,t], percentiles=(2,99))
+                    composed_res[t, (S+2)*H:(S+3)*H, c*W:(c+1)*W] = normalize_image(save_y[b,t], percentiles=(2,99))
+
+                a_composed_res = composed_res[:,:,c*W:(c+1)*W]
+                temp = np.zeros_like(a_composed_res)
+                composed_res[:,:,c*W:(c+1)*W] = cv2.normalize(a_composed_res, temp, 0, 255, norm_type=cv2.NORM_MINMAX)
+        
+        elif B>2:
+            composed_res = np.zeros((T, 3*H, B*W))
+            for b in range(B):
+                for t in range(T):
+                    composed_res[t, :H, b*W:(b+1)*W] = normalize_image(save_x[b,t], percentiles=(2,99))
+                    composed_res[t, H:2*H, b*W:(b+1)*W] = normalize_image(save_p[b,t], percentiles=(2,99))
+                    composed_res[t, 2*H:3*H, b*W:(b+1)*W] = normalize_image(save_y[b,t], percentiles=(2,99))
+
+                a_composed_res = composed_res[:,:,b*W:(b+1)*W]
+                temp = np.zeros_like(a_composed_res)
+                composed_res[:,:,b*W:(b+1)*W] = cv2.normalize(a_composed_res, temp, 0, 255, norm_type=cv2.NORM_MINMAX)
+        else:
+            composed_res = np.zeros((T, B*H, 3*W))
+            for b in range(B):
+                for t in range(T):
+                    composed_res[t, b*H:(b+1)*H, :W] = normalize_image(save_x[b,t], percentiles=(2,99))
+                    composed_res[t, b*H:(b+1)*H, W:2*W] = normalize_image(save_p[b,t], percentiles=(2,99))
+                    composed_res[t, b*H:(b+1)*H, 2*W:3*W] = normalize_image(save_y[b,t], percentiles=(2,99))
+
+                a_composed_res = composed_res[:,b*H:(b+1)*H,:]
+                temp = np.zeros_like(a_composed_res)
+                composed_res[:,b*H:(b+1)*H,:] = cv2.normalize(a_composed_res, temp, 0, 255, norm_type=cv2.NORM_MINMAX)
+
+        # composed_res = np.clip(composed_res, a_min=0.5*np.median(composed_res), a_max=np.percentile(composed_res, 90))
+        # temp = np.zeros_like(composed_res)
+        # composed_res = cv2.normalize(composed_res, temp, 0, 255, norm_type=cv2.NORM_MINMAX)
+
+        return np.repeat(composed_res[:,np.newaxis,:,:].astype('uint8'), 3, axis=1)
