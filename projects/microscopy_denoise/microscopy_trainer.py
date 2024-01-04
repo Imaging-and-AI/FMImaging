@@ -145,6 +145,7 @@ class MicroscopyTrainManager(TrainManager):
 
                 # log a few training examples
                 for i, train_set_x in enumerate(self.train_sets):
+                    if i > self.config.num_uploaded: break
                     ind = np.random.randint(0, len(train_set_x), 4)
                     noisy, clean, _ = train_set_x[ind[0]]
                     noisy = np.expand_dims(noisy, axis=0)
@@ -226,7 +227,7 @@ class MicroscopyTrainManager(TrainManager):
                         tm = start_timer(enable=c.with_timer)
                         curr_lr = optim.param_groups[0]['lr']
 
-                        self.metric_manager.on_train_step_end(loss.item(), output, (inputs, targets), rank, curr_lr, self.config.save_train_samples, epoch, "tra")
+                        self.metric_manager.on_train_step_end(loss.item(), output, (inputs, targets), rank, curr_lr, self.config.save_train_samples and images_logged < self.config.num_uploaded, epoch, "tra")
 
                         # log some train samples as well
                         if rank<=0:
