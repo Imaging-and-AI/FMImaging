@@ -76,7 +76,7 @@ class microscopy_ddp_base(run_ddp_base):
         # "--micro_width", "32", "64",
         "--micro_time", "16",
         "--num_uploaded", "8",
-        "--samples_per_image", "32",
+        "--samples_per_image", "64",
 
         "--no_in_channel", "1",
         "--no_out_channel", "1",
@@ -133,14 +133,16 @@ class microscopy_ddp_base(run_ddp_base):
         #     self.cmd.extend(["--train_files"])
         #     self.cmd.extend(config.train_files)
 
-        "--train_files", 
-        "Base_Actin_train.h5",
-        "Base_ER_train.h5",
-        "Base_Golji_train.h5",
-        "Base_Lysosome_train.h5",
-        "Base_Matrix_Mitochondria_train.h5",
-        "Base_Microtubule_train.h5",
-        "Base_Tomm20_Mitochondria_train.h5"
+        self.cmd.extend([
+            "--train_files", 
+            "Base_Actin_train.h5",
+            "Base_ER_train.h5",
+            "Base_Golji_train.h5",
+            "Base_Lysosome_train.h5",
+            "Base_Matrix_Mitochondria_train.h5",
+            "Base_Microtubule_train.h5",
+            "Base_Tomm20_Mitochondria_train.h5"
+        ])
 
         if config.test_files is not None:
             self.cmd.extend(["--test_files"])
@@ -177,7 +179,7 @@ class microscopy_ddp_base(run_ddp_base):
                             #["C3C3C3", "C3C3C3", "C3C3C3", "C3C3C3"],
                             #["C2C2C2", "C2C2C2C2C2C2", "C2C2C2", "C2C2C2"],
                             #["C3C3C3", "C3C3C3C3C3C3", "C3C3C3", "C3C3C3"],
-                            ["T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1", "T1L1G1T1L1G1"],
+                            ["T1L1G1T1L1G1", "T1L1G1T1L1G1",],
                             #["T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1", "T1T1T1T1T1T1"],
                             #["T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1"],
                             #["T1T1T1", "T1T1T1", "T1T1T1", "T1T1T1"],

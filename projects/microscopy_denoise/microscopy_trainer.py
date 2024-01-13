@@ -5,6 +5,7 @@ Training and evaluation loops for Microscopy
 import os
 import sys
 import cv2
+import copy
 import wandb
 import logging
 import numpy as np
@@ -38,6 +39,7 @@ from metrics.metrics_utils import AverageMeter
 from optim.optim_utils import compute_total_steps
 
 from projects.microscopy_denoise.microscopy_dataset import MicroscopyDatasetTrain
+from projects.microscopy_denoise.microscopy_loss import microscopy_loss
 from temp_utils.running_inference import running_inference
 
 # -------------------------------------------------------------------------------------------------
@@ -343,6 +345,11 @@ class MicroscopyTrainManager(TrainManager):
             loss_f = self.loss_f
             if isinstance(data_sets, list): samplers = [None] * len(data_sets)
             else: samplers = None
+        
+        if split=="test":
+            config_copy = copy.deepcopy(self.config)
+            config_copy.losses = [loss for loss in config_copy.losses if loss != "perceptual"]
+            loss_f = microscopy_loss(config=config_copy)
 
         batch_size = 1 if final_eval else c.batch_size
 
@@ -417,6 +424,8 @@ class MicroscopyTrainManager(TrainManager):
 
                     with torch.autocast(device_type='cuda', dtype=self.cast_type, enabled=c.use_amp):
                         loss = loss_f(output, targets)
+
+                    ids = ids[0] if B==1 else f"epoch_{epoch}_{split}"
 
                     # Update evaluation metrics
                     caption, _ = self.metric_manager.on_eval_step_end(loss.item(), output, (inputs,targets), ids, rank, save_samples, split)
