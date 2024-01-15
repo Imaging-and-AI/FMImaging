@@ -129,20 +129,21 @@ class microscopy_ddp_base(run_ddp_base):
         #                 "--test_data_types", "3d", "2dt", "2d", "2dt",
         #                 ])
 
-        # if config.train_files is not None:
-        #     self.cmd.extend(["--train_files"])
-        #     self.cmd.extend(config.train_files)
-
-        self.cmd.extend([
-            "--train_files", 
-            "Base_Actin_train.h5",
-            "Base_ER_train.h5",
-            "Base_Golji_train.h5",
-            "Base_Lysosome_train.h5",
-            "Base_Matrix_Mitochondria_train.h5",
-            "Base_Microtubule_train.h5",
-            "Base_Tomm20_Mitochondria_train.h5"
-        ])
+        if config.train_files is not None:
+            self.cmd.extend(["--train_files"])
+            self.cmd.extend(config.train_files)
+        else:
+            self.cmd.extend([
+                "--train_files", 
+                "Base_Actin_train.h5",
+                "Base_ER_train.h5",
+                "Base_Golji_train.h5",
+                "Base_Lysosome_train.h5",
+                "Base_Matrix_Mitochondria_train.h5",
+                "Base_Microtubule_train.h5",
+                "Base_Tomm20_Mitochondria_train.h5"
+                # "Base_All_train.h5",
+            ])
 
         if config.test_files is not None:
             self.cmd.extend(["--test_files"])
