@@ -129,18 +129,14 @@ class MicroscopyDatasetTrain():
         clean_im = self.images[i][1]
         noisy_im_name = self.images[i][3]
 
+        to_be_scaled = False # if not loaded in init then needs to be scaled later
         if not isinstance(noisy_im, np.ndarray):
             ind = self.images[i][2]
             key_noisy = self.images[i][0]
             key_clean = self.images[i][1]
             noisy_im = np.array(self.h5file[ind][key_noisy])
             clean_im = np.array(self.h5file[ind][key_clean])
-            if self.scaling_type=="per":
-                noisy_im = normalize_image(noisy_im, percentiles=self.scaling_vals)
-                clean_im = normalize_image(clean_im, percentiles=self.scaling_vals)
-            else:
-                noisy_im = normalize_image(noisy_im, values=self.scaling_vals)
-                clean_im = normalize_image(clean_im, values=self.scaling_vals)
+            to_be_scaled = True
 
         if noisy_im.ndim == 2: noisy_im = noisy_im[np.newaxis,:,:]
         if clean_im.ndim == 2: clean_im = clean_im[np.newaxis,:,:]
@@ -149,9 +145,6 @@ class MicroscopyDatasetTrain():
         if noisy_im.shape[0] < self.time_cutout:
             noisy_im = np.pad(noisy_im, ((0,self.time_cutout - noisy_im.shape[0]),(0,0),(0,0)), 'symmetric')
             clean_im = np.pad(clean_im, ((0,self.time_cutout - clean_im.shape[0]),(0,0),(0,0)), 'symmetric')
-
-        # random flip
-        noisy_im, clean_im = self.random_flip(noisy_im, clean_im)
 
         if noisy_im.shape[1] < self.cutout_shape[0]:
             noisy_im = np.pad(noisy_im, ((0, 0), (0,self.cutout_shape[0] - noisy_im.shape[1]),(0,0)), 'symmetric')
@@ -164,11 +157,23 @@ class MicroscopyDatasetTrain():
         # define a set of cut range
         s_x, s_y, s_t = self.get_cutout_range(noisy_im)
 
-        noisy_cutout = self.do_cutout(noisy_im, s_x, s_y, s_t)[np.newaxis,:,:,:]
-        clean_cutout = self.do_cutout(clean_im, s_x, s_y, s_t)[np.newaxis,:,:,:]
+        noisy_cutout = self.do_cutout(noisy_im, s_x, s_y, s_t)
+        clean_cutout = self.do_cutout(clean_im, s_x, s_y, s_t)
 
-        noisy_cutout = torch.from_numpy(noisy_cutout.astype(np.float32))
-        clean_cutout = torch.from_numpy(clean_cutout.astype(np.float32))
+        # random flip
+        noisy_cutout, clean_cutout = self.random_flip(noisy_cutout, clean_cutout)
+
+        # if scaling is required, scale the cutouts
+        if to_be_scaled:
+            if self.scaling_type=="per":
+                noisy_cutout = normalize_image(noisy_cutout, percentiles=self.scaling_vals)
+                clean_cutout = normalize_image(clean_cutout, percentiles=self.scaling_vals)
+            else:
+                noisy_cutout = normalize_image(noisy_cutout, values=self.scaling_vals)
+                clean_cutout = normalize_image(clean_cutout, values=self.scaling_vals)
+
+        noisy_cutout = torch.from_numpy(noisy_cutout[np.newaxis,:,:,:].astype(np.float32))
+        clean_cutout = torch.from_numpy(clean_cutout[np.newaxis,:,:,:].astype(np.float32))
 
         return noisy_cutout, clean_cutout, noisy_im_name
 
