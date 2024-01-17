@@ -101,6 +101,12 @@ python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellma
 
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230517_Pat_MI/meas_MID00225_FID04597_REST_G33_perfusion_trufi_sr_Tpat_3_192/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230517_Pat_MI/meas_MID00225_FID04597_REST_G33_perfusion_trufi_sr_Tpat_3_192/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
 
+# G33, LGE
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20231205_Contrast_PT/meas_MID00188_FID22498_G33_SAX5_FB_de_tpat3_res256_Ave16_BW610_PHASres84/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20231205_Contrast_PT/meas_MID00188_FID22498_G33_SAX5_FB_de_tpat3_res256_Ave16_BW610_PHASres84/res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+
+
 # ======================================================================
 # snr level test
 
