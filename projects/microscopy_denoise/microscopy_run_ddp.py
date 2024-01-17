@@ -349,6 +349,8 @@ class microscopy_ddp_base(run_ddp_base):
         if config.disable_LSUV:
             cmd_run.extend(["--disable_LSUV"])
 
+        cmd_run.extend(["--train_samples", f"{config.train_samples}"])
+
         cmd_run.extend(["--post_backbone", f"{config.post_backbone}"])
         cmd_run.extend([f"--post_hrnet.block_str", *config.post_block_str])
 
@@ -413,6 +415,8 @@ class microscopy_ddp_base(run_ddp_base):
         parser.add_argument('--loss_weights', nargs='+', type=float, default=None, help='to balance multiple losses, weights can be supplied')
 
         parser.add_argument("--disable_LSUV", action="store_true", help='if set, do not perform LSUV init.')
+
+        parser.add_argument('--train_samples', type=int, default=0, help='number of images to train/finetune with. First n are taken from the train set if n>0')
 
         return parser
 

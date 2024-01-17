@@ -398,7 +398,7 @@ def load_microscopy_data_all(config):
         keys = list(h5file.keys())
 
         n = len(keys)
-        random.shuffle((keys))
+        if c.train_samples<=0: random.shuffle((keys))
 
         h5files.append(h5file)
         train_keys.append(keys[:int(ratio[0]*n)])
