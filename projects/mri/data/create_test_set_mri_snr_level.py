@@ -38,7 +38,7 @@ pf_filter_ratio=[1.0, 0.875, 0.75, 0.625]
 phase_resolution_ratio=[1.0, 0.75, 0.65, 0.55]
 readout_resolution_ratio=[1.0, 0.75, 0.65, 0.55]
 
-res_file_path = "/export/Lab-Xue/projects/mri/data/mri_test"
+res_file_path = "/export/Lab-Xue/projects/mri/data/model_uncertainty"
 os.makedirs(res_file_path, exist_ok=True)
 
 # min_noise_level=1.0
@@ -148,7 +148,7 @@ def create_3d_repeated(N=20):
 
 def main():
 
-    create_3d_repeated(N=32)
+    create_3d_repeated(N=128)
 
 if __name__=="__main__":
     main()

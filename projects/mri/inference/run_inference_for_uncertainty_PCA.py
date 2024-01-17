@@ -94,6 +94,8 @@ def arg_parser():
     parser.add_argument('--old_noise_selection', action='store_true',
                         help='Deprecated. Only here to reproduce the paper\'s figures')
 
+    parser.add_argument("--frame", type=int, default=-1, help='which frame picked to compute PCA; if <0, pick the middle frame')
+
     #parser.add_argument("--model_type", type=str, default=None, help="if set, overwrite the config setting, STCNNT_MRI or MRI_hrnet, MRI_double_net")
 
     args, unknown_args = parser.parse_known_args(namespace=Nestedspace())
@@ -135,7 +137,11 @@ def pca_one_slice(slc, model, args, full_config, image, gmap, device):
     input = np.transpose(input, [0, 2, 1, 3, 4])
 
     mask = np.zeros(nim.shape)
-    mask[:,T//2,:,:] = 1
+    if args.frame >= 0 and args.frame < T:
+        print(f"--> pca, picke frame {args.frame}")
+        mask[:,args.frame,:,:] = 1
+    else:
+        mask[:,T//2,:,:] = 1
 
     input = torch.from_numpy(input)
     mask = torch.from_numpy(mask)
@@ -300,7 +306,7 @@ def main():
     os.makedirs(full_config.output_dir, exist_ok=True)
 
     for slc in range(slices):
-        print(f"{Fore.YELLOW}--> processing rep {slc}{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}--> processing slice {slc}{Style.RESET_ALL}")
         pca_one_slice(slc, model, args, full_config, image[:,:,:,slc], gmap[:,:,slc], device)
 
     # -------------------------------------------    

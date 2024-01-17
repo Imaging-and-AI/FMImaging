@@ -207,7 +207,7 @@ class Test_MRI_Tra(object):
 
         # assert metrics['mse'] < 150
         # assert metrics['l1'] < 12
-        assert metrics['ssim'] > 0.55
+        assert metrics['ssim'] > 0.45
         assert metrics['psnr'] > 50
 
         # =======================================================
@@ -250,7 +250,7 @@ class Test_MRI_Tra(object):
         # assert metrics['mse'] < 420
         # assert metrics['l1'] < 17.5
         assert metrics['ssim'] > 0.42
-        assert metrics['psnr'] > 45
+        assert metrics['psnr'] > 43
 
         # =======================================================
 

@@ -31,10 +31,22 @@ model=/export/Lab-Xue/projects/data/logs/mri-1st_vgg10_30_more_epochs_STCNNT_HRN
 
 RES_DIR=res_1st_hrnet_TLGTLG_TLGTLG_more_epochs_NN100
 
+model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_UNET_T1L1G1_T1L1G1_20231225_190319_401166_STCNNT_MRI_NN_100.0_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1/mri-1st_STCNNT_UNET_T1L1G1_T1L1G1_20231225_190319_401166_STCNNT_MRI_NN_100.0_C-32-1_amp-False_complex_residual-T1L1G1_T1L1G1_epoch-30.pth
+
+RES_DIR=res_1st_unet_TLG_TLG
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_more_epochs_STCNNT_UNET_T1T1T1_T1T1T1_T1T1T1_20231223_170737_136110_STCNNT_MRI_NN_100.0_C-32-1_amp-False_complex_residual_weighted_loss_snr-T1T1T1_T1T1T1_T1T1T1/mri-1st_more_epochs_STCNNT_UNET_T1T1T1_T1T1T1_T1T1T1_20231223_170737_136110_STCNNT_MRI_NN_100.0_C-32-1_amp-False_complex_residual_weighted_loss_snr-T1T1T1_T1T1T1_T1T1T1_epoch-30.pth
+
+RES_DIR=res_1st_unet_TTT_TTT
+
+model=/export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_UNET_C3C3C3_C3C3C3_20231215_212141_363603_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-C3C3C3_C3C3C3/mri-1st_STCNNT_UNET_C3C3C3_C3C3C3_20231215_212141_363603_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-C3C3C3_C3C3C3_epoch-30.pth
+RES_DIR=res_unet_C3C3C3_C3C3C3
+
 model_type_str=STCNNT_MRI
 scaling_factor=1.0
 
 model=/export/Lab-Xue/projects/data/logs/mri-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231217_212646_307157_MRI_double_net_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/checkpoint_epoch_4
+model=/export/Lab-Xue/projects/data/logs/mri-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231217_212646_307157_MRI_double_net_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/mri-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231217_212646_307157_MRI_double_net_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1_epoch-30.pth
 
 model_type_str=MRI_double_net
 scaling_factor=1.0
@@ -55,7 +67,7 @@ python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/da
 
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_529_20230616-173849 --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_RTCine_AI_2023_AI_denoising/20230616/RT_Cine_LIN_41837_1769771291_1769771300_529_20230616-173849/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 10.0 --gmap_scaling 100.0 --input_fname im --saved_model_path $model --model_type ${model_type_str}
 
-scaling_factor=1
+scaling_factor=2
 
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_high_res_2023/20230822/Perfusion_AIF_TwoEchoes_Interleaved_R2_41837_2015269043_2015269052_266_20230822-134501/DebugOutput --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_high_res_2023/20230822/Perfusion_AIF_TwoEchoes_Interleaved_R2_41837_2015269043_2015269052_266_20230822-134501/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
 
@@ -72,6 +84,22 @@ python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/da
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20231205_Contrast_PT/meas_MID00182_FID22492_G33_4CH_FB_de_tpat3_res256_Ave16_BW610_PHASres84/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20231205_Contrast_PT/meas_MID00182_FID22492_G33_4CH_FB_de_tpat3_res256_Ave16_BW610_PHASres84/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
 
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20231205_Contrast_PT/meas_MID00183_FID22493_G33_3CH_FB_de_tpat3_res256_Ave16_BW610_PHASres84/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20231205_Contrast_PT/meas_MID00183_FID22493_G33_3CH_FB_de_tpat3_res256_Ave16_BW610_PHASres84/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+# high res perf
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024/20240109/Perfusion_AIF_Q_mapping_41837_2466125178_2466125187_673_20240109-140452/DebugOutput/ --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024/20240109/Perfusion_AIF_Q_mapping_41837_2466125178_2466125187_673_20240109-140452/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024/20240109/Perfusion_AIF_Q_mapping_42110_414467838_414467847_484_20240109-160845/DebugOutput/ --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024/20240109/Perfusion_AIF_Q_mapping_42110_414467838_414467847_484_20240109-160845/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024_normal_res/20240116/Perfusion_AIF_Q_mapping_42110_441437177_441437186_821_20240116-145043/DebugOutput/ --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024_normal_res/20240116/Perfusion_AIF_Q_mapping_42110_441437177_441437186_821_20240116-145043/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024_normal_res/20240116/Perfusion_AIF_Q_mapping_42110_441437177_441437186_822_20240116-145201/DebugOutput/ --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024_normal_res/20240116/Perfusion_AIF_Q_mapping_42110_441437177_441437186_822_20240116-145201/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024/20240113/Perfusion_AIF_Q_mapping_42110_434652876_434652885_351_20240113-132619/DebugOutput/ --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024/20240113/Perfusion_AIF_Q_mapping_42110_434652876_434652885_351_20240113-132619/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+# G33 perf
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230517_Pat_MI/meas_MID00225_FID04597_REST_G33_perfusion_trufi_sr_Tpat_3_192/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230517_Pat_MI/meas_MID00225_FID04597_REST_G33_perfusion_trufi_sr_Tpat_3_192/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
 
 # ======================================================================
 # snr level test
@@ -441,3 +469,79 @@ done
 ## run the snr test
 
 python3 ./mri/run_inference_snr_pseudo_replica.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230630_NV_AI/meas_MID00164_FID07570_G25_2CH_CINE_256_R4/res_ai/ --im_scaling 1 --gmap_scaling 1 --saved_model_path /export/Lab-Xue/projects/mri/test/hy_search_contined_gaussian_2nd_stage/hy_search_contined_gaussian_2nd_stage_epoch-74.pth --input_fname input --gmap_fname gmap --scaling_factor 1.0 --added_noise_sd 0.1 --rep 32
+
+cases=(
+        res_1st_hrnet_TLGTLG_TLGTLG_more_epochs_NN100 
+        res_1st_unet_TTT_TTT_NN100 
+        res_1st_hrnet_TTT_TTT_NN100 
+        res_1st_hrnet_TLG_TLGTLG_NN100
+        res_1st_hrnet_TLG_TLGTLG_only_white_noise
+        res_1st_hrnet_TLG_TLGTLG_no_gmap
+        res_1st_hrnet_TLG_TLG_NN100
+        res_1st_unet_TLG_TLG_NN100
+        res_1st_hrnet_C3C3C3_C3C3C3_NN100
+        res_1st_unet_C3C3C3_C3C3C3_NN100
+        res_1st_hrnet_C3C3C3_C3C3C3_only_white_noise
+        res_1st_hrnet_C3C3C3_C3C3C3_no_gmap
+        res_1st_unet_C3C3C3_C3C3C3_only_white_noise
+        res_1st_unet_C3C3C3_C3C3C3_no_gmap
+        res_1st_hrnet_C2C2C2_C2C2C2_NN100
+        res_1st_unet_C2C2C2_C2C2C2_NN100
+    )
+
+base_dir=/export/Lab-Kellman/Share/data/rtcine
+
+cases=(
+        res_1st_hrnet_TLGTLG_TLGTLG_more_epochs_NN100 
+        res_1st_hrnet_TTT_TTT_NN100 
+        res_1st_unet_TTT_TTT_NN100 
+        res_1st_hrnet_TLG_TLGTLG_NN100
+        res_1st_hrnet_TLG_TLGTLG_only_white_noise
+        res_1st_hrnet_TLG_TLGTLG_no_gmap
+        res_1st_hrnet_TLG_TLG_NN100
+        res_1st_unet_TLG_TLG_NN100
+        res_1st_hrnet_C3C3C3_C3C3C3_NN100
+        res_1st_unet_C3C3C3_C3C3C3_NN100
+        res_1st_hrnet_C3C3C3_C3C3C3_only_white_noise
+        res_1st_hrnet_C3C3C3_C3C3C3_no_gmap
+        res_1st_unet_C3C3C3_C3C3C3_only_white_noise
+        res_1st_unet_C3C3C3_C3C3C3_no_gmap
+        res_1st_hrnet_C2C2C2_C2C2C2_NN100
+        res_1st_unet_C2C2C2_C2C2C2_NN100
+    )
+base_dir=/export/Lab-Xue/projects/mri/results/test/mri-MRI_double_net_20230
+
+cases=(
+        res_1st_hrnet_C3C3C3_C3C3C3_NN100 
+        res_1st_unet_C3C3C3_C3C3C3_NN100 
+        res_1st_hrnet_C3C3C3_C3C3C3_only_white_noise 
+        res_1st_hrnet_C3C3C3_C3C3C3_no_gmap
+        res_1st_unet_C3C3C3_C3C3C3_only_white_noise
+        res_1st_unet_C3C3C3_C3C3C3_no_gmap
+        res_1st_hrnet_C2C2C2_C2C2C2_NN100
+        res_1st_unet_C2C2C2_C2C2C2_NN100
+    )
+base_dir=/export/Lab-Xue/publications/SNRAware
+
+for index in ${!cases[*]}; do 
+    echo "${cases[$index]}"
+
+    for Script in scripts_${cases[$index]}/*.sh ; do
+        bash "$base_dir/$Script" &
+    done
+done
+
+
+
+for Script in *LPSF*.sh ; do
+    echo bash "$base_dir/$Script" &
+done
+
+for index in ${!cases[*]}; do 
+    echo "${cases[$index]}"
+
+    for Script in scripts_${cases[$index]}/*LPSF*.sh ; do
+        echo bash "$base_dir/$Script" &
+    done
+
+done

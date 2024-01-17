@@ -4,7 +4,6 @@ Run MRI inference data
 import os
 import argparse
 import copy
-from time import time
 
 import torch
 from tqdm import tqdm
@@ -28,6 +27,7 @@ sys.path.append(str(REPO_DIR))
 
 from utils import *
 from inference import apply_model, load_model, apply_model_3D
+from time import time
 
 # -------------------------------------------------------------------------------------------------
 # setup for testing from cmd
