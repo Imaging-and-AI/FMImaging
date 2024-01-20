@@ -349,6 +349,9 @@ class microscopy_ddp_base(run_ddp_base):
         if config.disable_LSUV:
             cmd_run.extend(["--disable_LSUV"])
 
+        if config.no_clip_data:
+            cmd_run.extend(["--no_clip_data"])
+
         cmd_run.extend(["--train_samples", f"{config.train_samples}"])
 
         cmd_run.extend(["--post_backbone", f"{config.post_backbone}"])
@@ -417,6 +420,8 @@ class microscopy_ddp_base(run_ddp_base):
         parser.add_argument("--disable_LSUV", action="store_true", help='if set, do not perform LSUV init.')
 
         parser.add_argument('--train_samples', type=int, default=0, help='number of images to train/finetune with. First n are taken from the train set if n>0')
+
+        parser.add_argument("--no_clip_data", action="store_true", help="whether to not clip the data to [0,1] after scaling. default: do clip")
 
         return parser
 
