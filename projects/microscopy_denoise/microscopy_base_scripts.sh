@@ -37,4 +37,4 @@ python3 ./projects/microscopy_denoise/microscopy_inference.py \
 
 # snr test
 
-python3 ./projects/microscopy_denoise/microscopy_inference_pseudo_replica.py --input_dir /export/Lab-Xue/publications/CNNT_paper/data/micro_datasets_rcan/Alex_wide_field/test/noisy_rois --output_dir /export/Lab-Xue/projects/microscopy/snr/Alex_wide_field --saved_model_path /export/Lab-Xue/projects/data/logs/microscopy-Alex_wide_test_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20240120_205339_366857_STCNNT_Microscopy_C-64-1_amp-False_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/last_epoch --image_order HWT --added_noise_sd 0.1 --rep 32 --no_clip_data
+python3 ./projects/microscopy_denoise/microscopy_inference_pseudo_replica.py --input_dir /export/Lab-Xue/publications/CNNT_paper/data/micro_datasets_rcan/Alex_wide_field/test/noisy_rois --output_dir /export/Lab-Xue/projects/microscopy/snr/Alex_wide_field --saved_model_path /export/Lab-Xue/projects/data/logs/microscopy-Alex_wide_test_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20240120_205339_366857_STCNNT_Microscopy_C-64-1_amp-False_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/last_epoch --image_order HWT --added_noise_sd 0.1 --rep 32 --no_clip_data --batch_size 2

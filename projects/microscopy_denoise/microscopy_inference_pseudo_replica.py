@@ -49,7 +49,7 @@ def arg_parser():
     parser.add_argument("--no_clip_data", action="store_true", help="whether to not clip the data to [0,1] after scaling. default: do clip")
     parser.add_argument("--image_order", type=str, default="THW", help='the order of axis in the input image: THW or WHT')
     parser.add_argument("--device", type=str, default="cuda", help='the device to run on')
-    parser.add_argument("--batch_size", type=int, default=4, help='batch_size for running inference')
+    parser.add_argument("--batch_size", type=int, default=1, help='batch_size for running inference')
 
     parser.add_argument("--scaling_vals", type=float, nargs='+', default=[0, 4096], help='min max values to scale with respect to the scaling type')
 
@@ -137,15 +137,12 @@ def main():
 
         print(f"--> Total processing time is {total_time_in_seconds:.1f} seconds")
 
-        noisy_im_N *= args.scaling_vals[1]
         predi_im_N *= args.scaling_vals[1]
         if clean_im: clean_im *= args.scaling_vals[1]
 
-        noisy_im_N = np.transpose(np.squeeze(noisy_im_N), [1, 2, 0, 3])
         predi_im_N = np.transpose(np.squeeze(predi_im_N), [1, 2, 0, 3])
         if clean_im: clean_im = np.transpose(np.squeeze(clean_im), [1, 2, 0])
 
-        np.save(os.path.join(args.output_dir, f"{f_name}_pesudo_replica_x.npy"), noisy_im_N)
         np.save(os.path.join(args.output_dir, f"{f_name}_pesudo_replica_output.npy"), predi_im_N)
         if clean_im:
             np.save(os.path.join(args.output_dir, f"{f_name}_clean_im.npy"), clean_im)
