@@ -202,7 +202,7 @@ class microscopy_ddp_base(run_ddp_base):
         vars['complex_i'] = [False]
         vars['residual'] = [True]
 
-        vars['n_heads'] = [32]
+        vars['n_heads'] = [64]
 
         return vars
 

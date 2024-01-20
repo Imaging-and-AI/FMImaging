@@ -113,7 +113,7 @@ class MicroscopyDatasetTrain():
         self.valu_thres = valu_thres
         self.area_thres = area_thres
 
-        self.images = load_images_from_h5file(h5file, keys, scaling_type=scaling_type, scaling_vals=scaling_vals, clip=clip_data, max_load=max_load)
+        self.images = load_images_from_h5file(h5file, keys, scaling_type=scaling_type, scaling_vals=scaling_vals, clip_data=clip_data, max_load=max_load)
 
     def load_one_sample(self, i):
         """
@@ -296,7 +296,7 @@ class MicroscopyDatasetTest():
         self.scaling_type = scaling_type
         self.scaling_vals = scaling_vals
 
-        self.images = load_images_from_h5file(h5file, keys, scaling_type=scaling_type, scaling_vals=scaling_vals, clip=clip_data, max_load=max_load)
+        self.images = load_images_from_h5file(h5file, keys, scaling_type=scaling_type, scaling_vals=scaling_vals, clip_data=clip_data, max_load=max_load)
 
     def load_one_sample(self, i):
         """
@@ -431,7 +431,7 @@ def load_microscopy_data_all(config):
 
     for (i, h_file) in enumerate(h5files):
         logging.info(f"--> loading data from file: {h_file} for {len(train_keys[i])} entries ...")
-        images = load_images_from_h5file([h_file], [train_keys[i]], scaling_type=c.scaling_type, scaling_vals=c.scaling_vals, max_load=c.max_load)
+        images = load_images_from_h5file([h_file], [train_keys[i]], scaling_type=c.scaling_type, scaling_vals=c.scaling_vals, clip_data=not c.no_clip_data, max_load=c.max_load)
         for hw in zip(c.micro_height, c.micro_width):
             train_set.append(MicroscopyDatasetTrain(h5file=[h_file], keys=[train_keys[i]], max_load=-1,
                                                     cutout_shape=hw, **kwargs))
