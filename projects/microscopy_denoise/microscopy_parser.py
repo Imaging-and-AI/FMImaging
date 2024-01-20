@@ -39,6 +39,8 @@ class microscopy_parser(object):
         self.parser.add_argument("--valu_thres", type=float, default=0.002, help='threshold of pixel value between background and foreground')
         self.parser.add_argument("--area_thres", type=float, default=0.25, help='percentage threshold of area that needs to be foreground')
 
+        self.parser.add_argument("--no_clip_data", action="store_true", help="whether to not clip the data to [0,1] after scaling. default: do clip")
+
         # loss for microscopy
         self.parser.add_argument("--losses", nargs='+', type=str, default=["mse", "l1"], help='Any combination of "mse", "l1", "sobel", "ssim", "ssim3D", "psnr", "msssim", "gaussian", "gaussian3D" ')
         self.parser.add_argument('--loss_weights', nargs='+', type=float, default=[1.0, 1.0], help='to balance multiple losses, weights can be supplied')

@@ -208,7 +208,7 @@ def load_model_pre_backbone_post(saved_model_path):
     status = torch.load(pre_name, map_location=get_device())
     config = status['config']
 
-    model = microscopy_ModelManager(config, config.model_type)
+    model = microscopy_ModelManager(config)
     model.config.device = get_device()
 
     print(f"{Fore.YELLOW}Load in model from parts{Style.RESET_ALL}")

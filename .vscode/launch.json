@@ -365,6 +365,26 @@
         },
         // -----------------------------------------------------------------------------------------
         {
+            "name": "microscopy_inference_pseudo_replica.py",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/microscopy_denoise/microscopy_inference_pseudo_replica.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "4"},
+            "args": [
+                "--input_dir", "/export/Lab-Xue/publications/CNNT_paper/data/micro_datasets_rcan/Alex_wide_field/test/noisy_rois",
+                // "--input_file_s", "Image_001.npy", "Image_011.npy", 
+                "--output_dir", "/export/Lab-Xue/projects/microscopy/snr/Alex_wide_field",
+                "--saved_model_path", "/export/Lab-Xue/projects/data/logs/microscopy-20240115_083657_781264_STCNNT_Microscopy_C-64-1_amp-False_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/final_epoch",
+                "--image_order", "HWT",
+                "--added_noise_sd", "0.1",
+                "--rep", "32",
+                "--no_clip_data"
+            ]
+        },
+        // -----------------------------------------------------------------------------------------
+        {
             "name": "save_pt_as_onnx, mri",
             "type": "python",
             "request": "launch",

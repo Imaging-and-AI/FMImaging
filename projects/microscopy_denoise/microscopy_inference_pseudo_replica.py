@@ -1,5 +1,5 @@
 """
-Run micrsocopy inference
+Run micrsocopy inference for snr pseudo-replica test
 """
 import os
 import h5py
@@ -22,9 +22,6 @@ sys.path.append(str(MRI_DIR))
 
 Project_DIR = Path(__file__).parents[2].resolve()
 sys.path.append(str(Project_DIR))
-
-REPO_DIR = Path(__file__).parents[3].resolve()
-sys.path.append(str(REPO_DIR))
 
 from utils import *
 from microscopy_utils import *
@@ -53,6 +50,11 @@ def arg_parser():
     parser.add_argument("--image_order", type=str, default="THW", help='the order of axis in the input image: THW or WHT')
     parser.add_argument("--device", type=str, default="cuda", help='the device to run on')
     parser.add_argument("--batch_size", type=int, default=4, help='batch_size for running inference')
+
+    parser.add_argument("--scaling_vals", type=float, nargs='+', default=[0, 4096], help='min max values to scale with respect to the scaling type')
+
+    parser.add_argument("--added_noise_sd", type=float, default=0.1, help="add noise sigma")
+    parser.add_argument("--rep", type=int, default=32, help="number of repetition")
 
     return parser.parse_args()
 
@@ -107,15 +109,48 @@ def main():
 
     print("End loading data")
 
+    os.makedirs(args.output_dir, exist_ok=True)
+
     print("Start inference and saving")
 
     for noisy_im, clean_im, f_name in tqdm(images):
+        print(f"--> process image {f_name}, {noisy_im.shape}")
 
-        predi_im = apply_model(model, noisy_im, config, config.device, overlap=args.overlap, batch_size=args.batch_size)
+        start = time.time()
+        noisy_im_N = create_pseudo_replica(noisy_im, added_noise_sd=args.added_noise_sd/args.scaling_vals[1], N=args.rep)
+        print(f"--> create_pseudo_replica {time.time()-start:.1f} seconds")
 
-        save_one(args.output_dir, f_name, noisy_im, clean_im, predi_im)
+        start = time.time()
+        np.save(os.path.join(args.output_dir, f"{f_name}_pesudo_replica_x.npy"), np.transpose(np.squeeze(noisy_im_N), [1, 2, 0, 3])*args.scaling_vals[1])
+        print(f"--> save pseudo_replica input data {time.time()-start:.1f} seconds")
 
-    print("End inference and saving")
+        predi_im_N = noisy_im_N
+
+        total_time_in_seconds = 0
+        for n in range(args.rep):
+            print(f"----> process rep {n}, out of {args.rep}")
+
+            start = time.time()
+            a_pred_im = apply_model(model, noisy_im_N[:,:,:,:,:,n], config, config.device, overlap=args.overlap, batch_size=args.batch_size)
+            predi_im_N[:,:,:,:,:,n] = a_pred_im.cpu().numpy()
+            total_time_in_seconds += time.time()-start
+
+        print(f"--> Total processing time is {total_time_in_seconds:.1f} seconds")
+
+        noisy_im_N *= args.scaling_vals[1]
+        predi_im_N *= args.scaling_vals[1]
+        if clean_im: clean_im *= args.scaling_vals[1]
+
+        noisy_im_N = np.transpose(np.squeeze(noisy_im_N), [1, 2, 0, 3])
+        predi_im_N = np.transpose(np.squeeze(predi_im_N), [1, 2, 0, 3])
+        if clean_im: clean_im = np.transpose(np.squeeze(clean_im), [1, 2, 0])
+
+        np.save(os.path.join(args.output_dir, f"{f_name}_pesudo_replica_x.npy"), noisy_im_N)
+        np.save(os.path.join(args.output_dir, f"{f_name}_pesudo_replica_output.npy"), predi_im_N)
+        if clean_im:
+            np.save(os.path.join(args.output_dir, f"{f_name}_clean_im.npy"), clean_im)
+
+    print("End pesudo-replica test and saving")
 
 if __name__=="__main__":
     main()

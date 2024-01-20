@@ -283,6 +283,10 @@ class MicroscopyTrainManager(TrainManager):
 
             if rank <= 0:
                 self.model_manager.save(os.path.join(self.config.log_dir, self.config.run_name, 'last_checkpoint'), epoch, optim, sched)
+                if wandb_run is not None:
+                    wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_pre.pth'))
+                    wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_backbone.pth'))
+                    wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_post.pth'))
 
             # Load the best model from training
             if self.config.eval_train_set or self.config.eval_val_set or self.config.eval_test_set:
@@ -307,6 +311,10 @@ class MicroscopyTrainManager(TrainManager):
             save_path, save_file_name, config_yaml_file = self.model_manager.save_entire_model(epoch=self.config.num_epochs)
             model_full_path = os.path.join(save_path, save_file_name+'.pth')
             logging.info(f"{Fore.YELLOW}Entire model is saved at {model_full_path} ...{Style.RESET_ALL}")
+
+            if wandb_run is not None:
+                wandb_run.save(model_full_path)
+                wandb_run.save(config_yaml_file)
 
         # Finish up training
         self.metric_manager.on_training_end(rank, epoch, model_manager, optim, sched, self.config.train_model)

@@ -97,9 +97,18 @@ python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellma
 
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024/20240113/Perfusion_AIF_Q_mapping_42110_434652876_434652885_351_20240113-132619/DebugOutput/ --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024/20240113/Perfusion_AIF_Q_mapping_42110_434652876_434652885_351_20240113-132619/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
 
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024/20240118/Perfusion_AIF_Q_mapping_42110_04434847_04434852_1740_20240118-100851/DebugOutput/ --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024/20240118/Perfusion_AIF_Q_mapping_42110_04434847_04434852_1740_20240118-100851/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_high_res_2023/20230904/Perfusion_AIF_STCNNT_41837_2049151221_2049151230_432_20230904-170739/DebugOutput/ --output_dir /export/Lab-Kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_high_res_2023/20230904/Perfusion_AIF_STCNNT_41837_2049151221_2049151230_432_20230904-170739/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
 # G33 perf
 
 python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230517_Pat_MI/meas_MID00225_FID04597_REST_G33_perfusion_trufi_sr_Tpat_3_192/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20230517_Pat_MI/meas_MID00225_FID04597_REST_G33_perfusion_trufi_sr_Tpat_3_192/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20240118_Contrast_HV/meas_MID00179_FID25685_Adeno_stress_G33_Perf_2RR_SAX4_4_2_CHA_R3_192res_TI135/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20240118_Contrast_HV/meas_MID00179_FID25685_Adeno_stress_G33_Perf_2RR_SAX4_4_2_CHA_R3_192res_TI135/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /export/Lab-Xue/data/mri_raw_data/freemax/20240118_Contrast_HV/meas_MID00180_FID25686_rest_G33_Perf_2RR_SAX4_4_2_CHA_R3_192res_TI135/res/DebugOutput/ --output_dir /export/Lab-Xue/data/mri_raw_data/freemax/20240118_Contrast_HV/meas_MID00180_FID25686_rest_G33_Perf_2RR_SAX4_4_2_CHA_R3_192res_TI135/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
 
 # G33, LGE
 
