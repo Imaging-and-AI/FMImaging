@@ -76,7 +76,7 @@ class microscopy_ddp_base(run_ddp_base):
         # "--micro_width", "32", "64",
         "--micro_time", "16",
         "--num_uploaded", "8",
-        "--samples_per_image", "64",
+        #"--samples_per_image", "64",
 
         "--no_in_channel", "1",
         "--no_out_channel", "1",
@@ -353,6 +353,7 @@ class microscopy_ddp_base(run_ddp_base):
             cmd_run.extend(["--no_clip_data"])
 
         cmd_run.extend(["--train_samples", f"{config.train_samples}"])
+        cmd_run.extend(["--samples_per_image", f"{config.samples_per_image}"])
 
         cmd_run.extend(["--post_backbone", f"{config.post_backbone}"])
         cmd_run.extend([f"--post_hrnet.block_str", *config.post_block_str])
@@ -422,6 +423,8 @@ class microscopy_ddp_base(run_ddp_base):
         parser.add_argument('--train_samples', type=int, default=0, help='number of images to train/finetune with. First n are taken from the train set if n>0')
 
         parser.add_argument("--no_clip_data", action="store_true", help="whether to not clip the data to [0,1] after scaling. default: do clip")
+
+        parser.add_argument('--samples_per_image', type=int, default=128, help='samples to take from a single image per epoch')
 
         return parser
 

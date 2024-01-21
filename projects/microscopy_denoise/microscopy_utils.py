@@ -58,7 +58,11 @@ def load_all(input_dir, file_names):
 
     images = []
 
+    print(file_names)
     for file_name in tqdm(file_names):
+
+        if os.path.isdir(os.path.join(input_dir, file_name)):
+            continue
 
         if file_name.endswith(".tif") or file_name.endswith(".tiff") or file_name.endswith(".TIFF"):
             images.append(load_tiff(input_dir, file_name))
@@ -67,7 +71,7 @@ def load_all(input_dir, file_names):
         elif file_name.endswith(".h5") or file_name.endswith(".h5py"):
             images.extend(load_h5(input_dir, file_name))
         else:
-            raise NotImplementedError(f"Only supported formats: '.tif', '.tiff', '.TIFF', '.h5', '.h5py'. Given format:{file_name}")
+            print(f"Only supported formats: '.tif', '.tiff', '.TIFF', '.h5', '.h5py'. Given format:{file_name}")
 
     return images
 
@@ -103,10 +107,21 @@ def data_all(args, config):
 
 def save_one(saved_path, fname, x, output, y=None):
 
-        noisy_im = x.numpy(force=True)
-        predi_im = output.numpy(force=True)
+        if isinstance(x, np.ndarray):
+            noisy_im = x
+        else:
+            noisy_im = x.numpy(force=True)
+
+        if isinstance(output, np.ndarray):
+            predi_im = output.numpy(force=True)
+        else:
+            predi_im = output
+
         if y is not None:
-            clean_im = y.numpy(force=True)
+            if isinstance(y, np.ndarray):
+                clean_im = y
+            else:
+                clean_im = y.numpy(force=True)
         else:
             clean_im = None
 
@@ -114,9 +129,9 @@ def save_one(saved_path, fname, x, output, y=None):
         np.save(os.path.join(saved_path, f"{fname}_output.npy"), predi_im)
         if clean_im is not None: np.save(os.path.join(saved_path, f"{fname}_y.npy"), clean_im)
 
-        save_x = noisy_im[0,0]
-        save_p = predi_im[0,0]
-        save_y = clean_im[0,0] if clean_im is not None else []
+        save_x = noisy_im[0,0,0]
+        save_p = predi_im[0,0,0]
+        save_y = clean_im[0,0,0] if clean_im is not None else []
 
         if clean_im is None:
             composed_channel_wise = np.transpose(np.array([save_x, save_p]), (1,0,2,3))

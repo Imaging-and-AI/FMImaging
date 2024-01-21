@@ -73,6 +73,8 @@ def apply_model(model, x, config, device, overlap=None, batch_size=4, verbose=Fa
         cutout = (c.time, c.height[-1], c.width[-1])
         if overlap is None: overlap = (c.time//2, c.height[-1]//2, c.width[-1]//2)
 
+    print(f"cutout is {cutout}")
+
     try:
         _, output = running_inference(model, x, cutout=cutout, overlap=overlap, batch_size=batch_size, device=device, verbose=verbose)
     except Exception as e:

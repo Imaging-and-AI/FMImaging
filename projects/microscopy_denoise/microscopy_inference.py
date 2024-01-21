@@ -23,9 +23,6 @@ sys.path.append(str(MRI_DIR))
 Project_DIR = Path(__file__).parents[2].resolve()
 sys.path.append(str(Project_DIR))
 
-REPO_DIR = Path(__file__).parents[3].resolve()
-sys.path.append(str(REPO_DIR))
-
 from utils import *
 from microscopy_utils import *
 from temp_utils.inference_utils import apply_model, load_model
@@ -52,7 +49,9 @@ def arg_parser():
     parser.add_argument("--no_clip_data", action="store_true", help="whether to not clip the data to [0,1] after scaling. default: do clip")
     parser.add_argument("--image_order", type=str, default="THW", help='the order of axis in the input image: THW or WHT')
     parser.add_argument("--device", type=str, default="cuda", help='the device to run on')
-    parser.add_argument("--batch_size", type=int, default=4, help='batch_size for running inference')
+    parser.add_argument("--batch_size", type=int, default=1, help='batch_size for running inference')
+
+    parser.add_argument("--scaling_vals", type=float, nargs='+', default=[0, 4096], help='min max values to scale with respect to the scaling type')
 
     return parser.parse_args()
 
@@ -113,7 +112,12 @@ def main():
 
         predi_im = apply_model(model, noisy_im, config, config.device, overlap=args.overlap, batch_size=args.batch_size)
 
-        save_one(args.output_dir, f_name, noisy_im, clean_im, predi_im)
+        predi_im = predi_im.cpu().numpy()
+
+        np.save(os.path.join(args.output_dir, f"{f_name}_x.npy"), np.transpose(np.squeeze(noisy_im), [1, 2, 0])*args.scaling_vals[1])
+        np.save(os.path.join(args.output_dir, f"{f_name}_pred.npy"), np.transpose(np.squeeze(predi_im), [1, 2, 0])*args.scaling_vals[1])
+        if clean_im:
+            np.save(os.path.join(args.output_dir, f"{f_name}_y.npy"), np.transpose(np.squeeze(clean_im), [1, 2, 0])*args.scaling_vals[1])
 
     print("End inference and saving")
 
