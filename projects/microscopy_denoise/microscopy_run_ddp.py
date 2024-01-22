@@ -355,6 +355,8 @@ class microscopy_ddp_base(run_ddp_base):
         cmd_run.extend(["--train_samples", f"{config.train_samples}"])
         cmd_run.extend(["--samples_per_image", f"{config.samples_per_image}"])
 
+        cmd_run.extend(["--scaling_vals", f"{config.scaling_vals[0]}", f"{config.scaling_vals[1]}"])
+
         cmd_run.extend(["--post_backbone", f"{config.post_backbone}"])
         cmd_run.extend([f"--post_hrnet.block_str", *config.post_block_str])
 
@@ -425,6 +427,8 @@ class microscopy_ddp_base(run_ddp_base):
         parser.add_argument("--no_clip_data", action="store_true", help="whether to not clip the data to [0,1] after scaling. default: do clip")
 
         parser.add_argument('--samples_per_image', type=int, default=128, help='samples to take from a single image per epoch')
+
+        parser.add_argument("--scaling_vals", type=float, nargs='+', default=[0,65536], help='min max values to scale with respect to the scaling type')
 
         return parser
 
