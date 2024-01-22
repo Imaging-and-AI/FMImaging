@@ -75,14 +75,14 @@ class microscopy_ddp_base(run_ddp_base):
         # "--micro_height", "32", "64",
         # "--micro_width", "32", "64",
         "--micro_time", "16",
-        "--num_uploaded", "8",
+        "--num_uploaded", "32",
         #"--samples_per_image", "64",
 
         "--no_in_channel", "1",
         "--no_out_channel", "1",
         
         "--scaling_type", "val",
-        "--scaling_vals", "0", "4096",
+        #"--scaling_vals", "0", "4096",
         "--valu_thres", "0.2",
         "--area_thres", "0.2",
         ])
@@ -428,7 +428,7 @@ class microscopy_ddp_base(run_ddp_base):
 
         parser.add_argument('--samples_per_image', type=int, default=128, help='samples to take from a single image per epoch')
 
-        parser.add_argument("--scaling_vals", type=float, nargs='+', default=[0,65536], help='min max values to scale with respect to the scaling type')
+        parser.add_argument("--scaling_vals", type=float, nargs='+', default=[0,4096], help='min max values to scale with respect to the scaling type')
 
         return parser
 
