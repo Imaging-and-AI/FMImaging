@@ -67,7 +67,7 @@ def apply_model(model, x, config, device, overlap=None, batch_size=4, verbose=Fa
     B, T, C, H, W = x.shape
 
     if not c.pad_time:
-        cutout = (T, c.height[-1], c.width[-1])
+        cutout = (T if T<128 else 128, c.height[-1], c.width[-1])
         if overlap is None: overlap = (0, c.height[-1]//2, c.width[-1]//2)
     else:
         cutout = (c.time, c.height[-1], c.width[-1])
