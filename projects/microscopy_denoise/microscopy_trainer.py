@@ -99,7 +99,7 @@ class MicroscopyTrainManager(TrainManager):
             logging.info(f"Configuration for this run:\n{c}")
             logging.info(f"Model Summary:\n{str(model_summary)}")
             logging.info(f"Wandb name:\n{self.metric_manager.wandb_run.name}")
-            self.metric_manager.wandb_run.watch(self.model_manager)
+            #self.metric_manager.wandb_run.watch(self.model_manager)
             wandb_run = self.metric_manager.wandb_run
         else:
             wandb_run = None
