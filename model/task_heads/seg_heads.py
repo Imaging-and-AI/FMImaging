@@ -86,25 +86,29 @@ class UperNet2D(nn.Module):
     UperNet3D head, used for segmentation. Incorporates features from four different depths in backbone.
     @args:
         config (namespace): contains all args
-        feature_channels (List[int]): number of channels in each feature densor
+        input_feature_channels (List[int]): contains a list of the number of feature channels in each tensor input into this task head (i.e., returned by the backbone)
+        output_feature_channels (List[int]): contains a list of the number of feature channels in each tensor expected to be returned by this task head
         forward pass, features (torch tensor): features we will process, size B C H W
     @rets:
         forward pass, x (torch tensor): output tensor, size B C H W
 
     """
-    def __init__(self, config, feature_channels):
+    def __init__(self, 
+                 config, 
+                 input_feature_channels,
+                 output_feature_channels):
         super(UperNet2D, self).__init__()
 
 
         self.config = config
-        self.fpn_out = feature_channels[0]
+        self.fpn_out = input_feature_channels[0]
         if self.config.use_patches:
             self.input_size = (config.patch_height,config.patch_width)
         else:
             self.input_size = (config.height,config.width)
-        self.PPN = PSPModule2D(feature_channels[-1])
-        self.FPN = FPN_fuse2D(feature_channels, fpn_out=self.fpn_out)
-        self.head = nn.Conv2d(self.fpn_out, config.no_out_channel, kernel_size=3, padding=1)
+        self.PPN = PSPModule2D(input_feature_channels[-1])
+        self.FPN = FPN_fuse2D(input_feature_channels, fpn_out=self.fpn_out)
+        self.head = nn.Conv2d(self.fpn_out, output_feature_channels[-1], kernel_size=3, padding=1)
 
     def forward(self, features):
         features = [f[:,:,0,:,:] for f in features] # Remove time dim for 2d convoultional upernet
@@ -186,23 +190,27 @@ class UperNet3D(nn.Module):
     UperNet3D head, used for segmentation. Incorporates features from four different depths in backbone.
     @args:
         config (namespace): contains all args
-        feature_channels (List[int]): number of channels in each feature densor
+        input_feature_channels (List[int]): contains a list of the number of feature channels in each tensor input into this task head (i.e., returned by the backbone)
+        output_feature_channels (List[int]): contains a list of the number of feature channels in each tensor expected to be returned by this task head
         forward pass, features (torch tensor): features we will process, size B C D H W
     @rets:
         forward pass, x (torch tensor): output tensor, size B C D H W
 
     """
-    def __init__(self, config, feature_channels):
+    def __init__(self, 
+                 config, 
+                 input_feature_channels,
+                 output_feature_channels):
         super(UperNet3D, self).__init__()
 
         self.config = config
-        self.fpn_out = feature_channels[0]
+        self.fpn_out = input_feature_channels[0]
         if self.config.use_patches:
             self.input_size = (config.patch_time,config.patch_height,config.patch_width)
         else:
             self.input_size = (config.time,config.height,config.width)
-        self.PPN = PSPModule3D(feature_channels[-1])
-        self.FPN = FPN_fuse3D(feature_channels, fpn_out=self.fpn_out)
+        self.PPN = PSPModule3D(input_feature_channels[-1])
+        self.FPN = FPN_fuse3D(input_feature_channels, fpn_out=self.fpn_out)
         self.head = nn.Conv3d(self.fpn_out, self.config.no_out_channel, kernel_size=3, padding=1)
 
     def forward(self, features, output_size=None):
@@ -224,14 +232,16 @@ class SimpleConv(nn.Module):
     def __init__(
         self,
         config,
-        feature_channels,
+        input_feature_channels,
+        output_feature_channels,
     ):
         """
         Takes in features from backbone model and produces an output of same size as input with no_out_channel using only the last feature tensor
         Originally used with STCNNT experiments
         @args:
             config (namespace): contains all parsed args
-            feature_channels (List[int]): contains a list of the number of feature channels in each tensor returned by the backbone
+            input_feature_channels (List[int]): contains a list of the number of feature channels in each tensor input into this task head (i.e., returned by the backbone)
+            output_feature_channels (List[int]): contains a list of the number of feature channels in each tensor expected to be returned by this task head
             forward pass, x (List[tensor]): contains a list of torch tensors output by the backbone model, each five dimensional (B C D H W).
             ** Note that this function requires the backbone output features of same resolution as input---this function does not interpolate features
         @rets:
@@ -240,7 +250,7 @@ class SimpleConv(nn.Module):
         super().__init__()
 
         self.permute = torchvision.ops.misc.Permute([0,2,1,3,4])
-        self.conv2d = Conv2DExt(in_channels=feature_channels[-1], out_channels=config.no_out_channel, kernel_size=[1,1], padding=[0, 0], stride=[1,1], bias=True)
+        self.conv2d = Conv2DExt(in_channels=input_feature_channels[-1], out_channels=output_feature_channels[-1], kernel_size=[1,1], padding=[0, 0], stride=[1,1], bias=True)
 
         for m in self.modules():
             if isinstance(m, nn.Linear):

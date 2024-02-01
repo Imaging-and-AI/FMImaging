@@ -49,17 +49,19 @@ from backbone_base import STCNNT_Base_Runtime, set_window_patch_sizes_keep_num_w
 __all__ = ['STCNNT_Mixed_Unetr_model', 'STCNNT_Mixed_Unetr']
 
 # -------------------------------------------------------------------------------------------------
-def STCNNT_Mixed_Unetr_model(config, pre_feature_channels):
+def STCNNT_Mixed_Unetr_model(config, input_feature_channels):
     """
-    Simple function to return STCCNT mixed Unetr model.
-    Additionally, function computes feature_channels, a list of ints containing the number of channels in each feature returned by the model.
+    Wrapper function to return STCCNT mixed Unetr model.
+    @args:
+        config (Namespace): Namespace object containing configuration parameters.
+        input_feature_channels (List[int]): List of ints containing the number of channels in each input tensor.
+    @rets:
+        model (torch model): pytorch model object 
+        output_feature_channels (List[int]): list of ints indicated the number of channels in each output tensor.
     """
-    C_in = config.no_in_channel
-    config.no_in_channel = pre_feature_channels[-1]
-    model = STCNNT_Mixed_Unetr(config=config)
-    config.no_in_channel = C_in
-    feature_channels = [int(config.backbone_mixed_unetr.C*(config.backbone_mixed_unetr.num_resolution_levels+1))]
-    return model, feature_channels
+    model = STCNNT_Mixed_Unetr(config, input_feature_channels)
+    output_feature_channels = [int(config.backbone_mixed_unetr.C*(config.backbone_mixed_unetr.num_resolution_levels+1))]
+    return model, output_feature_channels
 
 # -------------------------------------------------------------------------------------------------
 
@@ -166,12 +168,11 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
 
     """
 
-    def __init__(self, config) -> None:
+    def __init__(self, config, input_feature_channels) -> None:
         """
         @args:
             - config (Namespace): runtime namespace for setup
-            - total_steps (int): total training steps. used for OneCycleLR
-            - load (bool): whether to try loading from config.load_path or not
+            - input_feature_channels (List[int]): list of ints indicating the number of channels in each input tensor
 
         @args (from config):
 
@@ -217,8 +218,9 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
         n_heads = config.backbone_mixed_unetr.n_heads
         use_conv_3d = config.backbone_mixed_unetr.use_conv_3d
         use_window_partition = config.backbone_mixed_unetr.use_window_partition
+        no_in_channel = input_feature_channels[-1]
 
-        assert C >= config.no_in_channel, "Number of channels should be larger than C_in"
+        assert C >= no_in_channel, "Number of channels should be larger than C_in"
         assert num_resolution_levels <= 5 and num_resolution_levels>=1, "Maximal number of resolution levels is 5"
 
         self.C = C
@@ -257,12 +259,12 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
         if use_window_partition:
             if T//2 > min_T:
                 self.window_partition = WindowPartition3D()
-                C_in_wp = 8 * c.no_in_channel
+                C_in_wp = 8 * no_in_channel
                 T = T//2
                 is_3D_window_partition = True
             else:
                 self.window_partition = WindowPartition2D()
-                C_in_wp = 4 * c.no_in_channel
+                C_in_wp = 4 * no_in_channel
                 is_3D_window_partition = False
         
             self.conv_window_partition = create_conv(in_channels=C_in_wp, out_channels=self.C, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d)
@@ -279,12 +281,12 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
         else:
             self.window_partition = nn.Identity()
             self.conv_window_partition = nn.Identity()
-            C_start = c.no_in_channel
+            C_start = no_in_channel
             
             self.encoder_on_input = False
 
         if self.encoder_on_input:
-            self.E = _encoder_on_skip_connection(H=H, W=W, C_in=c.no_in_channel, C_out=self.C, norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d, residual=(c.no_in_channel == self.C))
+            self.E = _encoder_on_skip_connection(H=H, W=W, C_in=no_in_channel, C_out=self.C, norm_mode=c.norm_mode, activation=c.activation_func, bias=False, separable_conv=c.separable_conv, use_conv_3d=use_conv_3d, residual=(no_in_channel == self.C))
         else:
             self.E = nn.Identity()
             
@@ -682,14 +684,14 @@ class STCNNT_Mixed_Unetr(STCNNT_Base_Runtime):
     def forward(self, x):
         """
         @args:
-            - x (5D torch.Tensor): the input image, [B, T, Cin, H, W]
+            - x (list of 5D torch.Tensor): the input image, [B, T, Cin, H, W]
 
         @rets:
             - y_hat (5D torch.Tensor): output tensor, [B, T, Cout, H, W]
         """
 
         tm = start_timer(enable=self.with_timer)
-        x = self.permute(x)
+        x = self.permute(x[-1])
         end_timer(enable=self.with_timer, t=tm, msg="x = self.permute(x)")
         
         B, T, Cin, H, W = x.shape

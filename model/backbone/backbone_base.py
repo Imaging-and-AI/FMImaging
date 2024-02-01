@@ -642,14 +642,13 @@ class IdentityModel(nn.Module):
     def forward(self, x):
         return [self.identity_layer(x)]
 
-def identity_model(config, input_features=None):
+def identity_model(config, input_feature_channels):
     """
     Simple function to return identity model and feature channels in format requierd by codebase
     """
     model = IdentityModel()
-    if input_features is not None: feature_channels = input_features
-    else: feature_channels = [config.no_in_channel]
-    return model, feature_channels
+    output_feature_channels = input_feature_channels
+    return model, output_feature_channels
 
 # -------------------------------------------------------------------------------------------------
 

@@ -6,17 +6,17 @@ import torchmetrics
 import numpy as np
 
 # -------------------------------------------------------------------------------------------------
-def get_metric_function(metric_name, config, metric_task, multidim_average):
+def get_metric_function(metric_name, num_classes, metric_task, multidim_average):
     """
     Returns the function to compute the metric specified by metric_name
     """
 
     if metric_name=='acc_1':
-        return torchmetrics.Accuracy(task=metric_task, num_classes=config.no_out_channel, top_k=1, average='micro', multidim_average=multidim_average)
+        return torchmetrics.Accuracy(task=metric_task, num_classes=num_classes, top_k=1, average='micro', multidim_average=multidim_average)
     elif metric_name=='auroc':
-        return torchmetrics.AUROC(task=metric_task, num_classes=config.no_out_channel, average='macro')
+        return torchmetrics.AUROC(task=metric_task, num_classes=num_classes, average='macro')
     elif metric_name=='f1':
-         return torchmetrics.F1Score(task=metric_task, num_classes=config.no_out_channel, average='macro', multidim_average=multidim_average) # Will not be exact for multiclass dice, but will be close
+         return torchmetrics.F1Score(task=metric_task, num_classes=num_classes, average='macro', multidim_average=multidim_average) # Will not be exact for multiclass dice, but will be close
     elif metric_name=='psnr':
         return torchmetrics.image.PeakSignalNoiseRatio()
     elif metric_name=='ssim':

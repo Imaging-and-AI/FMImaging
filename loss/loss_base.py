@@ -12,20 +12,21 @@ sys.path.append(str(Current_DIR))
 from loss_functions import *
 
 # -------------------------------------------------------------------------------------------------
-def get_loss_func(config):
+def get_loss_func(loss_name):
     """
-    Sets up the loss
+    Sets up the loss function.
+    By default, the loss function will be passed (model_outputs, datalodaer_labels) and should return a float
     @args:
-        - config (namespace): contains args for defining loss
+        - loss_name: str defining the loss function
     @output:
         - loss_f: loss function
     """
-    if config.loss_type=='CrossEntropy':
+    if loss_name=='CrossEntropy':
         loss_f = nn.CrossEntropyLoss()
-    elif config.loss_type=='MSE':
+    elif loss_name=='MSE':
         loss_f = nn.MSELoss()
     else:
-        raise NotImplementedError(f"Loss function not implemented: {config.loss_type}")
+        raise NotImplementedError(f"Loss function not implemented: {loss_name}")
     return loss_f
         
 # -------------------------------------------------------------------------------------------------

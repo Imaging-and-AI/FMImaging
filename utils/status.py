@@ -100,14 +100,17 @@ def model_info(model, config):
             see torchinfo/model_statistics.py for more information.
     """
     c = config
-    input_size = (c.batch_size, c.no_in_channel, c.time, c.height, c.width)
+    task_ind = 0
+    input_size = (c.batch_size[task_ind], c.no_in_channel[task_ind], c.time[task_ind], c.height[task_ind], c.width[task_ind])
     col_names=("num_params", "params_percent", "mult_adds", "input_size", "output_size", "trainable")
     row_settings=["var_names", "depth"]
     dtypes=[torch.float32]
 
-    model_summary = summary(model, verbose=0, mode="train", depth=c.summary_depth,\
-                            input_size=input_size, col_names=col_names,\
-                            row_settings=row_settings, dtypes=dtypes,\
+    model_summary = summary(model, \
+                            # input_data=[torch.zeros(input_size).to(device=config.device), c.tasks[task_ind]], \
+                            verbose=0, mode="train", depth=c.summary_depth,\
+                            input_size=input_size, 
+                            col_names=col_names,row_settings=row_settings, dtypes=dtypes,\
                             device=config.device)
 
     c.trainable_params = model_summary.trainable_params

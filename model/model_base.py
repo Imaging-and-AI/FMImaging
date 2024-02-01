@@ -1,6 +1,7 @@
 
 """
-Define a model, which includes the pre/backbone/post heads with basic save and load functionality and the forward function
+Define a model component, which is a component of the full model architecture (e.g., pre, post, or backbone components) with basic save/load/freeze functionality
+Define a model manager, which establishes the forward function and connects the pre/backbone/post components; also provides full model save/load functionality
 """
 
 import os
@@ -19,435 +20,274 @@ from pathlib import Path
 Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.append(str(Project_DIR))
 
-from optim.optim_utils import divide_optim_into_groups
-from setup import config_to_yaml
-
 # -------------------------------------------------------------------------------------------------
 
-class ModelManager(nn.Module):
+class ModelComponent(nn.Module):
     """
-    Manager to set up a model, including pre, backbone, and post components
-    Provides generic save and load functionality
+    Define a model component, which is some part of the full model architecture (e.g., the pre, backbone, or post head)
+    Provides generic save, freeze, load functionality
     """
-    def __init__(self, config):
+
+    def __init__(self, config, component_name, input_feature_channels=None, output_feature_channels=None):
         """
         @args:
             - config (Namespace): nested namespace containing all args
+            - component_name (str): name of the model component to create
+            - input_feature_channels (List[int]): list of ints specifying the channel dimensions of the inputs to the model
+            - output_feature_channels (List[int]): list of ints specifying the channel dimensions of the outputs of the model; can be None if output_feature_channels is computed within the component       
         """
+        
         super().__init__()
 
         self.config = config
+        self.component_name = component_name
+        self.input_feature_channels = input_feature_channels
+        self.output_feature_channels = output_feature_channels
 
-        # Create models
-        self.create_pre()
-        self.create_backbone()
-        self.create_post()
+        if not isinstance(self.input_feature_channels, list):
+            self.input_feature_channels = [self.input_feature_channels]
+        if not isinstance(self.output_feature_channels, list):
+            self.output_feature_channels = [self.output_feature_channels]
+
+        self.create_model_component()
 
     @property
     def device(self):
         return next(self.parameters()).device
     
-    def create_pre(self): 
+    def create_model_component(self): 
         """
-        Sets up the pre model architecture
-        Rules these models should abide by: 
-            inputs: config file
-            init returns: model and pre_feature_channels (List[int])
-            forward pass returns: List[tensor] (assumed length 1), each tensor is shape B C* D* H* W*, where C* is specified in pre_feature_channels
-        @args:
-            - None; uses values from self.config
-        @outputs:
-            - self.pre: model for processing inputs prior to being input into the backbone
-            - self.pre_feature_channels: list of ints specifying the channel dimensions returned from the pre model
+        Rules these models abide by: 
+            model init returns: 
+                - model component 
+                - output_feature_channels (List[int]): List of ints containing the number of features in each tensor returned from the model component
+            model forward pass returns: 
+                - model outputs (List[tensor]): outputs from the model component, each tensor can have varying shape in the form B C* D* H* W*, where C* is specified in output_feature_channels
         """
-        if self.config.pre_model=='Identity':
-            self.pre, self.pre_feature_channels = identity_model(self.config)
+        
+        # Pre heads
+        if self.component_name=='Identity':
+            self.model, self.output_feature_channels = identity_model(self.config, self.input_feature_channels)
+        # Backbone models
+        elif self.component_name=='omnivore':
+            self.model, self.output_feature_channels = omnivore(self.config, self.input_feature_channels)
+        elif self.component_name=='STCNNT_HRNET':
+            self.model, self.output_feature_channels = STCNNT_HRnet_model(self.config, self.input_feature_channels)
+        elif self.component_name=='STCNNT_UNET':
+            self.model, self.output_feature_channels = STCNNT_Unet_model(self.config, self.input_feature_channels)
+        elif self.component_name=='STCNNT_mUNET':
+            self.model, self.output_feature_channels = STCNNT_Mixed_Unetr_model(self.config, self.input_feature_channels)
+        # Post heads
+        elif self.component_name=='UperNet2D': # 2D seg
+            self.model = UperNet2D(self.config, self.input_feature_channels, self.output_feature_channels)
+        elif self.component_name=='UperNet3D': # 3D seg
+            self.model = UperNet3D(self.config, self.input_feature_channels, self.output_feature_channels)
+        elif self.component_name=='SimpleConv': # 2D or 3D seg
+            self.model = SimpleConv(self.config, self.input_feature_channels, self.output_feature_channels)
+        elif self.component_name=='NormPoolLinear': # 2D or 3D class
+            self.model = NormPoolLinear(self.config, self.input_feature_channels, self.output_feature_channels)
+        elif self.component_name=='ConvPoolLinear': # 2D or 3D class
+            self.model = ConvPoolLinear(self.config, self.input_feature_channels, self.output_feature_channels)
+        elif self.component_name=='SimpleMultidepthConv': # 2D or 3D enhancement
+            self.model = SimpleMultidepthConv(self.config, self.input_feature_channels, self.output_feature_channels)
+        elif self.component_name=='UNETR2D': # 2D enhancement
+            self.model = UNETR2D(self.config, self.input_feature_channels, self.output_feature_channels)
+        elif self.component_name=='UNETR3D': # 2D or 3d enhancement, works with both
+            self.model = UNETR3D(self.config, self.input_feature_channels, self.output_feature_channels)
         else:
-            raise NotImplementedError(f"Pre model not implemented: {self.config.pre_model}")
+            raise NotImplementedError(f"Model not implemented: {self.model_name}")
 
-    def save_pre(self, model_save_name, epoch, optim, sched):
+    def save(self, model_save_name): 
         """
-        Save pre model checkpoint
+        Save weights of model component
         @args:
             - model_save_name (str): what to name this saved model
-            - epoch (int): current epoch of the training cycle
-            - optim: optimizer to save along with this model
-            - sched: schedule to save along with this model
         @rets: 
-            - None; saves into self.config.log_dir
+            - save_path (str): location of saved model
         """
-        save_path = os.path.join(self.config.log_dir, self.config.run_name, f"{model_save_name}.pth")
-        logging.info(f"{Fore.YELLOW}Saving model status at {save_path}{Style.RESET_ALL}")
+        save_path = os.path.join(self.config.log_dir, self.config.run_name.replace(' ','_'), f"{model_save_name}.pth")
+        logging.info(f"{Fore.YELLOW}Saving model component at {save_path}{Style.RESET_ALL}")
 
-        # Get the pre model's optimizer group
-        pre_optim_state_dict = divide_optim_into_groups(optim, "pre", self.config.optim.all_w_decay)
-
-        # Save all info
         save_dict = {
-            "epoch":epoch,
-            "pre_model_state": self.pre.state_dict(), 
-            "pre_optimizer_state": pre_optim_state_dict, 
+            "state_dict": self.model.state_dict(), 
             "config": self.config,
+            "model_name": self.model_name,
+            "input_feature_channels": self.input_feature_channels,
+            "output_feature_channels": self.output_feature_channels
         }
 
-        if sched is not None: save_dict["scheduler_state"] = sched.state_dict()
         torch.save(save_dict, save_path)
+
         return save_path
 
-    def load_pre(self, load_path, device=None):
+    def load(self, load_path, device=None):
         """
-        Load a pre module checkpoint from the pre load path in config
+        Load weights of a model component checkpoint
         @args:
             - load_path (str): path to load the weights from
             - device (torch.device): device to setup the model on
         """
 
+        assert os.path.isfile(load_path), f"{Fore.YELLOW} Specific load path {load_path} does not exist {Style.RESET_ALL}"
         logging.info(f"{Fore.YELLOW}Loading model from {load_path}{Style.RESET_ALL}")
 
-        if os.path.isfile(load_path):
-            status = torch.load(load_path, map_location=self.config.device)
+        status = torch.load(load_path, map_location=self.config.device)
+        assert 'state_dict' in status, f"{Fore.YELLOW} Model weights in specified load path {load_path} are not available {Style.RESET_ALL}"
 
-            if 'pre_model_state' in status:
-                self.pre.load_state_dict(status['pre_model_state'])
-                logging.info(f"{Fore.GREEN} Pre model loading successful {Style.RESET_ALL}")
-            else: 
-                logging.warning(f"{Fore.YELLOW} Model weights in specified load_path are not available {Style.RESET_ALL}")
+        self.model.load_state_dict(status['state_dict'])
+        logging.info(f"{Fore.GREEN} Model loading {load_path.split('/')[-1]} successful {Style.RESET_ALL}")
 
-        else:
-            logging.warning(f"{Fore.YELLOW}{load_path} does not exist .... {Style.RESET_ALL}")
+    def freeze(self):
+        "Freeze component parameters"
 
-    def freeze_pre(self):
-        "Freeze pre model parameters"
-        self.pre.requires_grad_(False)
-        for param in self.pre.parameters():
+        self.model.requires_grad_(False)
+        for param in self.model.parameters():
             param.requires_grad = False
 
-    def create_backbone(self): 
+    def forward(self, x):
         """
-        Sets up the backbone model architecture
-        Rules these models should abide by: 
-            inputs: config file and pre_feature_channels
-            init returns: model and feature_channels (List[int])
-            forward pass returns: List[tensor], each tensor can have varying shape in the form B C* D* H* W*, where C* is specified in pre_feature_channels
+        Define the forward pass through the model component
+        """
+        return self.model(x)
+
+# -------------------------------------------------------------------------------------------------
+
+class ModelManager(nn.Module):
+    """
+    Manager to connect the pre, backbone, and post model components
+    Provides generic save and load functionality
+    """
+    def __init__(self, config, tasks, backbone_component):
+        """
         @args:
-            - None; uses values from self.config
-        @outputs:
-            - self.backbone: trunk of the model
-            - self.feature_channels: list of ints specifying number of channels returned from the backbone
+            - config (Namespace): nested namespace containing all args
+            - tasks (dict): dictionary of {task_name: TaskManager}, which includes the tasks' pre/post model components
+            - backbone_component (ModelComponent): backbone model component
         """
+        super().__init__()
 
-        if self.config.backbone_model=='Identity':
-            self.backbone, self.feature_channels = identity_model(self.config, self.pre_feature_channels)
-        elif self.config.backbone_model=='omnivore':
-            self.backbone, self.feature_channels = omnivore(self.config, self.pre_feature_channels)
-        elif self.config.backbone_model=='STCNNT_HRNET':
-            self.backbone, self.feature_channels = STCNNT_HRnet_model(self.config, self.pre_feature_channels)
-        elif self.config.backbone_model=='STCNNT_UNET':
-            self.backbone, self.feature_channels = STCNNT_Unet_model(self.config, self.pre_feature_channels)
-        elif self.config.backbone_model=='STCNNT_mUNET':
-            self.backbone, self.feature_channels = STCNNT_Mixed_Unetr_model(self.config, self.pre_feature_channels)
-        else:
-            raise NotImplementedError(f"Backbone model not implemented: {self.config.backbone_model}")
-
-    def save_backbone(self, model_save_name, epoch, optim, sched):
-        """
-        Save backbone model checkpoint
-        @args:
-            - model_save_name (str): what to name this saved model
-            - epoch (int): current epoch of the training cycle
-            - optim: optimizer to save along with this model
-            - sched: schedule to save along with this model
-        @rets: 
-            - None; saves into self.config.log_dir
-        """
-        save_path = os.path.join(self.config.log_dir, self.config.run_name, f"{model_save_name}.pth")
-        logging.info(f"{Fore.YELLOW}Saving model status at {save_path}{Style.RESET_ALL}")
-
-        backbone_optim_state_dict = divide_optim_into_groups(optim, "backbone", self.config.optim.all_w_decay)
-
-        save_dict = {
-            "epoch":epoch,
-            "backbone_model_state": self.backbone.state_dict(), 
-            "backbone_optimizer_state": backbone_optim_state_dict, 
-            "config": self.config,
-        }
-        if sched is not None: save_dict["scheduler_state"] = sched.state_dict()
-        torch.save(save_dict, save_path)
-        return save_path
-
-    def load_backbone(self, load_path, device=None):
-        """
-        Load a backbone checkpoint from the backbone load path in config + load optimizer, config, and scheduler
-        @args:
-            - load_path (str): path to load the weights from
-            - device (torch.device): device to setup the model on
-        """
-        logging.info(f"{Fore.YELLOW}Loading model from {load_path}{Style.RESET_ALL}")
-
-        if os.path.isfile(load_path):
-            status = torch.load(load_path, map_location=self.config.device)
-
-            if 'backbone_model_state' in status:
-                self.backbone.load_state_dict(status['backbone_model_state'])
-                logging.info(f"{Fore.GREEN} Backbone model loading successful {Style.RESET_ALL}")
-            else: 
-                logging.warning(f"{Fore.YELLOW} Model weights in specified load_path are not available {Style.RESET_ALL}")
-
-        else:
-            logging.warning(f"{Fore.YELLOW}{load_path} does not exist .... {Style.RESET_ALL}")
-
-    def freeze_backbone(self):
-        "Freeze backbone model parameters"
-        self.backbone.requires_grad_(False)
-        for param in self.backbone.parameters():
-            param.requires_grad = False
-
-    def create_post(self): 
-
-        """
-        Sets up the post model architecture
-        Rules these models should abide by: 
-            inputs: config file and feature_channels
-            init returns: model
-            forward pass returns: List[tensor] (assumed length 1 in default codebase), each tensor is shape of expected output for task
-        @args:
-            - None; uses values from self.config
-        @outputs:
-            - self.post: task-specific head to process trunk outputs
-        """
-
-        if self.config.post_model=='Identity':
-            self.post = nn.Identity()
-        elif self.config.post_model=='UperNet2D': # 2D seg
-            self.post = UperNet2D(self.config, self.feature_channels)
-        elif self.config.post_model=='UperNet3D': # 3D seg
-            self.post = UperNet3D(self.config, self.feature_channels)
-        elif self.config.post_model=='SimpleConv': # 2D or 3D seg
-            self.post = SimpleConv(self.config, self.feature_channels)
-        elif self.config.post_model=='NormPoolLinear': # 2D or 3D class
-            self.post = NormPoolLinear(self.config, self.feature_channels)
-        elif self.config.post_model=='ConvPoolLinear': # 2D or 3D class
-            self.post = ConvPoolLinear(self.config, self.feature_channels)
-        elif self.config.post_model=='SimpleMultidepthConv': # 2D or 3D enhancement
-            self.post = SimpleMultidepthConv(self.config, self.feature_channels)
-        elif self.config.post_model=='UNETR2D': # 2D enhancement
-            self.post = UNETR2D(self.config, self.feature_channels)
-        elif self.config.post_model=='UNETR3D': # 2D or 3d enhancement, works with both
-            self.post = UNETR3D(self.config, self.feature_channels)
-        else:
-            raise NotImplementedError(f"Post model not implemented: {self.config.post_model}")
-
-    def save_post(self, model_save_name, epoch, optim, sched):
-        """
-        Save post model checkpoint
-        @args:
-            - model_save_name (str): what to name this saved model
-            - epoch (int): current epoch of the training cycle
-            - optim: optimizer to save along with this model
-            - sched: schedule to save along with this model
-        @rets: 
-            - None; saves into self.config.log_dir
-        """
-        save_path = os.path.join(self.config.log_dir, self.config.run_name, f"{model_save_name}.pth")
-        logging.info(f"{Fore.YELLOW}Saving model status at {save_path}{Style.RESET_ALL}")
-
-        post_optim_state_dict = divide_optim_into_groups(optim, "post", self.config.optim.all_w_decay)
-
-        save_dict = {
-            "epoch":epoch,
-            "post_model_state": self.post.state_dict(), 
-            "post_optimizer_state": post_optim_state_dict, 
-            "config": self.config,
-        }
-        if sched is not None: save_dict["scheduler_state"] = sched.state_dict()
-        torch.save(save_dict, save_path)
-        return save_path
-
-    def load_post(self, load_path, device=None):
-        """
-        Load a post module checkpoint from the post load path in config
-        @args:
-            - load_path (str): path to load the weights from
-            - device (torch.device): device to setup the model on
-        """
-
-        logging.info(f"{Fore.YELLOW}Loading model from {load_path}{Style.RESET_ALL}")
-
-        if os.path.isfile(load_path):
-            status = torch.load(load_path, map_location=self.config.device)
-
-            if 'post_model_state' in status:
-                self.post.load_state_dict(status['post_model_state'])
-                logging.info(f"{Fore.GREEN} Post model loading successful {Style.RESET_ALL}")
-            else: 
-                logging.warning(f"{Fore.YELLOW} Model weights in specified load_path are not available {Style.RESET_ALL}")
-
-        else:
-            logging.warning(f"{Fore.YELLOW}{load_path} does not exist .... {Style.RESET_ALL}")
-
-    def freeze_post(self):
-        "Freeze post model parameters"
-        self.post.requires_grad_(False)
-        for param in self.post.parameters():
-            param.requires_grad = False
+        self.config = config
+        self.tasks = tasks
+        self.backbone_component = backbone_component
+        
+        # Check that all pre/post components have the same output/input feature channels, which is required for connecting them to the same backbone
+        assert len(set([tuple(task.pre_component.output_feature_channels) for task in tasks.values()])) == 1, "All pre components must have the same output feature channels to connect to the same backbone" 
+        assert len(set([tuple(task.post_component.input_feature_channels) for task in tasks.values()])) == 1, "All post components must have the same input feature channels to connect to the same backbone"
+        
+    @property
+    def device(self):
+        return next(self.parameters()).device
 
     def check_model_learnable_status(self, rank_str=""):
-        num = 0
-        num_learnable = 0
-        for param in self.pre.parameters():
-            num += 1
-            if param.requires_grad:
-                num_learnable += 1
-
-        print(f"{rank_str} model, pre, learnable tensors {num_learnable} out of {num} ...")
-
-        num = 0
-        num_learnable = 0
-        for param in self.backbone.parameters():
-            num += 1
-            if param.requires_grad:
-                num_learnable += 1
-
-        print(f"{rank_str} model, backbone, learnable tensors {num_learnable} out of {num} ...")
-
-        num = 0
-        num_learnable = 0
-        for param in self.post.parameters():
-            num += 1
-            if param.requires_grad:
-                num_learnable += 1
-
-        print(f"{rank_str} model, post, learnable tensors {num_learnable} out of {num} ...")
-
-    def load(self, model_load_name=None):
-        if model_load_name is None:
-            # Load models if paths specified
-            if self.config.pre_model_load_path is not None: self.load_pre(self.config.pre_model_load_path)
-            if self.config.backbone_model_load_path is not None: self.load_backbone(self.config.backbone_model_load_path)
-            if self.config.post_model_load_path is not None: self.load_post(self.config.post_model_load_path)
-        else:
-            # Load a given model name
-            self.load_pre(model_load_name+"_pre.pth")
-            self.load_backbone(model_load_name+"_backbone.pth")
-            self.load_post(model_load_name+"_post.pth")
-        
-    def save(self, model_save_name, epoch, optim, sched):
-        pre_model_file = self.save_pre(model_save_name+"_pre", epoch, optim, sched)
-        backbone_model_file = self.save_backbone(model_save_name+"_backbone", epoch, optim, sched)
-        post_model_file = self.save_post(model_save_name+"_post", epoch, optim, sched)
-        return pre_model_file, backbone_model_file, post_model_file
-
-    def save_entire_model(self, epoch, save_file_name=None):
+        """ 
+        Count how many parameters are learnable
         """
-        Save entire model
+
+        num = 0
+        num_learnable = 0
+        for task in self.tasks.values():
+            for param in task.pre_component.parameters():
+                num += 1
+                if param.requires_grad:
+                    num_learnable += 1
+
+        print(f"{rank_str} model, pre components, learnable tensors {num_learnable} out of {num} ...")
+
+        num = 0
+        num_learnable = 0
+        for param in self.backbone_component.parameters():
+            num += 1
+            if param.requires_grad:
+                num_learnable += 1
+
+        print(f"{rank_str} model, backbone component, learnable tensors {num_learnable} out of {num} ...")
+
+        num = 0
+        num_learnable = 0
+        for task in self.tasks.values():
+            for param in task.post_component.parameters():
+                num += 1
+                if param.requires_grad:
+                    num_learnable += 1
+
+        print(f"{rank_str} model, post components, learnable tensors {num_learnable} out of {num} ...")
+
+    def save_entire_model(self, epoch, optim=None, sched=None, save_file_name=None):
+        """
+        Save entire model, including pre/backbone/post components
         @args:
             - epoch (int): current epoch of the training cycle
-        @args (from config):
-            - save_path (str): saved model full path and name
-            - save_file_name (str): saved model file name
+            - optim (torch.optim): optimizer to save
+            - sched (torch.optim.lr_scheduler): scheduler to save
+            - save_file_name (str): name to save file
         """
         run_name = self.config.run_name.replace(" ", "_")
-
         if save_file_name is None:
             save_file_name = f"{run_name}_epoch-{epoch}"
-            
-        save_path = os.path.join(self.config.log_dir, run_name)
+        save_path = os.path.join(self.config.log_dir, run_name, 'entire_model')
         os.makedirs(save_path, exist_ok=True)
-
         model_file = os.path.join(save_path, f"{save_file_name}.pth")
         logging.info(f"{Fore.YELLOW}Saving model status at {model_file}{Style.RESET_ALL}")
         
-        torch.save({
+        save_dict = {
             "epoch":epoch,
-            "model_state": self.state_dict(), 
             "config": self.config,
-        }, model_file)
+        }
+        if optim is not None: 
+            save_dict["optim_state"] = optim.state_dict()
+        if sched is not None:
+            save_dict["sched_state"] = sched.state_dict()
+        for task_name, task in self.tasks.items():
+            save_dict[task_name+"_pre_state"] = task.pre_component.state_dict()
+            save_dict[task_name+"_post_state"] = task.post_component.state_dict()
+        save_dict["backbone_state"] = self.backbone_component.state_dict()
+        torch.save(save_dict, model_file)
 
-        yaml_file = config_to_yaml(self.config, save_path, save_name=save_file_name)
-        logging.info(f"{Fore.YELLOW}Saving model config at {yaml_file}{Style.RESET_ALL}")
-
-        return save_path, save_file_name, yaml_file
-
-    def load_entire_model(self, save_path, save_file_name, device=torch.device('cpu')):
+        return os.path.join(save_path, save_file_name)
+    
+    def load_entire_model(self, load_path, device=torch.device('cpu')):
         """
-        Load a saved model
+        Load an entire model's weights, including pre/backbone/post components
         @args:
-            - save_path (str): path to load model
-            - save_file_name (str): model file name
+            - load_path (str): path to load model
             - device (torch.device): device to setup the model on
         """
-        if save_path is not None:
-            model_full_path = os.path.join(save_path, save_file_name)
-        else:
-            model_full_path = save_file_name
-        logging.info(f"{Fore.YELLOW}Loading model from {model_full_path}{Style.RESET_ALL}")
 
-        if os.path.isfile(model_full_path):
-            status = torch.load(model_full_path, map_location=device)
-            self.config = status['config']
-            self.config.device = device
-            self.load_state_dict(status['model_state'])
-        else:
-            logging.warning(f"{Fore.YELLOW}{model_full_path} does not exist .... {Style.RESET_ALL}")
-            
-    def forward(self, x):
+        assert os.path.exists(load_path), f"{Fore.YELLOW} Specified load path {load_path} does not exist {Style.RESET_ALL}"
+        logging.info(f"{Fore.YELLOW}Loading model weights from {load_path}{Style.RESET_ALL}")
+
+        status = torch.load(load_path, map_location=device)
+
+        assert 'backbone_state' in status, f"{Fore.YELLOW} Backbone weights in specified load_path are not available {Style.RESET_ALL}"
+        self.backbone_component.load_state_dict(status['backbone_state'])
+
+        for task_name, task in self.tasks.items():
+            assert task_name+"_pre_state" in status, f"{Fore.YELLOW} Pre component weights for task {task_name} in specified load_path are not available {Style.RESET_ALL}"
+            assert task_name+"_post_state" in status, f"{Fore.YELLOW} Post component weights for task {task_name} in specified load_path are not available {Style.RESET_ALL}"
+            task.pre_component.load_state_dict(status[task_name+"_pre_state"])
+            task.post_component.load_state_dict(status[task_name+"_post_state"])
+                
+    def forward(self, x, task_name=None):
         """
+        Define the forward pass through the model
         @args:
             - x (5D torch.Tensor): input image, B C D/T H W
+            - task_name (str): name of the task to run
         @rets:
-            - output: final output from model for this task
+            - output (tensor): final output from model for this task
         """
-        pre_output = self.pre(x)
-        backbone_output = self.backbone(pre_output[-1])
-        post_output = self.post(backbone_output)
+        if task_name is None: task_name = self.config.tasks[0]
+        
+        pre_output = self.tasks[task_name].pre_component(x)
+        backbone_output = self.backbone_component(pre_output)
+        post_output = self.tasks[task_name].post_component(backbone_output)
         return post_output[-1]
 
 
 # -------------------------------------------------------------------------------------------------
 
-from setup.setup_base import parse_config_and_setup_run
 def tests():
-
-    # When you write tests for real, set all these to eval, add asserts
-
-    test_config = parse_config_and_setup_run()
-
-    test_input = torch.ones((test_config.batch_size,test_config.no_in_channel,test_config.time,test_config.height,test_config.width))
-    seg_output = torch.ones((test_config.batch_size,test_config.no_out_channel,test_config.time,test_config.height,test_config.width))
-    class_output = torch.ones((test_config.batch_size,test_config.no_out_channel))
-
-    print('\n\nInput shape:',test_input.shape)
-    print('Intended seg output shape:',seg_output.shape)
-    print('Intended class output shape:',class_output.shape)
-
-    for pre_model in ['Identity']:
-        for backbone_model in ['STCNNT_HRNET','STCNNT_UNET','STCNNT_mUNET','omnivore_tiny','omnivore_small','omnivore_base','omnivore_large']:
-            if 'omnivore' in backbone_model:
-                post_model_choices = ['Identity','NormPoolLinear','ConvPoolLinear','UperNet2D','UperNet3D']
-            else: 
-                post_model_choices = ['Identity','NormPoolLinear','ConvPoolLinear','SimpleConv']
-            for post_model in post_model_choices:
-
-                print(f"\n\nConfig: {pre_model}->{backbone_model}->{post_model}")
-
-                test_config.pre_model = pre_model
-                test_config.backbone_model = backbone_model
-                test_config.post_model = post_model
-
-                test_model = ModelManager(test_config)
-                test_output = test_model(test_input)
-
-                if isinstance(test_output, list):
-                    print(f'\tOutput is LIST shapes {[to.shape for to in test_output]}')
-                else:
-                    print(f'\tOutput is {type(test_output)} shape {test_output.shape}')
-                
-                if post_model=='Identity':
-                    print(f'\t\tFeatures:',test_model.feature_channels)
-
-
-
-    print('Passed all tests')
+    pass
 
     
 if __name__=="__main__":

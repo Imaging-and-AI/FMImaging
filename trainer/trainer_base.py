@@ -1,5 +1,5 @@
 """
-A base model for training, supporting multi-node, multi-gpu training
+Base infrastructure for training, supporting multi-node and multi-gpu training
 """
 
 import os
@@ -30,6 +30,7 @@ Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.append(str(Project_DIR))
 
 from trainer_utils import *
+from training_schemes import *
 from utils.status import model_info, start_timer, end_timer, support_bfloat16
 from setup.setup_utils import setup_logger
 
@@ -40,25 +41,17 @@ class TrainManager(object):
         - single node, multiple process, multiple gpu training
         - multiple nodes, multiple processes, multiple gpu training
     """
-    def __init__(self, config, train_sets, val_sets, test_sets, loss_f, model_manager, optim_manager, metric_manager):
+    def __init__(self, config, model_manager, optim_manager, metric_manager):
     
         """
         @args:
             - config (Namespace): runtime namespace for setup
-            - train_sets (List[torch Dataset] or torch Dataset): train split dataset(s)
-            - val_sets (List[torch Dataset] or torch Dataset): val split dataset(s)
-            - test_sets (List[torch Dataset] or torch Dataset): test split dataset(s)
-            - loss_f (function): loss function we aim to minimize
             - model_manager (ModelManager): ModelManager object that contains pre/backbone/post model and forward function
             - optim_manager (OptimManager): OptimManager object that contains optimizer and scheduler
-            - metric_maanger (MetricManager): MetricManager object that tracks metrics and checkpoints models during training
+            - metric_manager (MetricManager): MetricManager object that tracks metrics and checkpoints models during training
         """
         super().__init__()
         self.config = config
-        self.train_sets = train_sets
-        self.val_sets = val_sets
-        self.test_sets = test_sets
-        self.loss_f = loss_f
         self.model_manager = model_manager
         self.optim_manager = optim_manager
         self.metric_manager = metric_manager
@@ -71,7 +64,7 @@ class TrainManager(object):
         else:
             self.cast_type = torch.float32
 
-    def _train_model(self, rank, global_rank):
+    def _train_and_eval_model(self, rank, global_rank):
         """
         The training loop. Allows training on cpu/single gpu/multiple gpu (ddp)
         @args:
@@ -81,66 +74,80 @@ class TrainManager(object):
         """
         c = self.config # shortening due to numerous uses     
 
-        # All metrics are handled by metrics.py
+        # All metrics are handled by the metric manager
         self.metric_manager.setup_wandb_and_metrics(rank)
 
         # Freeze portions of the network, if desired
-        if self.config.freeze_pre: self.model_manager.freeze_pre()
-        if self.config.freeze_backbone: self.model_manager.freeze_backbone()
-        if self.config.freeze_post: self.model_manager.freeze_post()
+        for task_ind, task_name in enumerate(self.config.tasks):
+            if self.config.freeze_pre[task_ind]: 
+                self.model_manager.tasks[task_name].pre_component.freeze()
+            if self.config.freeze_post[task_ind]: 
+                self.model_manager.tasks[task_name].post_component.freeze()
+        if self.config.freeze_backbone: 
+            self.model_manager.backbone_component.freeze()
 
-        if rank<=0:
-            model_summary = model_info(self.model_manager, c)
-            logging.info(f"Configuration for this run:\n{c}")
-            logging.info(f"Model Summary:\n{str(model_summary)}") 
-            logging.info(f"Wandb name:\n{self.metric_manager.wandb_run.name}")
-            self.metric_manager.wandb_run.watch(self.model_manager)
-
+        # Send models to device
         if c.ddp:
             dist.barrier()
             device = torch.device(f"cuda:{rank}")
             model_manager = self.model_manager.to(device)
+            for task in model_manager.tasks.values(): task.to(device)
             model_manager = DDP(model_manager, device_ids=[rank], find_unused_parameters=True)
-            if isinstance(self.train_sets,list): samplers = [DistributedSampler(train_set) for train_set in self.train_sets]
-            else: samplers = DistributedSampler(self.train_sets)
-            shuffle = False
         else:
             device = c.device
             model_manager = self.model_manager.to(device)
-            if isinstance(self.train_sets,list): samplers = [None] * len(self.train_sets)
-            else: samplers = None
-            shuffle = True
+            for task in model_manager.tasks.values(): task.to(device)
+
+        # Print out model summary
+        if rank<=0:
+            logging.info(f"Configuration for this run:\n{c}")
+            model_summary = model_info(self.model_manager, c)
+            logging.info(f"Model Summary:\n{str(model_summary)}") 
+            logging.info(f"Wandb name:\n{self.metric_manager.wandb_run.name}")
+            self.metric_manager.wandb_run.watch(self.model_manager)
+            if c.ddp: 
+                setup_logger(self.config) # setup master process logging; I don't know if this needs to be here, it is also in setup.py
         
+        # Extracting optim and sched for convenience
         optim = self.optim_manager.optim
         sched = self.optim_manager.sched
         curr_epoch = self.optim_manager.curr_epoch
-        loss_f = self.loss_f
         logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, global rank {global_rank}{'-'*20}{Style.RESET_ALL}")
-    
-        if isinstance(self.train_sets,list):
-            train_loaders = [DataLoader(dataset=train_set, batch_size=c.batch_size, shuffle=shuffle, sampler=samplers[ind],
-                                        num_workers=c.num_workers, prefetch_factor=c.prefetch_factor, drop_last=True,
-                                        persistent_workers=c.num_workers>0) for ind, train_set in enumerate(self.train_sets)]
-        else:
-            train_loaders = [DataLoader(dataset=self.train_sets, batch_size=c.batch_size, shuffle=shuffle, sampler=samplers,
-                                        num_workers=c.num_workers, prefetch_factor=c.prefetch_factor, drop_last=True,
-                                        persistent_workers=c.num_workers>0)]
-
-        if rank<=0: # main or master process
-            if c.ddp: 
-                setup_logger(self.config) # setup master process logging; I don't know if this needs to be here, it is also in setup.py
-
-        # Handle mix precision training
-        scaler = torch.cuda.amp.GradScaler(enabled=c.use_amp)
 
         # Zero gradient before training
         optim.zero_grad(set_to_none=True)
 
-        # Compute total iters
-        total_iters = sum([len(train_loader) for train_loader in train_loaders])if not c.debug else 3
-
         # Training loop
         if self.config.train_model:
+
+            # Create train dataloaders
+            train_dataloaders = {}
+            for task_ind, task in enumerate(self.model_manager.tasks.values()):
+                task_train_sets = task.train_set
+                if c.ddp:
+                    shuffle = False
+                    if isinstance(task_train_sets,list): samplers = [DistributedSampler(train_set) for train_set in task_train_sets]
+                    else: 
+                        samplers = [DistributedSampler(task_train_sets)]
+                        task_train_sets = [task_train_sets]
+                else:
+                    shuffle = True
+                    if isinstance(task_train_sets,list): samplers = [None] * len(task_train_sets)
+                    else: 
+                        samplers = [None]
+                        task_train_sets = [task_train_sets]
+                train_dataloaders[task.task_name] = [DataLoader(dataset=train_set, batch_size=c.batch_size[task_ind], shuffle=shuffle, 
+                                                                sampler=samplers[ind], num_workers=c.num_workers, prefetch_factor=c.prefetch_factor, 
+                                                                drop_last=True, persistent_workers=self.config.num_workers>0) for ind, train_set in enumerate(task_train_sets)]
+                
+            # Set up training scheme
+            if self.config.training_scheme == "single_task":
+                training_scheme = SingleTaskTrainingScheme(self.config, self.cast_type)
+            else:
+                raise ValueError(f"Unknown training scheme {self.config.training_scheme} specified.")
+                
+            # Compute total iters
+            total_iters = training_scheme.compute_total_iters(train_dataloaders) if not c.debug else 3
 
             logging.info(f"{Fore.CYAN}OPTIMIZER PARAMETERS: {optim} {Style.RESET_ALL}")
 
@@ -148,57 +155,26 @@ class TrainManager(object):
                 logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank} {'-'*20}{Style.RESET_ALL}")
 
                 model_manager.train()
-                if c.ddp: [train_loader.sampler.set_epoch(epoch) for train_loader in train_loaders]
+
                 self.metric_manager.on_train_epoch_start()
-                train_loader_iters = [iter(train_loader) for train_loader in train_loaders]
 
                 with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
                     for idx in range(total_iters):
 
                         tm = start_timer(enable=c.with_timer)
-                        loader_ind = idx % len(train_loader_iters)
-                        loader_outputs = next(train_loader_iters[loader_ind], None)
-                        while loader_outputs is None:
-                            del train_loader_iters[loader_ind]
-                            loader_ind = idx % len(train_loader_iters)
-                            loader_outputs = next(train_loader_iters[loader_ind], None)
-                        inputs, labels, ids = loader_outputs
-                        end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
+                        loss, model_outputs, inputs, gt_outputs, ids, task_name = training_scheme(idx, total_iters, train_dataloaders, epoch, model_manager, optim)
+                        end_timer(enable=c.with_timer, t=tm, msg="---> full training scheme took ")
 
-                        tm = start_timer(enable=c.with_timer)
-                        inputs = inputs.to(device)
-                        labels = labels.to(device)
-
-                        with torch.autocast(device_type='cuda', dtype=self.cast_type, enabled=c.use_amp):
-                            output = model_manager(inputs)
-                            loss = loss_f(output, labels)
-                            loss = loss / c.iters_to_accumulate
-                        end_timer(enable=c.with_timer, t=tm, msg="---> forward pass took ")
-
-                        tm = start_timer(enable=c.with_timer)  
-                        scaler.scale(loss).backward()
-                        end_timer(enable=c.with_timer, t=tm, msg="---> backward pass took ")
-
-                        tm = start_timer(enable=c.with_timer)
                         if (idx + 1) % c.iters_to_accumulate == 0 or (idx + 1 == total_iters):
-                            if(c.clip_grad_norm>0):
-                                scaler.unscale_(optim)
-                                nn.utils.clip_grad_norm_(model_manager.parameters(), c.clip_grad_norm)
-
-                            scaler.step(optim)
-                            optim.zero_grad(set_to_none=True)
-                            scaler.update()
-
                             if c.scheduler_type == "OneCycleLR": sched.step()
-                        end_timer(enable=c.with_timer, t=tm, msg="---> other steps took ")
-
+                        
                         tm = start_timer(enable=c.with_timer)
                         curr_lr = optim.param_groups[0]['lr']
 
-                        self.metric_manager.on_train_step_end(loss.item(), output, labels, rank, curr_lr)
+                        self.metric_manager.on_train_step_end(task_name, loss.item(), model_outputs, gt_outputs, rank, curr_lr)
 
                         pbar.update(1)
-                        pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} tra, rank {rank}, {inputs.shape}, lr {curr_lr:.8f}, loss {loss.item():.4f}{Style.RESET_ALL}")
+                        pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} tra, rank {rank}, {inputs.shape}, lr {curr_lr:.8f}, task {task_name}, loss {loss.item():.4f}{Style.RESET_ALL}")
 
                         end_timer(enable=c.with_timer, t=tm, msg="---> epoch step logging and measuring took ")
                         
@@ -211,9 +187,10 @@ class TrainManager(object):
                     pbar_str = f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} tra, rank {rank},  {inputs.shape}, lr {curr_lr:.8f}"
                     if hasattr(self.metric_manager, 'average_train_metrics'):
                         if isinstance(self.metric_manager.average_train_metrics, dict):
-                            for metric_name, metric_value in self.metric_manager.average_train_metrics.items():
-                                try: pbar_str += f", {Fore.CYAN} {metric_name} {metric_value:.4f}"
-                                except: pass
+                            for task_name in self.metric_manager.train_metrics.keys():
+                                for metric_name, metric_value in self.metric_manager.average_train_metrics[task_name].items():
+                                    try: pbar_str += f", {Fore.CYAN} {task_name}_{metric_name} {metric_value:.4f}"
+                                    except: pass
                     pbar_str += f"{Style.RESET_ALL}"
                     pbar.set_description(pbar_str)
 
@@ -224,12 +201,12 @@ class TrainManager(object):
                     end_timer(enable=c.with_timer, t=tm, msg="---> epoch end logging and measuring took ")
 
                 if epoch % c.eval_frequency==0 or epoch==c.num_epochs:
-                    self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="", split="val", final_eval=False)
+                    self._eval_model(rank=rank, model_manager=model_manager, epoch=epoch, device=device, optim=optim, sched=sched, id="", split="val", final_eval=False)
 
                 if c.scheduler_type != "OneCycleLR":
                     if c.scheduler_type == "ReduceLROnPlateau":
                         try: 
-                            sched.step(self.metric_manager.average_eval_metrics['loss'])
+                            sched.step(self.metric_manager.average_eval_metrics['total_loss'])
                         except:
                             warnings.warn("Average loss not available, using step loss to step scheduler.")
                             sched.step(loss.item())
@@ -242,32 +219,31 @@ class TrainManager(object):
             # Load the best model from training
             if self.config.eval_train_set or self.config.eval_val_set or self.config.eval_test_set:
                 logging.info(f"{Fore.CYAN}Loading the best models from training for final evaluation...{Style.RESET_ALL}")
-                self.model_manager.load_pre(os.path.join(self.config.log_dir,self.config.run_name,'best_checkpoint_pre.pth'))
-                self.model_manager.load_backbone(os.path.join(self.config.log_dir,self.config.run_name,'best_checkpoint_backbone.pth'))
-                self.model_manager.load_post(os.path.join(self.config.log_dir,self.config.run_name,'best_checkpoint_post.pth'))
-        else: epoch = 0
+                self.model_manager.load_entire_model(os.path.join(self.config.log_dir,self.config.run_name,'entire_model','best_checkpoint.pth'))
+       
+        else: # Not training
+            epoch = 0
 
         # Evaluate models of each split
         if self.config.eval_train_set: 
             logging.info(f"{Fore.CYAN}Evaluating train set...{Style.RESET_ALL}")
-            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.train_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="train", final_eval=True)
+            self._eval_model(rank=rank, model_manager=model_manager, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="train", final_eval=True)
         if self.config.eval_val_set: 
             logging.info(f"{Fore.CYAN}Evaluating val set...{Style.RESET_ALL}")
-            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="val", final_eval=True)
+            self._eval_model(rank=rank, model_manager=model_manager, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="val", final_eval=True)
         if self.config.eval_test_set: 
             logging.info(f"{Fore.CYAN}Evaluating test set...{Style.RESET_ALL}")
-            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.test_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="test", final_eval=True)
+            self._eval_model(rank=rank, model_manager=model_manager, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="test", final_eval=True)
 
         # Finish up training
         self.metric_manager.on_training_end(rank, epoch, model_manager, optim, sched, self.config.train_model)
         
-    def _eval_model(self, rank, model_manager, data_sets, epoch, device, optim, sched, id, split, final_eval):
+    def _eval_model(self, rank, model_manager, epoch, device, optim, sched, id, split, final_eval):
         """
         Model evaluation.
         @args:
             - rank (int): used for ddp
             - model_manager (ModelManager): model to be validated
-            - data_sets (torch Dataset or list of torch Datasets): the data to evaluate
             - epoch (int): the current epoch
             - device (torch.device): the device to run eval on
             - optim: optimizer for training
@@ -287,60 +263,76 @@ class TrainManager(object):
         elif split=='test': save_samples = final_eval and self.config.save_test_samples
         else: raise ValueError(f"Unknown split {split} specified, should be in [train, val, test]")
 
-        if c.ddp:
-            loss_f = self.loss_f
-            if isinstance(data_sets, list): samplers = [DistributedSamplerNoDuplicate(data_set,rank=rank) for data_set in data_sets]
-            else: samplers = DistributedSamplerNoDuplicate(data_sets,rank=rank)    
-        else:
-            loss_f = self.loss_f
-            if isinstance(data_sets, list): samplers = [None] * len(data_sets)
-            else: samplers = None
-
-        # Set up data loader to evaluate
-        if isinstance(data_sets, list):
-            data_loaders = [DataLoader(dataset=data_set, batch_size=c.batch_size, shuffle=False, sampler=samplers[ind],
-                                    num_workers=c.num_workers, prefetch_factor=c.prefetch_factor, drop_last=False,
-                                    persistent_workers=c.num_workers>0) for ind, data_set in enumerate(data_sets)]
-        else:
-            data_loaders = [DataLoader(dataset=data_sets, batch_size=c.batch_size, shuffle=False, sampler=samplers,
-                                    num_workers=c.num_workers, prefetch_factor=c.prefetch_factor, drop_last=False,
-                                    persistent_workers=c.num_workers>0) ]
+        # Set up eval data loaders
+        eval_dataloaders = {}
+        data_loader_iters = []
+        data_loader_iters_tasks_names = []
+        for task_ind, task in enumerate(model_manager.tasks.values()):
+            if split=='train': task_datasets = task.train_set
+            elif split=='val': task_datasets = task.val_set
+            elif split=='test': task_datasets = task.test_set
+            if c.ddp:
+                if isinstance(task_datasets, list): 
+                    samplers = [DistributedSamplerNoDuplicate(task_dataset,rank=rank) for task_dataset in task_datasets]
+                else: 
+                    samplers = [DistributedSamplerNoDuplicate(task_datasets,rank=rank)]
+                    task_datasets = [task_datasets]
+            else:
+                if isinstance(task_datasets,list): 
+                    samplers = [None] * len(task_datasets)
+                else: 
+                    samplers = [None]
+                    task_datasets = [task_datasets]
             
+            eval_dataloaders[task.task_name] = [DataLoader(dataset=data_set, batch_size=c.batch_size[task_ind], shuffle=False, 
+                                                           sampler=samplers[ind],num_workers=c.num_workers, prefetch_factor=c.prefetch_factor, 
+                                                           drop_last=False, persistent_workers=c.num_workers>0) for ind, data_set in enumerate(task_datasets)]
+
+            data_loader_iters += [iter(data_loader) for data_loader in eval_dataloaders[task.task_name]]
+            data_loader_iters_tasks_names += [task.task_name for _ in range(len(eval_dataloaders[task.task_name]))]
+
+        # Set up a few things before starting eval loop
         self.metric_manager.on_eval_epoch_start()
 
         model_manager.eval()
 
-        data_loader_iters = [iter(data_loader) for data_loader in data_loaders]
-        total_iters = sum([len(data_loader) for data_loader in data_loaders]) if not c.debug else 3
-        
+        total_iters = 3
+        if not c.debug:
+            total_iters = 0
+            for task in model_manager.tasks.values():
+                total_iters += sum([len(data_loader) for data_loader in eval_dataloaders[task.task_name]])
+
         # Evaluation loop
         with torch.inference_mode():
             with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
 
                 for idx in range(total_iters):
 
+                    # Sample data from the dataloaders
                     loader_ind = idx % len(data_loader_iters)
                     loader_outputs = next(data_loader_iters[loader_ind], None)
+                    loader_task = data_loader_iters_tasks_names[loader_ind]
                     while loader_outputs is None:
                         del data_loader_iters[loader_ind]
                         loader_ind = idx % len(data_loader_iters)
                         loader_outputs = next(data_loader_iters[loader_ind], None)
+                        loader_task = data_loader_iters_tasks_names[loader_ind]
                     inputs, labels, ids = loader_outputs
 
                     inputs = inputs.to(device)
                     labels = labels.to(device)
 
+                    # Run inference
                     with torch.autocast(device_type='cuda', dtype=self.cast_type, enabled=c.use_amp):
-                        output = model_manager(inputs)
-                        loss = loss_f(output, labels)
+                        output = model_manager(inputs, loader_task)
+                        loss = model_manager.tasks[loader_task].loss_f(output, labels)
 
                     # Update evaluation metrics
-                    self.metric_manager.on_eval_step_end(loss.item(), output, labels, ids, rank, save_samples, split)
+                    self.metric_manager.on_eval_step_end(loader_task, loss.item(), output, labels, ids, rank, save_samples, split)
 
                     # Print evaluation metrics to terminal
                     pbar.update(1)
                     pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} {split}, rank {rank}, {id} {inputs.shape}, lr {curr_lr:.8f}, loss {loss.item():.4f}{Style.RESET_ALL}")
-
 
                 # Update evaluation metrics 
                 self.metric_manager.on_eval_epoch_end(rank, epoch, model_manager, optim, sched, split, final_eval)
@@ -349,17 +341,19 @@ class TrainManager(object):
                 pbar_str = f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} {split}, rank {rank}, {id} {inputs.shape}, lr {curr_lr:.8f}"
                 if hasattr(self.metric_manager, 'average_eval_metrics'):
                     if isinstance(self.metric_manager.average_eval_metrics, dict):
-                        for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
-                            try: pbar_str += f", {Fore.MAGENTA} {metric_name} {metric_value:.4f}"
-                            except: pass
+                        for task_name in self.metric_manager.eval_metrics.keys():
+                            for metric_name, metric_value in self.metric_manager.average_eval_metrics[task_name].items():
+                                try: pbar_str += f", {Fore.MAGENTA} {task_name}_{metric_name} {metric_value:.4f}"
+                                except: pass
 
                         # Save final evaluation metrics to a text file
                         if final_eval and rank<=0:
                             metric_file = os.path.join(self.config.log_dir,self.config.run_name,f'{split}_metrics.txt')
                             with open(metric_file, 'w') as f:
-                                for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
-                                    try: f.write(f"{split}_{metric_name}: {metric_value:.4f}, ")
-                                    except: pass
+                                for task_name in self.metric_manager.eval_metrics.keys():
+                                    for metric_name, metric_value in self.metric_manager.average_eval_metrics[task_name].items():
+                                        try: f.write(f"{split}_{task_name}_{metric_name}: {metric_value:.4f}, ")
+                                        except: pass
 
                 pbar_str += f"{Style.RESET_ALL}"
                 pbar.set_description(pbar_str)
@@ -369,10 +363,10 @@ class TrainManager(object):
                         
         return 
        
-    def train(self):
+    def run(self):
 
         # -------------------------------------------------------
-        # get the rank and runtime info
+        # Get the rank and runtime info
         if self.config.ddp:
             rank = int(os.environ["LOCAL_RANK"])
             global_rank = int(os.environ["RANK"])
@@ -387,13 +381,13 @@ class TrainManager(object):
         print(f"--------> run training on local rank {rank}", flush=True)
 
         # -------------------------------------------------------
-        # initialize wandb
+        # Initialize wandb
 
         if global_rank<=0:
             self.metric_manager.init_wandb()
             
         # -------------------------------------------------------
-        # if ddp is used, broadcast the parameters from rank0 to all other ranks (originally used for sweep, commented out for now)
+        # If ddp is used, broadcast the parameters from rank0 to all other ranks (originally used for sweep, commented out for now)
 
         if self.config.ddp:
 
@@ -419,10 +413,9 @@ class TrainManager(object):
             self.config.device = torch.device(f'cuda:{rank}')
 
         # -------------------------------------------------------
-        # run the training for current rank and wandb run
+        # Run the training and evaluation loops for each rank
         try: 
-            self._train_model(rank=rank, global_rank=global_rank)
-
+            self._train_and_eval_model(rank=rank, global_rank=global_rank)
             print(f"{Fore.RED}---> Run finished on local rank {rank} <---{Style.RESET_ALL}", flush=True)
 
         except KeyboardInterrupt:
@@ -438,26 +431,13 @@ class TrainManager(object):
                 print(f"{Fore.YELLOW}Remove {self.metric_manager.wandb_run.name} ...{Style.RESET_ALL}", flush=True)
 
         # -------------------------------------------------------
-        # after the run, release the process groups
+        # After the run, release the process groups
         if self.config.ddp:
             if dist.is_initialized():
                 print(f"---> dist.destory_process_group on local rank {rank}", flush=True)
                 dist.destroy_process_group()
 
-    # -------------------------------------------------------------------------------------------------
 
-    def distribute_learning_rates(self, rank, optim, src=0):
-
-        N = len(optim.param_groups)
-        new_lr = torch.zeros(N).to(rank)
-        for ind in range(N):
-            new_lr[ind] = optim.param_groups[ind]["lr"]
-
-        dist.broadcast(new_lr, src=src)
-
-        if rank != src:
-            for ind in range(N):
-                optim.param_groups[ind]["lr"] = new_lr[ind].item()
 # -------------------------------------------------------------------------------------------------
 
 def tests():

@@ -43,17 +43,19 @@ from backbone_base import STCNNT_Base_Runtime, set_window_patch_sizes_keep_num_w
 __all__ = ['STCNNT_Unet_model', 'STCNNT_Unet']
 
 #-------------------------------------------------------------------------------------
-def STCNNT_Unet_model(config, pre_feature_channels):
+def STCNNT_Unet_model(config, input_feature_channels):
     """
-    Simple function to return STCCNT Unet model.
-    Additionally, function computes feature_channels, a list of ints containing the number of channels in each feature returned by the model.
+    Wrapper function to return STCCNT Unet model.
+    @args:
+        config (Namespace): Namespace object containing configuration parameters.
+        input_feature_channels (List[int]): List of ints containing the number of channels in each input tensor.
+    @rets:
+        model (torch model): pytorch model object 
+        output_feature_channels (List[int]): list of ints indicated the number of channels in each output tensor.
     """
-    C_in = config.no_in_channel
-    config.no_in_channel = pre_feature_channels[-1]
-    model = STCNNT_Unet(config=config)
-    config.no_in_channel = C_in
-    feature_channels = [int(config.backbone_unet.C)]
-    return model, feature_channels
+    model = STCNNT_Unet(config, input_feature_channels)
+    output_feature_channels = [int(config.backbone_unet.C)]
+    return model, output_feature_channels
 
 
 # -------------------------------------------------------------------------------------------------
@@ -102,12 +104,11 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
     The minimal window size is 16 and minimal patch size is 4.
     """
 
-    def __init__(self, config) -> None:
+    def __init__(self, config, input_feature_channels) -> None:
         """
         @args:
             - config (Namespace): runtime namespace for setup
-            - total_steps (int): total training steps. used for OneCycleLR
-            - load (bool): whether to try loading from config.load_path or not
+            - input_feature_channels (List[int]): list of ints indicating the number of channels in each input tensor
 
         @args (from config):
 
@@ -181,8 +182,9 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
         use_unet_attention = config.backbone_unet.use_unet_attention
         use_interpolation = config.backbone_unet.use_interpolation
         with_conv = config.backbone_unet.with_conv
+        no_in_channel = input_feature_channels[-1]
 
-        assert C >= config.no_in_channel, "Number of channels should be larger than C_in"
+        assert C >= no_in_channel, "Number of channels should be larger than C_in"
         assert num_resolution_levels <= 5 and num_resolution_levels>=1, "Maximal number of resolution levels is 5"
 
         self.C = C
@@ -204,7 +206,7 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
         self.num_patch = [c.window_size[0]//c.patch_size[0], c.window_size[1]//c.patch_size[1]]
 
         kwargs = {
-            "C_in":c.no_in_channel,
+            "C_in":no_in_channel,
             "C_out":self.C,
             "H":c.height,
             "W":c.width,
@@ -259,7 +261,7 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
 
         if num_resolution_levels >= 1:
             # define D0
-            kwargs["C_in"] = c.no_in_channel
+            kwargs["C_in"] = no_in_channel
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height
             kwargs["W"] = c.width
@@ -456,13 +458,13 @@ class STCNNT_Unet(STCNNT_Base_Runtime):
     def forward(self, x):
         """
         @args:
-            - x (5D torch.Tensor): the input image, [B, T, Cin, H, W]
+            - x (list of 5D torch.Tensor): the input image, [B, T, Cin, H, W]
 
         @rets:
             - y_hat (5D torch.Tensor): output tensor, [B, T, Cout, H, W]
         """
 
-        x = self.permute(x)
+        x = self.permute(x[-1])
 
         B, T, Cin, H, W = x.shape
 

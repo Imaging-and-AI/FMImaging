@@ -48,82 +48,114 @@ class MetricManager(object):
         """
 
         # Set up common metrics depending on the task type
-        if self.config.task_type=='class': 
-            # Set up metric dicts, which we'll use during training to track metrics
-            self.train_metrics = {'loss': AverageMeter(),
-                                  'auroc': AverageMeter()}
-            self.eval_metrics = {'loss': AverageMeter(),
-                                 'acc_1': AverageMeter(),
-                                 'auroc': AverageMeter(),
-                                 'f1': AverageMeter()}
+        self.train_metrics = {}
+        self.train_metric_functions = {}
+        self.eval_metrics = {}
+        self.eval_metric_functions = {}
+        self.metric_task = {}
+        self.multidim_average = {}
+
+        # Loop through tasks, add metrics for each
+        for task_ind, task_name in enumerate(self.config.tasks):
+            task_type = self.config.task_type[task_ind]
+            task_out_channel = self.config.no_out_channel[task_ind]
+
+            if task_type =='class': 
+                # Set up metric dicts, which we'll use during training to track metrics
+                task_train_metrics = {'loss': AverageMeter(),
+                                    'auroc': AverageMeter()}
+                task_eval_metrics = {'loss': AverageMeter(),
+                                    'acc_1': AverageMeter(),
+                                    'auroc': AverageMeter(),
+                                    'f1': AverageMeter()}
+                
+                # Define vars used by the metric functions
+                if task_out_channel==1 or task_out_channel==2: # Assumes no multilabel problems
+                    task_metric = 'binary' 
+                else: 
+                    task_metric = 'multiclass'
+                multidim_average = 'global'
+
+                # Set up dictionary of functions mapped to each metric name
+                task_train_metric_functions = {metric_name: get_metric_function(metric_name, task_out_channel, task_metric, multidim_average).to(device=self.device) for metric_name in task_train_metrics if metric_name!='loss'}
+                task_eval_metric_functions = {metric_name: get_metric_function(metric_name, task_out_channel, task_metric, multidim_average).to(device=self.device) for metric_name in task_eval_metrics if metric_name!='loss'}
+
+                # Add task metrics to the overall metrics
+                self.train_metrics[task_name] = task_train_metrics
+                self.train_metric_functions[task_name] = task_train_metric_functions
+                self.eval_metrics[task_name] = task_eval_metrics
+                self.eval_metric_functions[task_name] = task_eval_metric_functions
+                self.metric_task[task_name] = task_metric
+                self.multidim_average[task_name] = multidim_average
+
+            elif self.config.task_type=='seg': 
+                # Set up metric dicts, which we'll use during training to track metrics
+                task_train_metrics = {'loss': AverageMeter(),
+                                    'f1': AverageMeter()}
+                task_eval_metrics = {'loss': AverageMeter(),
+                                    'f1': AverageMeter()}
+                
+                # Define vars used by the metric functions
+                if task_out_channel==1 or task_out_channel==2: # Assumes no multilabel problems
+                    task_metric = 'binary' 
+                else: 
+                    task_metric = 'multiclass'
+                multidim_average = 'samplewise'
+
+                # Set up dictionary of functions mapped to each metric name
+                task_train_metric_functions = {metric_name: get_metric_function(metric_name, task_out_channel, task_metric, multidim_average).to(device=self.device) for metric_name in task_train_metrics if metric_name!='loss'}
+                task_eval_metric_functions = {metric_name: get_metric_function(metric_name, task_out_channel, task_metric, multidim_average).to(device=self.device) for metric_name in task_eval_metrics if metric_name!='loss'}
+
+                # Add task metrics to the overall metrics
+                self.train_metrics[task_name] = task_train_metrics
+                self.train_metric_functions[task_name] = task_train_metric_functions
+                self.eval_metrics[task_name] = task_eval_metrics
+                self.eval_metric_functions[task_name] = task_eval_metric_functions
+                self.metric_task[task_name] = task_metric
+                self.multidim_average[task_name] = multidim_average
             
-            # Define vars used by the metric functions
-            if self.config.no_out_channel==1 or self.config.no_out_channel==2: # Assumes no multilabel problems
-                self.metric_task = 'binary' 
-            else: 
-                self.metric_task = 'multiclass'
-            self.multidim_average = 'global'
+            elif self.config.task_type=='enhance': 
+                # Set up metric dicts, which we'll use during training to track metrics
+                task_train_metrics = {'loss': AverageMeter(),
+                                    'ssim': AverageMeter(),
+                                    'psnr': AverageMeter()}
+                task_eval_metrics = {'loss': AverageMeter(),
+                                    'ssim': AverageMeter(),
+                                    'psnr': AverageMeter()}
+                
+                # Define vars used by the metric functions 
+                task_metric = 'multiclass' # Keep as multiclass for enhance applications
+                multidim_average = 'global' # Keep as global for enhance applications
 
-            # Set up dictionary of functions mapped to each metric name
-            self.train_metric_functions = {metric_name: get_metric_function(metric_name, self.config, self.metric_task, self.multidim_average).to(device=self.device) for metric_name in self.train_metrics if metric_name!='loss'}
-            self.eval_metric_functions = {metric_name: get_metric_function(metric_name, self.config, self.metric_task, self.multidim_average).to(device=self.device) for metric_name in self.eval_metrics if metric_name!='loss'}
+                # Set up dictionary of functions mapped to each metric name
+                task_train_metric_functions = {metric_name: get_metric_function(metric_name, task_out_channel, task_metric, multidim_average).to(device=self.device) for metric_name in task_train_metrics if metric_name!='loss'}
+                task_eval_metric_functions = {metric_name: get_metric_function(metric_name, task_out_channel, task_metric, multidim_average).to(device=self.device) for metric_name in task_eval_metrics if metric_name!='loss'}
 
-        elif self.config.task_type=='seg': 
-            # Set up metric dicts, which we'll use during training to track metrics
-            self.train_metrics = {'loss': AverageMeter(),
-                                  'f1': AverageMeter()}
-            self.eval_metrics = {'loss': AverageMeter(),
-                                 'f1': AverageMeter()}
-            
-            # Define vars used by the metric functions
-            if self.config.no_out_channel==1 or self.config.no_out_channel==2: # Assumes no multilabel problems
-                self.metric_task = 'binary' 
-            else: 
-                self.metric_task = 'multiclass'
-            self.multidim_average = 'samplewise'
+                # Add task metrics to the overall metrics
+                self.train_metrics[task_name] = task_train_metrics
+                self.train_metric_functions[task_name] = task_train_metric_functions
+                self.eval_metrics[task_name] = task_eval_metrics
+                self.eval_metric_functions[task_name] = task_eval_metric_functions
+                self.metric_task[task_name] = task_metric
+                self.multidim_average[task_name] = multidim_average
 
-            # Set up dictionary of functions mapped to each metric name
-            self.train_metric_functions = {metric_name: get_metric_function(metric_name, self.config, self.metric_task, self.multidim_average).to(device=self.device) for metric_name in self.train_metrics if metric_name!='loss'}
-            self.eval_metric_functions = {metric_name: get_metric_function(metric_name, self.config, self.metric_task, self.multidim_average).to(device=self.device) for metric_name in self.eval_metrics if metric_name!='loss'}
-        
-        elif self.config.task_type=='enhance': 
-            # Set up metric dicts, which we'll use during training to track metrics
-            self.train_metrics = {'loss': AverageMeter(),
-                                  'ssim': AverageMeter(),
-                                  'psnr': AverageMeter()}
-            self.eval_metrics = {'loss': AverageMeter(),
-                                  'ssim': AverageMeter(),
-                                  'psnr': AverageMeter()}
-            
-            # Define vars used by the metric functions 
-            self.metric_task = 'multiclass' # Keep as multiclass for enhance applications
-            self.multidim_average = 'global' # Keep as global for enhance applications
-
-            # Set up dictionary of functions mapped to each metric name
-            self.train_metric_functions = {metric_name: get_metric_function(metric_name, self.config, self.metric_task, self.multidim_average).to(device=self.device) for metric_name in self.train_metrics if metric_name!='loss'}
-            self.eval_metric_functions = {metric_name: get_metric_function(metric_name, self.config, self.metric_task, self.multidim_average).to(device=self.device) for metric_name in self.eval_metrics if metric_name!='loss'}
-
-        else:
-            raise NotImplementedError(f"No metrics implemented for task type {self.config.task_type}.")
+            else:
+                raise NotImplementedError(f"No metrics implemented for task type {task_type}.")
 
         if rank<=0:
 
             if self.wandb_run is not None:
                 # Initialize metrics to track in wandb      
                 self.wandb_run.define_metric("epoch")    
-                for metric_name in self.train_metrics.keys():
-                    self.wandb_run.define_metric('train_'+metric_name, step_metric='epoch')
-                for metric_name in self.eval_metrics.keys():
-                    self.wandb_run.define_metric('val_'+metric_name, step_metric='epoch')
+                for task_ind, task_name in enumerate(self.config.tasks):
+                    for metric_name in self.train_metrics[task_name].keys():
+                        self.wandb_run.define_metric(f'{task_name}/train_{metric_name}', step_metric='epoch')
+                    for metric_name in self.eval_metrics[task_name].keys():
+                        self.wandb_run.define_metric(f'{task_name}/val_{metric_name}', step_metric='epoch')
             
             # Initialize metrics to track for checkpointing best-performing model
             self.best_val_loss = np.inf
-            if self.config.task_type=='class':
-                self.best_val_auroc = -1
-            elif self.config.task_type=='seg':
-                self.best_val_f1 = -1
-            elif self.config.task_type=='enhance':
-                self.best_val_psnr = -np.inf
+            self.bast_val_losses_by_task = {task_name: np.inf for task_name in self.config.tasks}
 
     def on_train_epoch_start(self):
         """
@@ -131,33 +163,37 @@ class MetricManager(object):
         """
 
         # Reset metric values in AverageMeter
-        for metric_name in self.train_metrics.keys():
-            self.train_metrics[metric_name].reset()
+        for task_name in self.train_metrics:
+            for metric_name in self.train_metrics[task_name].keys():
+                self.train_metrics[task_name][metric_name].reset()
 
-    def on_train_step_end(self, loss, output, labels, rank, curr_lr):
+    def on_train_step_end(self, task_name, loss, output, labels, rank, curr_lr):
         """
         Runs on the end of each training step
         """
+        task_ind = self.config.tasks.index(task_name)
+        task_type = self.config.task_type[task_ind]
+
         # Adjust outputs to correct format for computing metrics
-        if self.config.task_type=='class':
+        if task_type=='class':
             output = torch.nn.functional.softmax(output, dim=1)
-            if self.metric_task=='binary': 
+            if self.metric_task[task_name]=='binary': 
                 output = output[:,-1]
         
-        elif self.config.task_type=='seg':
+        elif task_type=='seg':
             output = torch.argmax(output,1)
             output = output.reshape(output.shape[0],-1)
             labels = labels.reshape(labels.shape[0],-1)
             
         # Update train metrics based on the predictions this step
-        for metric_name in self.train_metrics.keys():
+        for metric_name in self.train_metrics[task_name].keys():
             if metric_name=='loss':
-                self.train_metrics[metric_name].update(loss, n=output.shape[0])
+                self.train_metrics[task_name][metric_name].update(loss, n=output.shape[0])
             else:
-                metric_value = self.train_metric_functions[metric_name](output, labels)
-                if self.multidim_average=='samplewise':
+                metric_value = self.train_metric_functions[task_name][metric_name](output, labels)
+                if self.multidim_average[task_name]=='samplewise':
                     metric_value = torch.mean(metric_value)
-                self.train_metrics[metric_name].update(metric_value.item(), n=output.shape[0])
+                self.train_metrics[task_name][metric_name].update(metric_value.item(), n=output.shape[0])
 
         if rank<=0: 
             if self.wandb_run is not None: self.wandb_run.log({"lr": curr_lr})
@@ -170,55 +206,71 @@ class MetricManager(object):
         # Aggregate the measurements taken over each step
         if self.config.ddp:
             
-            average_metrics = dict()
-            for metric_name in self.train_metrics.keys():
+            average_metrics = {task_name: {} for task_name in self.train_metrics.keys()}
 
-                batch_vals = torch.tensor(self.train_metrics[metric_name].vals).to(device=self.device)
-                batch_counts = torch.tensor(self.train_metrics[metric_name].counts).to(device=self.device)
-                batch_products = batch_vals * batch_counts
+            for task_name in self.train_metrics.keys():
+                for metric_name in self.train_metrics[task_name].keys():
 
-                dist.all_reduce(batch_products, op=torch.distributed.ReduceOp.SUM)
-                dist.all_reduce(batch_counts, op=torch.distributed.ReduceOp.SUM)
+                    batch_vals = torch.tensor(self.train_metrics[task_name][metric_name].vals).to(device=self.device)
+                    batch_counts = torch.tensor(self.train_metrics[task_name][metric_name].counts).to(device=self.device)
+                    batch_products = batch_vals * batch_counts
 
-                total_products = sum(batch_products)
-                total_counts = sum(batch_counts)
-                average_metrics[metric_name] = total_products.item() / total_counts.item()
+                    dist.all_reduce(batch_products, op=torch.distributed.ReduceOp.SUM)
+                    dist.all_reduce(batch_counts, op=torch.distributed.ReduceOp.SUM)
+
+                    total_products = sum(batch_products)
+                    total_counts = sum(batch_counts)
+                    average_metrics[task_name][metric_name] = total_products.item() / total_counts.item()
 
         else:
-            average_metrics = {metric_name: self.train_metrics[metric_name].avg for metric_name in self.train_metrics.keys()}
+
+            average_metrics = {task_name: {} for task_name in self.train_metrics.keys()}
+
+            for task_name in self.train_metrics.keys():
+                for metric_name in self.train_metrics[task_name].keys():
+                    average_metrics[task_name][metric_name] = self.train_metrics[task_name][metric_name].avg
 
         # Log the metrics for this epoch to wandb
         if rank<=0: # main or master process
-            for metric_name, avg_metric_val in average_metrics.items():
-                if self.wandb_run is not None: self.wandb_run.log({"epoch": epoch, "train/"+metric_name: avg_metric_val})
+            average_metrics['total_loss'] = sum([average_metrics[task_name]['loss'] for task_name in self.config.tasks])
+            if self.wandb_run is not None: 
+                self.wandb_run.log({"epoch": epoch, f"train/total_loss": average_metrics['total_loss']})
+                for task_name in self.train_metrics.keys():
+                    for metric_name, avg_metric_val in average_metrics[task_name].items():
+                        self.wandb_run.log({"epoch": epoch, f"train/{task_name}/{metric_name}": avg_metric_val})
 
         # Save the average metrics for this epoch into self.average_train_metrics
         self.average_train_metrics = average_metrics
 
         # Checkpoint the most recent model
-        model_epoch = model_manager.module if hasattr(model_manager, 'module') else model_manager 
-        model_epoch.save('last_epoch', epoch, optim, sched)   
+        model_epoch = model_manager.module if self.config.ddp else model_manager 
+        model_epoch.save_entire_model(epoch, optim, sched, save_file_name='last_epoch')
 
     def on_eval_epoch_start(self):
         """
         Runs at the start of each evaluation loop
         """
-        self.all_preds = []
-        self.all_labels = []
-        for metric_name in self.eval_metrics:
-            self.eval_metrics[metric_name].reset()
+        self.all_preds = {task_name: [] for task_name in self.eval_metrics.keys()}
+        self.all_labels = {task_name: [] for task_name in self.eval_metrics.keys()}
+        for task_name in self.eval_metrics.keys():
+            for metric_name in self.eval_metrics[task_name]:
+                self.eval_metrics[task_name][metric_name].reset()
 
-    def on_eval_step_end(self, loss, output, labels, ids, rank, save_samples, split):
+    def on_eval_step_end(self, task_name, loss, output, labels, ids, rank, save_samples, split):
         """
         Runs at the end of each evaluation step
         """
+
+        task_ind = self.config.tasks.index(task_name)
+        task_type = self.config.task_type[task_ind]
+
         # Adjust outputs to correct format for computing metrics
-        if self.config.task_type=='class':
+        if task_type=='class':
             output = torch.nn.functional.softmax(output, dim=1)
-            if self.metric_task=='binary': 
+            if self.metric_task[task_name]=='binary': 
                 output = output[:,-1]
         
-        elif self.config.task_type=='seg':
+        elif task_type=='seg':
             output = torch.nn.functional.softmax(output, dim=1)
             output = torch.argmax(output,1)
             og_shape = output.shape[1:]
@@ -228,31 +280,31 @@ class MetricManager(object):
         # If exact_metrics was specified in the config, we'll save all the predictions so that we are computing exactly correct metrics over the entire eval set
         # If exact_metrics was not specified, then we'll average the metric over each eval step. Sometimes this produces the same result (e.g., average of losses over steps = average of loss over epoch), sometimes it does not (e.g., for auroc)
         if self.config.exact_metrics:
-            if self.config.task_type=='class':
-                self.all_preds += [output]
-                self.all_labels += [labels]
+            if self.config.task_type[task_ind]=='class':
+                self.all_preds[task_name] += [output]
+                self.all_labels[task_name] += [labels]
 
             else:
                 raise NotImplementedError('Exact metric computation not implemented for segmentation or enhancement; not needed for average Dice or average loss.')
             
         # Update each metric with the outputs from this step 
-        for metric_name in self.eval_metrics.keys():
+        for metric_name in self.eval_metrics[task_name].keys():
             if metric_name=='loss':
-                self.eval_metrics[metric_name].update(loss, n=output.shape[0])
+                self.eval_metrics[task_name][metric_name].update(loss, n=output.shape[0])
             else:
                 if not self.config.exact_metrics:
-                    metric_value = self.eval_metric_functions[metric_name](output, labels)
-                    if self.multidim_average=='samplewise':
+                    metric_value = self.eval_metric_functions[task_name][metric_name](output, labels)
+                    if self.multidim_average[task_name]=='samplewise':
                         metric_value = torch.mean(metric_value)
-                    self.eval_metrics[metric_name].update(metric_value.item(), n=output.shape[0])
+                    self.eval_metrics[task_name][metric_name].update(metric_value.item(), n=output.shape[0])
 
         # Save outputs if desired
         if save_samples and rank<=0:
-            save_path = os.path.join(self.config.log_dir,self.config.run_name,'saved_samples',split)
+            save_path = os.path.join(self.config.log_dir,self.config.run_name,'tasks',task_name,'saved_samples',split)
             os.makedirs(save_path, exist_ok=True)
             for b_output, b_id in zip(output, ids):
                 b_output = b_output.detach().cpu().numpy().astype('float32')
-                if self.config.task_type=='seg':
+                if task_type=='seg':
                     b_output = b_output.reshape(og_shape)
                 b_save_path = os.path.join(save_path,b_id+'_output.npy')
                 np.save(b_save_path,b_output)
@@ -264,68 +316,65 @@ class MetricManager(object):
 
         # Directly compute metrics from saved predictions if using exact metrics
         if self.config.exact_metrics:
-            self.all_preds = torch.concatenate(self.all_preds)
-            self.all_labels = torch.concatenate(self.all_labels)
-            for metric_name in self.eval_metrics.keys():
-                if metric_name!='loss':
-                    metric_value = self.eval_metric_functions[metric_name](self.all_preds, self.all_labels).item()
-                    if self.multidim_average=='samplewise':
-                        metric_value = torch.mean(metric_value)
-                    self.eval_metrics[metric_name].update(metric_value, n=self.all_preds.shape[0])
+            for task_name in self.config.tasks:
+                self.all_preds[task_name] = torch.concatenate(self.all_preds[task_name])
+                self.all_labels[task_name] = torch.concatenate(self.all_labels[task_name])
+                for metric_name in self.eval_metrics[task_name].keys():
+                    if metric_name!='loss':
+                        metric_value = self.eval_metric_functions[task_name][metric_name](self.all_preds[task_name], self.all_labels[task_name]).item()
+                        if self.multidim_average[task_name]=='samplewise':
+                            metric_value = torch.mean(metric_value)
+                        self.eval_metrics[task_name][metric_name].update(metric_value, n=self.all_preds[task_name].shape[0])
 
         # Aggregate the measurements over the steps
         if self.config.ddp:
-            average_metrics = dict()
-            for metric_name in self.eval_metrics.keys():
+            average_metrics = {task_name:{} for task_name in self.config.tasks}
+            for task_name in self.config.tasks:
+                for metric_name in self.eval_metrics[task_name].keys():
 
-                batch_vals = torch.tensor(self.eval_metrics[metric_name].vals).to(device=self.device)
-                batch_counts = torch.tensor(self.eval_metrics[metric_name].counts).to(device=self.device)
-                batch_products = batch_vals * batch_counts
+                    batch_vals = torch.tensor(self.eval_metrics[task_name][metric_name].vals).to(device=self.device)
+                    batch_counts = torch.tensor(self.eval_metrics[task_name][metric_name].counts).to(device=self.device)
+                    batch_products = batch_vals * batch_counts
 
-                dist.all_reduce(batch_products, op=torch.distributed.ReduceOp.SUM)
-                dist.all_reduce(batch_counts, op=torch.distributed.ReduceOp.SUM)
+                    dist.all_reduce(batch_products, op=torch.distributed.ReduceOp.SUM)
+                    dist.all_reduce(batch_counts, op=torch.distributed.ReduceOp.SUM)
 
-                total_products = sum(batch_products)
-                total_counts = sum(batch_counts)
-                average_metrics[metric_name] = total_products.item() / total_counts.item()
+                    total_products = sum(batch_products)
+                    total_counts = sum(batch_counts)
+                    average_metrics[task_name][metric_name] = total_products.item() / total_counts.item()
 
         else:
-            average_metrics = {metric_name: self.eval_metrics[metric_name].avg for metric_name in self.eval_metrics.keys()}
+            average_metrics = {task_name:{} for task_name in self.config.tasks}
+            for task_name in self.config.tasks:
+                average_metrics[task_name] = {metric_name: self.eval_metrics[task_name][metric_name].avg for metric_name in self.eval_metrics[task_name].keys()}
 
         # Checkpoint best models during training
         if rank<=0: 
+            
+            average_metrics['total_loss'] = sum([average_metrics[task_name]['loss'] for task_name in self.config.tasks])
 
             if not final_eval:
 
-                # Determine whether to checkpoint this model
-                model_epoch = model_manager.module if self.config.ddp else model_manager 
-                checkpoint_model = False    
-                if self.config.task_type=='class':
-                    checkpoint_model = average_metrics['auroc'] > self.best_val_auroc
-                elif self.config.task_type=='seg':
-                    checkpoint_model = average_metrics['f1'] > self.best_val_f1
-                elif self.config.task_type=='enhance':
-                    checkpoint_model = average_metrics['psnr'] > self.best_val_psnr
+                # Update losses and determine whether to checkpoint this model
+                checkpoint_model = False
+                for task_name in self.config.tasks:
+                    if average_metrics[task_name]['loss'] < self.bast_val_losses_by_task[task_name]:
+                        self.bast_val_losses_by_task[task_name] = average_metrics[task_name]['loss']
+                if average_metrics['total_loss'] < self.best_val_loss:
+                    self.best_val_loss = average_metrics['total_loss']
+                    checkpoint_model = True
 
                 # Save model and update best metrics
                 if checkpoint_model:
-                    model_epoch.save('best_checkpoint', epoch, optim, sched)   
-                    if self.config.task_type=='class':
-                        self.best_val_auroc = average_metrics['auroc']
-                        self.wandb_run.log({"epoch":epoch, "best_val_auroc":self.best_val_auroc})
-                    elif self.config.task_type=='seg':
-                        self.best_val_f1 = average_metrics['f1']
-                        self.wandb_run.log({"epoch":epoch, "best_val_f1":self.best_val_f1})
-                    elif self.config.task_type=='enhance':
-                        self.best_val_psnr = average_metrics['psnr']
-                        self.wandb_run.log({"epoch":epoch, "best_val_psnr":self.best_val_psnr})
-
-                if average_metrics['loss'] < self.best_val_loss:
-                    self.best_val_loss = average_metrics['loss']
+                    model_epoch = model_manager.module if self.config.ddp else model_manager 
+                    model_epoch.save_entire_model(epoch, optim, sched, save_file_name='best_checkpoint')
 
                 # Update wandb with eval metrics
-                for metric_name, avg_metric_eval in average_metrics.items():
-                    self.wandb_run.log({"epoch":epoch, f"{split}_{metric_name}": avg_metric_eval})
+                self.wandb_run.log({"epoch":epoch, "best_loss": self.best_val_loss})
+                self.wandb_run.log({"epoch": epoch, f"{split}/total_loss": average_metrics['total_loss']})
+                for task_name in self.config.tasks:
+                    for metric_name, avg_metric_eval in average_metrics[task_name].items():
+                        self.wandb_run.log({"epoch":epoch, f"{split}/{task_name}/{metric_name}": avg_metric_eval})
 
             # Save the average metrics for this epoch into self.average_eval_metrics
             self.average_eval_metrics = average_metrics
@@ -339,19 +388,13 @@ class MetricManager(object):
             if ran_training:
                 # Log the best loss and metrics from the run and save final model
                 self.wandb_run.summary["best_val_loss"] = self.best_val_loss
-                if self.config.task_type=='class':
-                    self.wandb_run.summary["best_val_auroc"] = self.best_val_auroc
-                elif self.config.task_type=='seg':
-                    self.wandb_run.summary["best_val_f1"] = self.best_val_f1
-                elif self.config.task_type=='enhance':
-                    self.wandb_run.summary["best_val_psnr"] = self.best_val_psnr
             
             # Finish the wandb run
             self.wandb_run.finish() 
         
 
 def tests():
-    print('Passed all tests')
+    pass
 
     
 if __name__=="__main__":

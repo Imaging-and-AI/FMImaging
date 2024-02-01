@@ -30,10 +30,16 @@ CODE MODIFIED FROM OMNIVORE GITHUB https://github.com/facebookresearch/omnivore/
 
 #-------------------------------------------------------------------------------------
 
-def omnivore(config, pre_feature_channels):
+def omnivore(config, 
+             input_feature_channels):
     """
-    Simple function to set up and return omnivore model.
-    Additionally, function computes feature_channels, a list of ints containing the number of channels in each feature returned by the model.
+    Wrapper function to set up and return omnivore model.
+    @args:
+        config (Namespace): Namespace object containing configuration parameters.
+        input_feature_channels (List[int]): List of ints containing the number of channels in each input tensor.
+    @rets:
+        model (torch model): pytorch model object 
+        output_feature_channels (List[int]): list of ints indicated the number of channels in each output tensor.
     """
 
     if config.omnivore.size=='tiny':
@@ -60,7 +66,7 @@ def omnivore(config, pre_feature_channels):
         raise ValueError(f"Unknown model size {config.omnivore.size} specified in config.")
 
     model = SwinTransformer3D(patch_size=config.omnivore.patch_size,
-                        in_chans=pre_feature_channels[-1],
+                        in_chans=input_feature_channels[-1],
                         embed_dim=embed_dim,
                         depths=depths,
                         num_heads=num_heads,
@@ -79,8 +85,8 @@ def omnivore(config, pre_feature_channels):
                     )
     
     l_depths = len(depths)
-    feature_channels=[embed_dim * 2 ** (l_depths-i) for i in range(l_depths,0,-1)]+[embed_dim * 2 ** (l_depths)]
-    return model, feature_channels
+    output_feature_channels=[embed_dim * 2 ** (l_depths-i) for i in range(l_depths,0,-1)]+[embed_dim * 2 ** (l_depths)]
+    return model, output_feature_channels
 
 #-------------------------------------------------------------------------------------
 
@@ -889,7 +895,7 @@ class SwinTransformer3D(nn.Module):
     ) -> List[torch.Tensor]:
         """Forward function."""
         
-        x = self.patch_embed(x)
+        x = self.patch_embed(x[-1])
 
         x = self.pos_drop(x)
 

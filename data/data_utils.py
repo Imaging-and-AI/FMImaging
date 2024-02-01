@@ -18,7 +18,7 @@ from augmentation_functions import *
 # ------------------------------------------------------------------------------------------------
 def custom_numpy_to_tensor(image,height,width,time,no_channels,interp=cv2.INTER_LINEAR):
         """
-        Function that adjusts stored numpy image to tensor of shape C x T/D x H x W
+        Function that adjusts stored numpy image of shape (H x W (x D x C)) to tensor of shape (C x T/D x H x W)
         """
 
         def _resize_xy(img,new_shape):

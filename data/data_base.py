@@ -24,6 +24,8 @@ class NumpyDataset(torch.utils.data.Dataset):
 
     @args:
         config (namespace): config contatining all args for this run
+        task_name (str): name of the task associated with this dataset
+        task_ind (int): index of the task associated with this dataset (defined by the order in which the tasks are listed in the config)
         split (str, {'train','val','test'}): indicates which data split this is
     @rets:
         image (torch.tensor): image input as a torch tensor of shape C x D/T x H x W
@@ -31,20 +33,23 @@ class NumpyDataset(torch.utils.data.Dataset):
         id (str): ID identifying this sample
 
     """
-    def __init__(self, config, split):
+    def __init__(self, config, task_name, task_ind, split):
 
         # Extract values from config used in dataloader
         self.config = config
-        self.data_loc = self.config.data_dir #(str): directory where numpy files are stored
-        self.height = self.config.height #(int): height (number of rows) of numpys; if stored data is not this height, images will be interpolated to this height
-        self.width = self.config.width #(int): width (number of cols) of numpys; if stored data is not this width, images will be interpolated to this height
-        self.time = self.config.time #(int): time or depth of numpys; if stored data does not have this time/depth, images will be cropped or padded. Should be >=1.
-        self.no_in_channel = self.config.no_in_channel #(int): number of input channels. Should be >=1
-        self.no_out_channel = self.config.no_out_channel #(int): number of output channels (if doing seg) or number of output classes (if doing class)
-        self.split_csv = self.config.split_csv_path #(str): path to the csv specifying the dataset splits
-        self.task = self.config.task_type #(str): the task type, currently 'seg' or 'class'
-        self.patch = self.config.use_patches # whether to train on patches
-        self.split = split #(str): indicates data split, train val test
+        self.task_name = task_name
+        self.task_ind = task_ind
+        self.split = split 
+
+        self.data_loc = self.config.data_dir[task_ind] #(str): directory where numpy files are stored
+        self.height = self.config.height[task_ind] #(int): height (number of rows) of numpys; if stored data is not this height, images will be interpolated to this height
+        self.width = self.config.width[task_ind] #(int): width (number of cols) of numpys; if stored data is not this width, images will be interpolated to this height
+        self.time = self.config.time[task_ind] #(int): time or depth of numpys; if stored data does not have this time/depth, images will be cropped or padded. Should be >=1.
+        self.no_in_channel = self.config.no_in_channel[task_ind] #(int): number of input channels. Should be >=1
+        self.no_out_channel = self.config.no_out_channel[task_ind] #(int): number of output channels (if doing seg) or number of output classes (if doing class)
+        self.split_csv = self.config.split_csv_path[task_ind] #(str): path to the csv specifying the dataset splits
+        self.task = self.config.task_type[task_ind] #(str): the task type, currently 'seg' or 'class'
+        self.patch = self.config.use_patches[task_ind] # whether to train on patches
 
         assert self.time>=1, "Time arg should be greater than or equal to 1"
         assert self.no_in_channel>=1, "Number of input channels arg should be greater than or equal to 1"

@@ -88,36 +88,46 @@ def str_to_bool(value):
 
 def check_args(config):
     """Check arguments user input"""
+    config.run_name = config.run_name.replace(' ','_')
     save_path = os.path.join(config.log_dir, config.run_name)
     if os.path.exists(save_path) and not config.override:
         raise RuntimeError(f"User specified a log_dir ({config.log_dir}) and run_name ({config.run_name}) that already exist; either specify a different run name or override current results with --override")
-    if not os.path.exists(config.data_dir):
-        raise RuntimeError(f"User specified a data_dir ({config.data_dir}) that does not exist")
-    if config.split_csv_path is not None:
-        if not os.path.exists(config.split_csv_path):
-            raise RuntimeError(f"User specified a split_csv_path ({config.split_csv_path}) that does not exist")
-    if config.pre_model_load_path is not None:
-        if not os.path.exists(config.pre_model_load_path):
-            raise RuntimeError(f"User specified a pre_model_load_path ({config.pre_model_load_path}) that does not exist")
-    if config.backbone_model_load_path is not None:
-        if not os.path.exists(config.backbone_model_load_path):
-            raise RuntimeError(f"User specified a backbone_model_load_path ({config.backbone_model_load_path}) that does not exist")
-    if config.post_model_load_path is not None:
-        if not os.path.exists(config.post_model_load_path):
-            raise RuntimeError(f"User specified a post_model_load_path ({config.post_model_load_path}) that does not exist")
+    for data_dir in config.data_dir:
+        if not os.path.exists(data_dir):
+            raise RuntimeError(f"User specified a data_dir ({data_dir}) that does not exist")
+    for csv_path in config.split_csv_path:
+        if csv_path is not None:
+            if not os.path.exists(csv_path):
+                raise RuntimeError(f"User specified a split_csv_path ({csv_path}) that does not exist")
+    for pre_component_load_path in config.pre_component_load_path:
+        if pre_component_load_path not in [None,"None"]:
+            if not os.path.exists(pre_component_load_path):
+                raise RuntimeError(f"User specified a pre_component_load_path ({pre_component_load_path}) that does not exist")
+    if config.backbone_component_load_path is not None:
+        if not os.path.exists(config.backbone_component_load_path):
+            raise RuntimeError(f"User specified a backbone_model_load_path ({config.backbone_component_load_path}) that does not exist")
+    for post_component_load_path in config.post_component_load_path:
+        if post_component_load_path not in [None,"None"]:
+            if not os.path.exists(post_component_load_path):
+                raise RuntimeError(f"User specified a post_component_load_path ({post_component_load_path}) that does not exist")
     if config.yaml_load_path is not None:
         if not os.path.exists(config.yaml_load_path):
             raise RuntimeError(f"User specified a yaml_load_path ({config.yaml_load_path}) that does not exist")
-    if config.height <= 0:
-        raise RuntimeError("Height should be greater than or equal to 1")
-    if config.width <= 0:
-        raise RuntimeError("Width should be greater than or equal to 1")
-    if config.time <= 0:
-        raise RuntimeError("Time should be greater than or equal to 1")
-    if config.no_in_channel <= 0:
-        raise RuntimeError("no_in_channel should be greater than or equal to 1")
-    if config.no_out_channel <= 0:
-        raise RuntimeError("no_out_channel should be greater than or equal to 1")
+    for height in config.height:
+        if height <= 0:
+            raise RuntimeError("Height should be greater than or equal to 1")
+    for width in config.width:
+        if width <= 0:
+            raise RuntimeError("Width should be greater than or equal to 1")
+    for time in config.time:
+        if time <= 0:
+            raise RuntimeError("Time should be greater than or equal to 1")
+    for no_in_channel in config.no_in_channel:
+        if no_in_channel <= 0:
+            raise RuntimeError("no_in_channel should be greater than or equal to 1")
+    for no_out_channel in config.no_out_channel:
+        if no_out_channel <= 0:
+            raise RuntimeError("no_out_channel should be greater than or equal to 1")
     if config.num_workers<=0: 
         config.num_workers = os.cpu_count()
     if config.prefetch_factor <= 0:
@@ -128,5 +138,6 @@ def check_args(config):
         config.ddp = True
     if config.ddp and not ("LOCAL_RANK" in os.environ or "WORLD_SIZE" in os.environ or "LOCAL_WORLD_SIZE" in os.environ):
         raise RuntimeError("--ddp specified but ddp environmental variables not available; remember to run with torchrun if using ddp.")
+        
 
 

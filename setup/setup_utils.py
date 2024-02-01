@@ -23,6 +23,9 @@ from utils.status import get_device
 
 # -------------------------------------------------------------------------------------------------
 def set_seed(seed: int = 42) -> None:
+    """
+    Take care of all the random seeds to run deterministically 
+    """
     np.random.seed(seed)
     random.seed(seed)
     torch.manual_seed(seed)
@@ -37,7 +40,7 @@ def set_seed(seed: int = 42) -> None:
 # -------------------------------------------------------------------------------------------------
 def setup_logger(config):
     """
-    logger setup to be called from any process
+    Logger setup to be called from any process
     """
     
     os.makedirs(config.log_dir, exist_ok=True)
@@ -60,6 +63,9 @@ def setup_logger(config):
 
 # -------------------------------------------------------------------------------------------------
 def setup_ddp():
+    """
+    Sets up ddp, including initialiing the rank, global rank, world size
+    """
     
     rank = int(os.environ["LOCAL_RANK"])
     global_rank = int(os.environ["RANK"])
@@ -81,7 +87,7 @@ def setup_ddp():
 # -------------------------------------------------------------------------------------------------
 def setup_run(config):
     """
-    sets up datetime, logging, seed and ddp
+    Sets up datetime, logging, seed and ddp
     @args:
         - config (Namespace): runtime namespace for setup
         - dirs (str list): the directories from config to be created

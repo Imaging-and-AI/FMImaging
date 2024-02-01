@@ -15,7 +15,7 @@ from setup_utils import *
 
 def parse_config(custom_parser=None):
     """
-    Parse config only
+    Parse config 
 
     @args:
         - custom_parser (parser): contains parser for any project-specific, custom args
@@ -33,7 +33,7 @@ def parse_config(custom_parser=None):
     sched_config, unknown_args_sched = sched_parser(scheduler_type=general_config.scheduler_type).parser.parse_known_args(namespace=Nestedspace())
 
     # Parse model args
-    model_config, unknown_args_model = model_parser(model_type=general_config.backbone_model).parser.parse_known_args(namespace=Nestedspace())
+    model_config, unknown_args_model = model_parser(model_type=general_config.backbone_component).parser.parse_known_args(namespace=Nestedspace())
 
     # Parse project-specific args from the path in general_config.custom_parser, if specified
     if custom_parser is not None:
@@ -80,7 +80,7 @@ def parse_config_and_setup_run(custom_parser=None):
     full_config.yaml_file = yaml_file
 
     ############################### RUN SETUP FUNCTIONS ###############################
-    # Run a few setup training functions that are used for the remainder of training...
+    # Run a few setup functions that are used throughout the remainder of training...
     setup_run(full_config)
 
     return full_config

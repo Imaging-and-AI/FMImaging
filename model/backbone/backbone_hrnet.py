@@ -46,17 +46,19 @@ from backbone_base import STCNNT_Base_Runtime, set_window_patch_sizes_keep_num_w
 __all__ = ['STCNNT_HRnet_model', 'STCNNT_HRnet', 'DownSample', 'UpSample']
 
 # -------------------------------------------------------------------------------------------------
-def STCNNT_HRnet_model(config, pre_feature_channels):
+def STCNNT_HRnet_model(config, input_feature_channels):
     """
-    Simple function to return STCCNT HRnet model.
-    Additionally, function computes feature_channels, a list of ints containing the number of channels in each feature returned by the model.
+    Wrapper function to return STCCNT HRnet model.
+    @args:
+        config (Namespace): Namespace object containing configuration parameters.
+        input_feature_channels (List[int]): List of ints containing the number of channels in each input tensor.
+    @rets:
+        model (torch model): pytorch model object 
+        output_feature_channels (List[int]): list of ints indicated the number of channels in each output tensor.
     """
-    C_in = config.no_in_channel
-    config.no_in_channel = pre_feature_channels[-1]
-    model = STCNNT_HRnet(config=config)
-    config.no_in_channel = C_in
-    feature_channels = [int(config.backbone_hrnet.C * sum([np.power(2, k) for k in range(config.backbone_hrnet.num_resolution_levels)]))]
-    return model, feature_channels
+    model = STCNNT_HRnet(config, input_feature_channels)
+    output_feature_channels = [int(config.backbone_hrnet.C * sum([np.power(2, k) for k in range(config.backbone_hrnet.num_resolution_levels)]))]
+    return model, output_feature_channels
 
 #-------------------------------------------------------------------------------------
 class STCNNT_HRnet(STCNNT_Base_Runtime):
@@ -64,10 +66,11 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
     This class implemented the stcnnt version of HRnet with maximal 5 levels.
     """
 
-    def __init__(self, config) -> None:
+    def __init__(self, config, input_feature_channels) -> None:
         """
         @args:
             - config (Namespace): runtime namespace for setup
+            - input_feature_channels (List[int]): list of ints indicating the number of channels in each input tensor
 
         @args (from config):
             ---------------------------------------------------------------
@@ -141,8 +144,9 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
         num_resolution_levels = config.backbone_hrnet.num_resolution_levels
         block_str = config.backbone_hrnet.block_str
         use_interpolation = config.backbone_hrnet.use_interpolation
+        no_in_channel = input_feature_channels[-1]
 
-        # assert C >= config.no_in_channel, "Number of channels should be larger than C_in"
+        # assert C >= no_in_channel, "Number of channels should be larger than C_in"
         assert num_resolution_levels <= 5 and num_resolution_levels>=2, "Maximal number of resolution levels is 5"
 
         self.C = C
@@ -162,7 +166,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
         self.num_patch = [c.window_size[0]//c.patch_size[0], c.window_size[1]//c.patch_size[1]]
 
         kwargs = {
-            "C_in":c.no_in_channel,
+            "C_in":no_in_channel,
             "C_out":C,
             "H":c.height,
             "W":c.width,
@@ -216,7 +220,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
 
         if num_resolution_levels >= 1:
             # define B00
-            kwargs["C_in"] = c.no_in_channel
+            kwargs["C_in"] = no_in_channel
             kwargs["C_out"] = self.C
             kwargs["H"] = c.height
             kwargs["W"] = c.width
@@ -574,14 +578,14 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
     def forward(self, x):
         """
         @args:
-            - x (5D torch.Tensor): the input image, [B, T, Cin, H, W]
+            - x (list of 5D torch.Tensor): the input image, [B, T, Cin, H, W]
 
         @rets:
             - y_hat (5D torch.Tensor): aggregated output tensor
             - y_level_outputs (Tuple): tuple of tensor for every resolution level
         """
 
-        x = self.permute(x)
+        x = self.permute(x[-1])
 
         B, T, Cin, H, W = x.shape
 
@@ -725,7 +729,7 @@ class STCNNT_HRnet(STCNNT_Base_Runtime):
         y_hat = self.permute(y_hat)
         y_level_outputs = [self.permute(curr_y_hat) for curr_y_hat in y_level_outputs]
         
-        return [y_hat, y_level_outputs]
+        return y_level_outputs + [y_hat]
 
     def __str__(self):
         return create_generic_class_str(obj=self, exclusion_list=[nn.Module, OrderedDict, STCNNT_Block, DownSample, UpSample])

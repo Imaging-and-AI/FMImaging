@@ -32,18 +32,19 @@ class UNETR2D(nn.Module):
     def __init__(
         self,
         config,
-        feature_channels
+        input_feature_channels,
+        output_feature_channels
     ) -> None:
 
         super().__init__()
 
-        if feature_channels[0] % 12 != 0:
+        if input_feature_channels[0] % 12 != 0:
             raise ValueError("Features should be divisible by 12 to use current UNETR config.")
 
         self.encoder1 = UnetrBasicBlock(
             spatial_dims=3,
             in_channels=config.no_in_channel,
-            out_channels=feature_channels[0],
+            out_channels=input_feature_channels[0],
             kernel_size=(1,3,3),
             stride=1,
             norm_name="instance",
@@ -52,8 +53,8 @@ class UNETR2D(nn.Module):
 
         self.encoder2 = UnetrBasicBlock(
             spatial_dims=3,
-            in_channels=feature_channels[0],
-            out_channels=feature_channels[0],
+            in_channels=input_feature_channels[0],
+            out_channels=input_feature_channels[0],
             kernel_size=(1,3,3),
             stride=1,
             norm_name="instance",
@@ -62,8 +63,8 @@ class UNETR2D(nn.Module):
 
         self.encoder3 = UnetrBasicBlock(
             spatial_dims=3,
-            in_channels=feature_channels[1],
-            out_channels=feature_channels[1],
+            in_channels=input_feature_channels[1],
+            out_channels=input_feature_channels[1],
             kernel_size=(1,3,3),
             stride=1,
             norm_name="instance",
@@ -72,8 +73,8 @@ class UNETR2D(nn.Module):
 
         self.encoder4 = UnetrBasicBlock(
             spatial_dims=3,
-            in_channels=feature_channels[2],
-            out_channels=feature_channels[2],
+            in_channels=input_feature_channels[2],
+            out_channels=input_feature_channels[2],
             kernel_size=(1,3,3),
             stride=1,
             norm_name="instance",
@@ -82,8 +83,8 @@ class UNETR2D(nn.Module):
 
         self.encoder10 = UnetrBasicBlock(
             spatial_dims=3,
-            in_channels=feature_channels[4],
-            out_channels=feature_channels[4],
+            in_channels=input_feature_channels[4],
+            out_channels=input_feature_channels[4],
             kernel_size=(1,3,3),
             stride=1,
             norm_name="instance",
@@ -92,8 +93,8 @@ class UNETR2D(nn.Module):
 
         self.decoder5 = UnetrUpBlock(
             spatial_dims=3,
-            in_channels=feature_channels[4],
-            out_channels=feature_channels[3],
+            in_channels=input_feature_channels[4],
+            out_channels=input_feature_channels[3],
             kernel_size=(1,3,3),
             upsample_kernel_size=(1,2,2), #These all should reflect the patchmerging ops in the backbone
             norm_name="instance",
@@ -102,8 +103,8 @@ class UNETR2D(nn.Module):
 
         self.decoder4 = UnetrUpBlock(
             spatial_dims=3,
-            in_channels=feature_channels[3],
-            out_channels=feature_channels[2],
+            in_channels=input_feature_channels[3],
+            out_channels=input_feature_channels[2],
             kernel_size=(1,3,3),
             upsample_kernel_size=(1,2,2), #These all should reflect the patchmerging ops in the backbone
             norm_name="instance",
@@ -112,8 +113,8 @@ class UNETR2D(nn.Module):
 
         self.decoder3 = UnetrUpBlock(
             spatial_dims=3,
-            in_channels=feature_channels[2],
-            out_channels=feature_channels[1],
+            in_channels=input_feature_channels[2],
+            out_channels=input_feature_channels[1],
             kernel_size=(1,3,3),
             upsample_kernel_size=(1,2,2), #These all should reflect the patchmerging ops in the backbone
             norm_name="instance",
@@ -121,8 +122,8 @@ class UNETR2D(nn.Module):
         )
         self.decoder2 = UnetrUpBlock(
             spatial_dims=3,
-            in_channels=feature_channels[1],
-            out_channels=feature_channels[0],
+            in_channels=input_feature_channels[1],
+            out_channels=input_feature_channels[0],
             kernel_size=(1,3,3),
             upsample_kernel_size=(1,2,2), #These all should reflect the patchmerging ops in the backbone
             norm_name="instance",
@@ -131,15 +132,15 @@ class UNETR2D(nn.Module):
 
         self.decoder1 = UnetrUpBlock(
             spatial_dims=3,
-            in_channels=feature_channels[0],
-            out_channels=feature_channels[0],
+            in_channels=input_feature_channels[0],
+            out_channels=input_feature_channels[0],
             kernel_size=(1,3,3),
             upsample_kernel_size=config.omnivore.patch_size, #This should be the patch embedding kernel size
             norm_name="instance",
             res_block=True,
         )
 
-        self.out = UnetOutBlock(spatial_dims=3, in_channels=feature_channels[0], out_channels=config.no_out_channel)
+        self.out = UnetOutBlock(spatial_dims=3, in_channels=input_feature_channels[0], out_channels=output_feature_channels[-1])
 
     def forward(self, x_in, backbone_features):
         enc0 = self.encoder1(x_in)
@@ -166,18 +167,19 @@ class UNETR3D(nn.Module):
     def __init__(
         self,
         config,
-        feature_channels
+        input_feature_channels,
+        output_feature_channels
     ) -> None:
 
         super().__init__()
 
-        if feature_channels[0] % 12 != 0:
+        if input_feature_channels[0] % 12 != 0:
             raise ValueError("Features should be divisible by 12 to use current UNETR config.")
 
         self.encoder1 = UnetrBasicBlock(
             spatial_dims=3,
             in_channels=config.no_in_channel,
-            out_channels=feature_channels[0],
+            out_channels=input_feature_channels[0],
             kernel_size=3,
             stride=1,
             norm_name="instance",
@@ -186,8 +188,8 @@ class UNETR3D(nn.Module):
 
         self.encoder2 = UnetrBasicBlock(
             spatial_dims=3,
-            in_channels=feature_channels[0],
-            out_channels=feature_channels[0],
+            in_channels=input_feature_channels[0],
+            out_channels=input_feature_channels[0],
             kernel_size=3,
             stride=1,
             norm_name="instance",
@@ -196,8 +198,8 @@ class UNETR3D(nn.Module):
 
         self.encoder3 = UnetrBasicBlock(
             spatial_dims=3,
-            in_channels=feature_channels[1],
-            out_channels=feature_channels[1],
+            in_channels=input_feature_channels[1],
+            out_channels=input_feature_channels[1],
             kernel_size=3,
             stride=1,
             norm_name="instance",
@@ -206,8 +208,8 @@ class UNETR3D(nn.Module):
 
         self.encoder4 = UnetrBasicBlock(
             spatial_dims=3,
-            in_channels=feature_channels[2],
-            out_channels=feature_channels[2],
+            in_channels=input_feature_channels[2],
+            out_channels=input_feature_channels[2],
             kernel_size=3,
             stride=1,
             norm_name="instance",
@@ -216,8 +218,8 @@ class UNETR3D(nn.Module):
 
         self.encoder10 = UnetrBasicBlock(
             spatial_dims=3,
-            in_channels=feature_channels[4],
-            out_channels=feature_channels[4],
+            in_channels=input_feature_channels[4],
+            out_channels=input_feature_channels[4],
             kernel_size=3,
             stride=1,
             norm_name="instance",
@@ -226,8 +228,8 @@ class UNETR3D(nn.Module):
 
         self.decoder5 = UnetrUpBlock(
             spatial_dims=3,
-            in_channels=feature_channels[4],
-            out_channels=feature_channels[3],
+            in_channels=input_feature_channels[4],
+            out_channels=input_feature_channels[3],
             kernel_size=3,
             upsample_kernel_size=(1,2,2), #These all should reflect the patchmerging ops in the backbone
             norm_name="instance",
@@ -236,8 +238,8 @@ class UNETR3D(nn.Module):
 
         self.decoder4 = UnetrUpBlock(
             spatial_dims=3,
-            in_channels=feature_channels[3],
-            out_channels=feature_channels[2],
+            in_channels=input_feature_channels[3],
+            out_channels=input_feature_channels[2],
             kernel_size=3,
             upsample_kernel_size=(1,2,2), #These all should reflect the patchmerging ops in the backbone
             norm_name="instance",
@@ -246,8 +248,8 @@ class UNETR3D(nn.Module):
 
         self.decoder3 = UnetrUpBlock(
             spatial_dims=3,
-            in_channels=feature_channels[2],
-            out_channels=feature_channels[1],
+            in_channels=input_feature_channels[2],
+            out_channels=input_feature_channels[1],
             kernel_size=3,
             upsample_kernel_size=(1,2,2), #These all should reflect the patchmerging ops in the backbone
             norm_name="instance",
@@ -255,8 +257,8 @@ class UNETR3D(nn.Module):
         )
         self.decoder2 = UnetrUpBlock(
             spatial_dims=3,
-            in_channels=feature_channels[1],
-            out_channels=feature_channels[0],
+            in_channels=input_feature_channels[1],
+            out_channels=input_feature_channels[0],
             kernel_size=3,
             upsample_kernel_size=(1,2,2), #These all should reflect the patchmerging ops in the backbone
             norm_name="instance",
@@ -265,15 +267,15 @@ class UNETR3D(nn.Module):
 
         self.decoder1 = UnetrUpBlock(
             spatial_dims=3,
-            in_channels=feature_channels[0],
-            out_channels=feature_channels[0],
+            in_channels=input_feature_channels[0],
+            out_channels=input_feature_channels[0],
             kernel_size=3,
             upsample_kernel_size=config.omnivore.patch_size, #This should be the patch embedding kernel size
             norm_name="instance",
             res_block=True,
         )
 
-        self.out = UnetOutBlock(spatial_dims=3, in_channels=feature_channels[0], out_channels=config.no_out_channel)
+        self.out = UnetOutBlock(spatial_dims=3, in_channels=input_feature_channels[0], out_channels=output_feature_channels[-1])
 
     def forward(self, x_in, backbone_features):
         enc0 = self.encoder1(x_in)
@@ -294,14 +296,16 @@ class SimpleMultidepthConv(nn.Module):
     def __init__(
         self,
         config,
-        feature_channels,
+        input_feature_channels,
+        output_feature_channels
     ):
         """
         Takes in features from backbone model and produces an output of same size as input with no_out_channel 
         This is a very simple head that I made up, should be replaced by something bebtter
         @args:
             config (namespace): contains all parsed args
-            feature_channels (List[int]): contains a list of the number of feature channels in each tensor returned by the backbone
+            input_feature_channels (List[int]): contains a list of the number of feature channels in each tensor input into this task head (i.e., returned by the backbone)
+            output_feature_channels (List[int]): contains a list of the number of feature channels in each tensor expected to be returned by this task head
             forward pass, x (List[tensor]): contains a list of torch tensors output by the backbone model, each five dimensional (B C* D* H* W*).
         @rets:
             forward pass, x (tensor): output from the enhancement task head
@@ -315,10 +319,10 @@ class SimpleMultidepthConv(nn.Module):
             self.input_size = (config.time,config.height,config.width)
         
         self.permute = torchvision.ops.misc.Permute([0,2,1,3,4])
-        self.conv2d_1 = Conv2DExt(in_channels=feature_channels[-1], out_channels=config.no_out_channel, kernel_size=[1,1], padding=[0, 0], stride=[1,1], bias=True)
-        self.conv2d_2 = Conv2DExt(in_channels=feature_channels[-2], out_channels=config.no_out_channel, kernel_size=[1,1], padding=[0, 0], stride=[1,1], bias=True)
-        self.conv2d_3 = Conv2DExt(in_channels=feature_channels[-3], out_channels=config.no_out_channel, kernel_size=[1,1], padding=[0, 0], stride=[1,1], bias=True)
-        self.conv2d_4 = Conv2DExt(in_channels=feature_channels[-4], out_channels=config.no_out_channel, kernel_size=[1,1], padding=[0, 0], stride=[1,1], bias=True)
+        self.conv2d_1 = Conv2DExt(in_channels=input_feature_channels[-1], out_channels=output_feature_channels[-1], kernel_size=[1,1], padding=[0, 0], stride=[1,1], bias=True)
+        self.conv2d_2 = Conv2DExt(in_channels=input_feature_channels[-2], out_channels=output_feature_channels[-1], kernel_size=[1,1], padding=[0, 0], stride=[1,1], bias=True)
+        self.conv2d_3 = Conv2DExt(in_channels=input_feature_channels[-3], out_channels=output_feature_channels[-1], kernel_size=[1,1], padding=[0, 0], stride=[1,1], bias=True)
+        self.conv2d_4 = Conv2DExt(in_channels=input_feature_channels[-4], out_channels=output_feature_channels[-1], kernel_size=[1,1], padding=[0, 0], stride=[1,1], bias=True)
 
         for m in self.modules():
             if isinstance(m, nn.Linear):
