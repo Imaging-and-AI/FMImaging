@@ -1,7 +1,8 @@
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=0
 
-python ../../run.py --run_name="abct_refactor" \
-                    --log_dir="/home/hoopersm/refactor_debug/logs" \
+python ../../run.py --run_name="abct_refactor1.5" \
+                    --tasks "abct_segment" \
+                    --log_dir="/home/hoopersm/refactor_v1.5/logs" \
                     --data_dir="/home/hoopersm/preprocessed_data/abct" \
                     --split_csv_path="/home/hoopersm/archive/baseline_backbones/samplers/simple_abct_splits_seed_1.csv" \
                     --height=112 \
@@ -12,14 +13,14 @@ python ../../run.py --run_name="abct_refactor" \
                     --affine_aug=True \
                     --brightness_aug=True \
                     --gaussian_blur_aug=True \
-                    --pre_model=Identity \
-                    --backbone_model=omnivore \
+                    --pre_component=Identity \
+                    --backbone_component=omnivore \
                     --omnivore.size='tiny' \
-                    --post_model=UperNet3D \
+                    --post_component=UperNet3D \
                     --task_type=seg \
                     --optim_type=adam \
                     --scheduler_type=None \
-                    --loss_type=CrossEntropy \
+                    --loss_func=CrossEntropy \
                     --device=cuda \
                     --num_workers=4 \
                     --num_epochs=50 \
@@ -27,4 +28,6 @@ python ../../run.py --run_name="abct_refactor" \
                     --optim.lr=0.0001 \
                     --optim.beta1=0.9 \
                     --optim.beta2=0.99 \
-                    --seed 1 
+                    --seed 1 \
+                    --save_model_components=True \
+                    --override

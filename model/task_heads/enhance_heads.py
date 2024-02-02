@@ -32,6 +32,7 @@ class UNETR2D(nn.Module):
     def __init__(
         self,
         config,
+        input_image_channels,
         input_feature_channels,
         output_feature_channels
     ) -> None:
@@ -43,7 +44,7 @@ class UNETR2D(nn.Module):
 
         self.encoder1 = UnetrBasicBlock(
             spatial_dims=3,
-            in_channels=config.no_in_channel,
+            in_channels=input_image_channels,
             out_channels=input_feature_channels[0],
             kernel_size=(1,3,3),
             stride=1,
@@ -167,6 +168,7 @@ class UNETR3D(nn.Module):
     def __init__(
         self,
         config,
+        input_image_channels,
         input_feature_channels,
         output_feature_channels
     ) -> None:
@@ -178,7 +180,7 @@ class UNETR3D(nn.Module):
 
         self.encoder1 = UnetrBasicBlock(
             spatial_dims=3,
-            in_channels=config.no_in_channel,
+            in_channels=input_image_channels,
             out_channels=input_feature_channels[0],
             kernel_size=3,
             stride=1,
@@ -300,7 +302,7 @@ class SimpleMultidepthConv(nn.Module):
         output_feature_channels
     ):
         """
-        Takes in features from backbone model and produces an output of same size as input with no_out_channel 
+        Takes in features from backbone model and produces an output of same size as input with output_feature_channels 
         This is a very simple head that I made up, should be replaced by something bebtter
         @args:
             config (namespace): contains all parsed args
@@ -332,7 +334,7 @@ class SimpleMultidepthConv(nn.Module):
 
     def forward(self, x):
 
-        x_out = torch.zeros((x[0].shape[0], self.config.no_out_channel, *self.input_size)).to(device=x[0].device)
+        x_out = torch.zeros((x[0].shape[0], self.output_feature_channels[-1], *self.input_size)).to(device=x[0].device)
         for x_in, op in zip([x[-1],x[-2],x[-3],x[-4]], [self.conv2d_1,self.conv2d_2,self.conv2d_3,self.conv2d_4]):
             x_in = self.permute(x_in)
             x_in = op(x_in)

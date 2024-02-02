@@ -1,0 +1,34 @@
+export CUDA_VISIBLE_DEVICES=1
+
+python ../../run.py --run_name="ptx_refactor1.5_mtl" \
+                    --tasks "ptx_classify_small" "ptx_classify_big" \
+                    --log_dir="/home/hoopersm/refactor_v1.5/logs" \
+                    --data_dir "/home/hoopersm/preprocessed_data/ptx" "/home/hoopersm/preprocessed_data/ptx" \
+                    --split_csv_path "/home/hoopersm/archive/baseline_backbones/samplers/simple_ptx_splits_seed_1.csv" "/home/hoopersm/archive/baseline_backbones/samplers/simple_ptx_splits_seed_1.csv"\
+                    --height 128 224 \
+                    --width 128 224 \
+                    --time 1 1 \
+                    --no_in_channel 1 1 \
+                    --no_out_channel 2 2 \
+                    --affine_aug True True \
+                    --brightness_aug True True \
+                    --gaussian_blur_aug True True \
+                    --pre_component Identity Identity \
+                    --backbone_component omnivore \
+                    --omnivore.size 'tiny' \
+                    --post_component NormPoolLinear NormPoolLinear \
+                    --task_type class class \
+                    --optim_type=adam \
+                    --scheduler_type=None \
+                    --loss_func CrossEntropy CrossEntropy \
+                    --device=cuda \
+                    --num_workers=4 \
+                    --num_epochs=50 \
+                    --batch_size 16 8 \
+                    --optim.lr=0.00001 \
+                    --optim.beta1=0.9 \
+                    --optim.beta2=0.99 \
+                    --exact_metrics=True \
+                    --override \
+                    --save_model_components=True \
+                    --checkpoint_frequency=100 \

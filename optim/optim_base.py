@@ -42,11 +42,12 @@ class OptimManager(object):
         self.model_manager = model_manager
         
         # Compute total steps and samples (needed for some schedulers)
-        self.total_num_steps, self.total_num_samples = compute_total_steps(self.config, tasks)
-        logging.info(f"Total steps for this run: {self.total_num_steps}, number of samples {self.total_num_samples}")
+        self.total_num_samples, self.total_num_updates = compute_total_updates(self.config, tasks)
+        logging.info(f"Total number of samples for this run: {self.total_num_samples}")
+        logging.info(f"Total number of updates for this run: {self.total_num_updates}")
         
         # Set up optimizer and scheduler
-        self.set_up_optim_and_scheduling(total_steps=self.total_num_steps)
+        self.set_up_optim_and_scheduling(total_updates=self.total_num_updates)
 
         # Load optim and scheduler states, if desired
         if self.config.continued_training and self.config.full_model_load_path is not None:
@@ -61,28 +62,25 @@ class OptimManager(object):
         """
 
         optim_groups = []
-        group_count = 0
 
         # Add all tasks' pre optim groups
         for task in self.model_manager.tasks.values():
-            optim_groups += [{"params": list(task.pre_component.parameters()), "lr": self.config.optim.lr[group_count], "weight_decay": self.config.optim.weight_decay}]
-            group_count += 1
+            optim_groups += [{"params": list(task.pre_component.parameters()), "lr": self.config.optim.lr[0], "weight_decay": self.config.optim.weight_decay}]
 
         # Add backbone optim groups
-        optim_groups += [{"params": list(self.model_manager.backbone_component.parameters()), "lr": self.config.optim.lr[group_count], "weight_decay": self.config.optim.weight_decay}]
+        optim_groups += [{"params": list(self.model_manager.backbone_component.parameters()), "lr": self.config.optim.lr[1], "weight_decay": self.config.optim.weight_decay}]
 
         # Add all tasks' post optim groups
         for task in self.model_manager.tasks.values():
-            optim_groups += [{"params": list(task.post_component.parameters()), "lr": self.config.optim.lr[group_count], "weight_decay": self.config.optim.weight_decay}]
-            group_count += 1
+            optim_groups += [{"params": list(task.post_component.parameters()), "lr": self.config.optim.lr[2], "weight_decay": self.config.optim.weight_decay}]
 
         return optim_groups
 
-    def set_up_optim_and_scheduling(self, total_steps=1):
+    def set_up_optim_and_scheduling(self, total_updates=1):
         """
         Sets up the optimizer and the learning rate scheduler using the config
         @args:
-            - total_steps (int): total training steps. used for OneCycleLR
+            - total_updates (int): total number of updates in training (used for OneCycleLR)
         @outputs:
             - self.optim: optimizer
             - self.sched: scheduler
@@ -125,7 +123,7 @@ class OptimManager(object):
                                                    last_epoch=-1,
                                                    verbose=True)
         elif c.scheduler_type == "OneCycleLR":
-            self.sched = optim.lr_scheduler.OneCycleLR(self.optim, max_lr=c.optim.global_lr, total_steps=total_steps,
+            self.sched = optim.lr_scheduler.OneCycleLR(self.optim, max_lr=c.optim.global_lr, total_steps=total_updates,
                                                             pct_start=c.scheduler.pct_start, anneal_strategy="cos", verbose=False)
         elif c.scheduler_type is None:
             self.sched = None
@@ -133,10 +131,11 @@ class OptimManager(object):
         else:
             raise NotImplementedError(f"Scheduler not implemented: {c.scheduler_type}")
         
-    def load_optim_and_sched(self, load_path):
-        logging.info(f"{Fore.YELLOW}Loading optim and scheduler from {load_path}{Style.RESET_ALL}")
+    def load_optim_and_sched(self, full_load_path):
+        logging.info(f"{Fore.YELLOW}Loading optim and scheduler from {full_load_path}{Style.RESET_ALL}")
 
-        status = torch.load(load_path, map_location=self.config.device)
+        status = torch.load(full_load_path, map_location=self.config.device)
+        
         if 'optim_state' in status:
             self.optim.load_state_dict(status['optim_state'])
             optimizer_to(self.optim, device=self.config.device)

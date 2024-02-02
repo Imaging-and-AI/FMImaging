@@ -81,10 +81,16 @@ class TrainManager(object):
         for task_ind, task_name in enumerate(self.config.tasks):
             if self.config.freeze_pre[task_ind]: 
                 self.model_manager.tasks[task_name].pre_component.freeze()
+            else:
+                self.model_manager.tasks[task_name].pre_component.unfreeze()
             if self.config.freeze_post[task_ind]: 
                 self.model_manager.tasks[task_name].post_component.freeze()
+            else:
+                self.model_manager.tasks[task_name].post_component.unfreeze()
         if self.config.freeze_backbone: 
             self.model_manager.backbone_component.freeze()
+        else:
+            self.model_manager.backbone_component.unfreeze()
 
         # Send models to device
         if c.ddp:
@@ -101,8 +107,7 @@ class TrainManager(object):
         # Print out model summary
         if rank<=0:
             logging.info(f"Configuration for this run:\n{c}")
-            model_summary = model_info(self.model_manager, c)
-            logging.info(f"Model Summary:\n{str(model_summary)}") 
+            model_info(self.model_manager, c)
             logging.info(f"Wandb name:\n{self.metric_manager.wandb_run.name}")
             self.metric_manager.wandb_run.watch(self.model_manager)
             if c.ddp: 
@@ -219,7 +224,7 @@ class TrainManager(object):
             # Load the best model from training
             if self.config.eval_train_set or self.config.eval_val_set or self.config.eval_test_set:
                 logging.info(f"{Fore.CYAN}Loading the best models from training for final evaluation...{Style.RESET_ALL}")
-                self.model_manager.load_entire_model(os.path.join(self.config.log_dir,self.config.run_name,'entire_model','best_checkpoint.pth'))
+                self.model_manager.load_entire_model(os.path.join(self.config.log_dir,self.config.run_name,'entire_models','entire_model_best_checkpoint.pth'))
        
         else: # Not training
             epoch = 0

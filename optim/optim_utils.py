@@ -7,10 +7,10 @@ import numpy as np
 import torch.distributed as dist
 
 #-------------------------------------------------------------------------------------------
-def compute_total_steps(config, tasks):
+def compute_total_updates(config, tasks):
 
     total_num_samples = 0
-    total_num_steps = 0
+    total_num_updates = 0
 
     for task_ind, task in enumerate(tasks.values()):
         if isinstance(task.train_set, list):
@@ -20,12 +20,9 @@ def compute_total_steps(config, tasks):
 
         total_num_samples += num_samples
 
-        if config.ddp: 
-            num_samples /= dist.get_world_size()
-
-        total_num_steps += int(np.ceil(num_samples/(config.batch_size[task_ind]*config.iters_to_accumulate))*config.num_epochs)
+        total_num_updates += int(np.ceil(num_samples/(config.batch_size[task_ind]*config.iters_to_accumulate))*config.num_epochs)
     
-    return total_num_samples, total_num_steps
+    return total_num_samples, total_num_updates
 
 # -------------------------------------------------------------------------------------------------
 def optimizer_to(optim, device):

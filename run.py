@@ -62,13 +62,7 @@ def main():
     # Execute training and evaluation
     train_manager.run()
 
-    # -----------------------------
-    # Final saves of backbone and tasks
-    for task_name, task in tasks.items():
-        task.save(save_name_modifier='final')
-    backbone_component.save(model_save_name='backbone/final_backbone_component')
-    model_manager.save_entire_model(optim_manager.curr_epoch, optim_manager.epoch, optim_manager.sched, 'final_model')
-
+    
 
 # -------------------------------------------------------------------------------------------------
 if __name__=="__main__":    
@@ -99,14 +93,10 @@ Log directory
     log.txt
     metrics.txt
     saved_samples
-        train
-        val
-        test
-
-Load functionality
-Load 1: give /path/to/log/dir, load entire model
-Load 2: give path for each task and backbone
-Potential future Load 3: you could give a /path/to/log/dir, glob all of the task/backbones, and load instead of using entire model
+        task1
+            train
+            val
+            test
 
 """
 

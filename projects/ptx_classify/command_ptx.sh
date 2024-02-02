@@ -30,4 +30,6 @@ python ../../run.py --run_name="ptx_refactor1.5" \
                     --optim.beta2=0.99 \
                     --exact_metrics=True \
                     --override \
-                    --debug
+                    --debug \
+                    --save_model_components=True \
+                    --checkpoint_frequency=3

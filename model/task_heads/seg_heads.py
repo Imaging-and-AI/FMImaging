@@ -86,6 +86,7 @@ class UperNet2D(nn.Module):
     UperNet3D head, used for segmentation. Incorporates features from four different depths in backbone.
     @args:
         config (namespace): contains all args
+        task_ind (int): index of the task this post component is associated with
         input_feature_channels (List[int]): contains a list of the number of feature channels in each tensor input into this task head (i.e., returned by the backbone)
         output_feature_channels (List[int]): contains a list of the number of feature channels in each tensor expected to be returned by this task head
         forward pass, features (torch tensor): features we will process, size B C H W
@@ -95,6 +96,7 @@ class UperNet2D(nn.Module):
     """
     def __init__(self, 
                  config, 
+                 task_ind,
                  input_feature_channels,
                  output_feature_channels):
         super(UperNet2D, self).__init__()
@@ -102,10 +104,10 @@ class UperNet2D(nn.Module):
 
         self.config = config
         self.fpn_out = input_feature_channels[0]
-        if self.config.use_patches:
-            self.input_size = (config.patch_height,config.patch_width)
+        if self.config.use_patches[task_ind]:
+            self.input_size = (config.patch_height[task_ind],config.patch_width[task_ind])
         else:
-            self.input_size = (config.height,config.width)
+            self.input_size = (config.height[task_ind],config.width[task_ind])
         self.PPN = PSPModule2D(input_feature_channels[-1])
         self.FPN = FPN_fuse2D(input_feature_channels, fpn_out=self.fpn_out)
         self.head = nn.Conv2d(self.fpn_out, output_feature_channels[-1], kernel_size=3, padding=1)
@@ -190,6 +192,7 @@ class UperNet3D(nn.Module):
     UperNet3D head, used for segmentation. Incorporates features from four different depths in backbone.
     @args:
         config (namespace): contains all args
+        task_ind (int): index of the task this post component is associated with
         input_feature_channels (List[int]): contains a list of the number of feature channels in each tensor input into this task head (i.e., returned by the backbone)
         output_feature_channels (List[int]): contains a list of the number of feature channels in each tensor expected to be returned by this task head
         forward pass, features (torch tensor): features we will process, size B C D H W
@@ -199,19 +202,20 @@ class UperNet3D(nn.Module):
     """
     def __init__(self, 
                  config, 
+                 task_ind,
                  input_feature_channels,
                  output_feature_channels):
         super(UperNet3D, self).__init__()
 
         self.config = config
         self.fpn_out = input_feature_channels[0]
-        if self.config.use_patches:
-            self.input_size = (config.patch_time,config.patch_height,config.patch_width)
+        if self.config.use_patches[task_ind]:
+            self.input_size = (config.patch_time[task_ind],config.patch_height[task_ind],config.patch_width[task_ind])
         else:
-            self.input_size = (config.time,config.height,config.width)
+            self.input_size = (config.time[task_ind],config.height[task_ind],config.width[task_ind])
         self.PPN = PSPModule3D(input_feature_channels[-1])
         self.FPN = FPN_fuse3D(input_feature_channels, fpn_out=self.fpn_out)
-        self.head = nn.Conv3d(self.fpn_out, self.config.no_out_channel, kernel_size=3, padding=1)
+        self.head = nn.Conv3d(self.fpn_out, output_feature_channels[-1], kernel_size=3, padding=1)
 
     def forward(self, features, output_size=None):
         features[-1] = self.PPN(features[-1])
@@ -236,7 +240,7 @@ class SimpleConv(nn.Module):
         output_feature_channels,
     ):
         """
-        Takes in features from backbone model and produces an output of same size as input with no_out_channel using only the last feature tensor
+        Takes in features from backbone model and produces an output of same size as input with output_feature_channels using only the last feature tensor
         Originally used with STCNNT experiments
         @args:
             config (namespace): contains all parsed args

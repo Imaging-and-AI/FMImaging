@@ -32,7 +32,7 @@ class NormPoolLinear(nn.Module):
             output_feature_channels (List[int]): contains a list of the number of feature channels in each tensor expected to be returned by this task head
             forward pass, x (List[tensor]): contains a list of torch tensors output by the backbone model, each five dimensional (B C' D' H' W')
         @rets:
-            forward pass, x (List(tensor)): output from the classification task head, each of size B x no_out_channel
+            forward pass, x (List(tensor)): output from the classification task head, each of size B x output_feature_channels
         """
         super().__init__()
 
@@ -75,7 +75,7 @@ class ConvPoolLinear(nn.Module):
             output_feature_channels (List[int]): contains a list of the number of feature channels in each tensor expected to be returned by this task head
             forward pass, x (List[tensor]): contains a list of torch tensors output by the backbone model, each five dimensional (B C' D' H' W')
         @rets:
-            forward pass, x (List[tensor]): output from the classification task head, size B x no_out_channel
+            forward pass, x (List[tensor]): output from the classification task head, size B x output_feature_channels
         """
         super().__init__()
 

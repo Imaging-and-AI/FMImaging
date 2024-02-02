@@ -88,7 +88,7 @@ class MetricManager(object):
                 self.metric_task[task_name] = task_metric
                 self.multidim_average[task_name] = multidim_average
 
-            elif self.config.task_type=='seg': 
+            elif task_type=='seg': 
                 # Set up metric dicts, which we'll use during training to track metrics
                 task_train_metrics = {'loss': AverageMeter(),
                                     'f1': AverageMeter()}
@@ -114,7 +114,7 @@ class MetricManager(object):
                 self.metric_task[task_name] = task_metric
                 self.multidim_average[task_name] = multidim_average
             
-            elif self.config.task_type=='enhance': 
+            elif task_type=='enhance': 
                 # Set up metric dicts, which we'll use during training to track metrics
                 task_train_metrics = {'loss': AverageMeter(),
                                     'ssim': AverageMeter(),
@@ -230,8 +230,10 @@ class MetricManager(object):
                 for metric_name in self.train_metrics[task_name].keys():
                     average_metrics[task_name][metric_name] = self.train_metrics[task_name][metric_name].avg
 
-        # Log the metrics for this epoch to wandb
+
         if rank<=0: # main or master process
+
+            # Log the metrics for this epoch to wandb
             average_metrics['total_loss'] = sum([average_metrics[task_name]['loss'] for task_name in self.config.tasks])
             if self.wandb_run is not None: 
                 self.wandb_run.log({"epoch": epoch, f"train/total_loss": average_metrics['total_loss']})
@@ -239,12 +241,18 @@ class MetricManager(object):
                     for metric_name, avg_metric_val in average_metrics[task_name].items():
                         self.wandb_run.log({"epoch": epoch, f"train/{task_name}/{metric_name}": avg_metric_val})
 
+            # Checkpoint the most recent model
+            model_epoch = model_manager.module if self.config.ddp else model_manager 
+            model_epoch.save_entire_model(save_filename='entire_model_last_epoch', epoch=epoch, optim=optim, sched=sched)
+            if self.config.save_model_components: model_manager.save_model_components(save_filename='last_epoch')
+
+            # Checkpoint every epoch, if desired
+            if epoch % self.config.checkpoint_frequency==0:
+                model_epoch = model_manager.module if self.config.ddp else model_manager 
+                model_epoch.save_entire_model(epoch=epoch, optim=optim, sched=sched)
+
         # Save the average metrics for this epoch into self.average_train_metrics
         self.average_train_metrics = average_metrics
-
-        # Checkpoint the most recent model
-        model_epoch = model_manager.module if self.config.ddp else model_manager 
-        model_epoch.save_entire_model(epoch, optim, sched, save_file_name='last_epoch')
 
     def on_eval_epoch_start(self):
         """
@@ -367,7 +375,8 @@ class MetricManager(object):
                 # Save model and update best metrics
                 if checkpoint_model:
                     model_epoch = model_manager.module if self.config.ddp else model_manager 
-                    model_epoch.save_entire_model(epoch, optim, sched, save_file_name='best_checkpoint')
+                    model_epoch.save_entire_model(save_filename='entire_model_best_checkpoint', epoch=epoch, optim=optim, sched=sched)
+                    if self.config.save_model_components: model_manager.save_model_components(save_filename='best_checkpoint')
 
                 # Update wandb with eval metrics
                 self.wandb_run.log({"epoch":epoch, "best_loss": self.best_val_loss})
@@ -388,6 +397,10 @@ class MetricManager(object):
             if ran_training:
                 # Log the best loss and metrics from the run and save final model
                 self.wandb_run.summary["best_val_loss"] = self.best_val_loss
+
+                # Final saves of backbone and tasks - commenting out, redundant with last_epoch saves
+                # model_manager.save_entire_model(save_filename='final_model', epoch=epoch, optim=optim, sched=sched)
+                # if self.config.save_model_components: model_manager.save_model_components(save_filename='final_model')
             
             # Finish the wandb run
             self.wandb_run.finish() 

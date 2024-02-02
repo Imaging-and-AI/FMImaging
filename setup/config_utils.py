@@ -89,8 +89,7 @@ def str_to_bool(value):
 def check_args(config):
     """Check arguments user input"""
     config.run_name = config.run_name.replace(' ','_')
-    save_path = os.path.join(config.log_dir, config.run_name)
-    if os.path.exists(save_path) and not config.override:
+    if os.path.exists(os.path.join(config.log_dir,config.run_name)) and not config.override:
         raise RuntimeError(f"User specified a log_dir ({config.log_dir}) and run_name ({config.run_name}) that already exist; either specify a different run name or override current results with --override")
     for data_dir in config.data_dir:
         if not os.path.exists(data_dir):
@@ -138,6 +137,58 @@ def check_args(config):
         config.ddp = True
     if config.ddp and not ("LOCAL_RANK" in os.environ or "WORLD_SIZE" in os.environ or "LOCAL_WORLD_SIZE" in os.environ):
         raise RuntimeError("--ddp specified but ddp environmental variables not available; remember to run with torchrun if using ddp.")
-        
+    num_tasks = len(config.tasks)
+    if len(config.height) != num_tasks:
+        raise ValueError(f"Number of heights ({len(config.height)}) does not match number of tasks ({num_tasks})")
+    if len(config.width) != num_tasks:
+        raise ValueError(f"Number of widths ({len(config.width)}) does not match number of tasks ({num_tasks})")
+    if len(config.time) != num_tasks:
+        raise ValueError(f"Number of times ({len(config.time)}) does not match number of tasks ({num_tasks})")
+    if len(config.no_in_channel) != num_tasks:
+        raise ValueError(f"Number of no_in_channels ({len(config.no_in_channel)}) does not match number of tasks ({num_tasks})")
+    if len(config.no_out_channel) != num_tasks:
+        raise ValueError(f"Number of no_out_channels ({len(config.no_out_channel)}) does not match number of tasks ({num_tasks})")
+    if len(config.split_csv_path) != num_tasks:
+        if config.split_csv_path[0] is None: config.split_csv_path = [None]*num_tasks
+        else: raise ValueError(f"Number of split_csv_paths ({len(config.split_csv_path)}) does not match number of tasks ({num_tasks})")
+    if len(config.pre_component_load_path) != num_tasks:
+        if config.pre_component_load_path[0] is None: config.pre_component_load_path = [None]*num_tasks
+        else: raise ValueError(f"Number of pre_component_load_paths ({len(config.pre_component_load_path)}) does not match number of tasks ({num_tasks})")
+    if len(config.post_component_load_path) != num_tasks:
+        if config.post_component_load_path[0] is None: config.post_component_load_path = [None]*num_tasks
+        else: raise ValueError(f"Number of post_component_load_paths ({len(config.post_component_load_path)}) does not match number of tasks ({num_tasks})")
+    if len(config.use_patches) != num_tasks:
+        if config.use_patches[0] == False: config.use_patches = [False]*num_tasks
+        else: raise ValueError(f"Number of use_patches ({len(config.use_patches)}) does not match number of tasks ({num_tasks})")
+    print(config.patch_height)
+    if len(config.patch_height) != num_tasks:
+        config.patch_height = [config.patch_height[0]]*num_tasks
+    if len(config.patch_width) != num_tasks:
+        config.patch_width = [config.patch_width[0]]*num_tasks
+    if len(config.patch_time) != num_tasks:
+        config.patch_time = [config.patch_time[0]]*num_tasks
+    if len(config.batch_size) != num_tasks:
+        config.batch_size = [config.batch_size[0]]*num_tasks
+    if len(config.data_dir) != num_tasks:
+        raise ValueError(f"Number of data_dirs ({len(config.data_dir)}) does not match number of tasks ({num_tasks})")
+    if len(config.task_type)!=num_tasks:
+        raise ValueError(f"Number of task_types ({len(config.task_type)}) does not match number of tasks ({num_tasks})")
+    if len(config.loss_func)!=num_tasks:
+        raise ValueError(f"Number of loss_func ({len(config.loss_func)}) does not match number of tasks ({num_tasks})")
+    if len(config.affine_aug)!=num_tasks:
+        config.affine_aug = [config.affine_aug[0]]*num_tasks
+    if len(config.brightness_aug)!=num_tasks:
+        config.brightness_aug = [config.brightness_aug[0]]*num_tasks
+    if len(config.gaussian_blur_aug)!=num_tasks:
+        config.gaussian_blur_aug = [config.gaussian_blur_aug[0]]*num_tasks
+    if len(config.pre_component)!=num_tasks:
+        raise ValueError(f"Number of pre_components ({len(config.pre_component)}) does not match number of tasks ({num_tasks})")
+    if len(config.post_component)!=num_tasks:
+        raise ValueError(f"Number of post_components ({len(config.post_component)}) does not match number of tasks ({num_tasks})")
+    if len(config.freeze_pre)!=num_tasks:
+        config.freeze_pre = [config.freeze_pre[0]]*num_tasks
+    if len(config.freeze_post)!=num_tasks:
+        config.freeze_post = [config.freeze_post[0]]*num_tasks
+
 
 

@@ -9,6 +9,7 @@ from torchinfo import summary
 from colorama import Fore, Style
 import numpy as np
 from prettytable import PrettyTable
+import logging
 
 # -------------------------------------------------------------------------------------------------
     
@@ -73,21 +74,7 @@ def get_gpu_ram_usage(device='cuda:0'):
     return result_string
     
 # -------------------------------------------------------------------------------------------------
-# model info
-
-def get_number_of_params(model):
-    """
-    Count the total number of parameters
-    @args:
-        - model (torch model): the model to check parameters of
-    @rets:
-        - trainable_params (int): the number of trainable params in the model
-        - total_params (int): the total number of params in the model
-    """
-    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    total_params = sum(param.numel() for param in model.parameters())
-
-    return trainable_params, total_params
+# Model info
 
 def model_info(model, config):
     """
@@ -100,38 +87,45 @@ def model_info(model, config):
             see torchinfo/model_statistics.py for more information.
     """
     c = config
-    task_ind = 0
-    input_size = (c.batch_size[task_ind], c.no_in_channel[task_ind], c.time[task_ind], c.height[task_ind], c.width[task_ind])
     col_names=("num_params", "params_percent", "mult_adds", "input_size", "output_size", "trainable")
     row_settings=["var_names", "depth"]
     dtypes=[torch.float32]
+    model.train()
 
-    model_summary = summary(model, \
-                            # input_data=[torch.zeros(input_size).to(device=config.device), c.tasks[task_ind]], \
-                            verbose=0, mode="train", depth=c.summary_depth,\
-                            input_size=input_size, 
-                            col_names=col_names,row_settings=row_settings, dtypes=dtypes,\
-                            device=config.device)
+    for task_ind, task in enumerate(model.tasks.values()):
 
-    c.trainable_params = model_summary.trainable_params
-    c.total_params = model_summary.total_params
-    c.total_mult_adds = model_summary.total_mult_adds
+        example_pre_input = torch.ones((c.batch_size[task_ind], c.no_in_channel[task_ind], c.time[task_ind], c.height[task_ind], c.width[task_ind])).to(c.device)
+        example_pre_output = task.pre_component(example_pre_input)
+        example_backbone_output = model.backbone_component(example_pre_output)
+
+        pre_model_summary = summary(task.pre_component, \
+                                    verbose=0, mode="train", depth=c.summary_depth,\
+                                    input_data=example_pre_input, 
+                                    col_names=col_names,row_settings=row_settings, dtypes=dtypes,\
+                                    device=config.device)
+        logging.info(f"{Fore.MAGENTA}{'-'*40}Summary of pre component for task {task.task_name}{'-'*40}{Style.RESET_ALL}")
+        logging.info(f"\n{str(pre_model_summary)}") 
+
+        post_model_summary = summary(task.post_component, \
+                                    verbose=0, mode="train", depth=c.summary_depth,\
+                                    input_data=[example_backbone_output], 
+                                    col_names=col_names,row_settings=row_settings, dtypes=dtypes,\
+                                    device=config.device)
+        logging.info(f"{Fore.MAGENTA}{'-'*40}Summary of post component for task {task.task_name}{'-'*40}{Style.RESET_ALL}")
+        logging.info(f"\n{str(post_model_summary)}") 
+
+
+    backbone_model_summary = summary(model.backbone_component, \
+                                    verbose=0, mode="train", depth=c.summary_depth,\
+                                    input_data=[example_pre_output], 
+                                    col_names=col_names,row_settings=row_settings, dtypes=dtypes,\
+                                    device=config.device)
+    logging.info(f"{Fore.MAGENTA}{'-'*40}Summary of backbone component{'-'*40}{Style.RESET_ALL}")
+    logging.info(f"\n{str(backbone_model_summary)}") 
 
     torch.cuda.empty_cache()
 
-    return model_summary
-
-def count_parameters(model):
-    table = PrettyTable(["Modules", "Parameters"])
-    total_params = 0
-    for name, parameter in model.named_parameters():
-        if not parameter.requires_grad: continue
-        params = parameter.numel()
-        table.add_row([name, params])
-        total_params+=params
-    print(table)
-    print(f"Total Trainable Params: {total_params}")
-    return total_params
+    return 
 
 # -------------------------------------------------------------------------------------------------
 def get_device(device=None):

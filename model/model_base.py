@@ -28,13 +28,14 @@ class ModelComponent(nn.Module):
     Provides generic save, freeze, load functionality
     """
 
-    def __init__(self, config, component_name, input_feature_channels=None, output_feature_channels=None):
+    def __init__(self, config, component_name, input_feature_channels=None, output_feature_channels=None, task_ind=None):
         """
         @args:
             - config (Namespace): nested namespace containing all args
             - component_name (str): name of the model component to create
             - input_feature_channels (List[int]): list of ints specifying the channel dimensions of the inputs to the model
             - output_feature_channels (List[int]): list of ints specifying the channel dimensions of the outputs of the model; can be None if output_feature_channels is computed within the component       
+            - task_ind (int): index of the task this component is associated with; can be None for backbone components
         """
         
         super().__init__()
@@ -43,6 +44,7 @@ class ModelComponent(nn.Module):
         self.component_name = component_name
         self.input_feature_channels = input_feature_channels
         self.output_feature_channels = output_feature_channels
+        self.task_ind = task_ind
 
         if not isinstance(self.input_feature_channels, list):
             self.input_feature_channels = [self.input_feature_channels]
@@ -79,9 +81,9 @@ class ModelComponent(nn.Module):
             self.model, self.output_feature_channels = STCNNT_Mixed_Unetr_model(self.config, self.input_feature_channels)
         # Post heads
         elif self.component_name=='UperNet2D': # 2D seg
-            self.model = UperNet2D(self.config, self.input_feature_channels, self.output_feature_channels)
+            self.model = UperNet2D(self.config, self.task_ind, self.input_feature_channels, self.output_feature_channels)
         elif self.component_name=='UperNet3D': # 3D seg
-            self.model = UperNet3D(self.config, self.input_feature_channels, self.output_feature_channels)
+            self.model = UperNet3D(self.config, self.task_ind, self.input_feature_channels, self.output_feature_channels)
         elif self.component_name=='SimpleConv': # 2D or 3D seg
             self.model = SimpleConv(self.config, self.input_feature_channels, self.output_feature_channels)
         elif self.component_name=='NormPoolLinear': # 2D or 3D class
@@ -91,51 +93,65 @@ class ModelComponent(nn.Module):
         elif self.component_name=='SimpleMultidepthConv': # 2D or 3D enhancement
             self.model = SimpleMultidepthConv(self.config, self.input_feature_channels, self.output_feature_channels)
         elif self.component_name=='UNETR2D': # 2D enhancement
-            self.model = UNETR2D(self.config, self.input_feature_channels, self.output_feature_channels)
+            image_input_channels = self.config.no_in_channel[self.task_ind]
+            self.model = UNETR2D(self.config, image_input_channels, self.input_feature_channels, self.output_feature_channels)
         elif self.component_name=='UNETR3D': # 2D or 3d enhancement, works with both
-            self.model = UNETR3D(self.config, self.input_feature_channels, self.output_feature_channels)
+            image_input_channels = self.config.no_in_channel[self.task_ind]
+            self.model = UNETR3D(self.config, image_input_channels, self.input_feature_channels, self.output_feature_channels)
         else:
             raise NotImplementedError(f"Model not implemented: {self.model_name}")
 
-    def save(self, model_save_name): 
+    def save(self, save_dir=None, save_filename=None): 
         """
         Save weights of model component
         @args:
-            - model_save_name (str): what to name this saved model
+            - save_dir (str): directory where model component will be saved
+            - save_filename (str): name of the file to save within the directory (do not include file extension)
         @rets: 
             - save_path (str): location of saved model
         """
-        save_path = os.path.join(self.config.log_dir, self.config.run_name.replace(' ','_'), f"{model_save_name}.pth")
-        logging.info(f"{Fore.YELLOW}Saving model component at {save_path}{Style.RESET_ALL}")
+        if save_dir is None: save_dir = os.path.join(self.config.log_dir, self.config.run_name)
+        if save_filename is None: save_filename = "component"
+
+        os.makedirs(save_dir, exist_ok=True)
+        full_save_path = os.path.join(save_dir, save_filename+'.pth')
+        logging.info(f"{Fore.YELLOW}Saving model component at {full_save_path}{Style.RESET_ALL}")
 
         save_dict = {
+            "component_name": self.component_name,
+            "input_feature_channels": self.input_feature_channels,
+            "output_feature_channels": self.output_feature_channels,
             "state_dict": self.model.state_dict(), 
             "config": self.config,
-            "model_name": self.model_name,
-            "input_feature_channels": self.input_feature_channels,
-            "output_feature_channels": self.output_feature_channels
         }
 
-        torch.save(save_dict, save_path)
+        torch.save(save_dict, full_save_path)
 
-        return save_path
+        return full_save_path
 
-    def load(self, load_path, device=None):
+    def load(self, full_load_path, device=torch.device('cpu')):
         """
         Load weights of a model component checkpoint
         @args:
-            - load_path (str): path to load the weights from
+            - full_load_path (str): path to load the weights from
             - device (torch.device): device to setup the model on
         """
 
-        assert os.path.isfile(load_path), f"{Fore.YELLOW} Specific load path {load_path} does not exist {Style.RESET_ALL}"
-        logging.info(f"{Fore.YELLOW}Loading model from {load_path}{Style.RESET_ALL}")
+        assert os.path.isfile(full_load_path), f"{Fore.YELLOW} Specific load path {full_load_path} does not exist {Style.RESET_ALL}"
+        logging.info(f"{Fore.YELLOW}Loading model component from {full_load_path}{Style.RESET_ALL}")
 
-        status = torch.load(load_path, map_location=self.config.device)
-        assert 'state_dict' in status, f"{Fore.YELLOW} Model weights in specified load path {load_path} are not available {Style.RESET_ALL}"
+        status = torch.load(full_load_path, map_location=device)
+        assert 'state_dict' in status, f"{Fore.YELLOW} Model component weights in specified load path {full_load_path} are not available {Style.RESET_ALL}"
 
         self.model.load_state_dict(status['state_dict'])
-        logging.info(f"{Fore.GREEN} Model loading {load_path.split('/')[-1]} successful {Style.RESET_ALL}")
+        logging.info(f"{Fore.GREEN} Model component loading from {full_load_path.split('/')[-1]} was successful {Style.RESET_ALL}")
+
+    def unfreeze(self):
+        "Unfreeze component parameters"
+
+        self.model.requires_grad_(True)
+        for param in self.model.parameters():
+            param.requires_grad = True
 
     def freeze(self):
         "Freeze component parameters"
@@ -212,22 +228,24 @@ class ModelManager(nn.Module):
 
         print(f"{rank_str} model, post components, learnable tensors {num_learnable} out of {num} ...")
 
-    def save_entire_model(self, epoch, optim=None, sched=None, save_file_name=None):
+    def save_entire_model(self, save_dir=None, save_filename=None, epoch=None, optim=None, sched=None):
         """
         Save entire model, including pre/backbone/post components
         @args:
+            - save_dir (str): directory where model will be saved
+            - save_filename (str): name of the file to save within the directory (do not include file extension)
             - epoch (int): current epoch of the training cycle
             - optim (torch.optim): optimizer to save
             - sched (torch.optim.lr_scheduler): scheduler to save
-            - save_file_name (str): name to save file
         """
-        run_name = self.config.run_name.replace(" ", "_")
-        if save_file_name is None:
-            save_file_name = f"{run_name}_epoch-{epoch}"
-        save_path = os.path.join(self.config.log_dir, run_name, 'entire_model')
-        os.makedirs(save_path, exist_ok=True)
-        model_file = os.path.join(save_path, f"{save_file_name}.pth")
-        logging.info(f"{Fore.YELLOW}Saving model status at {model_file}{Style.RESET_ALL}")
+
+        if save_dir is None: save_dir = os.path.join(self.config.log_dir, self.config.run_name, "entire_models")
+        if save_filename is None and epoch is not None: save_filename = f"entire_model_epoch_{epoch}"
+        elif save_filename is None and epoch is None: save_filename = "entire_model"
+
+        os.makedirs(save_dir, exist_ok=True)
+        full_save_path = os.path.join(save_dir, save_filename+'.pth')
+        logging.info(f"{Fore.YELLOW}Saving entire model at {full_save_path}{Style.RESET_ALL}")
         
         save_dict = {
             "epoch":epoch,
@@ -241,32 +259,53 @@ class ModelManager(nn.Module):
             save_dict[task_name+"_pre_state"] = task.pre_component.state_dict()
             save_dict[task_name+"_post_state"] = task.post_component.state_dict()
         save_dict["backbone_state"] = self.backbone_component.state_dict()
-        torch.save(save_dict, model_file)
+        torch.save(save_dict, full_save_path)
 
-        return os.path.join(save_path, save_file_name)
+        return full_save_path
     
-    def load_entire_model(self, load_path, device=torch.device('cpu')):
+    def load_entire_model(self, full_load_path, device=torch.device('cpu')):
         """
         Load an entire model's weights, including pre/backbone/post components
         @args:
-            - load_path (str): path to load model
+            - full_load_path (str): path to load model
             - device (torch.device): device to setup the model on
         """
 
-        assert os.path.exists(load_path), f"{Fore.YELLOW} Specified load path {load_path} does not exist {Style.RESET_ALL}"
-        logging.info(f"{Fore.YELLOW}Loading model weights from {load_path}{Style.RESET_ALL}")
+        assert os.path.exists(full_load_path), f"{Fore.YELLOW} Specified load path {full_load_path} does not exist {Style.RESET_ALL}"
+        logging.info(f"{Fore.YELLOW}Loading model weights from {full_load_path}{Style.RESET_ALL}")
 
-        status = torch.load(load_path, map_location=device)
+        status = torch.load(full_load_path, map_location=device)
 
-        assert 'backbone_state' in status, f"{Fore.YELLOW} Backbone weights in specified load_path are not available {Style.RESET_ALL}"
+        assert 'backbone_state' in status, f"{Fore.YELLOW} Backbone weights in specified load_path {full_load_path} are not available {Style.RESET_ALL}"
         self.backbone_component.load_state_dict(status['backbone_state'])
 
         for task_name, task in self.tasks.items():
-            assert task_name+"_pre_state" in status, f"{Fore.YELLOW} Pre component weights for task {task_name} in specified load_path are not available {Style.RESET_ALL}"
-            assert task_name+"_post_state" in status, f"{Fore.YELLOW} Post component weights for task {task_name} in specified load_path are not available {Style.RESET_ALL}"
+            assert task_name+"_pre_state" in status, f"{Fore.YELLOW} Pre component weights for task {task_name} in specified load_path {full_load_path} are not available {Style.RESET_ALL}"
+            assert task_name+"_post_state" in status, f"{Fore.YELLOW} Post component weights for task {task_name} in specified load_path {full_load_path} are not available {Style.RESET_ALL}"
             task.pre_component.load_state_dict(status[task_name+"_pre_state"])
             task.post_component.load_state_dict(status[task_name+"_post_state"])
-                
+
+        logging.info(f"{Fore.GREEN} Entire model loading from {full_load_path.split('/')[-1]} was successful {Style.RESET_ALL}")
+
+    def save_model_components(self, save_dir=None, save_filename=None):
+
+        for task_name, task in self.tasks.items():
+            if save_filename is not None: 
+                task_save_filename = ('_').join([task_name, save_filename])
+            else: 
+                task_save_filename = None
+            task.save(save_dir, task_save_filename)
+        
+        if save_dir is None: 
+            backbone_save_dir = os.path.join(self.config.log_dir, self.config.run_name, "backbone")
+        else:
+            backbone_save_dir = save_dir
+        if save_filename is not None: 
+            backbone_save_filename = ('_').join(['backbone_component',save_filename])
+        else: 
+            backbone_save_filename = 'backbone_component'
+        self.backbone_component.save(backbone_save_dir, backbone_save_filename)
+    
     def forward(self, x, task_name=None):
         """
         Define the forward pass through the model
