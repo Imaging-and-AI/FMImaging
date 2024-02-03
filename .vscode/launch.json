@@ -404,6 +404,25 @@
         },
         // -----------------------------------------------------------------------------------------
         {
+            "name": "microscopy_inference_for_uncertainty_PCA.py",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/microscopy_denoise/microscopy_inference_for_uncertainty_PCA.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "4", "DISABLE_FLOAT16_INFERENCE": "True"},
+            "args": [
+                "--input_dir", "/export/Lab-Xue/publications/CNNT_paper/data/micro_datasets_rcan/Ryo_tile/test/noisy_rois/",
+                "--output_dir", "/export/Lab-Xue/projects/microscopy/snr/Ryo_tile/",
+                "--saved_model_path", "/export/Lab-Xue/projects/data/logs/microscopy-FineTuning_Ryo_tile_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20240129_141121_596371_STCNNT_Microscopy_C-64-1_amp-False_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_16",
+                "--image_order", "HWT",
+                "--no_clip_data",
+                "--patch_size_inference", "64",
+                "--data_x_y_mode", "True", "--complex_i", "--low_acc"
+            ]
+        },
+        // -----------------------------------------------------------------------------------------
+        {
             "name": "save_pt_as_onnx, mri",
             "type": "python",
             "request": "launch",

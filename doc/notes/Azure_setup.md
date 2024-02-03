@@ -232,3 +232,5 @@ do
     bash ./doc/notes/scp_to_fsi.sh fsi${VARIABLE} /export/Lab-Xue/projects/data/logs/mri-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231214_213835_461207_MRI_double_net_NN_100.0_C-64-1_amp-False_complex_residual_weighted_loss_snr-T1L1G1_T1L1G1
 done
 ```
+
+for file in ./*sh; do bash $file &; done
