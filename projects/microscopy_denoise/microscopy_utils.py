@@ -33,7 +33,8 @@ from utils import *
 
 def load_tiff(input_dir, tifffile_name):
 
-    return [tifffile.imread(os.path.join(input_dir, tifffile_name)), None, f"{tifffile_name}"]
+    a = tifffile.imread(os.path.join(input_dir, tifffile_name))
+    return [a, None, f"{tifffile_name}"]
 
 def load_numpy(input_dir, file_name):
 

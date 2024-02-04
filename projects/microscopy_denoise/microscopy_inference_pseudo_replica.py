@@ -27,6 +27,8 @@ from utils import *
 from microscopy_utils import *
 from temp_utils.inference_utils import apply_model, load_model
 
+import torch.multiprocessing as mp
+
 # -------------------------------------------------------------------------------------------------
 # setup for testing from cmd
 
@@ -56,7 +58,54 @@ def arg_parser():
     parser.add_argument("--added_noise_sd", type=float, default=0.1, help="add noise sigma")
     parser.add_argument("--rep", type=int, default=32, help="number of repetition")
 
+    parser.add_argument("--cuda_devices", type=int, nargs='+', default=None, help='devices for inference')
+
     return parser.parse_args()
+
+def run_a_case(i, images, rank, config, args):
+
+    if rank >=0:
+        config.device = torch.device(f'cuda:{rank}')
+
+    print(f"{Fore.RED}--> Processing on device {config.device}{Style.RESET_ALL}")
+
+    model, _ = load_model(args.saved_model_path)
+
+    for ind, v in enumerate(images):
+        noisy_im, clean_im, f_name = v
+        print(f"--> Processing {f_name}, {noisy_im.shape}, {ind} out of {len(images)}")
+
+        start = time.time()
+        noisy_im_N = create_pseudo_replica(noisy_im, added_noise_sd=args.added_noise_sd/args.scaling_vals[1], N=args.rep)
+        print(f"--> create_pseudo_replica {time.time()-start:.1f} seconds")
+
+        start = time.time()
+        np.save(os.path.join(args.output_dir, f"{f_name}_pesudo_replica_x.npy"), np.transpose(np.squeeze(noisy_im_N), [1, 2, 0, 3])*args.scaling_vals[1])
+        print(f"--> save pseudo_replica input data {time.time()-start:.1f} seconds")
+
+        predi_im_N = noisy_im_N
+
+        total_time_in_seconds = 0
+        for n in range(args.rep):
+            start = time.time()
+            a_pred_im = apply_model(model, noisy_im_N[:,:,:,:,:,n], config, config.device, overlap=args.overlap, batch_size=args.batch_size)
+            predi_im_N[:,:,:,:,:,n] = a_pred_im.cpu().numpy()
+            total_time_in_seconds += time.time()-start
+            print(f"----> process rep {n}, out of {args.rep}, {total_time_in_seconds}s")
+
+        print(f"--> Total processing time is {total_time_in_seconds:.1f} seconds")
+
+        predi_im_N *= args.scaling_vals[1]
+        if clean_im: clean_im *= args.scaling_vals[1]
+
+        predi_im_N = np.transpose(np.squeeze(predi_im_N), [1, 2, 0, 3])
+        if clean_im: clean_im = np.transpose(np.squeeze(clean_im), [1, 2, 0])
+
+        np.save(os.path.join(args.output_dir, f"{f_name}_pesudo_replica_output.npy"), predi_im_N)
+        if clean_im:
+            np.save(os.path.join(args.output_dir, f"{f_name}_clean_im.npy"), clean_im)
+
+    print(f"{Fore.RED}--> Processing on device {config.device} -- completed {Style.RESET_ALL}")
 
 def check_args(args):
     """
@@ -113,39 +162,24 @@ def main():
 
     print("Start inference and saving")
 
-    for noisy_im, clean_im, f_name in tqdm(images):
-        print(f"--> process image {f_name}, {noisy_im.shape}")
+    if args.cuda_devices is None:
+        rank = -1
+        run_a_case(0, images, rank, config, args)
+    else:
+        print(f"Perform inference on devices {args.cuda_devices}")
 
-        start = time.time()
-        noisy_im_N = create_pseudo_replica(noisy_im, added_noise_sd=args.added_noise_sd/args.scaling_vals[1], N=args.rep)
-        print(f"--> create_pseudo_replica {time.time()-start:.1f} seconds")
+        num_devices = len(args.cuda_devices) if len(args.cuda_devices) < len(images) else len(images)
 
-        start = time.time()
-        np.save(os.path.join(args.output_dir, f"{f_name}_pesudo_replica_x.npy"), np.transpose(np.squeeze(noisy_im_N), [1, 2, 0, 3])*args.scaling_vals[1])
-        print(f"--> save pseudo_replica input data {time.time()-start:.1f} seconds")
+        def chunkify(lst,n):
+            return [lst[i::n] for i in range(n)]
 
-        predi_im_N = noisy_im_N
+        tasks = chunkify(images, num_devices)
 
-        total_time_in_seconds = 0
-        for n in range(args.rep):
-            print(f"----> process rep {n}, out of {args.rep}")
+        for ind, a_task in enumerate(tasks):
+            mp.spawn(run_a_case, args=(a_task, args.cuda_devices[ind], config, args), nprocs=1, join=False, daemon=False, start_method='spawn')
+            print(f"{Fore.RED}--> Spawn task {ind}{Style.RESET_ALL}")
 
-            start = time.time()
-            a_pred_im = apply_model(model, noisy_im_N[:,:,:,:,:,n], config, config.device, overlap=args.overlap, batch_size=args.batch_size)
-            predi_im_N[:,:,:,:,:,n] = a_pred_im.cpu().numpy()
-            total_time_in_seconds += time.time()-start
-
-        print(f"--> Total processing time is {total_time_in_seconds:.1f} seconds")
-
-        predi_im_N *= args.scaling_vals[1]
-        if clean_im: clean_im *= args.scaling_vals[1]
-
-        predi_im_N = np.transpose(np.squeeze(predi_im_N), [1, 2, 0, 3])
-        if clean_im: clean_im = np.transpose(np.squeeze(clean_im), [1, 2, 0])
-
-        np.save(os.path.join(args.output_dir, f"{f_name}_pesudo_replica_output.npy"), predi_im_N)
-        if clean_im:
-            np.save(os.path.join(args.output_dir, f"{f_name}_clean_im.npy"), clean_im)
+        print(f"Perform inference on devices {args.cuda_devices} for {len(images)} cases -- completed")
 
     print("End pesudo-replica test and saving")
 

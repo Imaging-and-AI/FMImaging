@@ -23,9 +23,11 @@ sys.path.append(str(MRI_DIR))
 Project_DIR = Path(__file__).parents[2].resolve()
 sys.path.append(str(Project_DIR))
 
-from utils import *
+#from utils import *
 from microscopy_utils import *
 from temp_utils.inference_utils import apply_model, load_model
+
+import torch.multiprocessing as mp
 
 # -------------------------------------------------------------------------------------------------
 # setup for testing from cmd
@@ -53,7 +55,33 @@ def arg_parser():
 
     parser.add_argument("--scaling_vals", type=float, nargs='+', default=[0, 4096], help='min max values to scale with respect to the scaling type')
 
+    parser.add_argument("--cuda_devices", type=int, nargs='+', default=None, help='devices for inference')
+
     return parser.parse_args()
+
+def run_a_case(i, images, rank, config, args):
+
+    if rank >=0:
+        config.device = torch.device(f'cuda:{rank}')
+
+    print(f"{Fore.RED}--> Processing on device {config.device}{Style.RESET_ALL}")
+
+    model, _ = load_model(args.saved_model_path)
+
+    for ind, v in enumerate(images):
+        noisy_im, clean_im, f_name = v
+        print(f"--> Processing {f_name}, {noisy_im.shape}, {ind} out of {len(images)}")
+
+        predi_im = apply_model(model, noisy_im, config, config.device, overlap=args.overlap, batch_size=args.batch_size)
+
+        predi_im = predi_im.cpu().numpy()
+
+        np.save(os.path.join(args.output_dir, f"{f_name}_x.npy"), np.transpose(np.squeeze(noisy_im), [1, 2, 0])*args.scaling_vals[1])
+        np.save(os.path.join(args.output_dir, f"{f_name}_pred.npy"), np.transpose(np.squeeze(predi_im), [1, 2, 0])*args.scaling_vals[1])
+        if clean_im:
+            np.save(os.path.join(args.output_dir, f"{f_name}_y.npy"), np.transpose(np.squeeze(clean_im), [1, 2, 0])*args.scaling_vals[1])
+
+    print(f"{Fore.RED}--> Processing on device {config.device} -- completed {Style.RESET_ALL}")
 
 def check_args(args):
     """
@@ -81,7 +109,7 @@ def main():
 
     print(f"---> support bfloat16 is {support_bfloat16(device=get_device())}")
 
-    print(f"{Fore.YELLOW}Load in model file - {args.saved_model_path}")
+    print(f"{Fore.YELLOW}Load in model file - {args.saved_model_path}{Style.RESET_ALL}")
     model, config = load_model(args.saved_model_path)
 
     patch_size_inference = args.patch_size_inference
@@ -108,18 +136,26 @@ def main():
 
     print("Start inference and saving")
 
-    for noisy_im, clean_im, f_name in tqdm(images):
+    if args.cuda_devices is None:
+        rank = -1
+        run_a_case(0, images, rank, config, args)
+    else:
+        print(f"Perform inference on devices {args.cuda_devices}")
 
-        predi_im = apply_model(model, noisy_im, config, config.device, overlap=args.overlap, batch_size=args.batch_size)
+        num_devices = len(args.cuda_devices) if len(args.cuda_devices) < len(images) else len(images)
 
-        predi_im = predi_im.cpu().numpy()
+        def chunkify(lst,n):
+            return [lst[i::n] for i in range(n)]
 
-        np.save(os.path.join(args.output_dir, f"{f_name}_x.npy"), np.transpose(np.squeeze(noisy_im), [1, 2, 0])*args.scaling_vals[1])
-        np.save(os.path.join(args.output_dir, f"{f_name}_pred.npy"), np.transpose(np.squeeze(predi_im), [1, 2, 0])*args.scaling_vals[1])
-        if clean_im:
-            np.save(os.path.join(args.output_dir, f"{f_name}_y.npy"), np.transpose(np.squeeze(clean_im), [1, 2, 0])*args.scaling_vals[1])
+        tasks = chunkify(images, num_devices)
 
-    print("End inference and saving")
+        for ind, a_task in enumerate(tasks):
+            mp.spawn(run_a_case, args=(a_task, args.cuda_devices[ind], config, args), nprocs=1, join=False, daemon=False, start_method='spawn')
+            print(f"{Fore.RED}--> Spawn task {ind}{Style.RESET_ALL}")
+
+        print(f"Perform inference on devices {args.cuda_devices} for {len(images)} cases -- completed")
+
+    print(f"End inference and saving, {args.output_dir}")
 
 if __name__=="__main__":
     main()
