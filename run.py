@@ -36,8 +36,8 @@ def main():
     
     # -----------------------------
     # Load model weights, if a load path is specified
-    if config.full_model_load_path is not None:
-        model_manager.load_entire_model(config.full_model_load_path, device=config.device)
+    if config.entire_model_load_path is not None:
+        model_manager.load_entire_model(config.entire_model_load_path, device=config.device)
     for task_ind, task in enumerate(tasks.values()): 
         task.load(pre_load_path=config.pre_component_load_path[task_ind], post_load_path=config.post_component_load_path[task_ind])
     if config.backbone_component_load_path is not None:

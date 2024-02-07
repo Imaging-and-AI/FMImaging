@@ -329,7 +329,14 @@ class TrainManager(object):
 
                     # Run inference
                     with torch.autocast(device_type='cuda', dtype=self.cast_type, enabled=c.use_amp):
+                        adjusted_batch = False
+                        if inputs.shape[0] == 1: 
+                            inputs = inputs.repeat(2,1,1,1,1) # Take care of batch size = 1 case so batch norm doesn't throw an error
+                            adjusted_batch = True
                         output = model_manager(inputs, loader_task)
+                        if adjusted_batch:
+                            output = output[0:1]
+                            inputs = inputs[0:1]
                         loss = model_manager.tasks[loader_task].loss_f(output, labels)
 
                     # Update evaluation metrics

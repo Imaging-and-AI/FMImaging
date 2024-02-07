@@ -1,12 +1,12 @@
-export CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=3
 
-python ../../run.py --run_name="ptx_refactor1.5" \
-                    --tasks="ptx_classify" \
-                    --log_dir="/home/hoopersm/refactor_v1.5/logs" \
+python ../../run.py --run_name="ptx_refactor1.5_stl" \
+                    --tasks "ptx_classify" \
+                    --log_dir="/home/hoopersm/refactor_debug/logs" \
                     --data_dir="/home/hoopersm/preprocessed_data/ptx" \
                     --split_csv_path="/home/hoopersm/archive/baseline_backbones/samplers/simple_ptx_splits_seed_1.csv" \
-                    --height=224 \
-                    --width=224 \
+                    --height=512 \
+                    --width=512 \
                     --time=1 \
                     --no_in_channel=1 \
                     --no_out_channel=2 \
@@ -23,13 +23,12 @@ python ../../run.py --run_name="ptx_refactor1.5" \
                     --loss_func=CrossEntropy \
                     --device=cuda \
                     --num_workers=4 \
-                    --num_epochs=10 \
-                    --batch_size=16 \
+                    --num_epochs=50 \
+                    --batch_size=8 \
                     --optim.lr=0.00001 \
                     --optim.beta1=0.9 \
                     --optim.beta2=0.99 \
                     --exact_metrics=True \
                     --override \
-                    --debug \
-                    --save_model_components=True \
-                    --checkpoint_frequency=3
+                    --checkpoint_frequency 100 \
+                    --use_amp

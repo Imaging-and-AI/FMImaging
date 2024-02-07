@@ -1,6 +1,6 @@
 export CUDA_VISIBLE_DEVICES=0
 
-python ../../run.py --run_name="abct_refactor1.5" \
+python ../../run.py --run_name="abct_refactor1.5_inference2" \
                     --tasks "abct_segment" \
                     --log_dir="/home/hoopersm/refactor_v1.5/logs" \
                     --data_dir="/home/hoopersm/preprocessed_data/abct" \
@@ -8,6 +8,7 @@ python ../../run.py --run_name="abct_refactor1.5" \
                     --height=112 \
                     --width=112 \
                     --time=32 \
+                    --train_model=False \
                     --no_in_channel=1 \
                     --no_out_channel=14 \
                     --affine_aug=True \
@@ -30,4 +31,5 @@ python ../../run.py --run_name="abct_refactor1.5" \
                     --optim.beta2=0.99 \
                     --seed 1 \
                     --save_model_components=True \
-                    --override
+                    --override \
+                    --entire_model_load_path /home/hoopersm/refactor_v1.5/logs/abct_refactor1.5/entire_models/entire_model_best_checkpoint.pth

@@ -50,10 +50,10 @@ class OptimManager(object):
         self.set_up_optim_and_scheduling(total_updates=self.total_num_updates)
 
         # Load optim and scheduler states, if desired
-        if self.config.continued_training and self.config.full_model_load_path is not None:
-            logging.info(f"{Fore.YELLOW}Loading optimizers and schedulers from {self.config.full_model_load_path}{Style.RESET_ALL}")
-            self.load_optim_and_sched(self.config.full_model_load_path)
-        elif self.config.full_model_load_path is not None:
+        if self.config.continued_training and self.config.entire_model_load_path is not None:
+            logging.info(f"{Fore.YELLOW}Loading optimizers and schedulers from {self.config.entire_model_load_path}{Style.RESET_ALL}")
+            self.load_optim_and_sched(self.config.entire_model_load_path)
+        elif self.config.entire_model_load_path is not None:
             logging.info(f"{Fore.YELLOW}No optimizers or schedulers loaded this run{Style.RESET_ALL}")
 
     def configure_optim_groups(self):

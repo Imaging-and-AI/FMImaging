@@ -33,7 +33,7 @@ class general_parser(object):
         self.parser.add_argument("--pre_component_load_path", type=none_or_str, nargs='+', default=[None], help='Path to load pre model(s) from in order of tasks; set to None if not loading a model')
         self.parser.add_argument("--backbone_component_load_path", type=none_or_str, default=None, help='Path to load backbone model from; set to None if not loading a model')
         self.parser.add_argument("--post_component_load_path", type=none_or_str, nargs='+', default=[None], help='Path to load post model(s) from in order of tasks; set to None if not loading a model')
-        self.parser.add_argument("--full_model_load_path", type=none_or_str, default=None, help='Path to load full model (containing pre/backbone/post) from; set to None if not loading a model')
+        self.parser.add_argument("--entire_model_load_path", type=none_or_str, default=None, help='Path to load full model (containing pre/backbone/post) from; set to None if not loading a model')
         self.parser.add_argument("--yaml_load_path", type=none_or_str, default=None, help='Path to load yaml config from; set to None if not loading a config. Note that this config will overwrite user args.')
         self.parser.add_argument("--override", action="store_true", help="Whether to override files already saved in log_dir/run_name")
         

@@ -91,10 +91,11 @@ def model_info(model, config):
     row_settings=["var_names", "depth"]
     dtypes=[torch.float32]
     model.train()
+    mod_batch_size = 2
 
     for task_ind, task in enumerate(model.tasks.values()):
 
-        example_pre_input = torch.ones((c.batch_size[task_ind], c.no_in_channel[task_ind], c.time[task_ind], c.height[task_ind], c.width[task_ind])).to(c.device)
+        example_pre_input = torch.ones((mod_batch_size, c.no_in_channel[task_ind], c.time[task_ind], c.height[task_ind], c.width[task_ind])).to(c.device)
         example_pre_output = task.pre_component(example_pre_input)
         example_backbone_output = model.backbone_component(example_pre_output)
 
@@ -106,6 +107,8 @@ def model_info(model, config):
         logging.info(f"{Fore.MAGENTA}{'-'*40}Summary of pre component for task {task.task_name}{'-'*40}{Style.RESET_ALL}")
         logging.info(f"\n{str(pre_model_summary)}") 
 
+        torch.cuda.empty_cache()
+
         post_model_summary = summary(task.post_component, \
                                     verbose=0, mode="train", depth=c.summary_depth,\
                                     input_data=[example_backbone_output], 
@@ -114,12 +117,15 @@ def model_info(model, config):
         logging.info(f"{Fore.MAGENTA}{'-'*40}Summary of post component for task {task.task_name}{'-'*40}{Style.RESET_ALL}")
         logging.info(f"\n{str(post_model_summary)}") 
 
+        torch.cuda.empty_cache()
+
 
     backbone_model_summary = summary(model.backbone_component, \
                                     verbose=0, mode="train", depth=c.summary_depth,\
                                     input_data=[example_pre_output], 
                                     col_names=col_names,row_settings=row_settings, dtypes=dtypes,\
                                     device=config.device)
+    
     logging.info(f"{Fore.MAGENTA}{'-'*40}Summary of backbone component{'-'*40}{Style.RESET_ALL}")
     logging.info(f"\n{str(backbone_model_summary)}") 
 
