@@ -62,7 +62,9 @@ def get_eigvecs(model: torch.nn.Module,
 
     if sigma is None:
         sigma = torch.nn.functional.mse_loss(im_mmse, nim).sqrt().item()
+        print(f'Compute sigma from the data')
     print(f'Using assumed noise sigma: {sigma}')
+
     b_masked_mmse = (im_mmse * mask).repeat(n_ev, *[1]*len(nim.shape)).to(device)
     del im_mmse
     torch.cuda.empty_cache()

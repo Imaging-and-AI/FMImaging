@@ -29,6 +29,8 @@ from utils import calc_max_entropy_dist_params, get_eigvecs, calc_moments
 from microscopy_utils import *
 from temp_utils.inference_utils import apply_model, load_model
 
+import torch.multiprocessing as mp
+
 # -------------------------------------------------------------------------------------------------
 # setup for testing from cmd
 
@@ -54,6 +56,8 @@ def arg_parser():
     parser.add_argument("--batch_size", type=int, default=1, help='batch_size for running inference')
 
     parser.add_argument("--scaling_vals", type=float, nargs='+', default=[0, 4096], help='min max values to scale with respect to the scaling type')
+
+    parser.add_argument("--cuda_devices", type=int, nargs='+', default=None, help='devices for inference')
 
     # -----------------------------------------
 
@@ -94,6 +98,8 @@ def arg_parser():
 
     parser.add_argument("--frame", type=int, default=-1, help='which frame picked to compute PCA; if <0, pick the middle frame')
 
+    parser.add_argument("--sigma", type=float, default=-1, help='sigma for the data; if < 0, estimate from the data')
+
     #parser.add_argument("--model_type", type=str, default=None, help="if set, overwrite the config setting, STCNNT_MRI or MRI_hrnet, MRI_double_net")
 
     args, unknown_args = parser.parse_known_args(namespace=Nestedspace())
@@ -114,6 +120,23 @@ def check_args(args):
 
     return args
 
+def run_a_case(i, images, rank, config, args):
+
+    if rank >=0:
+        config.device = torch.device(f'cuda:{rank}')
+
+    print(f"{Fore.RED}--> Processing on device {config.device}{Style.RESET_ALL}")
+
+    model, _ = load_model(args.saved_model_path)
+
+    for ind, v in enumerate(images):
+        noisy_im, clean_im, f_name = v
+        print(f"--> Processing {f_name}, {noisy_im.shape}, {ind} out of {len(images)}")
+
+        pca_one_case(f_name, model, args, config, noisy_im, config.device)
+
+    print(f"{Fore.RED}--> Processing on device {config.device} -- completed {Style.RESET_ALL}")
+
 # -------------------------------------------------------------------------------------------------
 # the main function for setup, eval call and saving results
 
@@ -129,11 +152,17 @@ def pca_one_case(f_name, model, args, full_config, image, device):
     if H<=max_H and W<=max_W:
         x[:,:,:,:H,:W] = image
     elif H<max_H and W>max_W:
-        x[:,:,:,:H, :] = image[:,:,:,:,:max_W]
+        sW = int(W/2 - max_W/2)
+        x[:,:,:,:H, :] = image[:,:,:,:,sW:sW+max_W]
     elif H>max_H and W>max_W:
-        x = image[:,:,:,:max_H,:max_W]
+        sH = int(H/2 - max_H/2)
+        sW = int(W/2 - max_W/2)
+        x = image[:,:,:,sH:sH+max_H,sW:sW+max_W]
     elif H>max_H and W<max_W:
-        x[:,:,:,:,:W] = image[:,:,:,:max_H,:]
+        sH = int(H/2 - max_H/2)
+        x[:,:,:,:,:W] = image[:,:,:,sH:sH+max_H,:]
+
+    print(f"--> pca_one_case, x {x.shape}")
 
     output_dir = os.path.join(args.output_dir, f_name)
     print(f"---> {f_name}, output is at {output_dir}")
@@ -167,6 +196,8 @@ def pca_one_case(f_name, model, args, full_config, image, device):
     nim = torch.from_numpy(x)
 
     sigma = None
+    if args.sigma > 0:
+        sigma = args.sigma
 
     if args.double_precision:
         model.to(torch.double)
@@ -256,6 +287,7 @@ def pca_one_case(f_name, model, args, full_config, image, device):
     print(res_name)
     np.save(res_name, eigvals)
 
+    frame = np.argmax(np.mean(np.squeeze(mask.cpu().numpy()), axis=(1,2)))
     res_name = os.path.join(output_dir, f'frame.npy')
     print(res_name)
     np.save(res_name, np.array(frame))
@@ -299,12 +331,26 @@ def main():
     print("Start inference and saving")
     print(f"---> support bfloat16 is {support_bfloat16(device=get_device())}")
 
-    for noisy_im, clean_im, f_name in tqdm(images):
-        print(f"--> process image {f_name}, {noisy_im.shape}")
+    if args.cuda_devices is None:
+        rank = -1
+        run_a_case(0, images, rank, config, args)
+    else:
+        print(f"Perform inference on devices {args.cuda_devices}")
 
-        print(f"{Fore.YELLOW}--> processing {f_name}, {noisy_im.shape}{Style.RESET_ALL}")
+        num_devices = len(args.cuda_devices) if len(args.cuda_devices) < len(images) else len(images)
 
-        pca_one_case(f_name, model, args, config, noisy_im, device)
+        def chunkify(lst,n):
+            return [lst[i::n] for i in range(n)]
+
+        tasks = chunkify(images, num_devices)
+
+        for ind, a_task in enumerate(tasks):
+            mp.spawn(run_a_case, args=(a_task, args.cuda_devices[ind], config, args), nprocs=1, join=False, daemon=False, start_method='spawn')
+            print(f"{Fore.RED}--> Spawn task {ind}{Style.RESET_ALL}")
+
+        print(f"Perform inference on devices {args.cuda_devices} for {len(images)} cases -- completed")
+
+    print("End pesudo-replica test and saving")
 
     # -------------------------------------------    
 

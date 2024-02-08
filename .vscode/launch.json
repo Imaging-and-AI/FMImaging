@@ -365,6 +365,26 @@
         },
         // -----------------------------------------------------------------------------------------
         {
+            "name": "microscopy_run.py",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/microscopy_denoise/microscopy_run.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "4"},
+            "args": [
+                "--data_root", "/data/FM_data_repo/light_microscopy/", "--log_dir", "/data/logs",
+                "--project", "microscopy", "--scaling_vals", "0", "4096", "--model_type", "STCNNT_Microscopy",
+                "--train_files", "Base_All_train.h5", "--test_files", "Base_Actin_test.h5",
+                "--backbone_model", "STCNNT_HRNET", "--backbone_hrnet.C", "64",
+                "--backbone_hrnet.block_str", "C3C3C3C3C3C3", "C3C3C3C3C3C3", "--batch_size", "2",
+                "--losses", "mse", "l1", "ssim", "perceptual", "--loss_weights", "1.0", "1.0", "5.0", "5.0", 
+                "--micro_height", "32", "64", "--micro_width", "32", "64", "--time", "16", "--micro_time", "16", "--run_name", "test", "--n_head", "32",
+                "--wandb_dir", "/data/wandb", "--override", "--no_in_channel", "1", "--no_out_channel", "1"
+            ]
+        },
+        // -----------------------------------------------------------------------------------------
+        {
             "name": "microscopy_inference_pseudo_replica.py",
             "type": "python",
             "request": "launch",
@@ -411,15 +431,16 @@
             "program": "./projects/microscopy_denoise/microscopy_inference_for_uncertainty_PCA.py",
             "justMyCode": true,
             "console": "integratedTerminal",
-            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "4", "DISABLE_FLOAT16_INFERENCE": "True"},
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "4", "DISABLE_FLOAT16_INFERENCE": "False"},
             "args": [
-                "--input_dir", "/export/Lab-Xue/publications/CNNT_paper/data/micro_datasets_rcan/Ryo_tile/test/noisy_rois/",
-                "--output_dir", "/export/Lab-Xue/projects/microscopy/snr/Ryo_tile/",
-                "--saved_model_path", "/export/Lab-Xue/projects/data/logs/microscopy-FineTuning_Ryo_tile_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20240129_141121_596371_STCNNT_Microscopy_C-64-1_amp-False_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_16",
-                "--image_order", "HWT",
+                "--input_dir", "/export/Lab-Xue/publications/CNNT_paper/data/micro_datasets_rcan/micro_tiffs/Chris_zebra_timed_pancs/test/noisy/",
+                "--output_dir", "/export/Lab-Xue/projects/microscopy/snr/Chris_zebra_timed_pancs/res_snr/",
+                "--saved_model_path", "/export/Lab-Xue/projects/data/logs/microscopy-FineTuning_Chris_zebra_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20240204_001419_854169_STCNNT_Microscopy_C-64-1_amp-False_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/last_epoch",
+                "--image_order", "THW",
                 "--no_clip_data",
                 "--patch_size_inference", "64",
-                "--data_x_y_mode", "True", "--complex_i", "--low_acc"
+                "--data_x_y_mode", "True", "--complex_i", "--low_acc",
+                "--input_file_s", "Image_000_avg_5.tif"
             ]
         },
         // -----------------------------------------------------------------------------------------
