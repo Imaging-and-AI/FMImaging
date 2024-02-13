@@ -10,6 +10,9 @@ log_dir=/data/log
 data_dir=/export/Lab-Xue/projects/fm/data
 log_dir=/export/Lab-Xue/projects/fm/log
 
+data_dir=/home/gtuser/rehmana2/projects/stcnnt/data/ 
+log_dir=/home/gtuser/rehmana2/projects/stcnnt/log
+
 # Training from scratch
 python3 ./projects/microscopy_denoise/microscopy_run_ddp.py --project microscopy --data_root /home/gtuser/rehmana2/projects/stcnnt/data/ --log_root /home/gtuser/rehmana2/projects/stcnnt/log --train_files Base_All_train.h5 Alex_bActin-NM2A_train.h5 Alex_wide_field_train.h5 Chris_zebra_train.h5 Light_Sheet_noisy_35_clean_train.h5 Light_Sheet_noisy_clean_train.h5 --test_files Base_All_test.h5  --cuda_device 0,1,2,3 --nproc_per_node 4 --num_epochs 100 --batch_size 2 --backbone_C 64 --standalone --losses mse l1 ssim perceptual --loss_weights 10.0 1.0 2.0 1.0 --max_load 20000000 --num_workers 32 --save_samples --no_clip_data --scaling_vals 0 1024 --micro_height 64 128 --micro_width 64 128 --scheduler_type OneCycleLR --model_block_str T1L1G1 T1L1G1T1L1G1
 
@@ -40,6 +43,10 @@ data_dir=/data/FM_data_repo/light_microscopy/
 log_dir=/data/log
 model=/export/Lab-Xue/projects/data/logs/microscopy-20240120_235433_496767_STCNNT_Microscopy_C-64-1_amp-False_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/final_epoch
 
+model=/export/Lab-Xue/projects/data/logs/microscopy-20240208_035121_464287_STCNNT_Microscopy_C-64-1_amp-False_residual-C3C3C3C3C3C3_C3C3C3C3C3C3/final_epoch
+
+# -----------------------
+
 python3 ./projects/microscopy_denoise/microscopy_run_ddp.py --project microscopy \
     --data_root $data_dir --log_root $log_dir \
     --train_files Alex_wide_field_train.h5 --test_files Alex_wide_field_test.h5 \
@@ -49,6 +56,8 @@ python3 ./projects/microscopy_denoise/microscopy_run_ddp.py --project microscopy
     --global_lr 0.000025 --lr_pre  0.000025 --lr_backbone  0.000025 --lr_post  0.000025 \
     --train_samples 20000000 --run_extra_note FineTuning_Alex_wide --no_clip_data --scheduler_type OneCycleLR --scaling_vals 0 1024
 
+# -----------------------
+
 python3 ./projects/microscopy_denoise/microscopy_run_ddp.py --project microscopy \
     --data_root $data_dir --log_root $log_dir \
     --train_files Chris_zebra_train.h5 --test_files Chris_zebra_test.h5 \
@@ -56,7 +65,18 @@ python3 ./projects/microscopy_denoise/microscopy_run_ddp.py --project microscopy
     --losses mse l1 ssim --loss_weights 10.0 10.0 5.0 --micro_height 64 128 --micro_width 64 128 --max_load 20000000 --num_workers 4 \
     --load_path $model \
     --global_lr 0.000025 --lr_pre  0.000025 --lr_backbone  0.000025 --lr_post  0.000025 \
-    --train_samples 20000000 --run_extra_note FineTuning_Chris_zebra --no_clip_data --scheduler_type OneCycleLR --scaling_vals 0 256
+    --train_samples 20000000 --run_extra_note FineTuning_Chris_zebra --no_clip_data --scheduler_type OneCycleLR --scaling_vals 0 256 
+
+python3 ./projects/microscopy_denoise/microscopy_run_ddp.py --project microscopy \
+    --data_root $data_dir --log_root $log_dir \
+    --train_files Chris_zebra_train.h5 --test_files Chris_zebra_test.h5 \
+    --cuda_device 0,1,2,3 --nproc_per_node 4 --num_epochs 20 --batch_size 1 --backbone_C 64 --standalone \
+    --losses mse l1 ssim --loss_weights 10.0 10.0 5.0 --micro_height 64 128 --micro_width 64 128 --max_load 20000000 --num_workers 4 \
+    --load_path $model \
+    --global_lr 0.000025 --lr_pre  0.000025 --lr_backbone  0.000025 --lr_post  0.000025 \
+    --train_samples 20000000 --run_extra_note FineTuning_Chris_zebra --no_clip_data --scheduler_type OneCycleLR --scaling_vals 0 256 --model_block_str C3C3C3C3C3C3 C3C3C3C3C3C3
+
+# -----------------------
 
 python3 ./projects/microscopy_denoise/microscopy_run_ddp.py --project microscopy --data_root $data_dir --log_root $log_dir --train_files Chris_zebra_train.h5 --test_files Chris_zebra_test.h5     --cuda_device 0,1,2,3 --nproc_per_node 4 --num_epochs 40 --batch_size 1 --backbone_C 64 --standalone --losses mse l1 ssim --loss_weights 1.0 1.0 10.0 --micro_height 64 128 --micro_width 64 128 --max_load 20000000 --num_workers 4 --load_path $model --global_lr 0.000025 --lr_pre  0.000025 --lr_backbone  0.000025 --lr_post  0.000025     --train_samples 20000000 --run_extra_note FineTuning_Chris_zebra_mse_l1_ssim --no_clip_data --scheduler_type OneCycleLR --scaling_vals 0 256
 
@@ -137,6 +157,8 @@ python3 ./projects/microscopy_denoise/microscopy_inference.py --input_dir /expor
 # ===================================================
 
 model=/export/Lab-Xue/projects/data/logs/microscopy-FineTuning_Chris_zebra_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20240204_001419_854169_STCNNT_Microscopy_C-64-1_amp-False_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/last_epoch
+
+model=/export/Lab-Xue/projects/data/logs/microscopy-FineTuning_Chris_zebra_C3_STCNNT_HRNET_C3C3C3C3C3C3_C3C3C3C3C3C3_20240208_170049_615428_STCNNT_Microscopy_C-64-1_amp-False_residual-C3C3C3C3C3C3_C3C3C3C3C3C3/last_epoch
 
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 
