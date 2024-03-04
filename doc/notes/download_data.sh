@@ -18,6 +18,8 @@ azcopy copy "./test" "https://stcnnt.blob.core.windows.net/fmi-data?${SAS_FMI_DA
 # azcopy copy "./val/" "${data_src}?${SAS}" --recursive
 # azcopy copy "./val/" "https://stcnnt.blob.core.windows.net/qperf/?${SAS_qperf}" --recursive
 # azcopy copy "https://stcnnt.blob.core.windows.net/qperf/h5_data?${SAS_qperf}" . --recursive
+# azcopy copy "https://stcnnt.blob.core.windows.net/qperf/h5_data?${SAS_qperf}" . --recursive
+# azcopy copy "https://stcnnt.blob.core.windows.net/fmi-data/Archive_2?${SAS_FMI_DATA}" . --recursive
 
 # mkdir -p /export/Lab-Xue/projects/imagenet/qperf/v2
 # mkdir -p /export/Lab-Xue/projects/imagenet/qperf/v2/tra
