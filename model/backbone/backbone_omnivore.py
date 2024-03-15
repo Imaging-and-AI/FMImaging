@@ -46,18 +46,34 @@ def omnivore(config,
         embed_dim = 96
         depths = [2, 2, 6, 2]
         num_heads = [3, 6, 12, 24]
+        config.SWIN.embed_dim = embed_dim
+        config.SWIN.depths = depths
+        config.SWIN.num_heads = num_heads
+
     elif config.omnivore.size=='small':
         embed_dim = 96
         depths = [2, 2, 18, 2]
         num_heads = [3, 6, 12, 24]
+        config.SWIN.embed_dim = embed_dim
+        config.SWIN.depths = depths
+        config.SWIN.num_heads = num_heads
+
     elif config.omnivore.size=='base':
         embed_dim = 128
         depths = [2, 2, 18, 2]
         num_heads = [4,8,16,32]
+        config.SWIN.embed_dim = embed_dim
+        config.SWIN.depths = depths
+        config.SWIN.num_heads = num_heads
+
     elif config.omnivore.size=='large':
         embed_dim = 192
         depths = [2, 2, 18, 2]
         num_heads = [6, 12, 24, 48]
+        config.SWIN.embed_dim = embed_dim
+        config.SWIN.depths = depths
+        config.SWIN.num_heads = num_heads
+        
     elif config.omnivore.size=='custom':
         embed_dim = config.omnivore.embed_dim
         depths =  config.omnivore.depths
@@ -895,6 +911,8 @@ class SwinTransformer3D(nn.Module):
     ) -> List[torch.Tensor]:
         """Forward function."""
         
+        input_data = x[-1]
+
         x = self.patch_embed(x[-1])
 
         x = self.pos_drop(x)
@@ -905,7 +923,7 @@ class SwinTransformer3D(nn.Module):
             x = layer(x.contiguous(), use_checkpoint=False)
             stage_outputs.append(x)
 
-        return self.forward_intermediate_features(stage_outputs, self.out_feat_keys)
+        return [input_data] + self.forward_intermediate_features(stage_outputs, self.out_feat_keys)
        
     def train(self, mode=True):
         """Convert the model into training mode while keep layers freezed."""

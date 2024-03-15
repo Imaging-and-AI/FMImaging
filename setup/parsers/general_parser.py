@@ -39,7 +39,7 @@ class general_parser(object):
         
         # Train/eval args 
         self.parser.add_argument("--train_model", type=str_to_bool, default=True, help="Whether to run training; if False, only eval will run")
-        self.parser.add_argument("--training_scheme", type=str, default="single_task", choices=["single_task"],help='Which trainings scheme to use')
+        self.parser.add_argument("--training_scheme", type=str, default="single_task", choices=["single_task"],help='Which training scheme to use')
         self.parser.add_argument("--continued_training", type=str_to_bool, default=False, help="Whether to continue training; if True, will load the optimizer and scheduler states along with the model weights; used only if load_paths are specified")
         self.parser.add_argument("--eval_train_set", type=str_to_bool, default=False, help="Whether to run inference on the train set at the end of training")
         self.parser.add_argument("--eval_val_set", type=str_to_bool, default=True, help="Whether to run inference on the val set at the end of training")
@@ -50,8 +50,9 @@ class general_parser(object):
 
         # Wandb args
         self.parser.add_argument("--project", type=str, default='FMImaging', help='Project name for wandb')
+        self.parser.add_argument("--group", type=str, default='training', help='Group for wandb')
         self.parser.add_argument("--run_notes", type=str, default='Default project notes', help='Notes for the current run for wandb')
-        self.parser.add_argument("--wandb_entity", type=str, default="gadgetron", help='Wandb entity to link with')
+        self.parser.add_argument("--wandb_entity", type=str, default="nhlbi", help='Wandb entity to link with')
         self.parser.add_argument("--wandb_dir", type=str, default=os.path.join(Project_DIR, 'wandb'), help='directory for saving wandb')
         
         # Task args
@@ -77,6 +78,8 @@ class general_parser(object):
         self.parser.add_argument('--pre_component', type=str, nargs='+', default=["Identity"], choices=['Identity'], help="Which pre model to use in order of tasks")
         self.parser.add_argument('--backbone_component', type=str, default="STCNNT_HRNET", choices=['Identity',
                                                                                                  'omnivore',
+                                                                                                 'ViT',
+                                                                                                 'SWIN',
                                                                                                  'STCNNT_HRNET',
                                                                                                  'STCNNT_UNET',
                                                                                                  'STCNNT_mUNET'], 
@@ -88,8 +91,8 @@ class general_parser(object):
                                                                                       'UperNet3D',
                                                                                       'SimpleConv',
                                                                                       'SimpleMultidepthConv',
-                                                                                      'UNETR2D',
-                                                                                      'UNETR3D'], help="Which task head to use in order of tasks")
+                                                                                      'SwinUNETR',
+                                                                                      'ViTUNETR'], help="Which task head to use in order of tasks")
         self.parser.add_argument('--freeze_pre', type=str_to_bool, nargs='+', default=[False], help="Whether to freeze the pre model in order of tasks")
         self.parser.add_argument('--freeze_backbone', type=str_to_bool, default=False, help="Whether to freeze the backbone model")
         self.parser.add_argument('--freeze_post', type=str_to_bool, nargs='+', default=[False], help="Whether to freeze the post model in order of tasks")

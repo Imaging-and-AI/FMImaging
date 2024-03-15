@@ -113,7 +113,7 @@ class UperNet2D(nn.Module):
         self.head = nn.Conv2d(self.fpn_out, output_feature_channels[-1], kernel_size=3, padding=1)
 
     def forward(self, features):
-        features = [f[:,:,0,:,:] for f in features] # Remove time dim for 2d convoultional upernet
+        # features = [f[:,:,0,:,:] for f in features] # Remove time dim for 2d convoultional upernet
         features[-1] = self.PPN(features[-1])
         x = self.head(self.FPN(features))
         x = F.interpolate(x, size=self.input_size, mode='bilinear')

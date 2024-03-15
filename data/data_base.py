@@ -90,10 +90,10 @@ class NumpyDataset(torch.utils.data.Dataset):
         # Load image and adjust it to a correctly-sized tensor
         image_path = os.path.join(self.data_loc,self.split_subject_ids[index],self.split_subject_ids[index]+'_input.npy')
         image = np.load(image_path).astype('float32') # Expect H, W, (optional T/D), (optional C)
-        min_input = np.min(image)
-        image -= min_input
-        max_input = np.max(image)
-        image = image/max_input
+        # min_input = np.min(image)
+        # image -= min_input
+        # max_input = np.max(image)
+        # image = image/max_input
         image = custom_numpy_to_tensor(image,self.height,self.width,self.time,self.no_in_channel) # Returns standardized C, T/D, H, W     
 
         # Transform
@@ -122,8 +122,8 @@ class NumpyDataset(torch.utils.data.Dataset):
             # Load output image and adjust it to a correctly-sized tensor
             out = np.load(image_path.replace('_input','_output')).astype('float32')
             out = custom_numpy_to_tensor(out,self.height,self.width,self.time,self.no_out_channel) 
-            out -= min_input
-            out = out/max_input
+            # out -= min_input
+            # out = out/max_input
 
             # Transform
             random.seed(seed)

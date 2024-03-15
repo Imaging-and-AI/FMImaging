@@ -2,7 +2,9 @@
 Standard run file 
 """
 
+import os, sys, glob
 from setup.setup_base import parse_config_and_setup_run
+from setup.config_utils import config_to_yaml
 from model.model_base import ModelComponent, ModelManager
 from optim.optim_base import OptimManager
 from trainer.trainer_base import TrainManager
@@ -58,6 +60,11 @@ def main():
                                 optim_manager,
                                 metric_manager)
     
+    # -----------------------------
+    # Save config to yaml file
+    yaml_file = config_to_yaml(config,os.path.join(config.log_dir,config.run_name))
+    config.yaml_file = yaml_file 
+
     # -----------------------------
     # Execute training and evaluation
     train_manager.run()

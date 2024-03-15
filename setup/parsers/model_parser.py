@@ -23,12 +23,18 @@ class model_parser(object):
         if 'omnivore' in model_type: 
             self.add_omnivore_args()
 
-        #if 'STCNNT' in model_type: 
-        self.add_shared_STCNNT_args()
-        self.add_hrnet_STCNNT_args()
+        if 'ViT' in model_type:
+            self.add_ViT_args()
 
-        # if model_type=='STCNNT_HRNET': 
-        #     self.add_hrnet_STCNNT_args()
+        if 'SWIN' in model_type:
+            self.add_SWIN_args()
+
+        if 'STCNNT' in model_type: 
+            self.add_shared_STCNNT_args()
+            self.add_hrnet_STCNNT_args()
+
+        if model_type=='STCNNT_HRNET': 
+            self.add_hrnet_STCNNT_args()
 
         if model_type=='STCNNT_UNET': 
             self.add_unet_STCNNT_args()
@@ -38,12 +44,29 @@ class model_parser(object):
         
     def add_omnivore_args(self):  
         self.parser.add_argument('--omnivore.size', type=str, default='tiny', choices=['tiny','small','base','large','custom'], help="Size of omnivore model")
-        self.parser.add_argument('--omnivore.patch_size', nargs='+', type=int, default=[1,1,1], help="Size of swin patches")
-        self.parser.add_argument('--omnivore.window_size', nargs='+', type=int, default=[7,7,7], help="Size of swin windows")
+        self.parser.add_argument('--omnivore.patch_size', nargs='+', type=int, default=[1,1,1], help="Size of swin patches, ordered as T, H, W")
+        self.parser.add_argument('--omnivore.window_size', nargs='+', type=int, default=[7,7,7], help="Size of swin windows, ordered as T, H, W")
         self.parser.add_argument('--omnivore.embed_dim', type=int, default=24, help="Size of embedding dimension")
         self.parser.add_argument('--omnivore.depths', nargs='+', type=int, default=[2,2,6,2], help="Number of transformer blocks per resolution depth")
         self.parser.add_argument('--omnivore.num_heads', nargs='+', type=int, default=[3,6,12,24], help="Number of attention heads per resolution depth")
-        
+
+    def add_ViT_args(self): 
+        self.parser.add_argument('--ViT.size', type=str, default='small', choices=['small','base','custom'], help="Size of ViT model")
+        self.parser.add_argument('--ViT.patch_size', nargs='+', type=int, default=[1,1,1], help="Size of ViT patches, ordered as T, H, W")
+        self.parser.add_argument('--ViT.hidden_size', type=int, default=768, help="Size of embedding dimension")
+        self.parser.add_argument('--ViT.mlp_dim', type=int, default=3072, help="Size of mlp dimension")
+        self.parser.add_argument('--ViT.num_layers', type=int, default=12, help="Number of transformer blocks")
+        self.parser.add_argument('--ViT.num_heads', type=int, default=12, help="Number of attention heads")
+        self.parser.add_argument('--ViT.use_hyena', type=str_to_bool, default=False, help="Whether to use hyena in place of attention block")
+
+    def add_SWIN_args(self):  
+        self.parser.add_argument('--SWIN.size', type=str, default='tiny', choices=['tiny','small','base','large','custom'], help="Size of SWIN model")
+        self.parser.add_argument('--SWIN.patch_size', nargs='+', type=int, default=[1,1,1], help="Size of swin patches, ordered as T, H, W")
+        self.parser.add_argument('--SWIN.window_size', nargs='+', type=int, default=[7,7,7], help="Size of swin windows, ordered as T, H, W")
+        self.parser.add_argument('--SWIN.embed_dim', type=int, default=24, help="Size of embedding dimension")
+        self.parser.add_argument('--SWIN.depths', nargs='+', type=int, default=[2,2,6,2], help="Number of transformer blocks per resolution depth")
+        self.parser.add_argument('--SWIN.num_heads', nargs='+', type=int, default=[3,6,12,24], help="Number of attention heads per resolution depth")
+
     def add_shared_STCNNT_args(self):
         self.parser.add_argument("--cell_type", type=str, default="sequential", choices=['sequential', 'parallel'], help='cell type, sequential or parallel')
         self.parser.add_argument("--block_dense_connection", type=int, default=1, help='whether to add dense connections between cells in a block')

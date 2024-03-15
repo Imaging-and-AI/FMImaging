@@ -73,6 +73,10 @@ class ModelComponent(nn.Module):
         # Backbone models
         elif self.component_name=='omnivore':
             self.model, self.output_feature_channels = omnivore(self.config, self.input_feature_channels)
+        elif self.component_name=='ViT':
+            self.model, self.output_feature_channels = custom_ViT(self.config, self.input_feature_channels)
+        elif self.component_name=='SWIN':
+            self.model, self.output_feature_channels = custom_SWIN(self.config, self.input_feature_channels)
         elif self.component_name=='STCNNT_HRNET':
             self.model, self.output_feature_channels = STCNNT_HRnet_model(self.config, self.input_feature_channels)
         elif self.component_name=='STCNNT_UNET':
@@ -92,12 +96,10 @@ class ModelComponent(nn.Module):
             self.model = ConvPoolLinear(self.config, self.input_feature_channels, self.output_feature_channels)
         elif self.component_name=='SimpleMultidepthConv': # 2D or 3D enhancement
             self.model = SimpleMultidepthConv(self.config, self.input_feature_channels, self.output_feature_channels)
-        elif self.component_name=='UNETR2D': # 2D enhancement
-            image_input_channels = self.config.no_in_channel[self.task_ind]
-            self.model = UNETR2D(self.config, image_input_channels, self.input_feature_channels, self.output_feature_channels)
-        elif self.component_name=='UNETR3D': # 2D or 3d enhancement, works with both
-            image_input_channels = self.config.no_in_channel[self.task_ind]
-            self.model = UNETR3D(self.config, image_input_channels, self.input_feature_channels, self.output_feature_channels)
+        elif self.component_name=='SwinUNETR': # 2D or 3D enhancement or seg
+            self.model = SwinUNETR(self.config, self.task_ind, self.input_feature_channels, self.output_feature_channels)
+        elif self.component_name=='ViTUNETR': # 2D or 3d enhancement or seg
+            self.model = ViTUNETR(self.config, self.task_ind, self.input_feature_channels, self.output_feature_channels)
         else:
             raise NotImplementedError(f"Model not implemented: {self.model_name}")
 

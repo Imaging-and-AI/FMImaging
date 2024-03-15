@@ -189,6 +189,27 @@ def check_args(config):
         config.freeze_pre = [config.freeze_pre[0]]*num_tasks
     if len(config.freeze_post)!=num_tasks:
         config.freeze_post = [config.freeze_post[0]]*num_tasks
+    if not os.path.exists(config.wandb_dir): 
+        os.makedirs(config.wandb_dir, exist_ok=True)
+    if 'ViT' in config.backbone_component:
+        assert len(config.ViT.patch_size) in [1, 3], "ViT patch size must have 1 or 3 elements"
+        if len(config.ViT.patch_size)==1:
+            config.ViT.patch_size = [config.ViT.patch_size[0]]*3
+    if 'SWIN' in config.backbone_component:
+        assert len(config.SWIN.patch_size) in [1, 3], "SWIN patch size must have 1 or 3 elements"
+        if len(config.SWIN.patch_size)==1:
+            config.SWIN.patch_size = [config.SWIN.patch_size[0]]*3
+        assert len(config.SWIN.window_size) in [1, 3], "SWIN window size must have 1 or 3 elements"
+        if len(config.SWIN.window_size)==1:
+            config.SWIN.window_size = [config.SWIN.window_size[0]]*3
+    if 'omnivore' in config.backbone_component:
+        assert len(config.omnivore.patch_size) in [1, 3], "omnivore patch size must have 1 or 3 elements"
+        if len(config.omnivore.patch_size)==1:
+            config.omnivore.patch_size = [config.omnivore.patch_size[0]]*3
+        assert len(config.omnivore.window_size) in [1, 3], "omnivore window size must have 1 or 3 elements"
+        if len(config.omnivore.window_size)==1:
+            config.omnivore.window_size = [config.omnivore.window_size[0]]*3
+
 
 
 

@@ -20,7 +20,12 @@ def compute_total_updates(config, tasks):
 
         total_num_samples += num_samples
 
-        total_num_updates += int(np.ceil(num_samples/(config.batch_size[task_ind]*config.iters_to_accumulate))*config.num_epochs)
+        if config.ddp:
+            num_gpus = dist.get_world_size()
+        else:
+            num_gpus = 1
+
+        total_num_updates += int(np.ceil(num_samples/(config.batch_size[task_ind]*config.iters_to_accumulate*num_gpus))*config.num_epochs)
     
     return total_num_samples, total_num_updates
 

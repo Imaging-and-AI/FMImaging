@@ -21,7 +21,7 @@ class optim_parser(object):
         self.parser.add_argument("--optim.global_lr", type=float, default=1e-4, help='Global learning rate (used for params not sorted into pre/backbone/post)')
         self.parser.add_argument('--optim.lr', nargs='+', type=float, default=[1e-4, 1e-4, 1e-4], help="Learning rate for pre, backbone and post, will overwrite the global_lr.")    
         self.parser.add_argument("--optim.weight_decay", type=float, default=0.0, help='Weight decay regularization')
-        self.parser.add_argument("--optim.all_w_decay", action="store_true", help='Option of having all params have weight decay. By default norms and embeddings do not')
+        # self.parser.add_argument("--optim.all_w_decay", action="store_true", help='Option of having all params have weight decay. By default norms and embeddings do not') # Removing, utility not available in refactor v1.5
         if optim_type in ['adamw','adam','nadam','sophia']:
             self.add_adam_optim_args()
         if optim_type in ['lbfgs']:

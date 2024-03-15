@@ -72,7 +72,7 @@ class SingleTaskTrainingScheme(nn.Module):
         
         return inputs, outputs, ids, loader_task
 
-    def _model_forward_pass(self, task_name, inputs, outputs, model_manager):
+    def _model_forward_pass(self, task_name, inputs, outputs, model_manager, model_module):
         """
         Forward pass through model and compute loss
         """
@@ -80,7 +80,7 @@ class SingleTaskTrainingScheme(nn.Module):
 
         with torch.autocast(device_type='cuda', dtype=self.cast_type, enabled=self.config.use_amp):
             model_outputs = model_manager(inputs, task_name)
-            loss = model_manager.tasks[task_name].loss_f(model_outputs,outputs)
+            loss = model_module.tasks[task_name].loss_f(model_outputs,outputs)
             loss = loss / self.config.iters_to_accumulate
 
         end_timer(enable=self.config.with_timer, t=tm, msg="---> training scheme: forward pass and loss calc took ")
@@ -115,12 +115,14 @@ class SingleTaskTrainingScheme(nn.Module):
         """
         Forward pass of the training scheme
         """
-        
+        # Extract module from ddp 
+        model_module = model_manager.module if self.config.ddp else self.model_manager 
+
         # Sample from dataloaders
         inputs, outputs, ids, task_name = self._sampler(idx, epoch, train_dataloaders, model_manager)
 
         # Forward pass through model
-        loss, model_outputs = self._model_forward_pass(task_name, inputs, outputs, model_manager)
+        loss, model_outputs = self._model_forward_pass(task_name, inputs, outputs, model_manager, model_module)
 
         # Model updates 
         self._model_update(loss, idx, optim, model_manager, total_iters)

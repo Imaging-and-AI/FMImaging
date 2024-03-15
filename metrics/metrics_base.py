@@ -36,6 +36,7 @@ class MetricManager(object):
         Runs once at beginning of training if global_rank<=0 to initialize wandb object
         """
         self.wandb_run = wandb.init(project=self.config.project, 
+                                    group=self.config.group,
                                     entity=self.config.wandb_entity, 
                                     config=self.config, 
                                     name=self.config.run_name, 

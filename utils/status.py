@@ -90,6 +90,7 @@ def model_info(model, config):
     col_names=("num_params", "params_percent", "mult_adds", "input_size", "output_size", "trainable")
     row_settings=["var_names", "depth"]
     dtypes=[torch.float32]
+    model = model.module if config.ddp else model 
     model.train()
     mod_batch_size = 2
 

@@ -96,13 +96,13 @@ class TrainManager(object):
         if c.ddp:
             dist.barrier()
             device = torch.device(f"cuda:{rank}")
-            model_manager = self.model_manager.to(device)
-            for task in model_manager.tasks.values(): task.to(device)
-            model_manager = DDP(model_manager, device_ids=[rank], find_unused_parameters=True)
+            self.model_manager = self.model_manager.to(device)
+            for task in self.model_manager.tasks.values(): task.to(device)
+            self.model_manager = DDP(self.model_manager, device_ids=[rank], find_unused_parameters=False)
         else:
             device = c.device
-            model_manager = self.model_manager.to(device)
-            for task in model_manager.tasks.values(): task.to(device)
+            self.model_manager = self.model_manager.to(device)
+            for task in self.model_manager.tasks.values(): task.to(device)
 
         # Print out model summary
         if rank<=0:
@@ -127,7 +127,8 @@ class TrainManager(object):
 
             # Create train dataloaders
             train_dataloaders = {}
-            for task_ind, task in enumerate(self.model_manager.tasks.values()):
+            model_module = self.model_manager.module if self.config.ddp else self.model_manager 
+            for task_ind, task in enumerate(model_module.tasks.values()):
                 task_train_sets = task.train_set
                 if c.ddp:
                     shuffle = False
@@ -159,7 +160,7 @@ class TrainManager(object):
             for epoch in range(curr_epoch, c.num_epochs):
                 logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank} {'-'*20}{Style.RESET_ALL}")
 
-                model_manager.train()
+                self.model_manager.train()
 
                 self.metric_manager.on_train_epoch_start()
 
@@ -167,11 +168,12 @@ class TrainManager(object):
                     for idx in range(total_iters):
 
                         tm = start_timer(enable=c.with_timer)
-                        loss, model_outputs, inputs, gt_outputs, ids, task_name = training_scheme(idx, total_iters, train_dataloaders, epoch, model_manager, optim)
+                        loss, model_outputs, inputs, gt_outputs, ids, task_name = training_scheme(idx, total_iters, train_dataloaders, epoch, self.model_manager, optim)
                         end_timer(enable=c.with_timer, t=tm, msg="---> full training scheme took ")
 
                         if (idx + 1) % c.iters_to_accumulate == 0 or (idx + 1 == total_iters):
-                            if c.scheduler_type == "OneCycleLR": sched.step()
+                            if c.scheduler_type == "OneCycleLR": 
+                                sched.step()
                         
                         tm = start_timer(enable=c.with_timer)
                         curr_lr = optim.param_groups[0]['lr']
@@ -186,7 +188,7 @@ class TrainManager(object):
                     # Run metric logging for each epoch 
                     tm = start_timer(enable=c.with_timer) 
 
-                    self.metric_manager.on_train_epoch_end(model_manager, optim, sched, epoch, rank)
+                    self.metric_manager.on_train_epoch_end(self.model_manager, optim, sched, epoch, rank)
 
                     # Print out metrics from this epoch
                     pbar_str = f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} tra, rank {rank},  {inputs.shape}, lr {curr_lr:.8f}"
@@ -206,7 +208,7 @@ class TrainManager(object):
                     end_timer(enable=c.with_timer, t=tm, msg="---> epoch end logging and measuring took ")
 
                 if epoch % c.eval_frequency==0 or epoch==c.num_epochs:
-                    self._eval_model(rank=rank, model_manager=model_manager, epoch=epoch, device=device, optim=optim, sched=sched, id="", split="val", final_eval=False)
+                    self._eval_model(rank=rank, model_manager=self.model_manager, epoch=epoch, device=device, optim=optim, sched=sched, id="", split="val", final_eval=False)
 
                 if c.scheduler_type != "OneCycleLR":
                     if c.scheduler_type == "ReduceLROnPlateau":
@@ -222,9 +224,13 @@ class TrainManager(object):
                         self.distribute_learning_rates(rank, optim, src=0)
 
             # Load the best model from training
+            dist.barrier()
             if self.config.eval_train_set or self.config.eval_val_set or self.config.eval_test_set:
                 logging.info(f"{Fore.CYAN}Loading the best models from training for final evaluation...{Style.RESET_ALL}")
-                self.model_manager.load_entire_model(os.path.join(self.config.log_dir,self.config.run_name,'entire_models','entire_model_best_checkpoint.pth'))
+                if self.config.ddp: 
+                    self.model_manager.module.load_entire_model(os.path.join(self.config.log_dir,self.config.run_name,'entire_models','entire_model_best_checkpoint.pth'), device=device)
+                else: 
+                    self.model_manager.load_entire_model(os.path.join(self.config.log_dir,self.config.run_name,'entire_models','entire_model_best_checkpoint.pth'))
        
         else: # Not training
             epoch = 0
@@ -232,16 +238,16 @@ class TrainManager(object):
         # Evaluate models of each split
         if self.config.eval_train_set: 
             logging.info(f"{Fore.CYAN}Evaluating train set...{Style.RESET_ALL}")
-            self._eval_model(rank=rank, model_manager=model_manager, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="train", final_eval=True)
+            self._eval_model(rank=rank, model_manager=self.model_manager, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="train", final_eval=True)
         if self.config.eval_val_set: 
             logging.info(f"{Fore.CYAN}Evaluating val set...{Style.RESET_ALL}")
-            self._eval_model(rank=rank, model_manager=model_manager, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="val", final_eval=True)
+            self._eval_model(rank=rank, model_manager=self.model_manager, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="val", final_eval=True)
         if self.config.eval_test_set: 
             logging.info(f"{Fore.CYAN}Evaluating test set...{Style.RESET_ALL}")
-            self._eval_model(rank=rank, model_manager=model_manager, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="test", final_eval=True)
+            self._eval_model(rank=rank, model_manager=self.model_manager, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="", split="test", final_eval=True)
 
         # Finish up training
-        self.metric_manager.on_training_end(rank, epoch, model_manager, optim, sched, self.config.train_model)
+        self.metric_manager.on_training_end(rank, epoch, self.model_manager, optim, sched, self.config.train_model)
         
     def _eval_model(self, rank, model_manager, epoch, device, optim, sched, id, split, final_eval):
         """
@@ -272,7 +278,8 @@ class TrainManager(object):
         eval_dataloaders = {}
         data_loader_iters = []
         data_loader_iters_tasks_names = []
-        for task_ind, task in enumerate(model_manager.tasks.values()):
+        model_module = self.model_manager.module if self.config.ddp else self.model_manager 
+        for task_ind, task in enumerate(model_module.tasks.values()):
             if split=='train': task_datasets = task.train_set
             elif split=='val': task_datasets = task.val_set
             elif split=='test': task_datasets = task.test_set
@@ -304,7 +311,7 @@ class TrainManager(object):
         total_iters = 3
         if not c.debug:
             total_iters = 0
-            for task in model_manager.tasks.values():
+            for task in model_module.tasks.values():
                 total_iters += sum([len(data_loader) for data_loader in eval_dataloaders[task.task_name]])
 
         # Evaluation loop
@@ -337,7 +344,7 @@ class TrainManager(object):
                         if adjusted_batch:
                             output = output[0:1]
                             inputs = inputs[0:1]
-                        loss = model_manager.tasks[loader_task].loss_f(output, labels)
+                        loss = model_module.tasks[loader_task].loss_f(output, labels)
 
                     # Update evaluation metrics
                     self.metric_manager.on_eval_step_end(loader_task, loss.item(), output, labels, ids, rank, save_samples, split)
@@ -422,7 +429,7 @@ class TrainManager(object):
 
             print(f"{Fore.RED}---> Ready to run on local rank {rank}, {self.config.run_name}{Style.RESET_ALL}", flush=True)
 
-            self.config.device = torch.device(f'cuda:{rank}')
+            # self.config.device = torch.device(f'cuda:{rank}')
 
         # -------------------------------------------------------
         # Run the training and evaluation loops for each rank
