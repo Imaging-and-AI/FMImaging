@@ -769,6 +769,7 @@ class GaussianDeriv3D_Loss:
         
         loss = 0
         for k_3d in self.kernels:
+            k_3d = k_3d.to(device=outputs_im.device)
             grad_outputs_im = F.conv3d(outputs_im, k_3d, bias=None, stride=1, padding='same', groups=C)
             grad_targets_im = F.conv3d(targets_im, k_3d, bias=None, stride=1, padding='same', groups=C)
             loss += torch.mean(torch.abs(grad_outputs_im-grad_targets_im), dim=(1, 2, 3, 4), keepdim=True)

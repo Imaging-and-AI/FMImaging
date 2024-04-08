@@ -40,6 +40,8 @@ def omnivore(config,
     @rets:
         model (torch model): pytorch model object 
         output_feature_channels (List[int]): list of ints indicated the number of channels in each output tensor.
+
+    Note: size parameters from omnivore github, which reflects original swin paper
     """
 
     if config.omnivore.size=='tiny':

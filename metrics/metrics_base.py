@@ -186,6 +186,11 @@ class MetricManager(object):
             output = output.reshape(output.shape[0],-1)
             labels = labels.reshape(labels.shape[0],-1)
             
+        elif task_type=='enhance':
+            if labels.shape[2]==1: # 2D
+                output = output[:,:,0,:,:]
+                labels = labels[:,:,0,:,:]
+
         # Update train metrics based on the predictions this step
         for metric_name in self.train_metrics[task_name].keys():
             if metric_name=='loss':
@@ -237,10 +242,10 @@ class MetricManager(object):
             # Log the metrics for this epoch to wandb
             average_metrics['total_loss'] = sum([average_metrics[task_name]['loss'] for task_name in self.config.tasks])
             if self.wandb_run is not None: 
-                self.wandb_run.log({"epoch": epoch, f"train/total_loss": average_metrics['total_loss']})
+                self.wandb_run.log({"epoch": epoch, f"train/total_loss": average_metrics['total_loss']}, commit=False)
                 for task_name in self.train_metrics.keys():
                     for metric_name, avg_metric_val in average_metrics[task_name].items():
-                        self.wandb_run.log({"epoch": epoch, f"train/{task_name}/{metric_name}": avg_metric_val})
+                        self.wandb_run.log({"epoch": epoch, f"train/{task_name}/{metric_name}": avg_metric_val}, commit=False)
 
             # Checkpoint the most recent model
             model_epoch = model_manager.module if self.config.ddp else model_manager 
@@ -286,6 +291,11 @@ class MetricManager(object):
             output = output.reshape(output.shape[0],-1)
             labels = labels.reshape(labels.shape[0],-1)
 
+        elif task_type=='enhance':
+            if labels.shape[2]==1: # 2D
+                output = output[:,:,0,:,:]
+                labels = labels[:,:,0,:,:]
+
         # If exact_metrics was specified in the config, we'll save all the predictions so that we are computing exactly correct metrics over the entire eval set
         # If exact_metrics was not specified, then we'll average the metric over each eval step. Sometimes this produces the same result (e.g., average of losses over steps = average of loss over epoch), sometimes it does not (e.g., for auroc)
         if self.config.exact_metrics:
@@ -308,7 +318,7 @@ class MetricManager(object):
                     self.eval_metrics[task_name][metric_name].update(metric_value.item(), n=output.shape[0])
 
         # Save outputs if desired
-        if save_samples and rank<=0:
+        if save_samples:
             save_path = os.path.join(self.config.log_dir,self.config.run_name,'tasks',task_name,'saved_samples',split)
             os.makedirs(save_path, exist_ok=True)
             for b_output, b_id in zip(output, ids):
@@ -380,11 +390,11 @@ class MetricManager(object):
                     if self.config.save_model_components: model_manager.save_model_components(save_filename='best_checkpoint')
 
                 # Update wandb with eval metrics
-                self.wandb_run.log({"epoch":epoch, "best_loss": self.best_val_loss})
-                self.wandb_run.log({"epoch": epoch, f"{split}/total_loss": average_metrics['total_loss']})
+                self.wandb_run.log({"epoch":epoch, "best_loss": self.best_val_loss}, commit=False)
+                self.wandb_run.log({"epoch": epoch, f"{split}/total_loss": average_metrics['total_loss']}, commit=False)
                 for task_name in self.config.tasks:
                     for metric_name, avg_metric_eval in average_metrics[task_name].items():
-                        self.wandb_run.log({"epoch":epoch, f"{split}/{task_name}/{metric_name}": avg_metric_eval})
+                        self.wandb_run.log({"epoch":epoch, f"{split}/{task_name}/{metric_name}": avg_metric_eval}, commit=False)
 
             # Save the average metrics for this epoch into self.average_eval_metrics
             self.average_eval_metrics = average_metrics

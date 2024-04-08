@@ -90,6 +90,10 @@ class ModelComponent(nn.Module):
             self.model = UperNet3D(self.config, self.task_ind, self.input_feature_channels, self.output_feature_channels)
         elif self.component_name=='SimpleConv': # 2D or 3D seg
             self.model = SimpleConv(self.config, self.input_feature_channels, self.output_feature_channels)
+        elif self.component_name=='ViTLinear': # 2D or 3D class
+            self.model = ViTLinear(self.config, self.input_feature_channels, self.output_feature_channels)
+        elif self.component_name=='SWINLinear': # 2D or 3D class
+            self.model = SWINLinear(self.config, self.input_feature_channels, self.output_feature_channels)
         elif self.component_name=='NormPoolLinear': # 2D or 3D class
             self.model = NormPoolLinear(self.config, self.input_feature_channels, self.output_feature_channels)
         elif self.component_name=='ConvPoolLinear': # 2D or 3D class
@@ -101,7 +105,7 @@ class ModelComponent(nn.Module):
         elif self.component_name=='ViTUNETR': # 2D or 3d enhancement or seg
             self.model = ViTUNETR(self.config, self.task_ind, self.input_feature_channels, self.output_feature_channels)
         else:
-            raise NotImplementedError(f"Model not implemented: {self.model_name}")
+            raise NotImplementedError(f"Model not implemented: {self.component_name}")
 
     def save(self, save_dir=None, save_filename=None): 
         """

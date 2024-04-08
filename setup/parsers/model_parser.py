@@ -31,7 +31,6 @@ class model_parser(object):
 
         if 'STCNNT' in model_type: 
             self.add_shared_STCNNT_args()
-            self.add_hrnet_STCNNT_args()
 
         if model_type=='STCNNT_HRNET': 
             self.add_hrnet_STCNNT_args()
@@ -60,12 +59,13 @@ class model_parser(object):
         self.parser.add_argument('--ViT.use_hyena', type=str_to_bool, default=False, help="Whether to use hyena in place of attention block")
 
     def add_SWIN_args(self):  
-        self.parser.add_argument('--SWIN.size', type=str, default='tiny', choices=['tiny','small','base','large','custom'], help="Size of SWIN model")
+        self.parser.add_argument('--SWIN.size', type=str, default='tiny', choices=['unetr','tiny','small','base','large','custom'], help="Size of SWIN model")
         self.parser.add_argument('--SWIN.patch_size', nargs='+', type=int, default=[1,1,1], help="Size of swin patches, ordered as T, H, W")
         self.parser.add_argument('--SWIN.window_size', nargs='+', type=int, default=[7,7,7], help="Size of swin windows, ordered as T, H, W")
         self.parser.add_argument('--SWIN.embed_dim', type=int, default=24, help="Size of embedding dimension")
         self.parser.add_argument('--SWIN.depths', nargs='+', type=int, default=[2,2,6,2], help="Number of transformer blocks per resolution depth")
         self.parser.add_argument('--SWIN.num_heads', nargs='+', type=int, default=[3,6,12,24], help="Number of attention heads per resolution depth")
+        self.parser.add_argument('--SWIN.use_hyena', type=str_to_bool, default=False, help="Whether to use hyena in place of attention block")
 
     def add_shared_STCNNT_args(self):
         self.parser.add_argument("--cell_type", type=str, default="sequential", choices=['sequential', 'parallel'], help='cell type, sequential or parallel')

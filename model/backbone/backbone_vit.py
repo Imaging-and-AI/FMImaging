@@ -56,6 +56,7 @@ def custom_ViT(config, input_feature_channels):
         config.ViT.num_heads = num_heads
 
     elif config.ViT.size=='base':
+        # Base params from original ViT paper
         hidden_size = 768
         mlp_dim = 3072
         num_layers = 12
@@ -90,7 +91,6 @@ def custom_ViT(config, input_feature_channels):
         else: input_size = [config.patch_time[0], config.patch_height[0], config.patch_width[0]]
         mod_patch_size = config.ViT.patch_size
 
-
     model = ViT_with_hyena(use_hyena=config.ViT.use_hyena,
                 in_channels=input_feature_channels[-1],
                 img_size=input_size, 
@@ -100,7 +100,8 @@ def custom_ViT(config, input_feature_channels):
                 num_layers=num_layers,
                 num_heads=num_heads,
                 dropout_rate=0.0,
-                spatial_dims=spatial_dims)
+                spatial_dims=spatial_dims,
+                classification=config.task_type[0]=='class')
     
     output_feature_channels=[hidden_size]*13
 
@@ -354,10 +355,12 @@ class ViT_with_hyena(nn.Module):
         self.norm = nn.LayerNorm(hidden_size)
         if self.classification:
             self.cls_token = nn.Parameter(torch.zeros(1, 1, hidden_size))
-            if post_activation == "Tanh":
-                self.classification_head = nn.Sequential(nn.Linear(hidden_size, num_classes), nn.Tanh())
-            else:
-                self.classification_head = nn.Linear(hidden_size, num_classes)  # type: ignore
+
+            # Commenting out classification heads, these are taken care of in post component
+            # if post_activation == "Tanh":
+            #     self.classification_head = nn.Sequential(nn.Linear(hidden_size, num_classes), nn.Tanh())
+            # else:
+            #     self.classification_head = nn.Linear(hidden_size, num_classes)  # type: ignore
 
 
     def forward(self, x):
@@ -374,9 +377,9 @@ class ViT_with_hyena(nn.Module):
             hidden_states_out.append(x)
         x = self.norm(x)
         hidden_states_out.append(x) # In ViT, last hidden state is the final output for classification apps
-        if hasattr(self, "classification_head"):
-            x = self.classification_head(x[:, 0])
-        # if self.spatial_dims==2:
-        #     x = x.unsqueeze(2)
-        #     hidden_states_out = [h.unsqueeze(2) for h in hidden_states_out]
+        
+        # Commenting out classification heads, these are taken care of in post component
+        # if hasattr(self, "classification_head"):
+        #     x = self.classification_head(x[:, 0])
+
         return hidden_states_out

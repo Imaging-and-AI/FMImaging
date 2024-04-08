@@ -46,19 +46,19 @@ class SwinUNETR(nn.Module):
         if input_feature_channels[0] % 12 != 0:
             raise ValueError("Features should be divisible by 12 to use current UNETR config.")
         
-        input_image_channels = config.input_image_channels[task_ind]
+        input_image_channels = config.no_in_channel[task_ind]
         if config.time[task_ind]==1:
             spatial_dims=2
             self.spatial_dims=2
             upsample_kernel_size=2
-            if config.model=='omnivore': 
+            if config.backbone_component=='omnivore': 
                 mod_patch_size=config.omnivore.patch_size[1:]
             else:
                 mod_patch_size=config.SWIN.patch_size[1:]
         else: 
             spatial_dims=3
             self.spatial_dims=3
-            if config.model=='omnivore': 
+            if config.backbone_component=='omnivore': 
                 upsample_kernel_size=(1,2,2) #These all should reflect the patchmerging ops in the backbonev
                 mod_patch_size=config.omnivore.patch_size
             else: 

@@ -68,9 +68,32 @@ def parse_config_and_setup_run(custom_parser=None):
     ############################### PARSE ARGS TO CONFIG ###############################
     full_config = parse_config(custom_parser=custom_parser)
     
-    # Replace config with values from an existing yaml file, if specified
+    # Replace config with values from an existing yaml file, if yaml file is specified
     if full_config.yaml_load_path is not None:
         full_config = yaml_to_config(full_config.yaml_load_path,full_config.log_dir,full_config.run_name)
+
+    # Replace config with values from an existing yaml file, if inference_dir is specified, and adjust relevant config params for inference only
+    if full_config.inference_only:
+        assert full_config.inference_dir not in [None, "None", "none"], "If inference_only is True, inference_dir must be specified"
+        assert os.path.exists(full_config.inference_dir), f"inference_dir {full_config.inference_dir} does not exist"
+
+        inference_dir = full_config.inference_dir
+        inference_only = full_config.inference_only
+
+        full_config = yaml_to_config(os.path.join(full_config.inference_dir,'config.yaml'),new_log_dir=full_config.inference_log_dir,new_run_name=full_config.inference_run_name)
+        full_config.inference_dir = inference_dir
+        full_config.inference_only = inference_only
+        full_config.train_model = False
+        full_config.pre_component_load_path = [None]*len(full_config.tasks)
+        full_config.post_component_load_path = [None]*len(full_config.tasks)
+        full_config.backbone_component_load_path = None
+        full_config.entire_model_load_path = os.path.join(full_config.inference_dir, 'entire_models', 'entire_model_best_checkpoint.pth')
+        full_config.eval_train_set = False
+        full_config.eval_val_set = True
+        full_config.eval_test_set = True
+        full_config.save_train_samples = False
+        full_config.save_val_samples = False
+        full_config.save_test_samples = True
 
     # Check args 
     check_args(full_config)

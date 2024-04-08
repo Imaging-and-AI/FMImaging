@@ -101,3 +101,60 @@ class ConvPoolLinear(nn.Module):
         x = self.flatten(x)
         x = self.linear(x)
         return [x]
+
+#----------------------------------------------------------------------------------------------------------------
+class ViTLinear(nn.Module):
+    def __init__(
+        self,
+        config,
+        input_feature_channels,
+        output_feature_channels
+    ):
+        """
+        Takes in features from backbone model and produces a classification vector using only the last feature tensor; assumes a class token from ViT
+        @args:
+            config (namespace): contains all parsed args
+            input_feature_channels (List[int]): contains a list of the number of feature channels in each tensor input into this task head (i.e., returned by the backbone)
+            output_feature_channels (List[int]): contains a list of the number of feature channels in each tensor expected to be returned by this task head
+            forward pass, x (List[tensor]): contains a list of torch tensors output by the backbone model
+        @rets:
+            forward pass, x (List[tensor]): output from the classification task head, size B x output_feature_channels
+        """
+        super().__init__()
+
+        self.classification_head = nn.Sequential(nn.Linear(input_feature_channels[-1], output_feature_channels[-1]), nn.Tanh())
+
+    def forward(self, x):
+        x = x[-1][:, 0]
+        x = self.classification_head(x)
+        return [x]
+    
+#----------------------------------------------------------------------------------------------------------------
+class SWINLinear(nn.Module):
+    def __init__(
+        self,
+        config,
+        input_feature_channels,
+        output_feature_channels
+    ):
+        """
+        Takes in features from backbone model and produces a classification vector using only the last feature tensor
+        @args:
+            config (namespace): contains all parsed args
+            input_feature_channels (List[int]): contains a list of the number of feature channels in each tensor input into this task head (i.e., returned by the backbone)
+            output_feature_channels (List[int]): contains a list of the number of feature channels in each tensor expected to be returned by this task head
+            forward pass, x (List[tensor]): contains a list of torch tensors output by the backbone model, each five dimensional (B C' D' H' W')
+        @rets:
+            forward pass, x (List[tensor]): output from the classification task head, size B x output_feature_channels
+        """
+        super().__init__()
+
+        self.avgpool = nn.AdaptiveAvgPool3d(1)
+        self.classification_head = nn.Sequential(nn.Linear(input_feature_channels[-1], output_feature_channels[-1]), nn.Tanh())
+
+    def forward(self, x):
+        x = x[-1]
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.classification_head(x)
+        return [x]

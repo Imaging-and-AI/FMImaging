@@ -47,6 +47,12 @@ class general_parser(object):
         self.parser.add_argument("--save_train_samples", type=str_to_bool, default=False, help="Whether to save output samples if running inference on the train set at the end of training")
         self.parser.add_argument("--save_val_samples", type=str_to_bool, default=False, help="Whether to save output samples if running inference on the val set at the end of training")
         self.parser.add_argument("--save_test_samples", type=str_to_bool, default=True, help="Whether to save output samples if running inference on the test set at the end of training")
+        
+        # Inference only args
+        self.parser.add_argument("--inference_only", type=str_to_bool, default=False, help="Whether to run inference only; if True, eval will run using specified inference_dir")
+        self.parser.add_argument("--inference_dir", type=str, default=None, help="Directory to load model and config from for inference_only")
+        self.parser.add_argument("--inference_log_dir", type=str, default=os.path.join(Project_DIR, 'logs'), help='Directory to store log files when inference_only is true')
+        self.parser.add_argument("--inference_run_name", type=str, default='project_'+str(datetime.now().strftime("%H-%M-%S-%Y%m%d")), help='Name to identify this run (in logs and wandb) when inference_only is true')
 
         # Wandb args
         self.parser.add_argument("--project", type=str, default='FMImaging', help='Project name for wandb')
@@ -58,7 +64,7 @@ class general_parser(object):
         # Task args
         self.parser.add_argument('--tasks', type=str, nargs='+', default=["task_name"], help="Name of each task")
         self.parser.add_argument('--task_type', type=str, nargs='+', default=["class"], choices=['class','seg','enhance'], help="Task type for each task")
-        self.parser.add_argument("--loss_func", type=str, nargs='+', default=['CrossEntropy'], choices=['CrossEntropy','MSE'], help='Which loss function to use in order of tasks')
+        self.parser.add_argument("--loss_func", type=str, nargs='+', default=['CrossEntropy'], choices=['CrossEntropy','MSE','CombinationEnhance'], help='Which loss function to use in order of tasks')
         self.parser.add_argument("--height", type=int, default=[256],  nargs='+', help='Height (number of rows) of input in order of tasks; will interpolate to this (used with default dataloader only)')
         self.parser.add_argument("--width", type=int, default=[256],  nargs='+', help='Width (number of columns) of input in order of tasks; will interpolate to this (used with default dataloader only)')
         self.parser.add_argument("--time", type=int, default=[1],  nargs='+', help='Temporal/depth dimension of input in order of tasks; will crop/pad to this (used with default dataloader only)')
@@ -76,7 +82,7 @@ class general_parser(object):
 
         # Model args
         self.parser.add_argument('--pre_component', type=str, nargs='+', default=["Identity"], choices=['Identity'], help="Which pre model to use in order of tasks")
-        self.parser.add_argument('--backbone_component', type=str, default="STCNNT_HRNET", choices=['Identity',
+        self.parser.add_argument('--backbone_component', type=str, default="Identity", choices=['Identity',
                                                                                                  'omnivore',
                                                                                                  'ViT',
                                                                                                  'SWIN',
@@ -84,9 +90,11 @@ class general_parser(object):
                                                                                                  'STCNNT_UNET',
                                                                                                  'STCNNT_mUNET'], 
                                                                                                 help="Which backbone model to use")
-        self.parser.add_argument('--post_component', type=str, nargs='+', default=["NormPoolLinear"], choices=['Identity',
+        self.parser.add_argument('--post_component', type=str, nargs='+', default=["Identity"], choices=['Identity',
                                                                                       'NormPoolLinear',
                                                                                       'ConvPoolLinear',
+                                                                                      'ViTLinear',
+                                                                                      'SWINLinear',
                                                                                       'UperNet2D',
                                                                                       'UperNet3D',
                                                                                       'SimpleConv',

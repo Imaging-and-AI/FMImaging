@@ -33,7 +33,7 @@ def get_nestedspace_loader():
   adapted from https://matthewpburruss.com/post/yaml/
   """
   loader = yaml.SafeLoader
-  loader.add_constructor("tag:yaml.org,2002:python/object:config.config.Nestedspace", nestedspace_constructor)
+  loader.add_constructor("tag:yaml.org,2002:python/object:config_utils.Nestedspace", nestedspace_constructor)
   return loader
 
 def config_to_yaml(config, save_path, save_name=None):
@@ -50,12 +50,12 @@ def config_to_yaml(config, save_path, save_name=None):
         
     return yaml_file_name
 
-def yaml_to_config(yaml_path, new_log_dir, new_run_name):
+def yaml_to_config(yaml_path, new_log_dir=None, new_run_name=None):
     """Load yaml into nestedspace config"""
     with open(yaml_path, "r") as yaml_file:
         saved_config = yaml.load(yaml_file, Loader=get_nestedspace_loader())
-        saved_config.log_dir = new_log_dir # Modify the log path to a new directory so we don't overwrite anything
-        saved_config.new_run_name = new_run_name # Modify the log path to a new directory so we don't overwrite anything
+        if new_log_dir is not None: saved_config.log_dir = new_log_dir # Modify the log path to a new directory so we don't overwrite anything
+        if new_run_name is not None: saved_config.run_name = new_run_name # Modify the log path to a new directory so we don't overwrite anything
     return saved_config
 
 def check_for_unknown_args(config,args_to_check):
@@ -209,6 +209,9 @@ def check_args(config):
         assert len(config.omnivore.window_size) in [1, 3], "omnivore window size must have 1 or 3 elements"
         if len(config.omnivore.window_size)==1:
             config.omnivore.window_size = [config.omnivore.window_size[0]]*3
+    if config.inference_only:
+        assert config.inference_dir not in [None, "None", "none"], "If inference_only is specified, user must provide an inference_dir"
+        assert os.path.exists(config.inference_dir), f"inference_dir ({config.inference_dir}) does not exist"
 
 
 

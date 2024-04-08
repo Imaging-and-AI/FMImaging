@@ -25,6 +25,8 @@ def get_loss_func(loss_name):
         loss_f = nn.CrossEntropyLoss()
     elif loss_name=='MSE':
         loss_f = nn.MSELoss()
+    elif loss_name=='CombinationEnhance':
+        loss_f = Combined_Loss(["mse", "charbonnier", "gaussian3D"], [1, 1, 1])
     else:
         raise NotImplementedError(f"Loss function not implemented: {loss_name}")
     return loss_f

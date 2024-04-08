@@ -144,7 +144,7 @@ class TrainManager(object):
                         task_train_sets = [task_train_sets]
                 train_dataloaders[task.task_name] = [DataLoader(dataset=train_set, batch_size=c.batch_size[task_ind], shuffle=shuffle, 
                                                                 sampler=samplers[ind], num_workers=c.num_workers, prefetch_factor=c.prefetch_factor, 
-                                                                drop_last=True, persistent_workers=self.config.num_workers>0) for ind, train_set in enumerate(task_train_sets)]
+                                                                drop_last=False, persistent_workers=self.config.num_workers>0) for ind, train_set in enumerate(task_train_sets)]
                 
             # Set up training scheme
             if self.config.training_scheme == "single_task":
@@ -154,7 +154,7 @@ class TrainManager(object):
                 
             # Compute total iters
             total_iters = training_scheme.compute_total_iters(train_dataloaders) if not c.debug else 3
-
+            
             logging.info(f"{Fore.CYAN}OPTIMIZER PARAMETERS: {optim} {Style.RESET_ALL}")
 
             for epoch in range(curr_epoch, c.num_epochs):
@@ -209,8 +209,8 @@ class TrainManager(object):
 
                 if epoch % c.eval_frequency==0 or epoch==c.num_epochs:
                     self._eval_model(rank=rank, model_manager=self.model_manager, epoch=epoch, device=device, optim=optim, sched=sched, id="", split="val", final_eval=False)
-
-                if c.scheduler_type != "OneCycleLR":
+                
+                if c.scheduler_type not in ["OneCycleLR", "none", "None", None]:
                     if c.scheduler_type == "ReduceLROnPlateau":
                         try: 
                             sched.step(self.metric_manager.average_eval_metrics['total_loss'])
@@ -220,8 +220,8 @@ class TrainManager(object):
                     elif c.scheduler_type == "StepLR":
                         sched.step()
 
-                    if c.ddp:
-                        self.distribute_learning_rates(rank, optim, src=0)
+                    # if c.ddp:
+                    #     self.distribute_learning_rates(rank, optim, src=0)
 
             # Load the best model from training
             dist.barrier()
@@ -285,9 +285,10 @@ class TrainManager(object):
             elif split=='test': task_datasets = task.test_set
             if c.ddp:
                 if isinstance(task_datasets, list): 
-                    samplers = [DistributedSamplerNoDuplicate(task_dataset,rank=rank) for task_dataset in task_datasets]
+                    # Note: this sampler can result in duplicate samples being evaluated across GPUs; will result in minor errors in wandb and txt file metrics in some cases
+                    samplers = [DistributedSampler(task_dataset) for task_dataset in task_datasets]
                 else: 
-                    samplers = [DistributedSamplerNoDuplicate(task_datasets,rank=rank)]
+                    samplers = [DistributedSampler(task_datasets)]
                     task_datasets = [task_datasets]
             else:
                 if isinstance(task_datasets,list): 

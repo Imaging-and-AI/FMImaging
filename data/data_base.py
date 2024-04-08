@@ -94,7 +94,7 @@ class NumpyDataset(torch.utils.data.Dataset):
         # image -= min_input
         # max_input = np.max(image)
         # image = image/max_input
-        image = custom_numpy_to_tensor(image,self.height,self.width,self.time,self.no_in_channel) # Returns standardized C, T/D, H, W     
+        image = custom_numpy_to_tensor(image,self.height,self.width,self.time,self.no_in_channel) # Returns standardized C, T/D, H, W 
 
         # Transform
         seed = np.random.randint(2147483647)  
@@ -134,7 +134,7 @@ class NumpyDataset(torch.utils.data.Dataset):
             return image, out.type(torch.FloatTensor), self.split_subject_ids[index]
         
         elif self.task=='class':
-            label = float(self.metadata[self.metadata.SubjectID.isin([self.split_subject_ids[index]])].Label)
+            label = float(self.metadata[self.metadata.SubjectID.isin([self.split_subject_ids[index]])].Label.iloc[0])
             return image, torch.tensor(label, dtype=torch.long), self.split_subject_ids[index]
         
         else:

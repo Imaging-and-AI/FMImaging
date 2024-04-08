@@ -41,9 +41,18 @@ def custom_SWIN(config, input_feature_channels):
     @rets:
         model (torch model): pytorch model object 
         output_feature_channels (List[int]): list of ints indicated the number of channels in each output tensor.
-    """
 
-    if config.SWIN.size=='tiny':
+    Note: size parameters from omnivore github, which reflects original swin paper; size='unetr' refers to params from swin unetr paper
+    """
+    if config.SWIN.size=='unetr':
+        embed_dim = 48
+        depths = [2, 2, 2, 2]
+        num_heads = [3, 6, 12, 24]
+        config.SWIN.embed_dim = embed_dim
+        config.SWIN.depths = depths
+        config.SWIN.num_heads = num_heads
+
+    elif config.SWIN.size=='tiny':
         embed_dim = 96
         depths = [2, 2, 6, 2]
         num_heads = [3, 6, 12, 24]
