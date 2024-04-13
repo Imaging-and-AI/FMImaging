@@ -92,7 +92,7 @@ sudo chmod a+x /usr/bin/azcopy
 
 pip3 uninstall -y torch torchvision torchaudio
 pip3 install torch torchvision torchaudio
-pip3 install wandb tqdm h5py torchinfo tifffile opencv-python nibabel piq colorama scikit-image einops onnx numpy scipy moviepy imageio matplotlib torchmetrics gputil onnxruntime gif prettytable timm monai
+pip3 install wandb tqdm h5py torchinfo tifffile opencv-python nibabel piq colorama scikit-image einops onnx numpy scipy moviepy imageio matplotlib torchmetrics gputil onnxruntime gif prettytable timm monai PyWavelets pytorch_wavelets
 pip3 install torch-interpol laplace-torch pytorch_wavelets
 
 cd ~/mrprogs
