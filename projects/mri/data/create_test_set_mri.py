@@ -3,7 +3,7 @@ Create test set for STCNNT MRI
 """
 import sys
 import os
-import tqdm
+from tqdm import tqdm
 import h5py
 import random
 import numpy as np
@@ -71,7 +71,7 @@ def create_2d(write_path, N=1000):
     indices = np.arange(N)
     random.shuffle(indices)
 
-    with tqdm.tqdm(total=N) as pbar:
+    with tqdm(total=N) as pbar:
         for k in range(N):
 
             i = indices[k]
@@ -124,7 +124,7 @@ def create_3d(write_path, N=1000):
     indices = np.arange(n)
     random.shuffle(indices)
 
-    with tqdm.tqdm(total=N) as pbar:
+    with tqdm(total=N) as pbar:
         for k in range(N):
 
             i = indices[k]
@@ -174,7 +174,6 @@ def create_3d_repeated(write_path, N=20, sigmas=[1,11,1], random_mask=False):
     indices = np.arange(n)
     random.shuffle(indices)
 
-    #for k in tqdm.tqdm(range(N)):
     for k in range(N):
 
         i = indices[k]
