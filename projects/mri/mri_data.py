@@ -60,10 +60,10 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
                     load_2x_resolution=False,
                     data_x_y_mode=False,
                     add_salt_pepper=True,
-                    salt_pepper_amount=0.2, 
-                    salt_pepper_prob=0.2,
+                    salt_pepper_amount=0.4, 
+                    salt_pepper_prob=0.4,
                     add_possion=True,
-                    possion_prob=0.2):
+                    possion_prob=0.4):
         """
         Initilize the denoising dataset
         Loads and store all images and gmaps
@@ -142,11 +142,11 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
 
         self.add_salt_pepper = add_salt_pepper
 
-        self.salt_pepper_amount=0.2 
-        self.salt_pepper_prob=0.1
+        self.salt_pepper_amount=salt_pepper_amount
+        self.salt_pepper_prob=salt_pepper_prob
 
         self.add_possion = add_possion
-        self.possion_prob=0.1
+        self.possion_prob=possion_prob
 
     def load_one_sample(self, i):
         """
@@ -485,7 +485,7 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
 
         if self.add_possion and np.random.random()<self.possion_prob:
             #mag = np.sqrt(clean_im[0]*clean_im[0] + clean_im[1]*clean_im[1])/2
-            lam_ratio = np.random.randint(1, 5)
+            lam_ratio = np.random.randint(1, 10)
             mag = np.sqrt(clean_im[0]*clean_im[0] + clean_im[1]*clean_im[1])/lam_ratio
             pn = torch.from_numpy(np.random.poisson(mag, clean_im[0].shape)) - mag
             # sign_invert = np.random.random(pn.shape)
