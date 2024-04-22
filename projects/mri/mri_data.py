@@ -507,11 +507,12 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
 
         if self.scale_by_signal:
             if signal_scaling > 0:
-                clean_im /= signal_scaling
-                clean_im_degraded /= signal_scaling
-                clean_im_2x /= signal_scaling
-                noisy_im[0] /= signal_scaling
-                noisy_im[1] /= signal_scaling
+                v = signal_scaling / noise_sigma
+                clean_im /= v
+                clean_im_degraded /= v
+                clean_im_2x /= v
+                noisy_im[0] /= v
+                noisy_im[1] /= v
             
         if self.data_x_y_mode:
             return noisy_im, torch.flatten(clean_im)
@@ -885,7 +886,8 @@ def load_mri_data(config):
         "ignore_gmap": c.ignore_gmap,
         "data_x_y_mode": c.data_x_y_mode,
         "add_salt_pepper": c.add_salt_pepper,
-        "add_possion": c.add_possion
+        "add_possion": c.add_possion,
+        "scale_by_signal": c.scale_by_signal
     }
 
     print(f"{Fore.YELLOW}--> data loading parameters: {kwargs}{Style.RESET_ALL}")

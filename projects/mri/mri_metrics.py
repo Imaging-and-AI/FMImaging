@@ -54,13 +54,17 @@ class MriMetricManager(MetricManager):
         
         device = self.config.device
 
+        pnsr_max_v = 2048
+        if self.config.scale_by_signal:
+            pnsr_max_v = 4.0
+
         self.mse_loss_func = MSE_Loss(rmse_mode=False, complex_i=self.config.complex_i)
         self.rmse_loss_func = MSE_Loss(rmse_mode=True, complex_i=self.config.complex_i)
         self.l1_loss_func = L1_Loss(complex_i=self.config.complex_i)
         self.ssim_loss_func = SSIM_Loss(complex_i=self.config.complex_i, device=device)
         self.ssim3D_loss_func = SSIM3D_Loss(complex_i=self.config.complex_i, device=device)
-        self.psnr_func = PSNR(range=2048)
-        self.psnr_loss_func = PSNR_Loss(range=2048)
+        self.psnr_func = PSNR(range=pnsr_max_v)
+        self.psnr_loss_func = PSNR_Loss(range=pnsr_max_v)
         self.perp_func = Perpendicular_Loss()
         self.gaussian_func = GaussianDeriv_Loss(sigmas=[0.5, 1.0, 1.5], complex_i=self.config.complex_i, device=device)
         self.gaussian3D_func = GaussianDeriv3D_Loss(sigmas=[0.5, 1.0, 1.5], sigmas_T=[0.5, 0.5, 0.5], complex_i=self.config.complex_i, device=device)
@@ -260,7 +264,7 @@ class MriMetricManager(MetricManager):
     # ---------------------------------------------------------------------------------------
     def on_train_step_end(self, loss, output, labels, rank, curr_lr, save_samples, epoch, ids):
           
-        x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = labels
+        x, y, y_degraded, y_2x, gmaps_median, noise_sigmas, signal_scale = labels
 
         y_hat, output_1st_net = self.parse_output(output)
 
@@ -304,7 +308,7 @@ class MriMetricManager(MetricManager):
     def on_eval_step_end(self, loss, output, labels, ids, rank, save_samples, split):
 
         with torch.inference_mode():
-            x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = labels
+            x, y, y_degraded, y_2x, gmaps_median, noise_sigmas, signal_scale = labels
             y_hat, output_1st_net = self.parse_output(output)
 
             x = torch.clone(x)
