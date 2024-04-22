@@ -747,7 +747,7 @@ class MRITrainManager(TrainManager):
 
                         if self.config.scale_by_signal:
                             for b in range(B):
-                                output[b, :, :, :, :] *= scaling_factor[b]
+                                output[b, :, :, :, :] *= signal_scaling_factor[b]
 
                         x = torch.permute(x, (0, 2, 1, 3, 4))
                         output = torch.permute(output, (0, 2, 1, 3, 4))
