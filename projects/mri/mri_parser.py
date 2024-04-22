@@ -57,6 +57,7 @@ class mri_parser(object):
         self.parser.add_argument("--ignore_gmap", action="store_true", help='if set, do not use gmap for training.')
         self.parser.add_argument("--add_salt_pepper", action="store_true", help='if set, add salt and pepper.')
         self.parser.add_argument("--add_possion", action="store_true", help='if set, add possion noise.')
+        self.parser.add_argument("--scale_by_signal", action="store_true", help='if set, scale images by 95 percentile.')
 
         # 2d/3d dataset arguments
         self.parser.add_argument('--twoD_num_patches_cutout', type=int, default=1, help='for 2D usecase, number of patches per frame')

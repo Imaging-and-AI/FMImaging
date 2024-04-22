@@ -17,6 +17,19 @@
         },
         // -----------------------------------------------------------------------------------------
         {
+            "name": "mri, data",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/mri/data/create_mri_data_set_anonymized.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "6"},
+            "args": [
+                "--input_dir", "/data/mri", "--output_dir", "/data/mri2"
+            ]
+        },
+        // -----------------------------------------------------------------------------------------
+        {
             "name": "cifar, run",
             "type": "python",
             "request": "launch",

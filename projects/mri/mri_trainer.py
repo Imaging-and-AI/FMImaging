@@ -314,7 +314,7 @@ class MRITrainManager(TrainManager):
                                 loader_ind = idx % len(train_loader_iters)
                                 loader_outputs = next(train_loader_iters[loader_ind], None)
                             data_type = train_set_type[loader_ind]
-                            x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = loader_outputs
+                            x, y, y_degraded, y_2x, gmaps_median, noise_sigmas, signal_scaling = loader_outputs
                             end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
 
                             # -------------------------------------------------------
@@ -689,7 +689,7 @@ class MRITrainManager(TrainManager):
                         del data_loader_iters[loader_ind]
                         loader_ind = idx % len(data_loader_iters)
                         loader_outputs = next(data_loader_iters[loader_ind], None)
-                    x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = loader_outputs
+                    x, y, y_degraded, y_2x, gmaps_median, noise_sigmas, signal_scaling = loader_outputs
 
                     gmaps_median = gmaps_median.to(device=device, dtype=x.dtype)
                     noise_sigmas = noise_sigmas.to(device=device, dtype=x.dtype)
@@ -717,6 +717,15 @@ class MRITrainManager(TrainManager):
 
                         x = torch.permute(x, (0, 2, 1, 3, 4))
 
+                        if self.config.scale_by_signal:
+                            scaling_factor = np.ones((B, T))
+                            for b in range(B):
+                                for t in range(T):
+                                    a_x = x[b, t, :2, :, :]
+                                    a_x_mag = np.sqrt(a_x[0]*a_x[0] + a_x[1]*a_x[1])
+                                    scaling_factor[b, t] = np.percentile(a_x_mag, 95)
+                                    x[b, t, :2, :, :] /= scaling_factor[b, t]
+
                         cutout_in = cutout
                         overlap_in = overlap
                         if not self.config.pad_time:
@@ -736,6 +745,11 @@ class MRITrainManager(TrainManager):
                             logging.info(f"{Fore.YELLOW}---> call inference on cpu ...")
                             _, output = running_inference(self.model_manager, x, cutout=cutout_in, overlap=overlap_in, device="cpu")
                             y = y.to("cpu")
+
+                        if self.config.scale_by_signal:
+                            for b in range(B):
+                                for t in range(T):
+                                    output[b, t, :, :, :] *= scaling_factor[b, t]
 
                         x = torch.permute(x, (0, 2, 1, 3, 4))
                         output = torch.permute(output, (0, 2, 1, 3, 4))
