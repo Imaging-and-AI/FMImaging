@@ -53,6 +53,8 @@ def arg_parser():
     parser.add_argument("--input_fname", type=str, default="im", help='input file name')
     parser.add_argument("--gmap_fname", type=str, default="gfactor", help='gmap input file name')
 
+    parser.add_argument("--scale_by_signal", action="store_true", help='if set, scale images by 95 percentile.')
+
     parser.add_argument("--model_type", type=str, default=None, help="if set, overwrite the config setting, STCNNT_MRI or MRI_hrnet, MRI_double_net")
 
     return parser.parse_args()
@@ -105,6 +107,13 @@ def main():
     image /= args.im_scaling
     image = np.squeeze(image)
 
+    signal_scaling_factor = 1
+    if args.scale_by_signal:
+        mag = np.abs(image)
+        signal_scaling_factor = np.percentile(mag, 95)
+        image /= signal_scaling_factor
+        print(f"scale_by_signal mode, signal_scaling_factor is {signal_scaling_factor}")
+
     gmap_file = f"{args.input_dir}/{args.gmap_fname}.npy"
     if os.path.exists(gmap_file):
         gmap = np.load(f"{args.input_dir}/{args.gmap_fname}.npy")
@@ -156,6 +165,9 @@ def main():
 
         # res = output + output2 + output3 + output4
         # output = res / 4
+
+    if args.scale_by_signal:
+        output *= signal_scaling_factor
     
     # -------------------------------------------    
 
