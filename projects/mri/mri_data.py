@@ -223,12 +223,6 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
         # random flip
         data, gmap, data_2x = self.random_flip(data, gmap, data_2x)
 
-        signal_scaling = 1
-        if self.scale_by_signal:
-            # find scaling factor
-            mag = np.abs(data)
-            signal_scaling = np.percentile(mag, 95)
-
         if self.data_type != '3d':
             assert data.shape[1] == gmap.shape[0] and data.shape[2] == gmap.shape[1]
         else:
@@ -347,6 +341,12 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
                 if self.load_2x_resolution: data_2x /= noise_sigma
                 noisy_data /= noise_sigma
                 if(self.with_data_degrading): data_degraded /= noise_sigma
+
+            signal_scaling = 1
+            if self.scale_by_signal:
+                # find scaling factor
+                mag = np.abs(noisy_data)
+                signal_scaling = np.percentile(mag, 95)
 
             if self.data_type != '3d':
                 gmap = np.repeat(gmap[None,:,:], T, axis=0)
@@ -472,47 +472,47 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
                 clean_im_degraded = torch.permute(clean_im_degraded, (1, 0, 2, 3))
                 clean_im_2x = torch.permute(clean_im_2x, (1, 0, 2, 3))
 
-        # add salt_pepper
-        if self.add_salt_pepper and np.random.random()<self.salt_pepper_prob:
-            im = noisy_im[:2]
-            s_vs_p = np.random.random()
-            amount = np.random.uniform(0, self.salt_pepper_amount)
-            out = np.copy(im)
+            # add salt_pepper
+            if self.add_salt_pepper and np.random.random()<self.salt_pepper_prob:
+                im = noisy_im[:2]
+                s_vs_p = np.random.random()
+                amount = np.random.uniform(0, self.salt_pepper_amount)
+                out = np.copy(im)
 
-            # Salt mode
-            num_salt = np.ceil(amount * im.numel() * s_vs_p)
-            coords = np.random.randint(0, im.numel(), int(num_salt))
-            cc = np.unravel_index(coords, im.shape)
-            out[cc] *= np.random.uniform(1.0, 10.0)
+                # Salt mode
+                num_salt = np.ceil(amount * im.numel() * s_vs_p)
+                coords = np.random.randint(0, im.numel(), int(num_salt))
+                cc = np.unravel_index(coords, im.shape)
+                out[cc] *= np.random.uniform(1.0, 10.0)
 
-            # Pepper mode
-            num_pepper = np.ceil(amount* im.numel() * (1. - s_vs_p))
-            coords = np.random.randint(0, im.numel(), int(num_pepper))
-            cc = np.unravel_index(coords, im.shape)
-            out[cc] *= np.random.uniform(0, 1.0)
+                # Pepper mode
+                num_pepper = np.ceil(amount* im.numel() * (1. - s_vs_p))
+                coords = np.random.randint(0, im.numel(), int(num_pepper))
+                cc = np.unravel_index(coords, im.shape)
+                out[cc] *= np.random.uniform(0, 1.0)
 
-            noisy_im[:2] = torch.from_numpy(out)
+                noisy_im[:2] = torch.from_numpy(out)
 
-        if self.add_possion and np.random.random()<self.possion_prob:
-            #mag = np.sqrt(clean_im[0]*clean_im[0] + clean_im[1]*clean_im[1])/2
-            lam_ratio = np.random.randint(1, 10)
-            mag = np.sqrt(clean_im[0]*clean_im[0] + clean_im[1]*clean_im[1])/lam_ratio
-            pn = torch.from_numpy(np.random.poisson(mag, clean_im[0].shape)) - mag
-            # sign_invert = np.random.random(pn.shape)
-            # sign_invert[sign_invert<0.5] = -1
-            # sign_invert[sign_invert>=0.5] = 1
-            # pn *= sign_invert.astype(dtype=pn.dtype)
+            if self.add_possion and np.random.random()<self.possion_prob:
+                #mag = np.sqrt(clean_im[0]*clean_im[0] + clean_im[1]*clean_im[1])/2
+                lam_ratio = np.random.randint(1, 10)
+                mag = np.sqrt(clean_im[0]*clean_im[0] + clean_im[1]*clean_im[1])/lam_ratio
+                pn = torch.from_numpy(np.random.poisson(mag, clean_im[0].shape)) - mag
+                # sign_invert = np.random.random(pn.shape)
+                # sign_invert[sign_invert<0.5] = -1
+                # sign_invert[sign_invert>=0.5] = 1
+                # pn *= sign_invert.astype(dtype=pn.dtype)
 
-            noisy_im[0] += pn
+                noisy_im[0] += pn
 
-        if self.scale_by_signal:
-            if signal_scaling > 0:
-                v = signal_scaling / noise_sigma
-                clean_im /= v
-                clean_im_degraded /= v
-                clean_im_2x /= v
-                noisy_im[0] /= v
-                noisy_im[1] /= v
+            if self.scale_by_signal:
+                if signal_scaling > 0:
+                    v = signal_scaling
+                    clean_im /= v
+                    clean_im_degraded /= v
+                    clean_im_2x /= v
+                    noisy_im[0] /= v
+                    noisy_im[1] /= v
             
         if self.data_x_y_mode:
             return noisy_im, torch.flatten(clean_im)
