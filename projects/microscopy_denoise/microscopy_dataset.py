@@ -30,7 +30,7 @@ from utils import *
 # -------------------------------------------------------------------------------------------------
 # train dataset class
 
-def load_images_from_h5file(h5file, keys, scaling_type="per", scaling_vals=[0,100], max_load=100000):
+def load_images_from_h5file(h5file, keys, scaling_type="per", scaling_vals=[0,100], clip_data=True, max_load=100000):
     """
     Load images from microscopy h5 file objects.
     Either the complete image or the path to it.
@@ -58,11 +58,11 @@ def load_images_from_h5file(h5file, keys, scaling_type="per", scaling_vals=[0,10
                     noisy_im = np.array(h5file[i][key+"/noisy_im"])
                     clean_im = np.array(h5file[i][key+"/clean_im"])
                     if scaling_type=="per":
-                        noisy_im = normalize_image(noisy_im, percentiles=scaling_vals)
-                        clean_im = normalize_image(clean_im, percentiles=scaling_vals)
+                        noisy_im = normalize_image(noisy_im, clip=clip_data, percentiles=scaling_vals)
+                        clean_im = normalize_image(clean_im, clip=clip_data, percentiles=scaling_vals)
                     else:
-                        noisy_im = normalize_image(noisy_im, values=scaling_vals)
-                        clean_im = normalize_image(clean_im, values=scaling_vals)
+                        noisy_im = normalize_image(noisy_im, clip=clip_data, values=scaling_vals)
+                        clean_im = normalize_image(clean_im, clip=clip_data, values=scaling_vals)
 
                     images.append([noisy_im, clean_im, i, key])
                     num_loaded += 1
@@ -84,7 +84,7 @@ class MicroscopyDatasetTrain():
     def __init__(self, h5file, keys, max_load=10000,
                     time_cutout=30, cutout_shape=[64, 64], samples_per_image=8,
                     scaling_type="val", scaling_vals=[0,65536],
-                    valu_thres=0.002, area_thres=0.25):
+                    valu_thres=0.002, area_thres=0.25, clip_data=False):
         """
         Initilize the dataset
 
@@ -113,7 +113,7 @@ class MicroscopyDatasetTrain():
         self.valu_thres = valu_thres
         self.area_thres = area_thres
 
-        self.images = load_images_from_h5file(h5file, keys, scaling_type=scaling_type, scaling_vals=scaling_vals, max_load=max_load)
+        self.images = load_images_from_h5file(h5file, keys, scaling_type=scaling_type, scaling_vals=scaling_vals, clip_data=clip_data, max_load=max_load)
 
     def load_one_sample(self, i):
         """
@@ -276,7 +276,9 @@ class MicroscopyDatasetTest():
     Returns the complete images with proper scaling for inference.
     """
     def __init__(self, h5file, keys, max_load=10000,
-                    scaling_type="val", scaling_vals=[0,65536]):
+                    scaling_type="val", 
+                    scaling_vals=[0,65536], 
+                    clip_data=False):
         """
         Initilize the dataset
 
@@ -294,7 +296,7 @@ class MicroscopyDatasetTest():
         self.scaling_type = scaling_type
         self.scaling_vals = scaling_vals
 
-        self.images = load_images_from_h5file(h5file, keys, scaling_type=scaling_type, scaling_vals=scaling_vals,max_load=max_load)
+        self.images = load_images_from_h5file(h5file, keys, scaling_type=scaling_type, scaling_vals=scaling_vals, clip_data=clip_data, max_load=max_load)
 
     def load_one_sample(self, i):
         """
@@ -418,7 +420,8 @@ def load_microscopy_data_all(config):
         "scaling_type" : c.scaling_type,
         "scaling_vals" : c.scaling_vals,
         "valu_thres" : c.valu_thres,
-        "area_thres" : c.area_thres
+        "area_thres" : c.area_thres,
+        "clip_data" : not c.no_clip_data
     }
 
     train_set = []
@@ -428,7 +431,7 @@ def load_microscopy_data_all(config):
 
     for (i, h_file) in enumerate(h5files):
         logging.info(f"--> loading data from file: {h_file} for {len(train_keys[i])} entries ...")
-        images = load_images_from_h5file([h_file], [train_keys[i]], scaling_type=c.scaling_type, scaling_vals=c.scaling_vals, max_load=c.max_load)
+        images = load_images_from_h5file([h_file], [train_keys[i]], scaling_type=c.scaling_type, scaling_vals=c.scaling_vals, clip_data=not c.no_clip_data, max_load=c.max_load)
         for hw in zip(c.micro_height, c.micro_width):
             train_set.append(MicroscopyDatasetTrain(h5file=[h_file], keys=[train_keys[i]], max_load=-1,
                                                     cutout_shape=hw, **kwargs))
@@ -471,13 +474,13 @@ def load_microscopy_data_all(config):
         val_set = [MicroscopyDatasetTrain(h5file=h5files, keys=val_keys, **kwargs)]
 
         test_set = [MicroscopyDatasetTest(h5file=h5files, keys=test_keys, max_load=-1,
-                                            scaling_type=c.scaling_type, scaling_vals=c.scaling_vals)]
+                                            scaling_type=c.scaling_type, scaling_vals=c.scaling_vals, clip_data=not c.no_clip_data)]
 
     else:
         # No test case given, use some of the train set
         val_set = [MicroscopyDatasetTrain(h5file=h5files, keys=val_keys, **kwargs)]
 
         test_set = [MicroscopyDatasetTest(h5file=h5files, keys=test_keys, max_load=-1,
-                                            scaling_type=c.scaling_type, scaling_vals=c.scaling_vals)]
+                                            scaling_type=c.scaling_type, scaling_vals=c.scaling_vals, clip_data=not c.no_clip_data)]
 
     return train_set, val_set, test_set

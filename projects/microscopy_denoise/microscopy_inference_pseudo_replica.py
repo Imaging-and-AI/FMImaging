@@ -1,5 +1,5 @@
 """
-Run micrsocopy inference
+Run micrsocopy inference for snr pseudo-replica test
 """
 import os
 import h5py
@@ -23,7 +23,7 @@ sys.path.append(str(MRI_DIR))
 Project_DIR = Path(__file__).parents[2].resolve()
 sys.path.append(str(Project_DIR))
 
-#from utils import *
+from utils import *
 from microscopy_utils import *
 from temp_utils.inference_utils import apply_model, load_model
 
@@ -55,6 +55,9 @@ def arg_parser():
 
     parser.add_argument("--scaling_vals", type=float, nargs='+', default=[0, 4096], help='min max values to scale with respect to the scaling type')
 
+    parser.add_argument("--added_noise_sd", type=float, default=0.1, help="add noise sigma")
+    parser.add_argument("--rep", type=int, default=32, help="number of repetition")
+
     parser.add_argument("--cuda_devices", type=int, nargs='+', default=None, help='devices for inference')
 
     return parser.parse_args()
@@ -72,14 +75,35 @@ def run_a_case(i, images, rank, config, args):
         noisy_im, clean_im, f_name = v
         print(f"--> Processing {f_name}, {noisy_im.shape}, {ind} out of {len(images)}")
 
-        predi_im = apply_model(model, noisy_im, config, config.device, overlap=args.overlap, batch_size=args.batch_size)
+        start = time.time()
+        noisy_im_N = create_pseudo_replica(noisy_im, added_noise_sd=args.added_noise_sd/args.scaling_vals[1], N=args.rep)
+        print(f"--> create_pseudo_replica {time.time()-start:.1f} seconds")
 
-        predi_im = predi_im.cpu().numpy()
+        start = time.time()
+        np.save(os.path.join(args.output_dir, f"{f_name}_pesudo_replica_x.npy"), np.transpose(np.squeeze(noisy_im_N), [1, 2, 0, 3])*args.scaling_vals[1])
+        print(f"--> save pseudo_replica input data {time.time()-start:.1f} seconds")
 
-        np.save(os.path.join(args.output_dir, f"{f_name}_x.npy"), np.transpose(np.squeeze(noisy_im), [1, 2, 0])*args.scaling_vals[1])
-        np.save(os.path.join(args.output_dir, f"{f_name}_pred.npy"), np.transpose(np.squeeze(predi_im), [1, 2, 0])*args.scaling_vals[1])
+        predi_im_N = noisy_im_N
+
+        total_time_in_seconds = 0
+        for n in range(args.rep):
+            start = time.time()
+            a_pred_im = apply_model(model, noisy_im_N[:,:,:,:,:,n], config, config.device, overlap=args.overlap, batch_size=args.batch_size)
+            predi_im_N[:,:,:,:,:,n] = a_pred_im.cpu().numpy()
+            total_time_in_seconds += time.time()-start
+            print(f"----> process rep {n}, out of {args.rep}, {total_time_in_seconds}s")
+
+        print(f"--> Total processing time is {total_time_in_seconds:.1f} seconds")
+
+        predi_im_N *= args.scaling_vals[1]
+        if clean_im: clean_im *= args.scaling_vals[1]
+
+        predi_im_N = np.transpose(np.squeeze(predi_im_N), [1, 2, 0, 3])
+        if clean_im: clean_im = np.transpose(np.squeeze(clean_im), [1, 2, 0])
+
+        np.save(os.path.join(args.output_dir, f"{f_name}_pesudo_replica_output.npy"), predi_im_N)
         if clean_im:
-            np.save(os.path.join(args.output_dir, f"{f_name}_y.npy"), np.transpose(np.squeeze(clean_im), [1, 2, 0])*args.scaling_vals[1])
+            np.save(os.path.join(args.output_dir, f"{f_name}_clean_im.npy"), clean_im)
 
     print(f"{Fore.RED}--> Processing on device {config.device} -- completed {Style.RESET_ALL}")
 
@@ -109,7 +133,7 @@ def main():
 
     print(f"---> support bfloat16 is {support_bfloat16(device=get_device())}")
 
-    print(f"{Fore.YELLOW}Load in model file - {args.saved_model_path}{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}Load in model file - {args.saved_model_path}")
     model, config = load_model(args.saved_model_path)
 
     patch_size_inference = args.patch_size_inference
@@ -134,6 +158,8 @@ def main():
 
     print("End loading data")
 
+    os.makedirs(args.output_dir, exist_ok=True)
+
     print("Start inference and saving")
 
     if args.cuda_devices is None:
@@ -155,7 +181,7 @@ def main():
 
         print(f"Perform inference on devices {args.cuda_devices} for {len(images)} cases -- completed")
 
-    print(f"End inference and saving, {args.output_dir}")
+    print("End pesudo-replica test and saving")
 
 if __name__=="__main__":
     main()

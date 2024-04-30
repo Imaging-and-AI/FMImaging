@@ -4,7 +4,7 @@
 import numpy as np
 from typing import Tuple, List
 from scipy.optimize import minimize
-from moments_calculations import Moments
+from .moments_calculations import Moments
 
 
 def max_entropy_dist(z: np.array,

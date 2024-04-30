@@ -74,15 +74,16 @@ class microscopy_ddp_base(run_ddp_base):
         #"--loss_weights", "1.0", "1.0",
         # "--micro_height", "32", "64",
         # "--micro_width", "32", "64",
+        "--time", "16",
         "--micro_time", "16",
-        "--num_uploaded", "8",
-        "--samples_per_image", "64",
+        "--num_uploaded", "32",
+        #"--samples_per_image", "64",
 
         "--no_in_channel", "1",
         "--no_out_channel", "1",
         
         "--scaling_type", "val",
-        "--scaling_vals", "0", "4096",
+        #"--scaling_vals", "0", "4096",
         "--valu_thres", "0.2",
         "--area_thres", "0.2",
         ])
@@ -202,7 +203,7 @@ class microscopy_ddp_base(run_ddp_base):
         vars['complex_i'] = [False]
         vars['residual'] = [True]
 
-        vars['n_heads'] = [32]
+        vars['n_heads'] = [64]
 
         return vars
 
@@ -349,7 +350,13 @@ class microscopy_ddp_base(run_ddp_base):
         if config.disable_LSUV:
             cmd_run.extend(["--disable_LSUV"])
 
+        if config.no_clip_data:
+            cmd_run.extend(["--no_clip_data"])
+
         cmd_run.extend(["--train_samples", f"{config.train_samples}"])
+        cmd_run.extend(["--samples_per_image", f"{config.samples_per_image}"])
+
+        cmd_run.extend(["--scaling_vals", f"{config.scaling_vals[0]}", f"{config.scaling_vals[1]}"])
 
         cmd_run.extend(["--post_backbone", f"{config.post_backbone}"])
         cmd_run.extend([f"--post_hrnet.block_str", *config.post_block_str])
@@ -417,6 +424,12 @@ class microscopy_ddp_base(run_ddp_base):
         parser.add_argument("--disable_LSUV", action="store_true", help='if set, do not perform LSUV init.')
 
         parser.add_argument('--train_samples', type=int, default=0, help='number of images to train/finetune with. First n are taken from the train set if n>0')
+
+        parser.add_argument("--no_clip_data", action="store_true", help="whether to not clip the data to [0,1] after scaling. default: do clip")
+
+        parser.add_argument('--samples_per_image', type=int, default=128, help='samples to take from a single image per epoch')
+
+        parser.add_argument("--scaling_vals", type=float, nargs='+', default=[0,4096], help='min max values to scale with respect to the scaling type')
 
         return parser
 

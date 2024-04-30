@@ -17,6 +17,19 @@
         },
         // -----------------------------------------------------------------------------------------
         {
+            "name": "mri, data",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/mri/data/create_mri_data_set_anonymized.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "6"},
+            "args": [
+                "--input_dir", "/data/mri", "--output_dir", "/data/mri2"
+            ]
+        },
+        // -----------------------------------------------------------------------------------------
+        {
             "name": "cifar, run",
             "type": "python",
             "request": "launch",
@@ -25,7 +38,7 @@
             "justMyCode": true,
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "0"},
             "args": [
-                "--log_dir", "/export/Lab-Xue/projects/cifar/logs"
+                "--log_dir", "/isilon/lab-xue/projects/cifar/logs"
             ]
         },
         // -----------------------------------------------------------------------------------------
@@ -51,7 +64,7 @@
             "justMyCode": true,
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "6"},
             "args": [
-                "--data_root", "/data/mri/data", "--log_dir", "/export/Lab-Xue/projects/mri/logs", "--data_dir", "/export/Lab-Xue/projects/mri/results", "--summary_depth", "6", "--device", "cuda", "--project", "mri", "--num_epochs", "1", "--batch_size", "2", "--window_size", "8", "8", "--patch_size", "2", "2", "--optim.lr", "0.0001", "--optim.weight_decay", "1", "--use_amp", "--iters_to_accumulate", "1", "--num_workers", "48", "--prefetch_factor", "4", "--scheduler_type", "ReduceLROnPlateau", "--scheduler.patience", "0", "--scheduler.cooldown", "0", "--scheduler.factor", "0.95", "--min_noise_level", "2.0", "--max_noise_level", "14.0", "--mri_height", "32", "64", "--mri_width", "32", "64", "--time", "12", "--num_uploaded", "12", "--snr_perturb", "0.15", "--train_files", "BWH_RTCine_3T_2021_with_2x_resized.h5", "--train_data_types", "2dt", "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test_with_2x_resized.h5", "train_3D_3T_retro_cine_2020_small_2DT_test_with_2x_resized.h5", "train_3D_3T_retro_cine_2020_small_2D_test_with_2x_resized.h5", "train_3D_3T_retro_cine_2020_500_samples_with_2x_resized.h5", "--test_data_types", "3d", "2dt", "2d", "2dt", "--ratio", "1", "5", "100", "--optim_type", "sophia", "--a_type", "conv", "--cell_type", "parallel", "--cosine_att", "1", "--att_with_relative_postion_bias", "0", "--norm_mode", "instance2d", "--mixer_type", "conv", "--shuffle_in_window", "0", "--scale_ratio_in_mixer", "1.0", "--mixer_kernel_size", "3", "--mixer_padding", "1", "--mixer_stride", "1", "--normalize_Q_K", "--backbone_hrnet.block_str", "T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1", "--complex_i", "--run_name", "test_mixed_unetr", "--run_notes", "test_mixed_unetr", "--snr_perturb_prob", "0.0", "--n_head", "32", "--weighted_loss_snr", "--weighted_loss_temporal", "--weighted_loss_added_noise", "--residual", "--readout_resolution_ratio", "0.85", "0.7", "0.65", "0.55", "--phase_resolution_ratio", "0.85", "0.7", "0.65", "0.55", "--kspace_filter_sigma", "1.5", "2.0", "2.5", "3.0", "--kspace_T_filter_sigma", "1.0", "1.25", "1.5",  "--losses", "mse", "perpendicular", "l1", "--loss_weights", "1.0", "1.0", "1.0", "1.0", "10.0", "10.0", "--post_hrnet.separable_conv", "--backbone_model", "STCNNT_HRNET", "--model_type", "STCNNT_MRI", "--disable_LSUV", "--separable_conv", "--super_resolution", "--post_backbone", "STCNNT_mUNET", "--not_add_noise", "--with_data_degrading", "--upsample_method", "NN", "--override", "--clip_grad_norm",  "1.0", "--optim.weight_decay", "0.1"
+                "--data_root", "/data/mri/data", "--log_dir", "/isilon/lab-xue/projects/mri/logs", "--data_dir", "/isilon/lab-xue/projects/mri/results", "--summary_depth", "6", "--device", "cuda", "--project", "mri", "--num_epochs", "1", "--batch_size", "2", "--window_size", "8", "8", "--patch_size", "2", "2", "--optim.lr", "0.0001", "--optim.weight_decay", "1", "--use_amp", "--iters_to_accumulate", "1", "--num_workers", "48", "--prefetch_factor", "4", "--scheduler_type", "ReduceLROnPlateau", "--scheduler.patience", "0", "--scheduler.cooldown", "0", "--scheduler.factor", "0.95", "--min_noise_level", "2.0", "--max_noise_level", "14.0", "--mri_height", "32", "64", "--mri_width", "32", "64", "--time", "12", "--num_uploaded", "12", "--snr_perturb", "0.15", "--train_files", "BWH_RTCine_3T_2021_with_2x_resized.h5", "--train_data_types", "2dt", "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test_with_2x_resized.h5", "train_3D_3T_retro_cine_2020_small_2DT_test_with_2x_resized.h5", "train_3D_3T_retro_cine_2020_small_2D_test_with_2x_resized.h5", "train_3D_3T_retro_cine_2020_500_samples_with_2x_resized.h5", "--test_data_types", "3d", "2dt", "2d", "2dt", "--ratio", "1", "5", "100", "--optim_type", "sophia", "--a_type", "conv", "--cell_type", "parallel", "--cosine_att", "1", "--att_with_relative_postion_bias", "0", "--norm_mode", "instance2d", "--mixer_type", "conv", "--shuffle_in_window", "0", "--scale_ratio_in_mixer", "1.0", "--mixer_kernel_size", "3", "--mixer_padding", "1", "--mixer_stride", "1", "--normalize_Q_K", "--backbone_hrnet.block_str", "T1L1G1", "T1L1G1", "T1L1G1", "T1L1G1", "--complex_i", "--run_name", "test_mixed_unetr", "--run_notes", "test_mixed_unetr", "--snr_perturb_prob", "0.0", "--n_head", "32", "--weighted_loss_snr", "--weighted_loss_temporal", "--weighted_loss_added_noise", "--residual", "--readout_resolution_ratio", "0.85", "0.7", "0.65", "0.55", "--phase_resolution_ratio", "0.85", "0.7", "0.65", "0.55", "--kspace_filter_sigma", "1.5", "2.0", "2.5", "3.0", "--kspace_T_filter_sigma", "1.0", "1.25", "1.5",  "--losses", "mse", "perpendicular", "l1", "--loss_weights", "1.0", "1.0", "1.0", "1.0", "10.0", "10.0", "--post_hrnet.separable_conv", "--backbone_model", "STCNNT_HRNET", "--model_type", "STCNNT_MRI", "--disable_LSUV", "--separable_conv", "--super_resolution", "--post_backbone", "STCNNT_mUNET", "--not_add_noise", "--with_data_degrading", "--upsample_method", "NN", "--override", "--clip_grad_norm",  "1.0", "--optim.weight_decay", "0.1"
             ]
         },
         // -----------------------------------------------------------------------------------------
@@ -78,7 +91,7 @@
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "0"},
             "args": [
                 "--data_dir", "/data/FM_data_repo/mri", 
-                "--log_dir", "/export/Lab-Xue/projects/mri-main/logs", 
+                "--log_dir", "/isilon/lab-xue/projects/logs", 
                 "--summary_depth", "6", 
                 "--device", "cuda", 
                 //"--ddp", 
@@ -117,7 +130,7 @@
                 "--shuffle_in_window", "0", 
                 "--scale_ratio_in_mixer", "1.0", 
                 "--stride_s", "1", "--stride_t", "1", 
-                "--wandb_dir", "/export/Lab-Xue/projects/mri/wandb", 
+                "--wandb_dir", "/isilon/lab-xue/projects/mri/wandb", 
                 "--backbone_hrnet.C", "64", 
                 "--backbone_hrnet.num_resolution_levels", "2", 
                 "--backbone_hrnet.block_str", "T1L1G1", "T1L1G1", 
@@ -139,6 +152,7 @@
                 "--n_head", "32",
                 "--override", "--disable_LSUV",//, "--with_data_degrading"
                 "--weighted_loss_snr" ,
+                "--scale_by_signal"
                 // "--omnivore.size", "custom",
                 // "--omnivore.patch_size", "1", "1", "1",
                 // "--omnivore.window_size", "14", "7", "7",
@@ -158,7 +172,7 @@
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "0"},
             "args": [
                 "--data_dir", "/data1/mri/data", 
-                "--log_dir", "/export/Lab-Xue/projects/mri-main/logs", 
+                "--log_dir", "/isilon/lab-xue/projects/mri-main/logs", 
                 "--summary_depth", "6", 
                 "--device", "cuda", 
                 //"--ddp", 
@@ -197,7 +211,7 @@
                 "--shuffle_in_window", "0", 
                 "--scale_ratio_in_mixer", "1.0", 
                 "--stride_s", "1", "--stride_t", "2", 
-                "--wandb_dir", "/export/Lab-Xue/projects/mri/wandb", 
+                "--wandb_dir", "/isilon/lab-xue/projects/mri/wandb", 
                 "--backbone_hrnet.C", "32", 
                 "--backbone_hrnet.num_resolution_levels", "2", 
                 "--backbone_hrnet.block_str", "T1L1G1", "T1L1G1", 
@@ -230,53 +244,82 @@
             "console": "integratedTerminal",
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "0"},
             "args": [
-                "--data_dir", "/data1/mri/data", "--log_dir", "/export/Lab-Xue/projects/mri_main/logs", "--summary_depth", "4", "--device", "cuda", "--ddp", "--project", "mri_main", "--window_size", "8", "8", "--patch_size", "2", "2", "--clip_grad_norm", "1.0", "--optim.weight_decay", "1", "--dropout_p", "0.1", "--dropout_p", "0.1", "--activation_func", "prelu", "--iters_to_accumulate", "1", "--prefetch_factor", "8", "--time", "12", "--num_uploaded", "32", "--snr_perturb", "10.0", "--ratio", "90", "10", "100", "--max_load", "-1", "--model_type", "MRI_double_net", "--super_resolution", "--train_files", "train_3D_3T_retro_cine_2018_with_2x_resized.h5", "train_3D_3T_retro_cine_2019_with_2x_resized.h5", "train_3D_3T_retro_cine_2020_with_2x_resized.h5", "BARTS_RetroCine_3T_2023_with_2x_resized.h5", "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test_with_2x_resized.h5", "train_3D_3T_retro_cine_2020_small_2DT_test_with_2x_resized.h5", "train_3D_3T_retro_cine_2020_small_2D_test_with_2x_resized.h5", "train_3D_3T_retro_cine_2020_500_samples_with_2x_resized.h5", "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "3d", "--test_data_types", "3d", "2dt", "2d", "2dt", "--snr_perturb_prob", "0.0", "--snr_perturb_prob", "0.0", "--optim_type", "sophia", "--backbone_model", "STCNNT_HRNET", "--a_type", "conv", "--cell_type", "parallel", "--cosine_att", "1", "--att_with_relative_postion_bias", "0", "--block_dense_connection", "1", "--norm_mode", "instance2d", "--mixer_type", "conv", "--shuffle_in_window", "0", "--scale_ratio_in_mixer", "1.0", "--stride_s", "1", "--stride_t", "2", "--wandb_dir", "/export/Lab-Xue/projects/mri/wandb", "--override", "--backbone_hrnet.C", "64", "--backbone_hrnet.use_interpolation", "1", "--backbone_hrnet.num_resolution_levels", "2", "--mixer_kernel_size", "3", "--mixer_padding", "1", "--mixer_stride", "1", "--normalize_Q_K", "--backbone_hrnet.block_str", "T1L1G1", "T1L1G1", "--pre_model_load_path", "/export/Lab-Xue/projects/data/logs/mri-main-1st_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231118_040652_735337_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_29_pre.pth", "--backbone_model_load_path", "/export/Lab-Xue/projects/data/logs/mri-main-1st_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231118_040652_735337_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_29_backbone.pth", "--post_model_of_1st_net", "/export/Lab-Xue/projects/data/logs/mri-main-1st_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231118_040652_735337_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_29_post.pth", "--freeze_pre", "True", "--freeze_backbone", "True", "--optim.global_lr", "1e-06", "--optim.lr", "1e-06", "1e-06", "1e-06", "--scheduler_type", "OneCycleLR", "--scheduler.pct_start", "0.2", "--save_train_samples", "False", "--save_val_samples", "False", "--save_test_samples", "False", "--complex_i", "--residual", "--num_epochs", "20", "--batch_size", "4", "--disable_LSUV", "--post_backbone", "STCNNT_HRNET", "--post_hrnet.block_str", "T1L1G1", "T1L1G1", "--losses", "mse", "perpendicular", "perceptual", "charbonnier", "gaussian3D", "--loss_weights", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0", "--min_noise_level", "2.0", "--max_noise_level", "80.0", "--mri_height", "32", "64", "--mri_width", "32", "64", "--run_name", "mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231120_224057_936998_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1", "--run_notes", "mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231120_224057_936998_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1", "--n_head", "64", "--super_resolution" ]
+                "--data_dir", "/data1/mri/data", "--log_dir", "/isilon/lab-xue/projects/mri_main/logs", "--summary_depth", "4", "--device", "cuda", "--ddp", "--project", "mri_main", "--window_size", "8", "8", "--patch_size", "2", "2", "--clip_grad_norm", "1.0", "--optim.weight_decay", "1", "--dropout_p", "0.1", "--dropout_p", "0.1", "--activation_func", "prelu", "--iters_to_accumulate", "1", "--prefetch_factor", "8", "--time", "12", "--num_uploaded", "32", "--snr_perturb", "10.0", "--ratio", "90", "10", "100", "--max_load", "-1", "--model_type", "MRI_double_net", "--super_resolution", "--train_files", "train_3D_3T_retro_cine_2018_with_2x_resized.h5", "train_3D_3T_retro_cine_2019_with_2x_resized.h5", "train_3D_3T_retro_cine_2020_with_2x_resized.h5", "BARTS_RetroCine_3T_2023_with_2x_resized.h5", "--test_files", "train_3D_3T_retro_cine_2020_small_3D_test_with_2x_resized.h5", "train_3D_3T_retro_cine_2020_small_2DT_test_with_2x_resized.h5", "train_3D_3T_retro_cine_2020_small_2D_test_with_2x_resized.h5", "train_3D_3T_retro_cine_2020_500_samples_with_2x_resized.h5", "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "3d", "--test_data_types", "3d", "2dt", "2d", "2dt", "--snr_perturb_prob", "0.0", "--snr_perturb_prob", "0.0", "--optim_type", "sophia", "--backbone_model", "STCNNT_HRNET", "--a_type", "conv", "--cell_type", "parallel", "--cosine_att", "1", "--att_with_relative_postion_bias", "0", "--block_dense_connection", "1", "--norm_mode", "instance2d", "--mixer_type", "conv", "--shuffle_in_window", "0", "--scale_ratio_in_mixer", "1.0", "--stride_s", "1", "--stride_t", "2", "--wandb_dir", "/isilon/lab-xue/projects/mri/wandb", "--override", "--backbone_hrnet.C", "64", "--backbone_hrnet.use_interpolation", "1", "--backbone_hrnet.num_resolution_levels", "2", "--mixer_kernel_size", "3", "--mixer_padding", "1", "--mixer_stride", "1", "--normalize_Q_K", "--backbone_hrnet.block_str", "T1L1G1", "T1L1G1", "--pre_model_load_path", "/isilon/lab-xue/projects/data/logs/mri-main-1st_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231118_040652_735337_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_29_pre.pth", "--backbone_model_load_path", "/isilon/lab-xue/projects/data/logs/mri-main-1st_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231118_040652_735337_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_29_backbone.pth", "--post_model_of_1st_net", "/isilon/lab-xue/projects/data/logs/mri-main-1st_NN_40_STCNNT_HRNET_T1L1G1_T1L1G1_20231118_040652_735337_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_29_post.pth", "--freeze_pre", "True", "--freeze_backbone", "True", "--optim.global_lr", "1e-06", "--optim.lr", "1e-06", "1e-06", "1e-06", "--scheduler_type", "OneCycleLR", "--scheduler.pct_start", "0.2", "--save_train_samples", "False", "--save_val_samples", "False", "--save_test_samples", "False", "--complex_i", "--residual", "--num_epochs", "20", "--batch_size", "4", "--disable_LSUV", "--post_backbone", "STCNNT_HRNET", "--post_hrnet.block_str", "T1L1G1", "T1L1G1", "--losses", "mse", "perpendicular", "perceptual", "charbonnier", "gaussian3D", "--loss_weights", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0", "--min_noise_level", "2.0", "--max_noise_level", "80.0", "--mri_height", "32", "64", "--mri_width", "32", "64", "--run_name", "mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231120_224057_936998_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1", "--run_notes", "mri_main-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231120_224057_936998_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1", "--n_head", "64", "--super_resolution" ]
         },
         // -----------------------------------------------------------------------------------------
         {
-            "name": "run.py, mri, test on val and test datasets for metrics",
+            "name": "run.py, mri, test eval",
             "type": "python",
             "request": "launch",
             "program": "./projects/mri/run.py",
             "justMyCode": true,
             "console": "integratedTerminal",
-            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "7"},
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "0"},
             "args": [
-                "--data_dir", "/data/FM_data_repo/mri", "--log_dir", "/export/Lab-Xue/projects/mri_main/logs", "--summary_depth", "6", "--device", "cuda", "--complex_i", 
-                //"--ddp", 
-                "--train_model", "False", 
-                "--continued_training", "True", 
-                "--project", "mri_val_test", 
+                "--data_dir", "/data/FM_data_repo/mri", 
+                "--log_dir", "/data/logs", 
+                "--summary_depth", "6", 
+                "--device", "cuda", 
+                "--project", "mri", 
+                "--window_size", "8", "8", 
+                "--patch_size", "2", "2", 
+                "--clip_grad_norm", "1.0", 
+                "--optim.weight_decay", "1", 
+                "--dropout_p", "0.1", 
+                "--activation_func", "prelu", 
+                "--iters_to_accumulate", "1", 
                 "--prefetch_factor", "8", 
-                "--batch_size", "2",
                 "--time", "12", 
-                "--num_uploaded", "128", 
-                "--ratio", "2", "2", "20", 
+                "--num_uploaded", "32", 
+                "--snr_perturb", "10.0", 
+                "--ratio", "90", "10", "100", 
                 "--max_load", "-1", 
-                "--model_type", "MRI_double_net", 
-                "--train_files", "train_3D_3T_retro_cine_2018.h5",  
-                "--test_files", "test_2D_sig_2_40_1000.h5", "test_2DT_sig_2_40_2000.h5", 
-                "--train_data_types", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "2dt", "3d", 
-                "--test_data_types", "2d", "2dt", "2d", "2dt", 
+                "--model_type", "STCNNT_MRI", 
+                "--add_salt_pepper", 
+                "--add_possion", "--scale_by_signal", 
+                "--test_files", "test_2DT_sig_2_80_2000.h5", 
+                "--test_data_types", "2dt", "2dt", "2d", "2dt", "2d", "2dt", 
+                "--train_files", "train_3D_3T_retro_cine_2018.h5", "train_3D_3T_retro_cine_2019.h5", "train_3D_3T_retro_cine_2020.h5", "VIDA_train_clean_0430.h5", 
+                "--train_data_types", "2dt", "2dt", "2dt", "3d", "2dt", 
+                "--snr_perturb_prob", "0.0", 
+                "--eval_train_set", "False", 
+                "--eval_val_set", "False", 
+                "--eval_test_set", "True", 
+                "--optim_type", "sophia", 
                 "--backbone_model", "STCNNT_HRNET", 
+                "--a_type", "conv", 
+                "--cell_type", "parallel", 
+                "--cosine_att", "1", 
+                "--att_with_relative_postion_bias", "0", 
+                "--block_dense_connection", "0", 
+                "--norm_mode", "instance2d", 
+                "--mixer_type", "conv", 
+                "--shuffle_in_window", "0", 
+                "--scale_ratio_in_mixer", "1.0", 
+                "--stride_s", "1", 
+                "--stride_t", "2", 
                 "--wandb_dir", "/export/Lab-Xue/projects/mri/wandb", 
-                "--override", 
-                "--pre_model_load_path", "/export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_80_STCNNT_HRNET_T1L1G1_T1L1G1_20231120_113650_746129_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_9_pre.pth", 
-                "--backbone_model_load_path", "/export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_80_STCNNT_HRNET_T1L1G1_T1L1G1_20231120_113650_746129_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_9_backbone.pth", 
-                "--post_model_load_path", "/export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_80_STCNNT_HRNET_T1L1G1_T1L1G1_20231120_113650_746129_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_9_post.pth", 
-                //"--post_model_of_1st_net", "/export/Lab-Xue/projects/data/logs/mri_main-2nd_NN_80_STCNNT_HRNET_T1L1G1_T1L1G1_20231120_113650_746129_MRI_double_net_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1/best_checkpoint_epoch_9_post.pth", 
-                "--freeze_pre", "True", "--freeze_backbone", "True", "--freeze_post", "True",
-                "--disable_LSUV", 
-                "--post_backbone", "STCNNT_HRNET", "--post_hrnet.block_str", "T1L1G1", "T1L1G1", 
-                "--losses", "mse", "perpendicular", "perceptual", "charbonnier", "gaussian3D", 
-                "--loss_weights", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0", 
-                "--min_noise_level", "2.0", "--max_noise_level", "80.0", 
-                "--mri_height", "32", "64", "--mri_width", "32", "64", 
-                "--run_name", "Tra-2nd_NN_80_test-NN_80", 
-                "--run_notes", "mri_test_2NN_80_on_80", 
-                "--eval_train_set", "True",
-                "--eval_val_set", "True",
-                "--n_head", "64" ]
+                "--override", "--backbone_hrnet.C", "64", 
+                "--backbone_hrnet.use_interpolation", "1", 
+                "--mixer_kernel_size", "3", 
+                "--mixer_padding", "1", 
+                "--mixer_stride", "1", "--normalize_Q_K", "--backbone_hrnet.block_str", "T1L1G1", "T1L1G1T1L1G1", "--backbone_hrnet.num_resolution_levels", "2", 
+                "--pre_model_load_path", "/isilon/lab-xue/projects/data/logs/mri-1st_scale_by_signal_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20240423_101437_791915_STCNNT_MRI_NN_120.0_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_54_pre.pth", 
+                "--backbone_model_load_path", "/isilon/lab-xue/projects/data/logs/mri-1st_scale_by_signal_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20240423_101437_791915_STCNNT_MRI_NN_120.0_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_54_backbone.pth", 
+                "--post_model_load_path", "/isilon/lab-xue/projects/data/logs/mri-1st_scale_by_signal_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20240423_101437_791915_STCNNT_MRI_NN_120.0_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_54_post.pth", 
+                "--optim.global_lr", "0.0001", "--optim.lr", "0.0001", "0.0001", "0.0001", "--scheduler_type", "OneCycleLR", "--scheduler.pct_start", "0.2", 
+                "--num_workers", "32", "--train_model", "False", "--save_train_samples", "False", "--save_val_samples", "False", 
+                "--save_test_samples", "False", "--complex_i", "--residual", "--num_epochs", "30", "--batch_size", "1", 
+                "--disable_LSUV", "--post_backbone", "STCNNT_HRNET", 
+                "--post_hrnet.block_str", "T1L1G1", "T1L1G1", "--losses", "mse", "perpendicular", "perceptual", "charbonnier", "gaussian3D", 
+                "--loss_weights", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0", "--min_noise_level", "0.1", 
+                "--max_noise_level", "120.0", 
+                "--mri_height", "32", "64", 
+                "--mri_width", "32", "64", 
+                "--run_name", "mri-Test_1st_HRNET_scale_by_signal", 
+                "--run_notes", "mri-Test_1st_HRNET_scale_by_signal", 
+                "--n_head", "64"    
+            ]
         },
         // -----------------------------------------------------------------------------------------
         {
@@ -294,7 +337,7 @@
                 "--im_scaling", "10.0",
                 "--gmap_scaling", "100.0",
                 "--input_fname", "im",
-                "--saved_model_path", "/export/Lab-Xue/projects/data/logs/mri-main-1st_NN_40_STCNNT_HRNET_T1T1T1_T1T1T1_20231119_124856_509059_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1T1T1_T1T1T1/mri-main-1st_NN_40_STCNNT_HRNET_T1T1T1_T1T1T1_20231119_124856_509059_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1T1T1_T1T1T1_epoch-30.pth",
+                "--saved_model_path", "/isilon/lab-xue/projects/data/logs/mri-main-1st_NN_40_STCNNT_HRNET_T1T1T1_T1T1T1_20231119_124856_509059_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1T1T1_T1T1T1/mri-main-1st_NN_40_STCNNT_HRNET_T1T1T1_T1T1T1_20231119_124856_509059_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1T1T1_T1T1T1_epoch-30.pth",
                 "--model_type", "STCNNT_MRI"
             ]
         },
@@ -314,7 +357,7 @@
                 "--im_scaling", "10.0",
                 "--gmap_scaling", "100.0",
                 "--input_fname", "im",
-                "--saved_model_path", "/export/Lab-Xue/projects/data/logs/mri-main-1st_NN_40_STCNNT_HRNET_T1T1T1_T1T1T1_20231119_124856_509059_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1T1T1_T1T1T1/mri-main-1st_NN_40_STCNNT_HRNET_T1T1T1_T1T1T1_20231119_124856_509059_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1T1T1_T1T1T1_epoch-30.pth",
+                "--saved_model_path", "/isilon/lab-xue/projects/data/logs/mri-main-1st_NN_40_STCNNT_HRNET_T1T1T1_T1T1T1_20231119_124856_509059_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1T1T1_T1T1T1/mri-main-1st_NN_40_STCNNT_HRNET_T1T1T1_T1T1T1_20231119_124856_509059_STCNNT_MRI_C-64-1_amp-False_complex_residual-T1T1T1_T1T1T1_epoch-30.pth",
                 "--model_type", "STCNNT_MRI", 
                 "--data_root", "/data/FM_data_repo/mri", "--train_files", "train_3D_3T_retro_cine_2020.h5", "--ratio", "10", "5", "10", 
                 "--data_x_y_mode", "True", "--complex_i"
@@ -330,14 +373,14 @@
             "console": "integratedTerminal",
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "4", "DISABLE_FLOAT16_INFERENCE": "True"},
             "args": [
-                "--input_dir", "/export/Lab-Xue/projects/mri/data/mri_test/Retro_Lin_Cine_2DT_LAX_GLS_66016_026197138_026197147_246_20230522-132310_slc_1",
-                "--output_dir", "/export/Lab-Xue/projects/mri/data/mri_test/Retro_Lin_Cine_2DT_LAX_GLS_66016_026197138_026197147_246_20230522-132310_slc_1/res",
+                "--input_dir", "/isilon/lab-xue/projects/mri/data/mri_test/Retro_Lin_Cine_2DT_LAX_GLS_66016_026197138_026197147_246_20230522-132310_slc_1",
+                "--output_dir", "/isilon/lab-xue/projects/mri/data/mri_test/Retro_Lin_Cine_2DT_LAX_GLS_66016_026197138_026197147_246_20230522-132310_slc_1/res",
                 "--scaling_factor", "1.0",
                 "--im_scaling", "1.0",
                 "--gmap_scaling", "1.0",
                 "--input_fname", "noisy_c",
                 "--gmap_fname", "gmap_c",
-                "--saved_model_path", "/export/Lab-Xue/projects/data/logs/mri-1st_vgg10_30_more_epochs_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231214_200159_581006_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual_weighted_loss_snr-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-1st_vgg10_30_more_epochs_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231214_200159_581006_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual_weighted_loss_snr-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-30.pth",
+                "--saved_model_path", "/isilon/lab-xue/projects/data/logs/mri-1st_vgg10_30_more_epochs_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231214_200159_581006_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual_weighted_loss_snr-T1L1G1T1L1G1_T1L1G1T1L1G1/mri-1st_vgg10_30_more_epochs_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231214_200159_581006_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual_weighted_loss_snr-T1L1G1T1L1G1_T1L1G1T1L1G1_epoch-30.pth",
                 "--model_type", "STCNNT_MRI", 
                 "--data_root", "/data/FM_data_repo/mri", "--train_files", "train_3D_3T_retro_cine_2020.h5", "--ratio", "10", "5", "10", 
                 "--data_x_y_mode", "True", "--complex_i", "--low_acc"
@@ -359,8 +402,88 @@
                 "--im_scaling", "10.0",
                 "--gmap_scaling", "100.0",
                 "--input_fname", "im",
-                "--saved_model_path", "/export/Lab-Xue/projects/data/logs/mri-1st_BN_STCNNT_HRNET_T1T1T1_T1T1T1_20231125_050827_201278_STCNNT_MRI_C-32-1_amp-False_complex_residual-T1T1T1_T1T1T1/mri-1st_BN_STCNNT_HRNET_T1T1T1_T1T1T1_20231125_050827_201278_STCNNT_MRI_C-32-1_amp-False_complex_residual-T1T1T1_T1T1T1_epoch-30.onnx",
+                "--saved_model_path", "/isilon/lab-xue/projects/data/logs/mri-1st_BN_STCNNT_HRNET_T1T1T1_T1T1T1_20231125_050827_201278_STCNNT_MRI_C-32-1_amp-False_complex_residual-T1T1T1_T1T1T1/mri-1st_BN_STCNNT_HRNET_T1T1T1_T1T1T1_20231125_050827_201278_STCNNT_MRI_C-32-1_amp-False_complex_residual-T1T1T1_T1T1T1_epoch-30.onnx",
                 "--model_type", "STCNNT_MRI"
+            ]
+        },
+        // -----------------------------------------------------------------------------------------
+        {
+            "name": "microscopy_run.py",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/microscopy_denoise/microscopy_run.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "4"},
+            "args": [
+                "--data_root", "/data/FM_data_repo/light_microscopy/", "--log_dir", "/data/logs",
+                "--project", "microscopy", "--scaling_vals", "0", "4096", "--model_type", "STCNNT_Microscopy",
+                "--train_files", "Base_All_train.h5", "--test_files", "Base_Actin_test.h5",
+                "--backbone_model", "STCNNT_HRNET", "--backbone_hrnet.C", "64",
+                "--backbone_hrnet.block_str", "C3C3C3C3C3C3", "C3C3C3C3C3C3", "--batch_size", "2",
+                "--losses", "mse", "l1", "ssim", "perceptual", "--loss_weights", "1.0", "1.0", "5.0", "5.0", 
+                "--micro_height", "32", "64", "--micro_width", "32", "64", "--time", "16", "--micro_time", "16", "--run_name", "test", "--n_head", "32",
+                "--wandb_dir", "/data/wandb", "--override", "--no_in_channel", "1", "--no_out_channel", "1"
+            ]
+        },
+        // -----------------------------------------------------------------------------------------
+        {
+            "name": "microscopy_inference_pseudo_replica.py",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/microscopy_denoise/microscopy_inference_pseudo_replica.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "4"},
+            "args": [
+                "--input_dir", "/isilon/lab-xue/publications/CNNT_paper/data/micro_datasets_rcan/Alex_wide_field/test/noisy_rois",
+                "--input_file_s", "Image_001.npy", // "Image_011.npy", 
+                "--output_dir", "/isilon/lab-xue/projects/microscopy/snr/Alex_wide_field/res_replica",
+                "--saved_model_path", "/isilon/lab-xue/projects/data/logs/microscopy-20240115_083657_781264_STCNNT_Microscopy_C-64-1_amp-False_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/final_epoch",
+                "--image_order", "HWT",
+                "--added_noise_sd", "1",
+                "--rep", "32",
+                "--no_clip_data"
+            ]
+        },
+        // -----------------------------------------------------------------------------------------
+        {
+            "name": "microscopy_inference.py",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/microscopy_denoise/microscopy_inference.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "0,1",},
+            "args": [
+                "--input_dir", "/isilon/lab-xue/publications/CNNT_paper/data/micro_datasets_rcan/Alex_wide_field/test/noisy",
+                "--input_file_s", "Image_001.tif", "Image_011.tif",
+                "--output_dir", "/isilon/lab-xue/projects/microscopy/snr/Alex_wide_field/res",
+                "--saved_model_path", "/isilon/lab-xue/projects/data/logs/microscopy-20240115_083657_781264_STCNNT_Microscopy_C-64-1_amp-False_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/final_epoch",
+                "--image_order", "HWT",
+                "--no_clip_data",
+                "--patch_size_inference", "64",
+                "--cuda_devices", "0", "1"
+            ]
+        },
+        // -----------------------------------------------------------------------------------------
+        {
+            "name": "microscopy_inference_for_uncertainty_PCA.py",
+            "type": "python",
+            "request": "launch",
+            "program": "./projects/microscopy_denoise/microscopy_inference_for_uncertainty_PCA.py",
+            "justMyCode": true,
+            "console": "integratedTerminal",
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "4", "DISABLE_FLOAT16_INFERENCE": "False"},
+            "args": [
+                "--input_dir", "/isilon/lab-xue/publications/CNNT_paper/data/micro_datasets_rcan/micro_tiffs/Chris_zebra_timed_pancs/test/noisy/",
+                "--output_dir", "/isilon/lab-xue/projects/microscopy/snr/Chris_zebra_timed_pancs/res_snr/",
+                "--saved_model_path", "/isilon/lab-xue/projects/data/logs/microscopy-FineTuning_Chris_zebra_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20240204_001419_854169_STCNNT_Microscopy_C-64-1_amp-False_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/last_epoch",
+                "--image_order", "THW",
+                "--no_clip_data",
+                "--patch_size_inference", "64",
+                "--data_x_y_mode", "True", "--complex_i", "--low_acc",
+                "--input_file_s", "Image_000_avg_5.tif"
             ]
         },
         // -----------------------------------------------------------------------------------------
@@ -373,7 +496,7 @@
             "console": "integratedTerminal",
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "4"},
             "args": [
-                "--input", "/export/Lab-Xue/projects/mri-main/logs/mri-main-1st_TTT_TTT_for_testing_STCNNT_HRNET_T1T1T1_T1T1T1_20231025_222045_958810_STCNNT_MRI_C-32-1_amp-True_complex_residual-T1T1T1_T1T1T1/mri-main-1st_TTT_TTT_for_testing_STCNNT_HRNET_T1T1T1_T1T1T1_20231025_222045_958810_STCNNT_MRI_C-32-1_amp-True_complex_residual-T1T1T1_T1T1T1_epoch-1.pth", "--output", "/export/Lab-Xue/projects/mri/test/test_model.pts"]
+                "--input", "/isilon/lab-xue/projects/mri-main/logs/mri-main-1st_TTT_TTT_for_testing_STCNNT_HRNET_T1T1T1_T1T1T1_20231025_222045_958810_STCNNT_MRI_C-32-1_amp-True_complex_residual-T1T1T1_T1T1T1/mri-main-1st_TTT_TTT_for_testing_STCNNT_HRNET_T1T1T1_T1T1T1_20231025_222045_958810_STCNNT_MRI_C-32-1_amp-True_complex_residual-T1T1T1_T1T1T1_epoch-1.pth", "--output", "/isilon/lab-xue/projects/mri/test/test_model.pts"]
         },
         // -----------------------------------------------------------------------------------------
         {
@@ -490,7 +613,7 @@
                 "--disable_LSUV",
                 "--add_noise", "False", "False",
                 "--num_workers", "12",
-                "--model_btex_load_path", "/export/Lab-Xue/projects/qperf/models/best_checkpoint_epoch_30",
+                "--model_btex_load_path", "/isilon/lab-xue/projects/qperf/models/best_checkpoint_epoch_30",
                 "--freeze_post", "True"
                 // "--pre_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_pre.pth",
                 // "--backbone_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_backbone.pth",
@@ -541,9 +664,9 @@
             "console": "integratedTerminal",
             "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "4"},
             "args": [
-                "--data_folder", "/export/Lab-Xue/data/qperf/test",
-                "--output_dir", "/export/Lab-Xue/data/qperf/results",
-                "--model", "/export/Lab-Xue/projects/qperf/models/best_checkpoint_epoch_0",
+                "--data_folder", "/isilon/lab-xue/data/qperf/test",
+                "--output_dir", "/isilon/lab-xue/data/qperf/results",
+                "--model", "/isilon/lab-xue/projects/qperf/models/best_checkpoint_epoch_0",
                 "--max_samples", "2048"
                 // "--pre_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_pre.pth",
                 // "--backbone_model_load_path", "/data/qperf/cache/project_18-30-41-20231013/best_checkpoint_epoch_2_backbone.pth",

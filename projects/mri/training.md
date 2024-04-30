@@ -4,21 +4,6 @@
 
 ```
 
-export BASE_DIR=/data
-
-model=$BASE_DIR/mri/test/complex_model/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt
-
-model=$BASE_DIR/mri/models/mri-HRNET-20230621_132139_784364_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_13-22-06-20230621_last.pt
-
-model=$BASE_DIR/mri/models/mri-HRNET-20230702_013521_019623_complex_residual_weighted_loss-T1L1G1_T1L1G1_T1L1G1_T1L1G1_01-35-34-20230702_best.pt
-
-
-export BASE_DIR=/export/Lab-Xue/projects/
-
-model=$BASE_DIR/mri/models/mri-HRNET-20230702_013521_019623_complex_residual_weighted_loss-T1L1G1_T1L1G1_T1L1G1_T1L1G1_01-35-34-20230702_best.pt
-
-model=$BASE_DIR/mri/models/mri-HRNET-20230708_034122_305779_complex_residual_weighted_loss-T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_T1L1G1T1L1G1T1L1G1_03-41-31-20230708_best.pt
-
 for n in fsi{1..16}
 do
     echo "copy to $n ..."
@@ -38,18 +23,90 @@ cd ~/mrprogs/FMImaging
 
 #--nnodes 2 --rdzv_endpoint 172.16.0.192:9050 --node_rank 0 --nproc_per_node 2
 
-python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node 4 --num_epochs 30 --batch_size 8 --run_extra_note 1st --num_workers 32 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 100 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root /export/Lab-Xue/projects/mri/data --log_root /export/Lab-Xue/projects/data/logs --add_salt_pepper --add_possion --weighted_loss_snr
+export data_root=/data/FM_data_repo/mri
+export log_root=/data/logs
+export NGPU=8
+
+export data_root=/export/Lab-Xue/projects/mri/data
+export log_root=/export/Lab-Xue/projects/fm
+export NGPU=4
+
+export num_epochs=60
+export batch_size=8
+
+# base training
+python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node ${NGPU} --num_epochs ${num_epochs} --batch_size 16 --run_extra_note 1st --num_workers 32 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1T1L1G1 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 120 --min_noise_level 0.1 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root ${data_root} --log_root ${log_root} --add_salt_pepper --add_possion
+
+python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node ${NGPU} --num_epochs ${num_epochs} --batch_size 16 --run_extra_note 1st_T1T1T1 --num_workers 32 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str T1T1T1 T1T1T1T1T1T1 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 120 --min_noise_level 0.1 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root ${data_root} --log_root ${log_root} --add_salt_pepper --add_possion
+
+python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node ${NGPU} --num_epochs ${num_epochs} --batch_size 16 --run_extra_note 1st_no_gmap --num_workers 32 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1T1L1G1 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 120 --min_noise_level 0.1 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root ${data_root} --log_root ${log_root} --add_salt_pepper --add_possion --ignore_gmap
+
+python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node ${NGPU} --num_epochs ${num_epochs} --batch_size 16 --run_extra_note 1st_no_MR_noise --num_workers 32 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1T1L1G1 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 120 --min_noise_level 0.1 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root ${data_root} --log_root ${log_root} --add_salt_pepper --add_possion  --only_white_noise
+
+python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node ${NGPU} --num_epochs ${num_epochs} --batch_size 16 --run_extra_note 1st_scale_by_signal --num_workers 32 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1T1L1G1 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 120 --min_noise_level 0.1 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root ${data_root} --log_root ${log_root} --add_salt_pepper --add_possion --scale_by_signal
+
+python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node ${NGPU} --num_epochs ${num_epochs} --batch_size 32 --run_extra_note 1st_C3C3C3 --num_workers 32 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str C3C3C3 C3C3C3C3C3C3 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 120 --min_noise_level 0.1 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root ${data_root} --log_root ${log_root} --add_salt_pepper --add_possion 
+
+python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node ${NGPU} --num_epochs ${num_epochs} --batch_size 32 --run_extra_note 1st_C2C2C2 --num_workers 32 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str C2C2C2 C2C2C2C2C2C2 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 120 --min_noise_level 0.1 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root ${data_root} --log_root ${log_root} --add_salt_pepper --add_possion
+
+# base training, unet
+python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node ${NGPU} --num_epochs ${num_epochs} --batch_size 16 --run_extra_note 1st_Unet --num_workers 32 --model_backbone STCNNT_UNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1T1L1G1 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 120 --min_noise_level 0.1 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root ${data_root} --log_root ${log_root} --add_salt_pepper --add_possion
+
+python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node ${NGPU} --num_epochs ${num_epochs} --batch_size 16 --run_extra_note 1st_Unet_no_gmap --num_workers 32 --model_backbone STCNNT_UNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1T1L1G1 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 120 --min_noise_level 0.1 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root ${data_root} --log_root ${log_root} --add_salt_pepper --add_possion  --ignore_gmap
+
+python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node ${NGPU} --num_epochs ${num_epochs} --batch_size 16 --run_extra_note 1st_Unet_no_MR_noise --num_workers 32 --model_backbone STCNNT_UNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1T1L1G1 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 120 --min_noise_level 0.1 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root ${data_root} --log_root ${log_root} --add_salt_pepper --add_possion  --only_white_noise
+
+python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node ${NGPU} --num_epochs ${num_epochs} --batch_size 32 --run_extra_note 1st_Unet_C3C3C3 --num_workers 32 --model_backbone STCNNT_UNET --model_type STCNNT_MRI --model_block_str C3C3C3 C3C3C3C3C3C3 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 120 --min_noise_level 0.1 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root ${data_root} --log_root ${log_root} --add_salt_pepper --add_possion 
+
+# base training, omnivore
+python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node ${NGPU} --num_epochs ${num_epochs} --batch_size 8 --run_extra_note 1st_omnivore --num_workers 32 --model_backbone omnivore --model_type omnivore_MRI --model_block_str T1L1G1 T1L1G1T1L1G1 --mri_height 64 --mri_width 64 --global_lr 1e-3 --lr_pre 1e-3 --lr_post 1e-3 --lr_backbone 1e-3 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 120 --min_noise_level 0.1 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root ${data_root} --log_root ${log_root} --add_salt_pepper --add_possion 
+
+
+
+# run tests
+
+model=/data/logs/mri-1st_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20240419_095254_046420_STCNNT_MRI_NN_120.0_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_113
+
+model=/isilon/lab-xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20240419_095254_046420_STCNNT_MRI_NN_120.0_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_113
+
+python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node ${NGPU} --batch_size 1 --run_extra_note Test_1st_HRNET_120epochs --num_workers 32 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1T1L1G1 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 120 --min_noise_level 0.1 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root ${data_root} --log_root ${log_root} --add_salt_pepper --add_possion --load_path ${model} --only_eval --test_ratio 100
+
+
+model=/isilon/lab-xue/projects/data/logs/mri-1st_scale_by_signal_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20240423_101437_791915_STCNNT_MRI_NN_120.0_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_54
+
+python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node ${NGPU} --batch_size 1 --run_extra_note Test_1st_HRNET_scale_by_signal --num_workers 32 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1T1L1G1 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 120 --min_noise_level 0.1 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root ${data_root} --log_root ${log_root} --add_salt_pepper --add_possion --load_path ${model} --only_eval --test_ratio 100 --scale_by_signal
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 python3 ./projects/mri/inference/run_mri.py --nnodes 6 --rdzv_endpoint 172.16.0.5:9050 --node_rank 0 --nproc_per_node 4 --num_epochs 30 --batch_size 4 --run_extra_note 1st_vgg10_30_more_epochs --num_workers 32 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str T1L1G1T1L1G1 T1L1G1T1L1G1 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-5 --lr_pre 1e-5 --lr_post 1e-5 --lr_backbone 1e-5 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.75 --losses perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 10.0 1.0 10.0 1.0 --min_noise_level 0.01 --max_noise_level 100 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root /export/Lab-Xue/projects/mri/data --log_root /export/Lab-Xue/projects/data/logs --add_salt_pepper --add_possion --weighted_loss_snr --load_path /export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231207_032002_166088_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_24 --scheduler_type OneCycleLR
 
 
 python3 ./projects/mri/inference/run_mri.py --standalone  --nproc_per_node 8 --tra_ratio 90 --val_ratio 10 --load_path /export/Lab-Xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1L1G1T1L1G1_T1L1G1T1L1G1_20231126_141320_915089_STCNNT_MRI_C-64-1_amp-False_complex_residual_with_data_degrading-T1L1G1T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_47 --model_type STCNNT_MRI --losses perpendicular  perceptual charbonnier  --loss_weights 1 1 1 1.0 1.0 --min_noise_level 0.1 --max_noise_level 100 --lr_pre 1e-5 --lr_backbone 1e-5 --lr_post 1e-5 --global_lr 1e-5 --run_extra_note 1st_more_epochs_perf_cine_NN80_perp1  --data_root /data/FM_data_repo/mri --num_epochs 40 --batch_size 4 --model_backbone STCNNT_HRNET --model_block_str T1L1G1T1L1G1 T1L1G1T1L1G1 --scheduler_factor 0.5 --disable_LSUV --log_root /export/Lab-Xue/projects/data/logs --continued_training --scheduler_type ReduceLROnPlateau --train_files train_3D_3T_retro_cine_2020.h5 BARTS_Perfusion_3T_2023.h5 --add_salt_pepper --add_possion --weighted_loss_snr
 
-python3 ./projects/mri/inference/run_mri.py --nnodes 2 --rdzv_endpoint 172.16.0.192:9050 --node_rank 0 --nproc_per_node 2 --num_epochs 30 --batch_size 8 --run_extra_note 1st --num_workers 32 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 100 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root /data/FM_data_repo/mri --log_root /export/Lab-Xue/projects/data/logs --add_salt_pepper --add_possion --weighted_loss_snr
+python3 ./projects/mri/inference/run_mri.py --nnodes 2 --rdzv_endpoint 172.16.2.25:9050 --node_rank 0 --nproc_per_node 8 --num_epochs 60 --batch_size 8 --run_extra_note 1st --num_workers 32 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1T1L1G1 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 100 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root /data/FM_data_repo/mri --log_root /export/Lab-Xue/projects/data/logs --add_salt_pepper --add_possion --weighted_loss_snr
 
 
 python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node 4 --num_epochs 30 --batch_size 8 --run_extra_note 1st --num_workers 32 --model_backbone omnivore --model_type omnivore_MRI --model_block_str T1L1G1 T1L1G1 --mri_height 64 --mri_width 64 --global_lr 1e-3 --lr_pre 1e-3 --lr_post 1e-3 --lr_backbone 1e-3 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 100 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root /data/FM_data_repo/mri --log_root /export/Lab-Xue/projects/data/logs --add_salt_pepper --add_possion --weighted_loss_snr --scheduler_type ReduceLROnPlateau --scheduler_factor 0.5
 
+# ---------------
+# 1st
+python3 ./projects/mri/inference/run_mri.py --nnodes 2 --rdzv_endpoint 10.180.91.25:9050 --node_rank 0 --nproc_per_node 8 --num_epochs 20 --batch_size 8 --run_extra_note 1st --num_workers 32 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1T1L1G1 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --min_noise_level 0.1 --max_noise_level 60 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root /data/FM_data_repo/mri --log_root /export/lab-xue/projects/data/logs --add_salt_pepper --add_possion
+
+# continue
+python3 ./projects/mri/inference/run_mri.py --nnodes 2 --rdzv_endpoint 10.180.91.25:9050 --node_rank 0 --nproc_per_node 8 --num_epochs 20 --batch_size 8 --run_extra_note 1st --num_workers 32 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1T1L1G1 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-5 --lr_pre 1e-5 --lr_post 1e-5 --lr_backbone 1e-5 --run_list 0 --tra_ratio 90 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --min_noise_level 0.1 --max_noise_level 120 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root /data/FM_data_repo/mri --log_root /export/lab-xue/projects/data/logs --add_salt_pepper --add_possion  --load_path /export/lab-xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20240305_163602_949329_STCNNT_MRI_NN_100.0_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_59 --continued_training --scheduler_type ReduceLROnPlateau
+
+# ------------------------------------------------------------
 # test for overfitting
 
 python3 ./projects/mri/inference/run_mri.py --standalone --nproc_per_node 4 --num_epochs 30 --batch_size 8 --run_extra_note 1st_tra20_val10 --num_workers 32 --model_backbone STCNNT_HRNET --model_type STCNNT_MRI --model_block_str T1L1G1 T1L1G1 --mri_height 32 64 --mri_width 32 64 --global_lr 1e-4 --lr_pre 1e-4 --lr_post 1e-4 --lr_backbone 1e-4 --run_list 0 --tra_ratio 20 --val_ratio 10 --scheduler_factor 0.5 --losses mse perpendicular perceptual charbonnier gaussian3D --loss_weights 1.0 1.0 1.0 1.0 1.0 1.0 --max_noise_level 100 --norm_mode instance2d --backbone_C 64 --disable_LSUV --data_root /data/FM_data_repo/mri --log_root /export/Lab-Xue/projects/data/logs --add_salt_pepper --add_possion --weighted_loss_snr

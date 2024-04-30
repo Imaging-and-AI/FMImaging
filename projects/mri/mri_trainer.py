@@ -219,13 +219,13 @@ class MRITrainManager(TrainManager):
             # log a few training examples
             for i, train_set_x in enumerate(self.train_sets):
                 ind = np.random.randint(0, len(train_set_x), 4)
-                x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = train_set_x[ind[0]]
+                x, y, y_degraded, y_2x, gmaps_median, noise_sigmas, signal_scale = train_set_x[ind[0]]
                 x = np.expand_dims(x, axis=0)
                 y = np.expand_dims(y, axis=0)
                 y_degraded = np.expand_dims(y_degraded, axis=0)
                 y_2x = np.expand_dims(y_2x, axis=0)
                 for ii in range(1, len(ind)):
-                    a_x, a_y, a_y_degraded, a_y_2x, gmaps_median, noise_sigmas = train_set_x[ind[ii]]
+                    a_x, a_y, a_y_degraded, a_y_2x, gmaps_median, noise_sigmas, signal_scale = train_set_x[ind[ii]]
                     x = np.concatenate((x, np.expand_dims(a_x, axis=0)), axis=0)
                     y = np.concatenate((y, np.expand_dims(a_y, axis=0)), axis=0)
                     y_degraded = np.concatenate((y_degraded, np.expand_dims(a_y_degraded, axis=0)), axis=0)
@@ -314,7 +314,7 @@ class MRITrainManager(TrainManager):
                                 loader_ind = idx % len(train_loader_iters)
                                 loader_outputs = next(train_loader_iters[loader_ind], None)
                             data_type = train_set_type[loader_ind]
-                            x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = loader_outputs
+                            x, y, y_degraded, y_2x, gmaps_median, noise_sigmas, signal_scaling = loader_outputs
                             end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
 
                             # -------------------------------------------------------
@@ -689,7 +689,7 @@ class MRITrainManager(TrainManager):
                         del data_loader_iters[loader_ind]
                         loader_ind = idx % len(data_loader_iters)
                         loader_outputs = next(data_loader_iters[loader_ind], None)
-                    x, y, y_degraded, y_2x, gmaps_median, noise_sigmas = loader_outputs
+                    x, y, y_degraded, y_2x, gmaps_median, noise_sigmas, signal_scaling = loader_outputs
 
                     gmaps_median = gmaps_median.to(device=device, dtype=x.dtype)
                     noise_sigmas = noise_sigmas.to(device=device, dtype=x.dtype)
@@ -717,6 +717,14 @@ class MRITrainManager(TrainManager):
 
                         x = torch.permute(x, (0, 2, 1, 3, 4))
 
+                        if self.config.scale_by_signal:
+                            signal_scaling_factor = np.ones(B)
+                            for b in range(B):
+                                a_x = x[b, :, :2, :, :]
+                                a_x_mag = torch.sqrt(a_x[0]*a_x[0] + a_x[1]*a_x[1])
+                                signal_scaling_factor[b] = np.percentile(a_x_mag.cpu().numpy(), 95)
+                                x[b, :, :2, :, :] /= signal_scaling_factor[b]
+
                         cutout_in = cutout
                         overlap_in = overlap
                         if not self.config.pad_time:
@@ -726,9 +734,6 @@ class MRITrainManager(TrainManager):
                         if scaling_factor > 0:
                             x *= scaling_factor
 
-                        _, output = running_inference(self.model_manager, x, cutout=cutout_in, overlap=overlap_in, device=device)
-                        output_1st_net = None
-
                         try:
                             _, output = running_inference(self.model_manager, x, cutout=cutout_in, overlap=overlap_in, device=device)
                             output_1st_net = None
@@ -736,6 +741,10 @@ class MRITrainManager(TrainManager):
                             logging.info(f"{Fore.YELLOW}---> call inference on cpu ...")
                             _, output = running_inference(self.model_manager, x, cutout=cutout_in, overlap=overlap_in, device="cpu")
                             y = y.to("cpu")
+
+                        if self.config.scale_by_signal:
+                            for b in range(B):
+                                output[b, :, :, :, :] *= signal_scaling_factor[b]
 
                         x = torch.permute(x, (0, 2, 1, 3, 4))
                         output = torch.permute(output, (0, 2, 1, 3, 4))

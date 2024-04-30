@@ -67,11 +67,13 @@ def apply_model(model, x, config, device, overlap=None, batch_size=4, verbose=Fa
     B, T, C, H, W = x.shape
 
     if not c.pad_time:
-        cutout = (T, c.height[-1], c.width[-1])
+        cutout = (T if T<128 else 128, c.height[-1], c.width[-1])
         if overlap is None: overlap = (0, c.height[-1]//2, c.width[-1]//2)
     else:
         cutout = (c.time, c.height[-1], c.width[-1])
         if overlap is None: overlap = (c.time//2, c.height[-1]//2, c.width[-1]//2)
+
+    print(f"cutout is {cutout}")
 
     try:
         _, output = running_inference(model, x, cutout=cutout, overlap=overlap, batch_size=batch_size, device=device, verbose=verbose)
@@ -208,7 +210,7 @@ def load_model_pre_backbone_post(saved_model_path):
     status = torch.load(pre_name, map_location=get_device())
     config = status['config']
 
-    model = microscopy_ModelManager(config, config.model_type)
+    model = microscopy_ModelManager(config)
     model.config.device = get_device()
 
     print(f"{Fore.YELLOW}Load in model from parts{Style.RESET_ALL}")

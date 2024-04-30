@@ -92,7 +92,7 @@ sudo chmod a+x /usr/bin/azcopy
 
 pip3 uninstall -y torch torchvision torchaudio
 pip3 install torch torchvision torchaudio
-pip3 install wandb tqdm h5py torchinfo tifffile opencv-python nibabel piq colorama scikit-image einops onnx numpy scipy moviepy imageio matplotlib torchmetrics gputil onnxruntime gif prettytable timm monai
+pip3 install wandb tqdm h5py torchinfo tifffile opencv-python nibabel piq colorama scikit-image einops onnx numpy scipy moviepy imageio matplotlib torchmetrics gputil onnxruntime gif prettytable timm monai PyWavelets pytorch_wavelets
 pip3 install torch-interpol laplace-torch pytorch_wavelets
 
 cd ~/mrprogs
@@ -232,3 +232,5 @@ do
     bash ./doc/notes/scp_to_fsi.sh fsi${VARIABLE} /export/Lab-Xue/projects/data/logs/mri-2nd_STCNNT_HRNET_T1L1G1_T1L1G1_20231214_213835_461207_MRI_double_net_NN_100.0_C-64-1_amp-False_complex_residual_weighted_loss_snr-T1L1G1_T1L1G1
 done
 ```
+
+for file in ./*sh; do bash $file &; done

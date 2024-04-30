@@ -3,7 +3,7 @@ Create test set for STCNNT MRI
 """
 import sys
 import os
-import tqdm
+from tqdm import tqdm
 import h5py
 import random
 import numpy as np
@@ -29,7 +29,7 @@ base_file_path = "/data/FM_data_repo/mri"
 base_file_name = "BARTS_RetroCine_3T_2023.h5"
 
 min_noise_level=1.0
-max_noise_level=80.0
+max_noise_level=120.0
 matrix_size_adjust_ratio=[0.5, 0.75, 1.0, 1.25, 1.5]
 kspace_filter_sigma=[0.8, 1.0, 1.5, 2.0, 2.25]
 pf_filter_ratio=[1.0, 0.875, 0.75, 0.625]
@@ -71,7 +71,7 @@ def create_2d(write_path, N=1000):
     indices = np.arange(N)
     random.shuffle(indices)
 
-    with tqdm.tqdm(total=N) as pbar:
+    with tqdm(total=N) as pbar:
         for k in range(N):
 
             i = indices[k]
@@ -124,7 +124,7 @@ def create_3d(write_path, N=1000):
     indices = np.arange(n)
     random.shuffle(indices)
 
-    with tqdm.tqdm(total=N) as pbar:
+    with tqdm(total=N) as pbar:
         for k in range(N):
 
             i = indices[k]
@@ -174,7 +174,6 @@ def create_3d_repeated(write_path, N=20, sigmas=[1,11,1], random_mask=False):
     indices = np.arange(n)
     random.shuffle(indices)
 
-    #for k in tqdm.tqdm(range(N)):
     for k in range(N):
 
         i = indices[k]
@@ -230,19 +229,19 @@ def create_3d_repeated(write_path, N=20, sigmas=[1,11,1], random_mask=False):
 
 def main():
 
-    write_path_2d = f"{base_file_path}/test_2D_sig_1_80_500.h5"
+    write_path_2d = f"{base_file_path}/test_2D_sig_1_120_500.h5"
     create_2d(write_path=write_path_2d, N=500)
     print(f"{write_path_2d} - done")
 
-    write_path_3d = f"{base_file_path}/test_2DT_sig_1_80_1000.h5"
+    write_path_3d = f"{base_file_path}/test_2DT_sig_1_120_1000.h5"
     create_3d(write_path=write_path_3d, N=1000)
     print(f"{write_path_3d} - done")
 
-    write_path_3d = f"{base_file_path}/test_2DT_sig_1_80_2000.h5"
+    write_path_3d = f"{base_file_path}/test_2DT_sig_1_120_2000.h5"
     create_3d(write_path=write_path_3d, N=2000)
     print(f"{write_path_3d} - done")
 
-    write_path_3d = f"{base_file_path}/test_2DT_sig_1_80_3000.h5"
+    write_path_3d = f"{base_file_path}/test_2DT_sig_1_120_3000.h5"
     create_3d(write_path=write_path_3d, N=3000)
     print(f"{write_path_3d} - done")
 

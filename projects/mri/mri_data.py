@@ -60,10 +60,11 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
                     load_2x_resolution=False,
                     data_x_y_mode=False,
                     add_salt_pepper=True,
-                    salt_pepper_amount=0.2, 
-                    salt_pepper_prob=0.2,
+                    salt_pepper_amount=0.4, 
+                    salt_pepper_prob=0.4,
                     add_possion=True,
-                    possion_prob=0.2):
+                    possion_prob=0.4,
+                    scale_by_signal=False):
         """
         Initilize the denoising dataset
         Loads and store all images and gmaps
@@ -93,6 +94,7 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
             - add_noise (bool): if False, not add noise - for testing the resolution improvement
             - load_2x_resolution (bool): whether to load 2x resolution data
             - add_salt_pepper (bool): whether to add some salt and pepper disturbance on image
+            - scale_by_signal (bool): if True, scale image to 0-1 range
         """
         assert data_type.lower()=="2d" or data_type.lower()=="2dt" or data_type.lower()=="3d",\
             f"Data type not implemented: {data_type}"
@@ -142,11 +144,13 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
 
         self.add_salt_pepper = add_salt_pepper
 
-        self.salt_pepper_amount=0.2 
-        self.salt_pepper_prob=0.1
+        self.salt_pepper_amount=salt_pepper_amount
+        self.salt_pepper_prob=salt_pepper_prob
 
         self.add_possion = add_possion
-        self.possion_prob=0.1
+        self.possion_prob=possion_prob
+        
+        self.scale_by_signal = scale_by_signal
 
     def load_one_sample(self, i):
         """
@@ -338,6 +342,12 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
                 noisy_data /= noise_sigma
                 if(self.with_data_degrading): data_degraded /= noise_sigma
 
+            signal_scaling = 1
+            if self.scale_by_signal:
+                # find scaling factor
+                mag = np.abs(noisy_data)
+                signal_scaling = np.percentile(mag, 95)
+
             if self.data_type != '3d':
                 gmap = np.repeat(gmap[None,:,:], T, axis=0)
 
@@ -462,43 +472,52 @@ class MRIDenoisingDatasetTrain(torch.utils.data.Dataset):
                 clean_im_degraded = torch.permute(clean_im_degraded, (1, 0, 2, 3))
                 clean_im_2x = torch.permute(clean_im_2x, (1, 0, 2, 3))
 
-        # add salt_pepper
-        if self.add_salt_pepper and np.random.random()<self.salt_pepper_prob:
-            im = noisy_im[:2]
-            s_vs_p = np.random.random()
-            amount = np.random.uniform(0, self.salt_pepper_amount)
-            out = np.copy(im)
+            # add salt_pepper
+            if self.add_salt_pepper and np.random.random()<self.salt_pepper_prob:
+                im = noisy_im[:2]
+                s_vs_p = np.random.random()
+                amount = np.random.uniform(0, self.salt_pepper_amount)
+                out = np.copy(im)
 
-            # Salt mode
-            num_salt = np.ceil(amount * im.numel() * s_vs_p)
-            coords = np.random.randint(0, im.numel(), int(num_salt))
-            cc = np.unravel_index(coords, im.shape)
-            out[cc] *= np.random.uniform(1.0, 10.0)
+                # Salt mode
+                num_salt = np.ceil(amount * im.numel() * s_vs_p)
+                coords = np.random.randint(0, im.numel(), int(num_salt))
+                cc = np.unravel_index(coords, im.shape)
+                out[cc] *= np.random.uniform(1.0, 10.0)
 
-            # Pepper mode
-            num_pepper = np.ceil(amount* im.numel() * (1. - s_vs_p))
-            coords = np.random.randint(0, im.numel(), int(num_pepper))
-            cc = np.unravel_index(coords, im.shape)
-            out[cc] *= np.random.uniform(0, 1.0)
+                # Pepper mode
+                num_pepper = np.ceil(amount* im.numel() * (1. - s_vs_p))
+                coords = np.random.randint(0, im.numel(), int(num_pepper))
+                cc = np.unravel_index(coords, im.shape)
+                out[cc] *= np.random.uniform(0, 1.0)
 
-            noisy_im[:2] = torch.from_numpy(out)
+                noisy_im[:2] = torch.from_numpy(out)
 
-        if self.add_possion and np.random.random()<self.possion_prob:
-            #mag = np.sqrt(clean_im[0]*clean_im[0] + clean_im[1]*clean_im[1])/2
-            lam_ratio = np.random.randint(1, 5)
-            mag = np.sqrt(clean_im[0]*clean_im[0] + clean_im[1]*clean_im[1])/lam_ratio
-            pn = torch.from_numpy(np.random.poisson(mag, clean_im[0].shape)) - mag
-            # sign_invert = np.random.random(pn.shape)
-            # sign_invert[sign_invert<0.5] = -1
-            # sign_invert[sign_invert>=0.5] = 1
-            # pn *= sign_invert.astype(dtype=pn.dtype)
+            if self.add_possion and np.random.random()<self.possion_prob:
+                #mag = np.sqrt(clean_im[0]*clean_im[0] + clean_im[1]*clean_im[1])/2
+                lam_ratio = np.random.randint(1, 10)
+                mag = np.sqrt(clean_im[0]*clean_im[0] + clean_im[1]*clean_im[1])/lam_ratio
+                pn = torch.from_numpy(np.random.poisson(mag, clean_im[0].shape)) - mag
+                # sign_invert = np.random.random(pn.shape)
+                # sign_invert[sign_invert<0.5] = -1
+                # sign_invert[sign_invert>=0.5] = 1
+                # pn *= sign_invert.astype(dtype=pn.dtype)
 
-            noisy_im[0] += pn
+                noisy_im[0] += pn
 
+            if self.scale_by_signal:
+                if signal_scaling > 0:
+                    v = signal_scaling
+                    clean_im /= v
+                    clean_im_degraded /= v
+                    clean_im_2x /= v
+                    noisy_im[0] /= v
+                    noisy_im[1] /= v
+            
         if self.data_x_y_mode:
             return noisy_im, torch.flatten(clean_im)
         else:
-            return noisy_im, clean_im, clean_im_degraded, clean_im_2x, gmaps_median, noise_sigmas
+            return noisy_im, clean_im, clean_im_degraded, clean_im_2x, gmaps_median, noise_sigmas, signal_scaling
 
     def get_cutout_range(self, data):
 
@@ -741,10 +760,12 @@ class MRIDenoisingDatasetTest(torch.utils.data.Dataset):
         # clean_im = torch.permute(clean_im, (1, 0, 2, 3))
         # clean_resized_im = torch.permute(clean_resized_im, (1, 0, 2, 3))
 
+        signal_scaling = 1.0
+
         if self.data_x_y_mode:
             return noisy_im, torch.flatten(clean_im)
         else:
-            return noisy_im, clean_im, clean_im, clean_resized_im, gmaps_median, noise_sigmas
+            return noisy_im, clean_im, clean_im, clean_resized_im, gmaps_median, noise_sigmas, signal_scaling
 
     def __len__(self):
         """
@@ -865,7 +886,8 @@ def load_mri_data(config):
         "ignore_gmap": c.ignore_gmap,
         "data_x_y_mode": c.data_x_y_mode,
         "add_salt_pepper": c.add_salt_pepper,
-        "add_possion": c.add_possion
+        "add_possion": c.add_possion,
+        "scale_by_signal": c.scale_by_signal
     }
 
     print(f"{Fore.YELLOW}--> data loading parameters: {kwargs}{Style.RESET_ALL}")

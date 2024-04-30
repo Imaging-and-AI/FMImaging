@@ -20,7 +20,7 @@ Project_DIR = Path(__file__).parents[1].resolve()
 sys.path.append(str(Project_DIR))
 
 from optim.optim_utils import divide_optim_into_groups
-from setup import config_to_yaml
+from setup import config_to_yaml, parse_config_and_setup_run
 
 # -------------------------------------------------------------------------------------------------
 
@@ -405,7 +405,6 @@ class ModelManager(nn.Module):
 
 # -------------------------------------------------------------------------------------------------
 
-from setup.setup_base import parse_config_and_setup_run
 def tests():
 
     # When you write tests for real, set all these to eval, add asserts

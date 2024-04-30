@@ -154,6 +154,9 @@ class mri_ddp_base(run_ddp_base):
 
         if config.add_possion:
             self.cmd.extend(["--add_possion"])
+            
+        if config.scale_by_signal:
+            self.cmd.extend(["--scale_by_signal"])
 
         if config.super_resolution:
             self.cmd.extend([
@@ -517,6 +520,8 @@ class mri_ddp_base(run_ddp_base):
         parser.add_argument("--max_noise_level", type=float, default=24.0, help='maximal noise level')
         parser.add_argument("--add_salt_pepper", action="store_true", help='if set, add salt and pepper.')
         parser.add_argument("--add_possion", action="store_true", help='if set, add possion noise.')
+
+        parser.add_argument("--scale_by_signal", action="store_true", help='if set, scale images by 95 percentile.')
 
         parser.add_argument("--weighted_loss_snr", action="store_true", help='if set, weight loss by the original signal levels')
         parser.add_argument("--weighted_loss_temporal", action="store_true", help='if set, weight loss by temporal/slice signal variation')
