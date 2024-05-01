@@ -31,6 +31,15 @@ def create_new_data(h5_file, write_path):
     keys = list(h5_file.keys())
     N = len(keys)
 
+    if N == 0:
+        return
+
+    if "image" not in h5_file[keys[0]]:
+        return
+    
+    if "gmap" not in h5_file[keys[0]]:
+        return
+
     h5_file_3d = h5py.File(write_path, mode="w", libver="earliest")
 
     data_info = dict()
@@ -83,16 +92,18 @@ def main():
         
         rec_file = os.path.join(args.output_dir, fname_stem+".record")
         if os.path.exists(rec_file):
+            print(f"--> ignore : {fname_stem}")
             continue
         
-        h5_file = h5py.File(os.path.join(args.input_dir, fname))
-
-        print(f"--> process {h5_file} <--")
-        data_info = create_new_data(h5_file, os.path.join(args.output_dir, fname))
-       
-        with open(os.path.join(args.output_dir, fname_stem+".record"), "wb") as f:
-            pickle.dump(data_info, f)
-
+        print(f"--> process {os.path.join(args.input_dir, fname)} <--")
+        try:
+            h5_file = h5py.File(os.path.join(args.input_dir, fname))
+            data_info = create_new_data(h5_file, os.path.join(args.output_dir, fname))
+            with open(os.path.join(args.output_dir, fname_stem+".record"), "wb") as f:
+                pickle.dump(data_info, f)
+        except:
+                continue
+        
         print(f"-----------------------------------------")
 
 if __name__=="__main__":
