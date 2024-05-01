@@ -57,6 +57,12 @@ RES_DIR=res_2nd_hrnet_TLGTLG_TLGTLG_more_epochs_super_resolution
 export CUDA_VISIBLE_DEVICES=0
 export DISABLE_FLOAT16_INFERENCE=True
 
+# for the scale by signal test
+
+model=/isilon/lab-xue/projects/data/logs/mri-1st_scale_by_signal_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20240428_212543_009291_STCNNT_MRI_NN_120.0_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_59
+
+RES_DIR=res_1st_hrnet_TLG_TLGTLG_scale_by_signal
+
 # ======================================================================
 # quick test case
 
@@ -115,7 +121,39 @@ python3 ./projects/mri/inference/run_inference.py --input_dir /isilon/lab-xue/da
 
 python3 ./projects/mri/inference/run_inference.py --input_dir /isilon/lab-xue/data/mri_raw_data/freemax/20231205_Contrast_PT/meas_MID00188_FID22498_G33_SAX5_FB_de_tpat3_res256_Ave16_BW610_PHASres84/res/DebugOutput/ --output_dir /isilon/lab-xue/data/mri_raw_data/freemax/20231205_Contrast_PT/meas_MID00188_FID22498_G33_SAX5_FB_de_tpat3_res256_Ave16_BW610_PHASres84/res/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
 
+# ======================================================================
+# generalization test
 
+model_type_str=STCNNT_MRI
+scaling_factor=1.0
+
+export CUDA_VISIBLE_DEVICES=1
+export DISABLE_FLOAT16_INFERENCE=True
+
+# -----------------------------
+
+model=/isilon/lab-xue/projects/data/logs/mri-1st_scale_by_signal_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20240428_212543_009291_STCNNT_MRI_NN_120.0_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_59
+RES_DIR=res_1st_hrnet_TLG_TLGTLG_scale_by_signal
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /isilon/lab-kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024/20240109/Perfusion_AIF_Q_mapping_41837_2466125178_2466125187_673_20240109-140452/DebugOutput/ --output_dir /isilon/lab-kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024/20240109/Perfusion_AIF_Q_mapping_41837_2466125178_2466125187_673_20240109-140452/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str} --scale_by_signal
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /isilon/lab-xue/data/mri_raw_data/freemax/20231205_Contrast_PT/meas_MID00182_FID22492_G33_4CH_FB_de_tpat3_res256_Ave16_BW610_PHASres84/res/DebugOutput/ --output_dir /isilon/lab-xue/data/mri_raw_data/freemax/20231205_Contrast_PT/meas_MID00182_FID22492_G33_4CH_FB_de_tpat3_res256_Ave16_BW610_PHASres84/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str} --scale_by_signal
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /isilon/lab-kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024/20240109/Perfusion_AIF_Q_mapping_42110_414467838_414467847_484_20240109-160845/DebugOutput/ --output_dir /isilon/lab-kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024/20240109/Perfusion_AIF_Q_mapping_42110_414467838_414467847_484_20240109-160845/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str} --scale_by_signal
+
+# -----------------------------
+
+model=/isilon/lab-xue/projects/data/logs/mri-1st_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20240419_095254_046420_STCNNT_MRI_NN_120.0_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/checkpoint_epoch_119
+model=/isilon/lab-xue/projects/data/logs/mri-1st_HRNET_STCNNT_HRNET_T1L1G1_T1L1G1T1L1G1_20240420_131451_309670_STCNNT_MRI_NN_120.0_C-64-1_amp-False_complex_residual-T1L1G1_T1L1G1T1L1G1/best_checkpoint_epoch_53
+RES_DIR=res_1st_hrnet_TLG_TLGTLG
+
+scaling_factor=1
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /isilon/lab-kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024/20240109/Perfusion_AIF_Q_mapping_41837_2466125178_2466125187_673_20240109-140452/DebugOutput/ --output_dir /isilon/lab-kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024/20240109/Perfusion_AIF_Q_mapping_41837_2466125178_2466125187_673_20240109-140452/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /isilon/lab-xue/data/mri_raw_data/freemax/20231205_Contrast_PT/meas_MID00182_FID22492_G33_4CH_FB_de_tpat3_res256_Ave16_BW610_PHASres84/res/DebugOutput/ --output_dir /isilon/lab-xue/data/mri_raw_data/freemax/20231205_Contrast_PT/meas_MID00182_FID22492_G33_4CH_FB_de_tpat3_res256_Ave16_BW610_PHASres84/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
+
+python3 ./projects/mri/inference/run_inference.py --input_dir /isilon/lab-kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024/20240109/Perfusion_AIF_Q_mapping_42110_414467838_414467847_484_20240109-160845/DebugOutput/ --output_dir /isilon/lab-kellman/ReconResults/denoising/BARTS/BARTS_Perfusion_2024/20240109/Perfusion_AIF_Q_mapping_42110_414467838_414467847_484_20240109-160845/${RES_DIR} --scaling_factor ${scaling_factor} --im_scaling 1.0 --gmap_scaling 1.0 --input_fname input --gmap_fname gmap --saved_model_path $model  --model_type ${model_type_str}
 
 # ======================================================================
 # snr level test
