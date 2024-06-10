@@ -1,6 +1,6 @@
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 
-for lr in 1e-3 #1e-2 1e-3 1e-4 1e-5 1e-6
+for lr in 1e-3 #1e-3 1e-4 1e-5 1e-6
 do
         torchrun --nnodes=1 \
                 --nproc_per_node=8 \
@@ -9,7 +9,7 @@ do
                 --rdzv_id=100 \
                 --rdzv_backend="c10d" \
                 ../../run.py \
-                        --run_name="micro_vit_s_attn_patch16_lr${lr}_final" \
+                        --run_name="micro_vit_s_hyena_id_patch4_lr${lr}_final" \
                         --group="final" \
                         --project='long_context' \
                         --log_dir="/people/hoopersm/long_context_paper/logs" \
@@ -27,14 +27,14 @@ do
                         --affine_aug=True \
                         --brightness_aug=True \
                         --gaussian_blur_aug=False \
-                        --batch_size=4 \
+                        --batch_size=1 \
                         --num_epochs=250 \
                         --train_model=True \
                         --pre_component=Identity \
                         --backbone_component=ViT \
                         --ViT.size='small' \
-                        --ViT.patch_size 1 16 16 \
-                        --ViT.use_hyena False \
+                        --ViT.patch_size 1 4 4 \
+                        --ViT.use_hyena True \
                         --post_component=ViTUNETR \
                         --loss_func=CombinationEnhance \
                         --optim_type=adam \
@@ -47,7 +47,7 @@ do
                         --num_workers=16 \
                         --seed 1 \
                         --save_model_components=False \
-                        --checkpoint_frequency 50 \
+                        --checkpoint_frequency 500 \
                         --save_test_samples True \
                         --override \
 

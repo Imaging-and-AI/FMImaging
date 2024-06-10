@@ -9,7 +9,7 @@ torchrun --nnodes=1 \
         --rdzv_backend="c10d" \
         ../run.py \
                 --inference_only True \
-                --inference_dir "/home/hoopersm/long_context_paper/logs/cmr_vit_s_attn_patch32_lr1e-2_final" \
-                --inference_log_dir "/home/hoopersm/long_context_paper/logs/cmr_vit_s_attn_patch32_lr1e-2_final" \
+                --inference_dir "/people/hoopersm/long_context_paper/logs/ptx_vit_s_hyena_patch4_lr1e-5_final" \
+                --inference_log_dir "/people/hoopersm/long_context_paper/logs/ptx_vit_s_hyena_patch4_lr1e-5_final" \
                 --inference_run_name "inference_only"
 

@@ -9,7 +9,7 @@ do
                 --rdzv_id=100 \
                 --rdzv_backend="c10d" \
                 ../../run.py \
-                        --run_name="cmr_swin_unetr_attn_patch2_window8_lr${lr}_final" \
+                        --run_name="cmr_vit_s_hyena_id_patch2_lr${lr}_final" \
                         --group="final" \
                         --project='long_context' \
                         --log_dir="/people/hoopersm/long_context_paper/logs" \
@@ -27,16 +27,15 @@ do
                         --affine_aug=True \
                         --brightness_aug=True \
                         --gaussian_blur_aug=False \
-                        --batch_size=16 \
+                        --batch_size=1 \
                         --num_epochs=250 \
                         --train_model=True \
                         --pre_component=Identity \
-                        --backbone_component=SWIN \
-                        --SWIN.size='unetr' \
-                        --SWIN.patch_size 2 2 2 \
-                        --SWIN.window_size 8 8 8 \
-                        --SWIN.use_hyena False \
-                        --post_component=SwinUNETR \
+                        --backbone_component=ViT \
+                        --ViT.size='small' \
+                        --ViT.patch_size 2 2 2 \
+                        --ViT.use_hyena True \
+                        --post_component=ViTUNETR \
                         --loss_func=CombinationEnhance \
                         --optim_type=adam \
                         --optim.lr=$lr \
@@ -48,7 +47,7 @@ do
                         --num_workers=16 \
                         --seed 1 \
                         --save_model_components=False \
-                        --checkpoint_frequency 50 \
+                        --checkpoint_frequency 5000 \
                         --save_test_samples True \
                         --override \
 

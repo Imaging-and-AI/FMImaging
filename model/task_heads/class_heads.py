@@ -122,10 +122,15 @@ class ViTLinear(nn.Module):
         """
         super().__init__()
 
+        self.use_hyena = config.ViT.use_hyena
         self.classification_head = nn.Sequential(nn.Linear(input_feature_channels[-1], output_feature_channels[-1]), nn.Tanh())
 
     def forward(self, x):
-        x = x[-1][:, 0]
+        x = x[-1]
+        if not self.use_hyena: # cls token
+            x = x[:, 0]
+        else: # no cls token
+            x = x.mean(1)
         x = self.classification_head(x)
         return [x]
     

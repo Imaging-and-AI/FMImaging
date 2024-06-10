@@ -336,36 +336,103 @@ class MetricManager(object):
         # Directly compute metrics from saved predictions if using exact metrics
         if self.config.exact_metrics:
             for task_name in self.config.tasks:
-                self.all_preds[task_name] = torch.concatenate(self.all_preds[task_name])
-                self.all_labels[task_name] = torch.concatenate(self.all_labels[task_name])
-                for metric_name in self.eval_metrics[task_name].keys():
-                    if metric_name!='loss':
-                        metric_value = self.eval_metric_functions[task_name][metric_name](self.all_preds[task_name], self.all_labels[task_name]).item()
-                        if self.multidim_average[task_name]=='samplewise':
-                            metric_value = torch.mean(metric_value)
-                        self.eval_metrics[task_name][metric_name].update(metric_value, n=self.all_preds[task_name].shape[0])
 
-        # Aggregate the measurements over the steps
-        if self.config.ddp:
-            average_metrics = {task_name:{} for task_name in self.config.tasks}
-            for task_name in self.config.tasks:
-                for metric_name in self.eval_metrics[task_name].keys():
+                # If not using distributed training, just gather all labels and predictions over the batches and compute metrics
+                if not self.config.ddp:
 
-                    batch_vals = torch.tensor(self.eval_metrics[task_name][metric_name].vals).to(device=self.device)
-                    batch_counts = torch.tensor(self.eval_metrics[task_name][metric_name].counts).to(device=self.device)
-                    batch_products = batch_vals * batch_counts
+                    # Concatenate all preds and labels from different batches
+                    self.all_preds[task_name] = torch.concatenate(self.all_preds[task_name])
+                    self.all_labels[task_name] = torch.concatenate(self.all_labels[task_name])
+
+                    # Compute metrics over all preds and labels and store in average_metrics
+                    average_metrics = {task_name:{} for task_name in self.config.tasks}
+                    for metric_name in self.eval_metrics[task_name].keys():
+                        if metric_name!='loss':
+                            metric_value = self.eval_metric_functions[task_name][metric_name](self.all_preds[task_name], self.all_labels[task_name]).item()
+                            if self.multidim_average[task_name]=='samplewise':
+                                metric_value = torch.mean(metric_value)
+                            self.eval_metrics[task_name][metric_name].update(metric_value, n=self.all_preds[task_name].shape[0])
+                            average_metrics[task_name][metric_name] = metric_value
+                        else:
+                            average_metrics[task_name]['loss'] = self.eval_metrics[task_name]['loss'].avg
+
+                # if using distributed training, need to gather labels and preds from all batches and all nodes
+                else:
+                    torch.distributed.barrier()
+
+                    # Concat all batches on one node
+                    self.all_preds[task_name] = torch.concatenate(self.all_preds[task_name])
+                    self.all_labels[task_name] = torch.concatenate(self.all_labels[task_name])
+                    
+                    batch_losses = torch.tensor(self.eval_metrics[task_name]['loss'].vals).to(device=self.device)
+                    batch_counts = torch.tensor(self.eval_metrics[task_name]['loss'].counts).to(device=self.device)
+                    batch_products = batch_losses * batch_counts
+
+                    # Gather all tensors from different nodes on root node (rank 0)
+                    if rank == 0:
+                        size = int(os.environ["WORLD_SIZE"])
+                        prediction_list = [torch.empty_like(self.all_preds[task_name]) for _ in range(size)]
+                        labels_list = [torch.empty_like(self.all_labels[task_name]) for _ in range(size)]
+
+                        group = dist.group.WORLD
+                        dist.gather(self.all_preds[task_name], gather_list=prediction_list, dst=0, group=group)
+                        dist.gather(self.all_labels[task_name], gather_list=labels_list, dst=0, group=group)
+                        
+                    else:
+                        group = dist.group.WORLD
+                        dist.gather(self.all_preds[task_name], dst=0, group=group)
+                        dist.gather(self.all_labels[task_name], dst=0, group=group)
 
                     dist.all_reduce(batch_products, op=torch.distributed.ReduceOp.SUM)
                     dist.all_reduce(batch_counts, op=torch.distributed.ReduceOp.SUM)
-
+                    
                     total_products = sum(batch_products)
                     total_counts = sum(batch_counts)
-                    average_metrics[task_name][metric_name] = total_products.item() / total_counts.item()
 
+                    torch.distributed.barrier()
+
+                    # Compute metrics over all preds and labels and store in average_metrics
+                    if rank <= 0:
+                        # Concatenate all tensors on root node
+                        self.all_preds[task_name] = torch.concatenate(prediction_list)
+                        self.all_labels[task_name] = torch.concatenate(labels_list)
+
+                        # Compute each eval metric
+                        average_metrics = {task_name:{} for task_name in self.config.tasks}
+                        for metric_name in self.eval_metrics[task_name].keys():
+                            if metric_name!='loss':
+                                metric_value = self.eval_metric_functions[task_name][metric_name](self.all_preds[task_name], self.all_labels[task_name]).item()
+                                if self.multidim_average[task_name]=='samplewise':
+                                    metric_value = torch.mean(metric_value)
+                                self.eval_metrics[task_name][metric_name].update(metric_value, n=self.all_preds[task_name].shape[0])
+                                average_metrics[task_name][metric_name] = metric_value
+                            else:
+                                average_metrics[task_name]['loss'] = total_products.item() / total_counts.item()
+
+        # Otherwise compute metrics as the average of metrics over all batches/nodes
         else:
-            average_metrics = {task_name:{} for task_name in self.config.tasks}
-            for task_name in self.config.tasks:
-                average_metrics[task_name] = {metric_name: self.eval_metrics[task_name][metric_name].avg for metric_name in self.eval_metrics[task_name].keys()}
+            # If doing distributed training, average perfomrance over all batches and nodes
+            if self.config.ddp:
+                average_metrics = {task_name:{} for task_name in self.config.tasks}
+                for task_name in self.config.tasks:
+                    for metric_name in self.eval_metrics[task_name].keys():
+
+                        batch_vals = torch.tensor(self.eval_metrics[task_name][metric_name].vals).to(device=self.device)
+                        batch_counts = torch.tensor(self.eval_metrics[task_name][metric_name].counts).to(device=self.device)
+                        batch_products = batch_vals * batch_counts
+
+                        dist.all_reduce(batch_products, op=torch.distributed.ReduceOp.SUM)
+                        dist.all_reduce(batch_counts, op=torch.distributed.ReduceOp.SUM)
+
+                        total_products = sum(batch_products)
+                        total_counts = sum(batch_counts)
+                        average_metrics[task_name][metric_name] = total_products.item() / total_counts.item()
+
+            # If not doing distributed training, average performance over all batches
+            else:
+                average_metrics = {task_name:{} for task_name in self.config.tasks}
+                for task_name in self.config.tasks:
+                    average_metrics[task_name] = {metric_name: self.eval_metrics[task_name][metric_name].avg for metric_name in self.eval_metrics[task_name].keys()}
 
         # Checkpoint best models during training
         if rank<=0: 

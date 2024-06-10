@@ -1,4 +1,3 @@
-
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 
 for lr in 1e-3 #1e-2 1e-3 1e-4 1e-5 1e-6
@@ -10,7 +9,7 @@ do
                 --rdzv_id=100 \
                 --rdzv_backend="c10d" \
                 ../../run.py \
-                        --run_name="abct_vit_s_attn_window8_lr${lr}_final" \
+                        --run_name="abct_vit_s_hyena_id_patch8_lr${lr}_final" \
                         --group="final" \
                         --project='long_context' \
                         --log_dir="/people/hoopersm/long_context_paper/logs" \
@@ -28,14 +27,14 @@ do
                         --affine_aug=True \
                         --brightness_aug=True \
                         --gaussian_blur_aug=False \
-                        --batch_size=1 \
+                        --batch_size=2 \
                         --num_epochs=250 \
                         --train_model=True \
                         --pre_component=Identity \
                         --backbone_component=ViT \
                         --ViT.size='small' \
                         --ViT.patch_size 8 8 8 \
-                        --ViT.use_hyena False \
+                        --ViT.use_hyena True \
                         --post_component=ViTUNETR \
                         --loss_func=CrossEntropy \
                         --optim_type=adam \

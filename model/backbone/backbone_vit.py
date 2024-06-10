@@ -23,6 +23,17 @@ from monai.networks.layers import DropPath, trunc_normal_
 from monai.utils import ensure_tuple_rep, look_up_option, optional_import
 from monai.utils.deprecate_utils import deprecated_arg
 
+import sys
+import os
+from pathlib import Path
+
+Model_DIR = Path(__file__).parents[1].resolve()
+sys.path.append(str(Model_DIR))
+sys.path.append(os.path.join(str(Model_DIR),'hyena'))
+sys.path.append(os.path.join(str(Model_DIR),'hyena','zoologydev'))
+
+from zoologydev.src.models.mixers.hyena_simple import SimpleHyenaOperator
+
 Rearrange, _ = optional_import("einops.layers.torch", name="Rearrange")
 rearrange, _ = optional_import("einops", name="rearrange")
 
@@ -159,24 +170,22 @@ class SABlock(nn.Module):
             self.out_rearrange = Rearrange("b h l d -> b l (h d)")
         else: 
             self.hyena = SimpleHyenaOperator(d_model=hidden_size,
-                                            l_max=16500,
+                                            l_max=66000,
                                             filter_order=64,
-                                            num_heads=1,
+                                            num_heads=num_heads,
                                             num_blocks=1,
                                             short_filter_order=5,
-                                            bidrectional=False
+                                            bidrectional=True,
+                                            dropout=dropout_rate,
+                                            filter_dropout=dropout_rate,
+                                            activation="id",
                                             # outer_mixing=False,
-                                            # dropout=0.0,
-                                            # filter_dropout=0.0,
                                             # filter_cls="hyena-filter",
-                                            # activation="id",
                                             # return_state=False,
 
                                             # ablations args
                                             # pre_gating: str="x1", 
                                             # post_gating: str="x2",
-
-                                            # bidirectional: bool=False,
 
                                             # **filter_args,
                                             )
@@ -353,7 +362,7 @@ class ViT_with_hyena(nn.Module):
             ]
         )
         self.norm = nn.LayerNorm(hidden_size)
-        if self.classification:
+        if self.classification and not use_hyena:
             self.cls_token = nn.Parameter(torch.zeros(1, 1, hidden_size))
 
             # Commenting out classification heads, these are taken care of in post component

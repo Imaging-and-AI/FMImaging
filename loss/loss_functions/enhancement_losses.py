@@ -284,7 +284,6 @@ class L1_Loss:
 
         if(torch.any(torch.isnan(v_l1))):
             raise NotImplementedError(f"nan in L1_Loss")
-            v_l1 = torch.mean(0.0 * outputs)
 
         return v_l1 / diff_L1.numel()
 
@@ -330,7 +329,6 @@ class MSE_Loss:
 
         if(torch.any(torch.isnan(v_l2))):
             raise NotImplementedError(f"nan in MSE_Loss")
-            v_l2 = torch.mean(0.0 * outputs)
 
         return v_l2 / diff_mag_square.numel()
 
@@ -388,7 +386,6 @@ class PSNR_Loss:
 
         if(torch.any(torch.isnan(v_l2))):
             raise NotImplementedError(f"nan in PSNR_Loss")
-            v_l2 = torch.mean(0.0 * outputs)
 
         return 10 - v_l2 / den.numel()
 
@@ -645,7 +642,6 @@ class GaussianDeriv1D_Loss:
 
         if(torch.any(torch.isnan(v))):
             raise NotImplementedError(f"nan in GaussianDeriv1D_Loss")
-            v = torch.mean(0.0 * outputs)
 
         return v
 
@@ -716,7 +712,6 @@ class GaussianDeriv_Loss:
 
         if(torch.any(torch.isnan(v))):
             raise NotImplementedError(f"nan in GaussianDeriv_Loss")
-            v = torch.mean(0.0 * outputs)
 
         return v
 
@@ -785,7 +780,6 @@ class GaussianDeriv3D_Loss:
 
         if(torch.any(torch.isnan(v))):
             raise NotImplementedError(f"nan in GaussianDeriv3D_Loss")
-            v = torch.mean(0.0 * outputs)
 
         return v
 
@@ -881,7 +875,6 @@ class Spectral_Loss:
 
         if(torch.any(torch.isnan(v))):
             raise NotImplementedError(f"nan in Spectral_Loss")
-            v = torch.mean(0.0 * outputs)
 
         return v / targets.numel()
 
@@ -951,7 +944,6 @@ class Wavelet_Loss:
 
         if(torch.any(torch.isnan(loss))):
             raise NotImplementedError(f"nan in Wavelet_Loss")
-            loss = torch.mean(0.0 * outputs)
 
         return loss
 
@@ -1020,15 +1012,12 @@ class Combined_Loss:
     
     def __call__(self, outputs, targets, weights=None):
 
-        #combined_loss = torch.mean(0.0 * outputs)
         combined_loss = 0
         for loss_f, weight in self.losses:
             v = weight*loss_f(outputs=outputs, targets=targets, weights=weights)
             if not torch.isnan(v):
                 combined_loss += v
 
-        # combined_loss = sum([weight*loss_f(outputs=outputs, targets=targets, weights=weights) \
-        #                         for loss_f, weight in self.losses])
         
         return combined_loss
 
