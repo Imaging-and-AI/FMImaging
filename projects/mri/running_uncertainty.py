@@ -12,10 +12,10 @@ import sys
 
 import torch.distributions as dists
 
-from laplace import Laplace, marglik_training
-from laplace.baselaplace import FullLaplace
-from laplace.curvature.backpack import BackPackGGN
-from laplace.utils import ModuleNameSubnetMask
+# from laplace import Laplace, marglik_training
+# from laplace.baselaplace import FullLaplace
+# from laplace.curvature.backpack import BackPackGGN
+# from laplace.utils import ModuleNameSubnetMask
 
 from pathlib import Path
 
@@ -33,110 +33,110 @@ from running_inference import image_to_patches, patches_to_image
 
 # -------------------------------------------------------------------------------------------------
 
-def estimate_uncertainty_laplace(model, train_loader, val_loader, image, cutout=(16,256,256), overlap=(4,64,64), batch_size=1, device=torch.device('cpu'), verbose=False):
-    """
-    Compute model uncertainty using laplace approximation
-    @args:
-        - model (torchmodel): the model to run inference with
-        - image (numpy.ndarray or torch.Tensor): the image to run inference on
-            - requires the image to have ndim==3 or ndim==4 or ndim==5
-                [T,H,W] or [T,C,H,W] or [B,T,C,H,W]
-                ndim==5 requires 0th dim size to be 1 (B==1)
-        - cutout (int 3-tuple): the patch shape for each cutout [T,H,W]
-        - overlap (int 3-tuple): the number of pixels to overlap [T,H,W]
-            - required to be smaller than cutout
-        - batch_size (int): number of patches per model call
-        - device (torch.device): the device to run inference on
-    @rets:
-        std for every pixel, same shape as image
-    """
-    # ---------------------------------------
-    # setup the model and image
-    is_torch_model = isinstance(model, torch.nn.Module)
-    assert is_torch_model
+# def estimate_uncertainty_laplace(model, train_loader, val_loader, image, cutout=(16,256,256), overlap=(4,64,64), batch_size=1, device=torch.device('cpu'), verbose=False):
+#     """
+#     Compute model uncertainty using laplace approximation
+#     @args:
+#         - model (torchmodel): the model to run inference with
+#         - image (numpy.ndarray or torch.Tensor): the image to run inference on
+#             - requires the image to have ndim==3 or ndim==4 or ndim==5
+#                 [T,H,W] or [T,C,H,W] or [B,T,C,H,W]
+#                 ndim==5 requires 0th dim size to be 1 (B==1)
+#         - cutout (int 3-tuple): the patch shape for each cutout [T,H,W]
+#         - overlap (int 3-tuple): the number of pixels to overlap [T,H,W]
+#             - required to be smaller than cutout
+#         - batch_size (int): number of patches per model call
+#         - device (torch.device): the device to run inference on
+#     @rets:
+#         std for every pixel, same shape as image
+#     """
+#     # ---------------------------------------
+#     # setup the model and image
+#     is_torch_model = isinstance(model, torch.nn.Module)
+#     assert is_torch_model
 
-    if device == torch.device('cpu'):
-        batch_size = 32
+#     if device == torch.device('cpu'):
+#         batch_size = 32
 
-    torch_dtype = torch.float32
-    model = model.to(device)
-    model.eval()
+#     torch_dtype = torch.float32
+#     model = model.to(device)
+#     model.eval()
 
-    if verbose: 
-        print(f"processing tensor dtype {torch_dtype}, device {device}")
+#     if verbose: 
+#         print(f"processing tensor dtype {torch_dtype}, device {device}")
 
-    # ---------------------------------------
-    # set up inputs
-    try:
-        image = image.cpu().detach().numpy()
-    except:
-        image = image
+#     # ---------------------------------------
+#     # set up inputs
+#     try:
+#         image = image.cpu().detach().numpy()
+#     except:
+#         image = image
 
-    if image.ndim == 5:
-        assert image.shape[0]==1
-        image = image[0]
-    elif image.ndim == 4:
-        pass
-    elif image.ndim == 3:
-        image = image[:,:,np.newaxis]
-    else:
-        raise NotImplementedError(f"Image dimensions not yet implemented: {image.ndim}")
+#     if image.ndim == 5:
+#         assert image.shape[0]==1
+#         image = image[0]
+#     elif image.ndim == 4:
+#         pass
+#     elif image.ndim == 3:
+#         image = image[:,:,np.newaxis]
+#     else:
+#         raise NotImplementedError(f"Image dimensions not yet implemented: {image.ndim}")
     
-    assert (cutout > overlap), f"cutout should be greater than overlap"
+#     assert (cutout > overlap), f"cutout should be greater than overlap"
 
-    image_batch, is_2d_mode, image_shape, image_patches_shape, image_pad_shape, sliding_win_shape = image_to_patches(image, cutout=cutout, overlap=overlap)
+#     image_batch, is_2d_mode, image_shape, image_patches_shape, image_pad_shape, sliding_win_shape = image_to_patches(image, cutout=cutout, overlap=overlap)
 
-    # some constants, used several times
-    d_type = image.dtype
+#     # some constants, used several times
+#     d_type = image.dtype
 
-    if verbose: 
-        print(f"processing tensor size {image_batch.shape}")
+#     if verbose: 
+#         print(f"processing tensor size {image_batch.shape}")
 
-    # ---------------------------------------------------------------------------------------------
-    # inferring each patch in length of batch_size
-    sd_batch_pred = None
+#     # ---------------------------------------------------------------------------------------------
+#     # inferring each patch in length of batch_size
+#     sd_batch_pred = None
 
-    from backpack import backpack, extend
+#     from backpack import backpack, extend
 
-    n_samples = 20
-    n_steps = 100
+#     n_samples = 20
+#     n_steps = 100
 
-    model = extend(model)
+#     model = extend(model)
 
-    subnetwork_mask = ModuleNameSubnetMask(model, module_names=['post.conv'])
-    subnetwork_mask.select()
-    subnetwork_indices = subnetwork_mask.indices
+#     subnetwork_mask = ModuleNameSubnetMask(model, module_names=['post.conv'])
+#     subnetwork_mask.select()
+#     subnetwork_indices = subnetwork_mask.indices
 
-    #la = Laplace(model, 'regression', subset_of_weights='subnetwork', hessian_structure='full', subnetwork_indices=subnetwork_indices)
-    la = Laplace(model, 'regression', subset_of_weights='all', hessian_structure='diag')
+#     #la = Laplace(model, 'regression', subset_of_weights='subnetwork', hessian_structure='full', subnetwork_indices=subnetwork_indices)
+#     la = Laplace(model, 'regression', subset_of_weights='all', hessian_structure='diag')
 
-    la.fit(train_loader)
-    la.optimize_prior_precision(pred_type='nn', method='marglik', n_steps=n_steps, val_loader=val_loader)
+#     la.fit(train_loader)
+#     la.optimize_prior_precision(pred_type='nn', method='marglik', n_steps=n_steps, val_loader=val_loader)
 
-    for i in range(0, image_batch.shape[0], batch_size):
-        x_in = torch.from_numpy(image_batch[i:i+batch_size]).to(device=device, dtype=torch_dtype)
-        x_in = torch.permute(x_in, (0, 2, 1, 3, 4))
+#     for i in range(0, image_batch.shape[0], batch_size):
+#         x_in = torch.from_numpy(image_batch[i:i+batch_size]).to(device=device, dtype=torch_dtype)
+#         x_in = torch.permute(x_in, (0, 2, 1, 3, 4))
 
-        with torch.autocast(device_type='cuda', dtype=torch_dtype, enabled=True):
-            f_mu, f_var = la(x_in, pred_type='nn', link_approx='mc', n_samples=n_samples)
+#         with torch.autocast(device_type='cuda', dtype=torch_dtype, enabled=True):
+#             f_mu, f_var = la(x_in, pred_type='nn', link_approx='mc', n_samples=n_samples)
 
-        res = f_var.sqrt()
-        res = res.cpu().detach().to(dtype=torch.float32).numpy()
-        res = np.transpose(res, (0, 2, 1, 3, 4))
+#         res = f_var.sqrt()
+#         res = res.cpu().detach().to(dtype=torch.float32).numpy()
+#         res = np.transpose(res, (0, 2, 1, 3, 4))
 
-        if sd_batch_pred is None:
-            sd_batch_pred = np.empty((image_batch.shape[0], Tc, res.shape[2], res.shape[-2], res.shape[-1]), dtype=d_type)
-            ratio_H = int(res.shape[-2]//x_in.shape[-2])
-            ratio_W = int(res.shape[-1]//x_in.shape[-1])
+#         if sd_batch_pred is None:
+#             sd_batch_pred = np.empty((image_batch.shape[0], Tc, res.shape[2], res.shape[-2], res.shape[-1]), dtype=d_type)
+#             ratio_H = int(res.shape[-2]//x_in.shape[-2])
+#             ratio_W = int(res.shape[-1]//x_in.shape[-1])
 
-        sd_batch_pred[i:i+batch_size] = res
+#         sd_batch_pred[i:i+batch_size] = res
 
-    # ---------------------------------------------------------------------------------------------
-    sd_fin = patches_to_image(sd_batch_pred, d_type, is_2d_mode, image_shape, image_patches_shape, image_pad_shape, sliding_win_shape, ratio_H, ratio_W, cutout=cutout, overlap=overlap)
+#     # ---------------------------------------------------------------------------------------------
+#     sd_fin = patches_to_image(sd_batch_pred, d_type, is_2d_mode, image_shape, image_patches_shape, image_pad_shape, sliding_win_shape, ratio_H, ratio_W, cutout=cutout, overlap=overlap)
 
-    res = sd_fin, torch.from_numpy(sd_fin[np.newaxis]).to(device)
+#     res = sd_fin, torch.from_numpy(sd_fin[np.newaxis]).to(device)
 
-    return res
+#     return res
 
 # -------------------------------------------------------------------------------------------------
 # Complete single image inference

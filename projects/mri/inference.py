@@ -48,7 +48,6 @@ from setup import yaml_to_config, Nestedspace
 from utils import start_timer, end_timer, get_device
 from mri_model import create_model
 from running_inference import running_inference
-from running_uncertainty import estimate_uncertainty_laplace
 
 # ---------------------------------------------------------
 
@@ -363,46 +362,46 @@ def apply_model_2D(data, model, gmap, config, scaling_factor, device='cpu', over
 
 # -------------------------------------------------------------------------------------------------
 
-def _compute_uncertainty(model, train_loader, val_loader, x, g, scaling_factor, config, device, overlap=None, verbose=False):
-    """Apply the inference
+# def _compute_uncertainty(model, train_loader, val_loader, x, g, scaling_factor, config, device, overlap=None, verbose=False):
+#     """Apply the inference
 
-    Input
-        x : [1, T, 1, H, W], attention is alone T
-        g : [1, T, 1, H, W]
+#     Input
+#         x : [1, T, 1, H, W], attention is alone T
+#         g : [1, T, 1, H, W]
 
-    Output
-        res : [1, T, Cout, H, W], sd for every pixel
-    """
-    c = config
+#     Output
+#         res : [1, T, Cout, H, W], sd for every pixel
+#     """
+#     c = config
 
-    x *= scaling_factor
+#     x *= scaling_factor
 
-    B, T, C, H, W = x.shape
+#     B, T, C, H, W = x.shape
 
-    if config.complex_i:
-        input = np.concatenate((x.real, x.imag, g), axis=2)
-    else:
-        input = np.concatenate((np.abs(x), g), axis=2)
+#     if config.complex_i:
+#         input = np.concatenate((x.real, x.imag, g), axis=2)
+#     else:
+#         input = np.concatenate((np.abs(x), g), axis=2)
 
-    if not c.pad_time:
-        cutout = (T, c.height[-1], c.width[-1])
-        if overlap is None: overlap = (0, c.height[-1]//2, c.width[-1]//2)
-    else:
-        cutout = (c.time, c.height[-1], c.width[-1])
-        if overlap is None: overlap = (c.time//2, c.height[-1]//2, c.width[-1]//2)
+#     if not c.pad_time:
+#         cutout = (T, c.height[-1], c.width[-1])
+#         if overlap is None: overlap = (0, c.height[-1]//2, c.width[-1]//2)
+#     else:
+#         cutout = (c.time, c.height[-1], c.width[-1])
+#         if overlap is None: overlap = (c.time//2, c.height[-1]//2, c.width[-1]//2)
 
-    try:
-        output = estimate_uncertainty_laplace(model, train_loader, val_loader, input, cutout=cutout, overlap=overlap, batch_size=1, device=device, verbose=verbose)
-    except Exception as e:
-        print(e)
+#     try:
+#         output = estimate_uncertainty_laplace(model, train_loader, val_loader, input, cutout=cutout, overlap=overlap, batch_size=1, device=device, verbose=verbose)
+#     except Exception as e:
+#         print(e)
 
-    x /= scaling_factor
-    output /= scaling_factor
+#     x /= scaling_factor
+#     output /= scaling_factor
 
-    if isinstance(output, torch.Tensor):
-        output = output.cpu().numpy()
+#     if isinstance(output, torch.Tensor):
+#         output = output.cpu().numpy()
 
-    return output
+#     return output
 
 # -------------------------------------------------------------------------------------------------
 
