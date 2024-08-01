@@ -57,7 +57,7 @@ class TaskManager(nn.Module):
         Creates loss function for this task
         By default, the loss function self.loss_f will be passed (model_outputs, datalodaer_labels) and should return a float
         """
-        self.loss_f = get_loss_func(self.loss_f_name) 
+        self.loss_f = get_loss_func(self.config, self.loss_f_name) 
 
     def create_datasets(self):
         """

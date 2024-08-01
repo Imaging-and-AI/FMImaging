@@ -15,7 +15,7 @@ from pathlib import Path
 Model_DIR = Path(__file__).parents[1].resolve()
 sys.path.append(str(Model_DIR))
 
-from imaging_attention import Conv2DExt
+# from imaging_attention import Conv2DExt
 
 #----------------------------------------------------------------------------------------------------------------
 # Upernet head code from https://github.com/yassouali/pytorch-segmentation/blob/master/models/upernet.py

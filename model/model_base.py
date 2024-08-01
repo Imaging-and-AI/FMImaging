@@ -104,6 +104,10 @@ class ModelComponent(nn.Module):
             self.model = SwinUNETR(self.config, self.task_ind, self.input_feature_channels, self.output_feature_channels)
         elif self.component_name=='ViTUNETR': # 2D or 3d enhancement or seg
             self.model = ViTUNETR(self.config, self.task_ind, self.input_feature_channels, self.output_feature_channels)
+        elif self.component_name=='ViTMAEHead': # 2D or 3d enhancement or seg
+            self.model = ViTMAEHead(self.config, self.task_ind, self.input_feature_channels, self.output_feature_channels)
+        elif self.component_name=='SwinMAEHead': # 2D or 3d enhancement or seg
+            self.model = SwinMAEHead(self.config, self.task_ind, self.input_feature_channels, self.output_feature_channels)
         else:
             raise NotImplementedError(f"Model not implemented: {self.component_name}")
 

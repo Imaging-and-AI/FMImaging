@@ -137,6 +137,7 @@ def check_args(config):
         config.ddp = True
     if config.ddp and not ("LOCAL_RANK" in os.environ or "WORLD_SIZE" in os.environ or "LOCAL_WORLD_SIZE" in os.environ):
         raise RuntimeError("--ddp specified but ddp environmental variables not available; remember to run with torchrun if using ddp.")
+    
     num_tasks = len(config.tasks)
     if len(config.height) != num_tasks:
         raise ValueError(f"Number of heights ({len(config.height)}) does not match number of tasks ({num_tasks})")
@@ -158,16 +159,19 @@ def check_args(config):
         if config.post_component_load_path[0] is None: config.post_component_load_path = [None]*num_tasks
         else: raise ValueError(f"Number of post_component_load_paths ({len(config.post_component_load_path)}) does not match number of tasks ({num_tasks})")
     if len(config.use_patches) != num_tasks:
-        if config.use_patches[0] == False: config.use_patches = [False]*num_tasks
-        else: raise ValueError(f"Number of use_patches ({len(config.use_patches)}) does not match number of tasks ({num_tasks})")
-    print(config.patch_height)
+        assert len(config.use_patches) in [1, num_tasks], f"use_patches must have 1 arg or the same number of args as tasks, got {len(config.use_patches)} args"
+        config.use_patches = [config.use_patches[0]]*num_tasks
     if len(config.patch_height) != num_tasks:
+        assert len(config.patch_height) in [1, num_tasks], f"patch_height must have 1 arg or the same number of args as tasks, got {len(config.patch_height)} args"
         config.patch_height = [config.patch_height[0]]*num_tasks
     if len(config.patch_width) != num_tasks:
+        assert len(config.patch_width) in [1, num_tasks], f"patch_width must have 1 arg or the same number of args as tasks, got {len(config.patch_width)} args"
         config.patch_width = [config.patch_width[0]]*num_tasks
     if len(config.patch_time) != num_tasks:
+        assert len(config.patch_time) in [1, num_tasks], f"patch_time must have 1 arg or the same number of args as tasks, got {len(config.patch_time)} args"
         config.patch_time = [config.patch_time[0]]*num_tasks
     if len(config.batch_size) != num_tasks:
+        assert len(config.batch_size) in [1, num_tasks], f"batch_size must have 1 arg or the same number of args as tasks, got {len(config.batch_size)} args"
         config.batch_size = [config.batch_size[0]]*num_tasks
     if len(config.data_dir) != num_tasks:
         raise ValueError(f"Number of data_dirs ({len(config.data_dir)}) does not match number of tasks ({num_tasks})")
@@ -176,18 +180,23 @@ def check_args(config):
     if len(config.loss_func)!=num_tasks:
         raise ValueError(f"Number of loss_func ({len(config.loss_func)}) does not match number of tasks ({num_tasks})")
     if len(config.affine_aug)!=num_tasks:
+        assert len(config.affine_aug) in [1, num_tasks], f"affine_aug must have 1 arg or the same number of args as tasks, got {len(config.affine_aug)} args"
         config.affine_aug = [config.affine_aug[0]]*num_tasks
     if len(config.brightness_aug)!=num_tasks:
+        assert len(config.brightness_aug) in [1, num_tasks], f"brightness_aug must have 1 arg or the same number of args as tasks, got {len(config.brightness_aug)} args"
         config.brightness_aug = [config.brightness_aug[0]]*num_tasks
     if len(config.gaussian_blur_aug)!=num_tasks:
+        assert len(config.gaussian_blur_aug) in [1, num_tasks], f"gaussian_blur_aug must have 1 arg or the same number of args as tasks, got {len(config.gaussian_blur_aug)} args"
         config.gaussian_blur_aug = [config.gaussian_blur_aug[0]]*num_tasks
     if len(config.pre_component)!=num_tasks:
         raise ValueError(f"Number of pre_components ({len(config.pre_component)}) does not match number of tasks ({num_tasks})")
     if len(config.post_component)!=num_tasks:
         raise ValueError(f"Number of post_components ({len(config.post_component)}) does not match number of tasks ({num_tasks})")
     if len(config.freeze_pre)!=num_tasks:
+        assert len(config.freeze_pre) in [1, num_tasks], f"freeze_pre must have 1 arg or the same number of args as tasks, got {len(config.freeze_pre)} args"
         config.freeze_pre = [config.freeze_pre[0]]*num_tasks
     if len(config.freeze_post)!=num_tasks:
+        assert len(config.freeze_post) in [1, num_tasks], f"freeze_post must have 1 arg or the same number of args as tasks, got {len(config.freeze_post)} args"
         config.freeze_post = [config.freeze_post[0]]*num_tasks
     if not os.path.exists(config.wandb_dir): 
         os.makedirs(config.wandb_dir, exist_ok=True)
@@ -212,7 +221,17 @@ def check_args(config):
     if config.inference_only:
         assert config.inference_dir not in [None, "None", "none"], "If inference_only is specified, user must provide an inference_dir"
         assert os.path.exists(config.inference_dir), f"inference_dir ({config.inference_dir}) does not exist"
-
-
+    if 'ss_image_restoration' in config.task_type:
+        assert len(config.ss_image_restoration.mask_patch_size) in [1, 3], "mask_patch_size must have 1 or 3 elements"
+        if len(config.ss_image_restoration.mask_patch_size)==1:
+            config.ss_image_restoration.mask_patch_size = [config.ss_image_restoration.mask_patch_size[0]]*3
+        assert config.ss_image_restoration.mask_percent >= 0 and config.ss_image_restoration.mask_percent < 1, "mask_percent must be between 0 and 1"
+        assert config.ss_image_restoration.noise_std >= 0, "noise_std must be greater than or equal to 0"
+        assert config.ss_image_restoration.resolution_factor >= 1, "resolution_factor must be greater than or equal to 1"
+        assert config.ss_image_restoration.resolution_factor>1 or config.ss_image_restoration.mask_percent>0 or config.ss_image_restoration.noise_std>0, "If using image restoration as self-supervision, must specify at least one of resolution_factor>1, mask_percent>0, or noise_std>0"
+    if 'enhance' in config.task_type:
+        assert len(config.enhance.data_range) in [1, num_tasks], f"data_range must have 1 arg or the same number of args as tasks, got {len(config.enhance.data_range)} args"
+        if len(config.enhance.data_range)!=num_tasks:
+            config.enhance.data_range = [config.enhance.data_range[0]]*num_tasks
 
 

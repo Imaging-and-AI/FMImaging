@@ -38,6 +38,42 @@ sys.path.append(str(Project_DIR))
 from utils.status import get_device
 
 # -------------------------------------------------------------------------------------------------
+# Image restoration loss for self supervised learning
+
+class SSImageRestoration_Loss:
+    """
+    Image restoration loss for self supervised learning
+    Will only compute loss on masked pixels if using only masked autoencoding
+    If not using masked auto encoding, or if also using denoising/superresolution SS objectives, loss is computed on all pixels
+    """
+    def __init__(self, ss_mask, ss_resolution, ss_noise):
+        """
+        @args:
+            - ss_mask (bool): whether masking was used in self-supervision objective
+            - ss_resolution (int): whether superresolution was used in self-supervision objective
+            - ss_noise (float): whether denoising was used in self-supervision objective
+        """
+        self.ss_mask = ss_mask
+        self.ss_resolution = ss_resolution
+        self.ss_noise = ss_noise
+
+    def __call__(self, outputs, targets):
+        
+        if self.ss_mask and not self.ss_resolution and not self.ss_noise:
+            gt = targets[:,:outputs.shape[1]]
+            mask = targets[:,outputs.shape[1]:]
+            loss_recon = F.l1_loss(outputs, gt, reduction='none')
+            loss = (loss_recon * mask).sum() / (mask.sum() + 1e-5) 
+        
+        else:
+            gt = targets[:,:outputs.shape[1]]
+            loss = F.l1_loss(outputs, gt, reduction='mean')
+            
+        return loss
+
+
+
+# -------------------------------------------------------------------------------------------------
 # Feature Similarity Index Measure (FSIM) loss
 
 class FSIM_Loss:

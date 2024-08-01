@@ -63,8 +63,8 @@ class general_parser(object):
         
         # Task args
         self.parser.add_argument('--tasks', type=str, nargs='+', default=["task_name"], help="Name of each task")
-        self.parser.add_argument('--task_type', type=str, nargs='+', default=["class"], choices=['class','seg','enhance'], help="Task type for each task")
-        self.parser.add_argument("--loss_func", type=str, nargs='+', default=['CrossEntropy'], choices=['CrossEntropy','MSE','CombinationEnhance'], help='Which loss function to use in order of tasks')
+        self.parser.add_argument('--task_type', type=str, nargs='+', default=["class"], choices=['class','seg','enhance','ss_image_restoration'], help="Task type for each task")
+        self.parser.add_argument("--loss_func", type=str, nargs='+', default=['CrossEntropy'], choices=['CrossEntropy','MSE','CombinationEnhance','SSImageRestoration'], help='Which loss function to use in order of tasks')
         self.parser.add_argument("--height", type=int, default=[256],  nargs='+', help='Height (number of rows) of input in order of tasks; will interpolate to this (used with default dataloader only)')
         self.parser.add_argument("--width", type=int, default=[256],  nargs='+', help='Width (number of columns) of input in order of tasks; will interpolate to this (used with default dataloader only)')
         self.parser.add_argument("--time", type=int, default=[1],  nargs='+', help='Temporal/depth dimension of input in order of tasks; will crop/pad to this (used with default dataloader only)')
@@ -100,7 +100,9 @@ class general_parser(object):
                                                                                       'SimpleConv',
                                                                                       'SimpleMultidepthConv',
                                                                                       'SwinUNETR',
-                                                                                      'ViTUNETR'], help="Which task head to use in order of tasks")
+                                                                                      'ViTUNETR',
+                                                                                      'ViTMAEHead',
+                                                                                      'SwinMAEHead'], help="Which task head to use in order of tasks")
         self.parser.add_argument('--freeze_pre', type=str_to_bool, nargs='+', default=[False], help="Whether to freeze the pre model in order of tasks")
         self.parser.add_argument('--freeze_backbone', type=str_to_bool, default=False, help="Whether to freeze the backbone model")
         self.parser.add_argument('--freeze_post', type=str_to_bool, nargs='+', default=[False], help="Whether to freeze the post model in order of tasks")

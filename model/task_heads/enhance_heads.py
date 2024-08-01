@@ -19,7 +19,7 @@ from pathlib import Path
 Model_DIR = Path(__file__).parents[1].resolve()
 sys.path.append(str(Model_DIR))
 
-from imaging_attention import Conv2DExt
+# from imaging_attention import Conv2DExt
 from monai.networks.blocks import UnetOutBlock, UnetrBasicBlock, UnetrUpBlock, UnetrPrUpBlock
 from monai.utils import optional_import
 
@@ -410,3 +410,170 @@ class SimpleMultidepthConv(nn.Module):
             
         return [x_out]
 
+#----------------------------------------------------------------------------------------------------------------
+
+class PixelShuffle3d(nn.Module):
+    '''
+    This class is a 3d version of pixelshuffle.
+    Adapted from https://github.com/kuoweilai/pixelshuffle3d/blob/master/pixelshuffle3d.py
+    '''
+    def __init__(self, scale_depth, scale_height, scale_width):
+        '''
+        :param scale: upsample scale
+        '''
+        super().__init__()
+        self.scale_depth = scale_depth
+        self.scale_height = scale_height
+        self.scale_width = scale_width
+
+    def forward(self, input):
+        batch_size, channels, in_depth, in_height, in_width = input.size()
+        nOut = channels // (self.scale_depth * self.scale_height * self.scale_width)
+
+        out_depth = in_depth * self.scale_depth
+        out_height = in_height * self.scale_height
+        out_width = in_width * self.scale_width
+
+        input_view = input.contiguous().view(batch_size, nOut, self.scale_depth, self.scale_height, self.scale_width, in_depth, in_height, in_width)
+
+        output = input_view.permute(0, 1, 5, 2, 6, 3, 7, 4).contiguous()
+
+        return output.view(batch_size, nOut, out_depth, out_height, out_width)
+
+class PixelShuffle2d(nn.Module):
+    '''
+    This class is a 2d version of pixelshuffle.
+    Adapted from https://github.com/kuoweilai/pixelshuffle3d/blob/master/pixelshuffle3d.py
+    '''
+    def __init__(self, scale_height, scale_width):
+        '''
+        :param scale: upsample scale
+        '''
+        super().__init__()
+        self.scale_height = scale_height
+        self.scale_width = scale_width
+
+    def forward(self, input):
+        batch_size, channels, in_height, in_width = input.size()
+        nOut = channels // (self.scale_height * self.scale_width)
+
+        out_height = in_height * self.scale_height
+        out_width = in_width * self.scale_width
+
+        input_view = input.contiguous().view(batch_size, nOut, self.scale_height, self.scale_width, in_height, in_width)
+
+        output = input_view.permute(0, 1, 4, 2, 5, 3).contiguous()
+
+        return output.view(batch_size, nOut, out_height, out_width)
+    
+class ViTMAEHead(nn.Module):
+    """
+    Simple decoder for MAE pretraining; based off of SimMIM implementation
+    Adapted from https://github.com/microsoft/SimMIM/blob/main/models/simmim.py
+    """
+    def __init__(
+        self,
+        config,
+        task_ind,
+        input_feature_channels,
+        output_feature_channels
+    ) -> None:
+        
+        super().__init__()
+
+        if config.time[task_ind]==1:
+            self.spatial_dims = 2
+            if not config.use_patches[0]: self.input_size = [config.height[task_ind], config.width[task_ind]]
+            else: self.input_size = [config.patch_height[task_ind], config.patch_width[task_ind]]
+            if len(config.ViT.patch_size)==3: self.mod_patch_size = config.ViT.patch_size[1:]
+            else: self.mod_patch_size = config.ViT.patch_size
+            self.vit_decoder = nn.Sequential(
+                                nn.Conv2d(
+                                    in_channels=input_feature_channels[-1],
+                                    out_channels=(self.mod_patch_size[0]*self.mod_patch_size[1]) * output_feature_channels[-1], kernel_size=1),
+                                PixelShuffle2d(self.mod_patch_size[0], self.mod_patch_size[1]),
+                )
+            
+        else:
+            self.spatial_dims = 3
+            if not config.use_patches[0]: self.input_size = [config.time[task_ind], config.height[task_ind], config.width[task_ind]]
+            else: self.input_size = [config.patch_time[task_ind], config.patch_height[task_ind], config.patch_width[task_ind]]
+            self.mod_patch_size = config.ViT.patch_size
+            self.vit_decoder = nn.Sequential(
+                                nn.Conv3d(
+                                    in_channels=input_feature_channels[-1],
+                                    out_channels=(self.mod_patch_size[0]*self.mod_patch_size[1]*self.mod_patch_size[2]) * output_feature_channels[-1], kernel_size=1),
+                                PixelShuffle3d(self.mod_patch_size[0], self.mod_patch_size[1], self.mod_patch_size[2]),
+                )
+    
+        self.feat_size = tuple(img_d // p_d for img_d, p_d in zip(self.input_size, self.mod_patch_size))
+        self.proj_axes = (0, self.spatial_dims + 1) + tuple(d + 1 for d in range(self.spatial_dims))
+        
+        
+    def _reshape_vit_output(self, x):
+
+        hidden_size = x.shape[-1]
+        proj_view_shape = list(self.feat_size) + [hidden_size]
+        
+        new_view = [x.size(0)] + proj_view_shape
+        x = x.view(new_view)
+        x = x.permute(self.proj_axes).contiguous()
+
+        return x
+
+    def forward(self, x):
+        x = self._reshape_vit_output(x[-1])        
+        x = self.vit_decoder(x)
+        if self.spatial_dims==2: 
+            x = torch.unsqueeze(x,2)
+        return [x]
+    
+class SwinMAEHead(nn.Module):
+    """
+    Simple decoder for MAE pretraining; based off of SimMIM implementation
+    Adapted from https://github.com/microsoft/SimMIM/blob/main/models/simmim.py
+    """
+    def __init__(
+        self,
+        config,
+        task_ind,
+        input_feature_channels,
+        output_feature_channels
+    ) -> None:
+        
+        super().__init__()
+
+        if config.time[task_ind]==1:
+            self.spatial_dims = 2
+            if len(config.SWIN.patch_size)==3: self.mod_patch_size = config.SWIN.patch_size[1:]
+            else: self.mod_patch_size = config.SWIN.patch_size
+            self.encoder_stride = (self.mod_patch_size[0] * 2**len(config.SWIN.depths), 
+                                   self.mod_patch_size[1] * 2**len(config.SWIN.depths))
+            self.swin_decoder = nn.Sequential(
+                                nn.Conv2d(
+                                    in_channels=input_feature_channels[-1],
+                                    out_channels=(self.encoder_stride[0]*self.encoder_stride[1]) * output_feature_channels[-1], kernel_size=1),
+                                PixelShuffle2d(self.encoder_stride[0], self.encoder_stride[1]),
+                )
+            
+        else:
+            self.spatial_dims = 3
+            self.mod_patch_size = config.SWIN.patch_size
+            self.encoder_stride = (self.mod_patch_size[0] * 2**len(config.SWIN.depths), 
+                                   self.mod_patch_size[1] * 2**len(config.SWIN.depths),
+                                   self.mod_patch_size[2] * 2**len(config.SWIN.depths))
+            self.swin_decoder = nn.Sequential(
+                                nn.Conv3d(
+                                    in_channels=input_feature_channels[-1],
+                                    out_channels=(self.encoder_stride[0]*self.encoder_stride[1]*self.encoder_stride[2]) * output_feature_channels[-1], kernel_size=1),
+                                PixelShuffle3d(self.encoder_stride[0], self.encoder_stride[1], self.encoder_stride[2]),
+                )
+
+    def forward(self, x):
+        x = x[-1]
+        if self.spatial_dims==2: 
+            x = torch.squeeze(x,2)
+        x = self.swin_decoder(x)
+        if self.spatial_dims==2: 
+            x = torch.unsqueeze(x,2)
+        return [x]

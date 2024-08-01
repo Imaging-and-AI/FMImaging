@@ -26,6 +26,9 @@ def parse_config(custom_parser=None):
     # Parse general args 
     general_config, unknown_args_main = general_parser().parser.parse_known_args(namespace=Nestedspace())
 
+    # Parse task args
+    task_config, unknown_args_task = task_parser(task_types=general_config.task_type).parser.parse_known_args(namespace=Nestedspace())
+
     # Parse optimizer args
     optim_config, unknown_args_optim = optim_parser(optim_type=general_config.optim_type).parser.parse_known_args(namespace=Nestedspace())
 
@@ -43,13 +46,14 @@ def parse_config(custom_parser=None):
 
     # Combine all parsed args
     full_config = Nestedspace(**vars(general_config), 
+                              **vars(task_config),
                               **vars(optim_config),
                               **vars(sched_config),
                               **vars(model_config),
                               **vars(project_config))
     
     # Raise error if there are args that are not recognized by parsers
-    unknown_args = set([v.split("--")[-1].split("=")[0] for v in unknown_args_main + unknown_args_optim + unknown_args_sched + unknown_args_model + unknown_args_project if "--" in v])
+    unknown_args = set([v.split("--")[-1].split("=")[0] for v in unknown_args_main + unknown_args_task + unknown_args_optim + unknown_args_sched + unknown_args_model + unknown_args_project if "--" in v])
     unknown_args = check_for_unknown_args(full_config, unknown_args)
     if len(unknown_args)>0: 
         raise NameError(f'User input arguments that are not recognized: {str(unknown_args)}')

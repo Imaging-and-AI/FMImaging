@@ -53,6 +53,7 @@ class MetricManager(object):
         self.train_metric_functions = {}
         self.eval_metrics = {}
         self.eval_metric_functions = {}
+
         self.metric_task = {}
         self.multidim_average = {}
 
@@ -76,10 +77,11 @@ class MetricManager(object):
                 else: 
                     task_metric = 'multiclass'
                 multidim_average = 'global'
+                data_range = None
 
                 # Set up dictionary of functions mapped to each metric name
-                task_train_metric_functions = {metric_name: get_metric_function(metric_name, task_out_channel, task_metric, multidim_average).to(device=self.device) for metric_name in task_train_metrics if metric_name!='loss'}
-                task_eval_metric_functions = {metric_name: get_metric_function(metric_name, task_out_channel, task_metric, multidim_average).to(device=self.device) for metric_name in task_eval_metrics if metric_name!='loss'}
+                task_train_metric_functions = {metric_name: get_metric_function(metric_name, task_out_channel, task_metric, multidim_average, data_range).to(device=self.device) for metric_name in task_train_metrics if metric_name!='loss'}
+                task_eval_metric_functions = {metric_name: get_metric_function(metric_name, task_out_channel, task_metric, multidim_average, data_range).to(device=self.device) for metric_name in task_eval_metrics if metric_name!='loss'}
 
                 # Add task metrics to the overall metrics
                 self.train_metrics[task_name] = task_train_metrics
@@ -102,10 +104,11 @@ class MetricManager(object):
                 else: 
                     task_metric = 'multiclass'
                 multidim_average = 'samplewise'
+                data_range = None
 
                 # Set up dictionary of functions mapped to each metric name
-                task_train_metric_functions = {metric_name: get_metric_function(metric_name, task_out_channel, task_metric, multidim_average).to(device=self.device) for metric_name in task_train_metrics if metric_name!='loss'}
-                task_eval_metric_functions = {metric_name: get_metric_function(metric_name, task_out_channel, task_metric, multidim_average).to(device=self.device) for metric_name in task_eval_metrics if metric_name!='loss'}
+                task_train_metric_functions = {metric_name: get_metric_function(metric_name, task_out_channel, task_metric, multidim_average, data_range).to(device=self.device) for metric_name in task_train_metrics if metric_name!='loss'}
+                task_eval_metric_functions = {metric_name: get_metric_function(metric_name, task_out_channel, task_metric, multidim_average, data_range).to(device=self.device) for metric_name in task_eval_metrics if metric_name!='loss'}
 
                 # Add task metrics to the overall metrics
                 self.train_metrics[task_name] = task_train_metrics
@@ -127,10 +130,11 @@ class MetricManager(object):
                 # Define vars used by the metric functions 
                 task_metric = 'multiclass' # Keep as multiclass for enhance applications
                 multidim_average = 'global' # Keep as global for enhance applications
+                data_range = self.config.enhance.data_range[task_ind]
 
                 # Set up dictionary of functions mapped to each metric name
-                task_train_metric_functions = {metric_name: get_metric_function(metric_name, task_out_channel, task_metric, multidim_average).to(device=self.device) for metric_name in task_train_metrics if metric_name!='loss'}
-                task_eval_metric_functions = {metric_name: get_metric_function(metric_name, task_out_channel, task_metric, multidim_average).to(device=self.device) for metric_name in task_eval_metrics if metric_name!='loss'}
+                task_train_metric_functions = {metric_name: get_metric_function(metric_name, task_out_channel, task_metric, multidim_average, data_range).to(device=self.device) for metric_name in task_train_metrics if metric_name!='loss'}
+                task_eval_metric_functions = {metric_name: get_metric_function(metric_name, task_out_channel, task_metric, multidim_average, data_range).to(device=self.device) for metric_name in task_eval_metrics if metric_name!='loss'}
 
                 # Add task metrics to the overall metrics
                 self.train_metrics[task_name] = task_train_metrics
@@ -141,7 +145,17 @@ class MetricManager(object):
                 self.multidim_average[task_name] = multidim_average
 
             else:
-                raise NotImplementedError(f"No metrics implemented for task type {task_type}.")
+                # Set up metric dicts, which we'll use during training to track metrics
+                task_train_metrics = {'loss': AverageMeter()}
+                task_eval_metrics = {'loss': AverageMeter()}
+
+                # Add task metrics to the overall metrics
+                self.train_metrics[task_name] = task_train_metrics
+                self.train_metric_functions[task_name] = None
+                self.eval_metrics[task_name] = task_eval_metrics
+                self.eval_metric_functions[task_name] = None
+                self.metric_task[task_name] = None
+                self.multidim_average[task_name] = None
 
         if rank<=0:
 
@@ -304,7 +318,7 @@ class MetricManager(object):
                 self.all_labels[task_name] += [labels]
 
             else:
-                raise NotImplementedError('Exact metric computation not implemented for segmentation or enhancement; not needed for average Dice or average loss.')
+                raise NotImplementedError('Exact metric computation not implemented for anything but class task type; not needed for average Dice or average loss.')
             
         # Update each metric with the outputs from this step 
         for metric_name in self.eval_metrics[task_name].keys():

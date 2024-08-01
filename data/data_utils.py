@@ -148,10 +148,11 @@ def define_transforms(config, split):
         input_transforms += [torchvision.transforms.RandomApply([RandomBrightnessContrast()],p=.9)]
         if config.task_type=='enhance': output_transforms += [torchvision.transforms.RandomApply([RandomBrightnessContrast()],p=.9)]
 
-    # Add brightness transform to training inputs, if desired
+    # Add gaussian blur transform to training inputs, if desired
     if config.gaussian_blur_aug and split=='train':
         input_transforms += [torchvision.transforms.RandomApply([torchvision.transforms.GaussianBlur(kernel_size=(1, 3), sigma=(0.1, 5))],p=.15)]
 
+    # TODO: Add more augmentation transforms here, if desired
     # TODO: Add normalization transform to training and testing inputs, if desired
         
     # Compose transform lists; if none, specify identity transform
