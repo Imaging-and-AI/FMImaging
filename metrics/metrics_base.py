@@ -182,7 +182,11 @@ class MetricManager(object):
 
                 total_products = sum(batch_products)
                 total_counts = sum(batch_counts)
+                if total_counts.item() > 1:
                 average_metrics[metric_name] = total_products.item() / total_counts.item()
+                else:
+                    v = torch.mean(batch_products)
+                    average_metrics[metric_name] = v.item()
 
         else:
             average_metrics = {metric_name: self.train_metrics[metric_name].avg for metric_name in self.train_metrics.keys()}
@@ -196,8 +200,9 @@ class MetricManager(object):
         self.average_train_metrics = average_metrics
 
         # Checkpoint the most recent model
-        model_epoch = model_manager.module if hasattr(model_manager, 'module') else model_manager 
-        model_epoch.save('last_epoch', epoch, optim, sched)   
+        # if rank <= 0:
+        #     model_epoch = model_manager.module if hasattr(model_manager, 'module') else model_manager 
+        #     model_epoch.save('last_epoch', epoch, optim, sched)
 
     def on_eval_epoch_start(self):
         """
@@ -287,8 +292,11 @@ class MetricManager(object):
 
                 total_products = sum(batch_products)
                 total_counts = sum(batch_counts)
+                if total_counts.item() > 1:
                 average_metrics[metric_name] = total_products.item() / total_counts.item()
-
+                else:
+                    v = torch.mean(batch_products)
+                    average_metrics[metric_name] = v.item()
         else:
             average_metrics = {metric_name: self.eval_metrics[metric_name].avg for metric_name in self.eval_metrics.keys()}
 

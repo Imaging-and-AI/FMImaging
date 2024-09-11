@@ -2,10 +2,12 @@
 Set up the metrics for mri
 """
 import copy
+import torch.distributed
 import wandb
 import numpy as np
 import pickle
 from time import time
+from datetime import timedelta
 import torch
 import torch.nn as nn
 import torch.distributed as dist
@@ -36,9 +38,9 @@ from loss.loss_functions import *
 
 # -------------------------------------------------------------------------------------------------
 class MriMetricManager(MetricManager):
-    
+
     def __init__(self, config):
-        super().__init__(config)  
+        super().__init__(config)
 
         self.best_pre_model_file = None
         self.best_backbone_model_file = None
@@ -51,7 +53,7 @@ class MriMetricManager(MetricManager):
     def setup_wandb_and_metrics(self, rank):
 
         self.best_val_loss = np.inf
-        
+
         device = self.config.device
 
         pnsr_max_v = 2048
@@ -93,7 +95,7 @@ class MriMetricManager(MetricManager):
                               'charb':AverageMeter(),
                               'vgg':AverageMeter()
                             }
-        
+
         self.eval_metrics = {'loss': AverageMeter(),
                               'mse':AverageMeter(),
                               'rmse':AverageMeter(),
@@ -118,7 +120,7 @@ class MriMetricManager(MetricManager):
                               'ssim_2dt':AverageMeter(),
                               'psnr_2dt':AverageMeter()
                             }
-            
+
         self.train_metric_functions = {
                               'mse':self.mse_loss_func,
                               'rmse':self.rmse_loss_func,
@@ -143,7 +145,7 @@ class MriMetricManager(MetricManager):
                               'ssim_2dt':self.ssim_func,
                               'psnr_2dt':self.psnr_func
                             }
-        
+
         self.eval_metric_functions = copy.deepcopy(self.train_metric_functions)
 
         self.eval_sample_metrics = {
@@ -263,7 +265,7 @@ class MriMetricManager(MetricManager):
 
     # ---------------------------------------------------------------------------------------
     def on_train_step_end(self, loss, output, labels, rank, curr_lr, save_samples, epoch, ids):
-          
+
         x, y, y_degraded, y_2x, gmaps_median, noise_sigmas, signal_scale = labels
 
         y_hat, output_1st_net = self.parse_output(output)
@@ -282,7 +284,7 @@ class MriMetricManager(MetricManager):
                 metric_value = self.train_metric_functions[metric_name](y_hat, y_for_loss)
                 self.train_metrics[metric_name].update(metric_value.item(), n=x.shape[0])
 
-        if rank<=0 and self.wandb_run: 
+        if rank<=0 and self.wandb_run:
             self.wandb_run.log({"running_train/lr": curr_lr})
             for metric_name in self.train_metrics.keys():
                 if metric_name=='loss':
@@ -292,7 +294,7 @@ class MriMetricManager(MetricManager):
 
         # Save outputs if desired
         if save_samples and rank<=0:
-            save_path = os.path.join(self.config.log_dir,self.config.run_name,'saved_samples', 'tra')
+            save_path = os.path.join(self.config.checkpoint_dir,self.config.run_name,'saved_samples', 'tra')
             os.makedirs(save_path, exist_ok=True)
 
             if output_1st_net is not None: output_1st_net = output_1st_net.detach().cpu()
@@ -374,23 +376,27 @@ class MriMetricManager(MetricManager):
 
         # Save outputs if desired
         if save_samples and rank<=0:
-            save_path = os.path.join(self.config.log_dir,self.config.run_name,'saved_samples',split)
+            save_path = os.path.join(self.config.checkpoint_dir,self.config.run_name,'saved_samples',split)
             os.makedirs(save_path, exist_ok=True)
 
-            if output_1st_net is not None: 
+            if output_1st_net is not None:
                 output_1st_net = output_1st_net.detach().cpu()
                 output_1st_net *= noise_sigmas.cpu()
             self.save_batch_samples(save_path, f"{ids}", x.cpu(), y.cpu(), y_hat.detach().cpu(), y_for_loss.cpu(), y_degraded.cpu(), torch.mean(gmaps_median).item(), torch.mean(noise_sigmas).item(), output_1st_net)
 
         return caption, record
 
-    # ---------------------------------------------------------------------------------------        
-    def on_eval_epoch_end(self, rank, epoch, model_manager, optim, sched, split, final_eval):
+    # ---------------------------------------------------------------------------------------
+    def on_eval_epoch_end(self, rank, epoch, model_manager, optim, sched, split, final_eval, save_model):
         """
         Runs at the end of the evaluation loop
         """
-        save_path = os.path.join(self.config.log_dir, self.config.run_name)
-        logging.info(f"{Fore.YELLOW}--> epoch {epoch}, {split}, save path is {Fore.RED}{save_path}{Style.RESET_ALL}")
+        save_path = os.path.join(self.config.checkpoint_dir, self.config.run_name)
+        if rank <= 0:
+            logging.info(f"{Fore.YELLOW}--> epoch {epoch}, {split}, save path is {Fore.RED}{save_path}{Style.RESET_ALL}")
+
+        if self.config.ddp:
+            dist.barrier()
 
         # Directly compute metrics from saved predictions if using exact metrics
         if self.config.exact_metrics:
@@ -409,10 +415,19 @@ class MriMetricManager(MetricManager):
 
         average_metrics = dict()
         if self.config.ddp:
+            dist.barrier()
             for metric_name in self.eval_metrics.keys():
-                v = torch.tensor(self.eval_metrics[metric_name].avg).to(device=self.device)
-                dist.all_reduce(v, op=torch.distributed.ReduceOp.AVG)
-                average_metrics[metric_name] = v.item()
+                try:
+                    v = torch.tensor(self.eval_metrics[metric_name].avg).to(device=self.device)
+                    dist_obj = dist.all_reduce(v, op=torch.distributed.ReduceOp.AVG, async_op=True)
+                    if dist_obj:
+                        dist_obj.wait(timedelta(seconds=180))
+                    v = v.cpu().numpy().item()
+                except Exception as e:
+                    print(e)
+                    logging.info(f"{Fore.RED}--> epoch {epoch}, {split}, on_eval_step_end, all reduce failed, fall back to per GPU metric...{Style.RESET_ALL}")
+                    v = self.eval_metrics[metric_name].avg
+                average_metrics[metric_name] = v
         else:
             average_metrics = {metric_name: self.eval_metrics[metric_name].avg for metric_name in self.eval_metrics.keys()}
 
@@ -424,14 +439,22 @@ class MriMetricManager(MetricManager):
         # if ddp, aggregate metrics
         if final_eval:
             if self.config.ddp:
+                dist.barrier()
                 world_size = int(os.environ["WORLD_SIZE"])
                 #print(f"--> epoch {epoch}, rank {rank}, world_size {world_size} ... ")
                 snr = self.eval_sample_metrics["input_snr"].vals
                 num = len(snr)
-                tensor_in = torch.tensor(snr, dtype=torch.float32, device=self.config.device)
-                tensor_out = torch.zeros(num * world_size, dtype=torch.float32, device=self.config.device)
-                dist.all_gather_into_tensor(tensor_out, tensor_in)
-                snr = tensor_out.cpu().numpy()
+                try:
+                    tensor_in = torch.tensor(snr, dtype=torch.float32, device=self.config.device)
+                    tensor_out = torch.zeros(num * world_size, dtype=torch.float32, device=self.config.device)
+                    dist_obj = dist.all_gather_into_tensor(tensor_out, tensor_in, async_op=True)
+                    if dist_obj:
+                            dist_obj.wait(timedelta(seconds=180))
+                    snr = tensor_out.cpu().numpy()
+                except Exception as e:
+                    print(e)
+                    logging.info(f"{Fore.RED}--> epoch {epoch}, {split}, final_eval, all reduce all_gather_into_tensor, falled ...{Style.RESET_ALL}")
+                    pass
                 #print(f"--> epoch {epoch}, rank {rank}, tensor_in {tensor_in.shape},  tensor_out {tensor_out.shape}, snr {snr.shape} ... ")
 
                 metrics = dict()
@@ -440,14 +463,23 @@ class MriMetricManager(MetricManager):
                         continue
 
                     v = self.eval_sample_metrics[metric_name].vals
-                    num = len(v)
-                    tensor_in = torch.tensor(v, dtype=torch.float32, device=self.config.device)
-                    tensor_out = torch.zeros(num * world_size, dtype=torch.float32, device=self.config.device)
-                    dist.all_gather_into_tensor(tensor_out, tensor_in)
-                    metrics[metric_name] = tensor_out.cpu().numpy()
+                    try:
+                        num = len(v)
+                        tensor_in = torch.tensor(v, dtype=torch.float32, device=self.config.device)
+                        tensor_out = torch.zeros(num * world_size, dtype=torch.float32, device=self.config.device)
+                        dist_obj = dist.all_gather_into_tensor(tensor_out, tensor_in, async_op=True)
+                        if dist_obj:
+                            dist_obj.wait(timedelta(seconds=180))
+                        metrics[metric_name] = tensor_out.cpu().numpy()
+                        print(f"final_eval, all reduce all_gather_into_tensor, rank {rank}, metrics[{metric_name}] is {metrics[metric_name]}")
+                    except Exception as e:
+                        print(e)
+                        logging.info(f"{Fore.RED}--> epoch {epoch}, {split}, final_eval, all reduce all_gather_into_tensor for {metric_name}, falled ...{Style.RESET_ALL}")
+                        metrics[metric_name] = v
             else:
                 snr = self.eval_sample_metrics["input_snr"].vals
-                np.save(os.path.join(save_path, f"final_{split}_snr.npy"), np.array(snr))
+                if rank <= 0:
+                    np.save(os.path.join(save_path, f"final_{split}_snr.npy"), np.array(snr))
 
                 metrics = dict()
                 for metric_name in self.eval_sample_metrics.keys():
@@ -467,26 +499,32 @@ class MriMetricManager(MetricManager):
                 title = f"{split}_epoch_{epoch}_snr_vs_{metric_name}"
                 if self.wandb_run: self.wandb_run.log({title: wandb.plot.scatter(table, "snr", metric_name, title=title)})
 
-                np.save(os.path.join(save_path, f"final_{split}_{metric_name}.npy"), np.array(metrics[metric_name]))
+                if rank <= 0:
+                    np.save(os.path.join(save_path, f"final_{split}_{metric_name}.npy"), np.array(metrics[metric_name]))
 
         # Checkpoint best models during training
-        if rank<=0: 
+        if rank<=0:
             if not final_eval:
                 # Determine whether to checkpoint this model
-                model_epoch = model_manager.module if self.config.ddp else model_manager 
+                model_epoch = model_manager.module if self.config.ddp else model_manager
                 checkpoint_model = False
                 if average_metrics['loss'] is not None and average_metrics['loss'] < self.best_val_loss:
                     self.best_val_loss = average_metrics['loss']
                     checkpoint_model = True
 
-                self.epoch_pre_model_file, self.epoch_backbone_model_file, self.epoch_post_model_file = model_epoch.save(os.path.join(save_path, f"checkpoint_epoch_{epoch}"), epoch, optim, sched) 
-                logging.info(f"--> val loss {average_metrics['loss']}, save model for epoch {epoch} to {self.epoch_pre_model_file}, {self.epoch_backbone_model_file}, {self.epoch_post_model_file}")
+                logging.info(f"--> {split} loss {average_metrics['loss']}")
+                if save_model:
+                    self.epoch_pre_model_file, self.epoch_backbone_model_file, self.epoch_post_model_file = model_epoch.save(os.path.join(save_path, f"checkpoint_epoch_{epoch}"), epoch, optim, sched)
+                    logging.info(f"--> {split}, save model for epoch {epoch} to {self.epoch_pre_model_file}, {self.epoch_backbone_model_file}, {self.epoch_post_model_file}")
 
                 # Save model and update best metrics
                 if checkpoint_model:
-                    self.best_pre_model_file, self.best_backbone_model_file, self.best_post_model_file = model_epoch.save(os.path.join(save_path, f"best_checkpoint_epoch_{epoch}"), epoch, optim, sched) 
                     if self.wandb_run: self.wandb_run.log({"epoch":epoch, "best_val_loss":self.best_val_loss})
-                    logging.info(f"--> val loss {self.best_val_loss}, save best model for epoch {epoch} to {self.best_pre_model_file}, {self.best_backbone_model_file}, {self.best_post_model_file}")
+                    logging.info(f"--> {split} best loss {self.best_val_loss}")
+
+                    if save_model:
+                        self.best_pre_model_file, self.best_backbone_model_file, self.best_post_model_file = model_epoch.save(os.path.join(save_path, f"best_checkpoint_epoch_{epoch}"), epoch, optim, sched)
+                        logging.info(f"--> {split}, save best model for epoch {epoch} to {self.best_pre_model_file}, {self.best_backbone_model_file}, {self.best_post_model_file}")
 
                 # Update wandb with eval metrics
                 for metric_name, avg_metric_eval in average_metrics.items():
@@ -504,7 +542,7 @@ class MriMetricManager(MetricManager):
                         bin_means, bin_sds, bin_edges, binnumber = compute_binned_mean_sd(x, y, min_x=min_x, max_x=max_x, bins=50)
                         fig, auc = plot_with_CI(x, y, min_x=min_x, max_x=max_x, bin_means=bin_means, bin_sds=bin_sds, bin_edges=bin_edges, xlabel='snr', ylabel=key_str, ylim=[0, 1])
                         fig.savefig(os.path.join(save_path, f"final_{split}_{key_str}_CI_{min_x}_{max_x}.png"), dpi=600)
-                        if self.wandb_run: 
+                        if self.wandb_run:
                             self.wandb_run.log({f"final_{split}_{key_str}_CI_{min_x}_{max_x}": wandb.Image(fig)})
                             self.wandb_run.summary[f"final_{split}_auc_{key_str}_{min_x}_{max_x}"] = auc
 
@@ -512,7 +550,7 @@ class MriMetricManager(MetricManager):
                         p = np.percentile(x[indices], [5, 95])
                         py = np.percentile(y[indices], [5, 95])
                         logging.info(f"--> compute auc, {split}, {key_str}, {min_x} to {max_x}, auc {auc:.4f}, x - {np.mean(x[indices]):.4f}+/-{np.std(x[indices]):.4f}, median {np.median(x[indices]):.4f}, 5-95% {p[0]:.4f}, {p[1]:.4f} ==== y - {np.mean(y[indices]):.4f}+/-{np.std(y[indices]):.4f}, median {np.median(y[indices]):.4f}, 5-95% {py[0]:.4f}, {py[1]:.4f}")
-                        if self.wandb_run: 
+                        if self.wandb_run:
                             self.wandb_run.summary[f"final_{split}_{key_str}_mean_{min_x}_to_{max_x}"] = np.mean(y[indices])
                             self.wandb_run.summary[f"final_{split}_{key_str}_std_{min_x}_to_{max_x}"] = np.std(y[indices])
                             self.wandb_run.summary[f"final_{split}_{key_str}_median_{min_x}_to_{max_x}"] = np.median(y[indices])
@@ -554,6 +592,9 @@ class MriMetricManager(MetricManager):
                 do_auc(x=x, y=y, min_x=5, max_x=10, key_str='psnr')
 
                 # -----------------------------------------------------
+        if self.config.ddp:
+            logging.info(f"{Fore.YELLOW}--> epoch {epoch}, {split}, rank {rank}, wait for the epoch eval to be completed ... {Style.RESET_ALL}")
+            dist.barrier()
 
     # ---------------------------------------------------------------------------------------
     def on_training_end(self, rank, epoch, model_manager, optim, sched, ran_training):
@@ -561,16 +602,16 @@ class MriMetricManager(MetricManager):
         Runs once when training finishes
         """
         if rank<=0: # main or master process
-            
+
             if ran_training:
                 # Log the best loss and metrics from the run and save final model
                 if self.wandb_run: self.wandb_run.summary["best_val_loss"] = self.best_val_loss
-                
-                model_epoch = model_manager.module if self.config.ddp else model_manager 
+
+                model_epoch = model_manager.module if self.config.ddp else model_manager
                 model_epoch.save('final_epoch', epoch, optim, sched)
 
-            # Finish the wandb run
-            if self.wandb_run: self.wandb_run.finish() 
+            print(f"--> Finish the wandb run")
+            if self.wandb_run and not self.config.cluster_mode: self.wandb_run.finish()
 
     # ---------------------------------------------------------------------------------------
     def save_batch_samples(self, saved_path, fname, x, y, output, y_2x, y_degraded, gmap_median, noise_sigma, output_1st_net):
@@ -627,7 +668,7 @@ class MriMetricManager(MetricManager):
             output = pred_im[:,:,0,:,:] + 1j * pred_im[:,:,1,:,:]
             nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_output_real.nii"))
             nib.save(nib.Nifti1Image(np.imag(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_output_imag.nii"))
-            nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_output.nii"))  
+            nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_output.nii"))
 
             output = y_degraded[:,:,0,:,:] + 1j * y_degraded[:,:,1,:,:]
             nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_degraded_real.nii"))
@@ -641,11 +682,11 @@ class MriMetricManager(MetricManager):
             nib.save(nib.Nifti1Image(np.imag(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_2x_imag.nii"))
             nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_2x.nii"))
 
-            if pred_im_1st_net is not None: 
+            if pred_im_1st_net is not None:
                 output = pred_im_1st_net[:,:,0,:,:] + 1j * pred_im_1st_net[:,:,1,:,:]
                 nib.save(nib.Nifti1Image(np.real(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_output_1st_net_real.nii"))
                 nib.save(nib.Nifti1Image(np.imag(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_output_1st_net_imag.nii"))
-                nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_output_1st_net.nii"))  
+                nib.save(nib.Nifti1Image(np.abs(output), affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_output_1st_net.nii"))
         else:
             x = noisy_im[:,:,0,:,:]
             gmap = noisy_im[:,:,1,:,:]
@@ -658,7 +699,7 @@ class MriMetricManager(MetricManager):
             hdr.set_data_shape(y_2x.shape)
             nib.save(nib.Nifti1Image(y_2x, affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_y_2x.nii"))
 
-            if pred_im_1st_net is not None: 
+            if pred_im_1st_net is not None:
                 nib.save(nib.Nifti1Image(pred_im_1st_net, affine=np.eye(4), header=hdr), os.path.join(saved_path, f"{fname}_output_1st_net.nii"))
 
         hdr.set_data_shape(gmap.shape)

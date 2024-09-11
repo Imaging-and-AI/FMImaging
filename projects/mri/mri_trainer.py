@@ -2,24 +2,20 @@
 Training and evaluation loops for MRI
 """
 
-import copy
 import numpy as np
 from time import time
 
 import os
 import sys
 import logging
-import pickle
 import json
 
 from colorama import Fore, Back, Style
-import nibabel as nib
 import cv2
 import wandb
 
 import torch
 import torch.nn as nn
-import torch.multiprocessing as mp
 import torch.distributed as dist
 
 from tqdm import tqdm
@@ -76,7 +72,7 @@ class MRITrainManager(TrainManager):
     MRI train manager
         - support MRI double net
     """
-    def __init__(self, config, train_sets, val_sets, test_sets, loss_f, model_manager, optim_manager, metric_manager):  
+    def __init__(self, config, train_sets, val_sets, test_sets, loss_f, model_manager, optim_manager, metric_manager):
         super().__init__(config, train_sets, val_sets, test_sets, loss_f, model_manager, optim_manager, metric_manager)
 
         # self.config.height = self.config.mri_height[-1]
@@ -105,11 +101,11 @@ class MRITrainManager(TrainManager):
         total_steps = compute_total_steps(config, total_num_samples)
         val_total_num_samples = sum([len(s) for s in self.val_sets])
 
-        logging.info(f"{rank_str}, total_steps for this run: {total_steps}, len(train_set) {[len(s) for s in self.train_sets]}, len(val_set) {[len(s) for s in self.val_sets]}, batch {config.batch_size}")
+        logging.info(f"{rank_str}, {config.date}, total_steps for this run: {total_steps}, len(train_set) {[len(s) for s in self.train_sets]}, len(val_set) {[len(s) for s in self.val_sets]}, batch {config.batch_size}")
 
         # -----------------------------------------------
 
-        logging.info(f"{rank_str}, {Style.BRIGHT}{Fore.RED}{Back.LIGHTWHITE_EX}RUN NAME - {config.run_name}{Style.RESET_ALL}")
+        logging.info(f"{rank_str}, {Style.BRIGHT}{Fore.RED}{Back.LIGHTWHITE_EX}RUN NAME - {config.run_name} -- rank {rank}, global_rank {global_rank} ... {Style.RESET_ALL}")
 
         # -----------------------------------------------
         if rank<=0:
@@ -128,17 +124,17 @@ class MRITrainManager(TrainManager):
             device = torch.device(f"cuda:{rank}")
             model_manager = self.model_manager.to(device)
             model_manager = DDP(model_manager, device_ids=[rank], find_unused_parameters=True)
-            if isinstance(self.train_sets,list): 
+            if isinstance(self.train_sets,list):
                 samplers = [DistributedSampler(train_set, shuffle=True) for train_set in self.train_sets]
-            else: 
+            else:
                 samplers = DistributedSampler(self.train_sets, shuffle=True)
             shuffle = False
         else:
             device = c.device
             model_manager = self.model_manager.to(device)
-            if isinstance(self.train_sets,list): 
+            if isinstance(self.train_sets,list):
                 samplers = [None] * len(self.train_sets)
-            else: 
+            else:
                 samplers = None
             shuffle = True
 
@@ -203,13 +199,13 @@ class MRITrainManager(TrainManager):
         # -----------------------------------------------
 
         if rank<=0: # main or master process
-            if c.ddp: 
+            if c.ddp:
                 setup_logger(self.config) # setup master process logging; I don't know if this needs to be here, it is also in setup.py
 
             if wandb_run is not None:
                 wandb_run.summary["trainable_params"] = c.trainable_params
                 wandb_run.summary["total_params"] = c.total_params
-                wandb_run.summary["total_mult_adds"] = c.total_mult_adds 
+                wandb_run.summary["total_mult_adds"] = c.total_mult_adds
 
                 wandb_run.summary["block_str"] = f"{block_str}"
                 wandb_run.summary["post_block_str"] = f"{post_block_str}"
@@ -241,7 +237,7 @@ class MRITrainManager(TrainManager):
         # -----------------------------------------------
 
         # Handle mix precision training
-        scaler = torch.cuda.amp.GradScaler(enabled=c.use_amp)
+        scaler = torch.amp.GradScaler('cuda', enabled=c.use_amp)
 
         # Zero gradient before training
         optim.zero_grad(set_to_none=True)
@@ -283,10 +279,14 @@ class MRITrainManager(TrainManager):
             image_save_step_size = int(total_iters // config.num_saved_samples)
             if image_save_step_size == 0: image_save_step_size = 1
 
+            pbar_step_size = round(total_iters/50)
+            if pbar_step_size == 0:
+                pbar_step_size = 1
+
             try:
                 # ----------------------------------------------------------------------------
                 for epoch in range(curr_epoch, c.num_epochs):
-                    logging.info(f"{Fore.GREEN}{'-'*20}Epoch:{epoch}/{c.num_epochs}, rank {rank} {'-'*20}{Style.RESET_ALL}")
+                    logging.info(f"{Fore.GREEN}{Back.WHITE}{Style.BRIGHT}{'-*-'*20} Epoch:{epoch}/{c.num_epochs}, {config.date}, local rank {rank}, global rank {global_rank} {'-*-'*20}{Style.RESET_ALL}")
 
                     model_manager.train()
                     if c.ddp: [train_loader.sampler.set_epoch(epoch) for train_loader in train_loaders]
@@ -302,201 +302,222 @@ class MRITrainManager(TrainManager):
                     train_snr_meter.reset()
 
                     # ----------------------------------------------------------------------------
-                    with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
-                        for idx in range(total_iters):
+                    pbar = tqdm(total=total_iters, bar_format=get_bar_format(), disable=(config.cluster_mode and rank>0), file=open(os.devnull, 'w'))
+                    #with tqdm(total=total_iters, bar_format=get_bar_format(), disable=(config.cluster_mode and rank>0)) as pbar:
+                    for idx in range(total_iters):
 
-                            # -------------------------------------------------------
-                            tm = start_timer(enable=c.with_timer)
+                        # -------------------------------------------------------
+                        tm = start_timer(enable=c.with_timer)
+                        loader_ind = idx % len(train_loader_iters)
+                        loader_outputs = next(train_loader_iters[loader_ind], None)
+                        while loader_outputs is None:
+                            del train_loader_iters[loader_ind]
                             loader_ind = idx % len(train_loader_iters)
                             loader_outputs = next(train_loader_iters[loader_ind], None)
-                            while loader_outputs is None:
-                                del train_loader_iters[loader_ind]
-                                loader_ind = idx % len(train_loader_iters)
-                                loader_outputs = next(train_loader_iters[loader_ind], None)
-                            data_type = train_set_type[loader_ind]
-                            x, y, y_degraded, y_2x, gmaps_median, noise_sigmas, signal_scaling = loader_outputs
-                            end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
+                        data_type = train_set_type[loader_ind]
+                        x, y, y_degraded, y_2x, gmaps_median, noise_sigmas, signal_scaling = loader_outputs
+                        end_timer(enable=c.with_timer, t=tm, msg="---> load batch took ")
 
-                            # -------------------------------------------------------
-                            tm = start_timer(enable=c.with_timer)
-                            y_for_loss = y
-                            if config.super_resolution:
-                                y_for_loss = y_2x
+                        # -------------------------------------------------------
+                        tm = start_timer(enable=c.with_timer)
+                        y_for_loss = y
+                        if config.super_resolution:
+                            y_for_loss = y_2x
 
-                            tm = start_timer(enable=c.with_timer)
-                            x = x.to(device=device)
-                            y_for_loss = y_for_loss.to(device)
-                            noise_sigmas = noise_sigmas.to(device)
-                            gmaps_median = gmaps_median.to(device)
+                        tm = start_timer(enable=c.with_timer)
+                        x = x.to(device=device)
+                        y_for_loss = y_for_loss.to(device)
+                        noise_sigmas = noise_sigmas.to(device)
+                        gmaps_median = gmaps_median.to(device)
 
-                            #print(noise_sigmas.detach().cpu().numpy())
+                        #print(noise_sigmas.detach().cpu().numpy())
 
-                            B, C, T, H, W = x.shape
+                        B, C, T, H, W = x.shape
 
-                            if c.weighted_loss_temporal:
-                                # compute temporal std
-                                if C == 3:
-                                    std_t = torch.std(torch.abs(y[:,0,:,:,:] + 1j * y[:,1,:,:,:]), dim=1)
-                                else:
-                                    std_t = torch.std(y(y[:,0,:,:,:], dim=1))
-
-                                weights_t = torch.mean(std_t, dim=(-2, -1)).to(device)
-
-                            # compute input snr
-                            #signal = torch.mean(torch.linalg.norm(y, dim=1, keepdim=True), dim=(1, 2, 3, 4)).to(device)
-                            #snr = signal / (noise_sigmas*gmaps_median)
-                            #snr = signal / gmaps_median
-                            #snr = snr.to(device)
-
+                        if c.weighted_loss_temporal:
+                            # compute temporal std
                             if C == 3:
-                                snr_map = torch.sqrt(x[:,0]*x[:,0] + x[:,1]*x[:,1]) / x[:,2]
+                                std_t = torch.std(torch.abs(y[:,0,:,:,:] + 1j * y[:,1,:,:,:]), dim=1)
                             else:
-                                snr_map = torch.abs(x[:,0] / x[:,2])
+                                std_t = torch.std(y(y[:,0,:,:,:], dim=1))
 
-                            snr = torch.mean(snr_map, dim=(1, 2, 3)).to(device)
+                            weights_t = torch.mean(std_t, dim=(-2, -1)).to(device)
 
-                            # base_snr : original snr in the clean patch
-                            # noise_sigmas: added noise
-                            # weighted_t: temporal/slice signal variation
+                        # compute input snr
+                        #signal = torch.mean(torch.linalg.norm(y, dim=1, keepdim=True), dim=(1, 2, 3, 4)).to(device)
+                        #snr = signal / (noise_sigmas*gmaps_median)
+                        #snr = signal / gmaps_median
+                        #snr = snr.to(device)
 
+                        if C == 3:
+                            snr_map = torch.sqrt(x[:,0]*x[:,0] + x[:,1]*x[:,1]) / x[:,2]
+                        else:
+                            snr_map = torch.abs(x[:,0] / x[:,2])
+
+                        snr = torch.mean(snr_map, dim=(1, 2, 3)).to(device)
+
+                        # base_snr : original snr in the clean patch
+                        # noise_sigmas: added noise
+                        # weighted_t: temporal/slice signal variation
+
+                        if c.weighted_loss_snr:
+                            beta_counter += 1
+                            base_snr = beta_snr * base_snr + (1-beta_snr) * torch.mean(snr).item()
+                            base_snr_t = base_snr / (1 - np.power(beta_snr, beta_counter))
+                        else:
+                            base_snr_t = -1
+
+                        noise_sigmas = torch.reshape(noise_sigmas, (B, 1, 1, 1, 1))
+
+                        with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
                             if c.weighted_loss_snr:
-                                beta_counter += 1
-                                base_snr = beta_snr * base_snr + (1-beta_snr) * torch.mean(snr).item()
-                                base_snr_t = base_snr / (1 - np.power(beta_snr, beta_counter))
+                                model_output = self.model_manager(x, snr, base_snr_t)
+                                output = model_output[0]
+                                weights = model_output[1]
+                                if c.weighted_loss_temporal:
+                                    weights *= weights_t
                             else:
-                                base_snr_t = -1
-
-                            noise_sigmas = torch.reshape(noise_sigmas, (B, 1, 1, 1, 1))
-
-                            with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
-                                if c.weighted_loss_snr:
-                                    model_output = self.model_manager(x, snr, base_snr_t)
+                                model_output = self.model_manager(x)
+                                if isinstance(model_output, tuple):
                                     output = model_output[0]
-                                    weights = model_output[1]
-                                    if c.weighted_loss_temporal:
-                                        weights *= weights_t
                                 else:
-                                    model_output = self.model_manager(x)
-                                    if isinstance(model_output, tuple):
-                                        output = model_output[0]
-                                    else:
-                                        output = model_output
-                                    if c.weighted_loss_temporal:
-                                        weights = weights_t
+                                    output = model_output
+                                if c.weighted_loss_temporal:
+                                    weights = weights_t
 
-                                if torch.isnan(torch.sum(output)):
-                                    continue
-
-                                if torch.sum(noise_sigmas).item() > 0:
-                                    if c.weighted_loss_snr or c.weighted_loss_temporal:
-                                        if c.weighted_loss_added_noise:
-                                            loss = loss_f(output*noise_sigmas, y_for_loss*noise_sigmas, weights=weights.to(device))
-                                        else:
-                                            loss = loss_f(output, y_for_loss, weights=weights.to(device))
-                                    else:
-                                        if c.weighted_loss_added_noise:
-                                            loss = loss_f(output*noise_sigmas, y_for_loss*noise_sigmas)
-                                        else:
-                                            loss = loss_f(output, y_for_loss)
-                                else:
-                                    if c.weighted_loss_snr or c.weighted_loss_temporal:
-                                        loss = loss_f(output, y_for_loss, weights=weights.to(device))
-                                    else:
-                                        loss = loss_f(output, y_for_loss)
-
-                                loss = loss / c.iters_to_accumulate
-
-                            end_timer(enable=c.with_timer, t=tm, msg="---> forward pass took ")
-
-                            # -------------------------------------------------------
-                            if torch.isnan(loss):
-                                logging.info(f"Warning - loss is nan ... ")
-                                optim.zero_grad()
+                            if torch.isnan(torch.sum(output)):
                                 continue
 
-                            tm = start_timer(enable=c.with_timer)
-                            scaler.scale(loss).backward()
-                            end_timer(enable=c.with_timer, t=tm, msg="---> backward pass took ")
+                            if torch.sum(noise_sigmas).item() > 0:
+                                if c.weighted_loss_snr or c.weighted_loss_temporal:
+                                    if c.weighted_loss_added_noise:
+                                        loss = loss_f(output*noise_sigmas, y_for_loss*noise_sigmas, weights=weights.to(device))
+                                    else:
+                                        loss = loss_f(output, y_for_loss, weights=weights.to(device))
+                                else:
+                                    if c.weighted_loss_added_noise:
+                                        loss = loss_f(output*noise_sigmas, y_for_loss*noise_sigmas)
+                                    else:
+                                        loss = loss_f(output, y_for_loss)
+                            else:
+                                if c.weighted_loss_snr or c.weighted_loss_temporal:
+                                    loss = loss_f(output, y_for_loss, weights=weights.to(device))
+                                else:
+                                    loss = loss_f(output, y_for_loss)
 
-                            # -------------------------------------------------------
-                            tm = start_timer(enable=c.with_timer)
-                            if (idx + 1) % c.iters_to_accumulate == 0 or (idx + 1 == total_iters):
-                                if(c.clip_grad_norm>0):
-                                    scaler.unscale_(optim)
-                                    nn.utils.clip_grad_norm_(self.model_manager.parameters(), c.clip_grad_norm)
+                            loss = loss / c.iters_to_accumulate
 
-                                scaler.step(optim)
-                                optim.zero_grad(set_to_none=True)
-                                scaler.update()
+                        end_timer(enable=c.with_timer, t=tm, msg="---> forward pass took ")
 
-                                if c.scheduler_type == "OneCycleLR": sched.step()
-                            end_timer(enable=c.with_timer, t=tm, msg="---> other steps took ")
+                        # -------------------------------------------------------
+                        if torch.isnan(loss):
+                            logging.info(f"Warning - loss is nan ... ")
+                            optim.zero_grad()
+                            continue
 
-                            # -------------------------------------------------------
-                            tm = start_timer(enable=c.with_timer)
-                            curr_lr = optim.param_groups[0]['lr']
+                        tm = start_timer(enable=c.with_timer)
+                        scaler.scale(loss).backward()
+                        end_timer(enable=c.with_timer, t=tm, msg="---> backward pass took ")
 
-                            train_snr_meter.update(torch.mean(snr), n=x.shape[0])
+                        # -------------------------------------------------------
+                        tm = start_timer(enable=c.with_timer)
+                        if (idx + 1) % c.iters_to_accumulate == 0 or (idx + 1 == total_iters):
+                            if(c.clip_grad_norm>0):
+                                scaler.unscale_(optim)
+                                nn.utils.clip_grad_norm_(self.model_manager.parameters(), c.clip_grad_norm)
 
-                            tra_save_images = idx%image_save_step_size==0 and images_saved < config.num_saved_samples and config.save_train_samples
-                            self.metric_manager.on_train_step_end(loss.item(), model_output, loader_outputs, rank, curr_lr, tra_save_images, epoch, images_saved)
-                            images_saved += 1
+                            scaler.step(optim)
+                            optim.zero_grad(set_to_none=True)
+                            scaler.update()
 
-                            # -------------------------------------------------------
-                            pbar.update(1)
-                            log_str = self.create_log_str(config, epoch, rank, 
-                                            x.shape, 
-                                            torch.mean(gmaps_median).cpu().item(),
-                                            torch.mean(noise_sigmas).cpu().item(),
-                                            train_snr_meter.avg,
-                                            self.metric_manager,
-                                            curr_lr, 
-                                            "tra")
+                            if c.scheduler_type == "OneCycleLR" and sched.last_epoch < sched.total_steps:
+                                sched.step()
+                        end_timer(enable=c.with_timer, t=tm, msg="---> other steps took ")
 
-                            pbar.set_description_str(log_str)
+                        # -------------------------------------------------------
+                        tm = start_timer(enable=c.with_timer)
+                        curr_lr = optim.param_groups[0]['lr']
 
-                            # -------------------------------------------------------
-                            # log train samples
-                            # if rank<=0 and idx >= total_iters-num_iters_to_log_tra:
-                            #     title = f"tra_{idx}_{x.shape}"
-                            #     if output_1st_net is None: 
-                            #         output_1st_net = output
-                            #     vid = self.save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True), y_2x.numpy(force=True), output_1st_net.numpy(force=True))
-                            #     caption = self.metric_manager.compute_batch_statistics(x, output, y, gmaps_median, noise_sigmas)
-                            #     wandb_run.log({title: wandb.Video(vid, caption=f"epoch {epoch}, {idx} out of {total_iters}, {caption}", fps=1, format="gif")})
-                            # -------------------------------------------------------
-                            end_timer(enable=c.with_timer, t=tm, msg="---> epoch step logging and measuring took ")
-                        # ------------------------------------------------------------------------------------------------------
+                        train_snr_meter.update(torch.mean(snr), n=x.shape[0])
 
-                        # Run metric logging for each epoch 
-                        tm = start_timer(enable=c.with_timer) 
+                        tra_save_images = idx%image_save_step_size==0 and images_saved < config.num_saved_samples and config.save_train_samples
+                        self.metric_manager.on_train_step_end(loss.item(), model_output, loader_outputs, global_rank, curr_lr, tra_save_images, epoch, images_saved)
+                        images_saved += 1
 
-                        self.metric_manager.on_train_epoch_end(self.model_manager, optim, sched, epoch, rank)
+                        # -------------------------------------------------------
+                        if idx%pbar_step_size==0 or idx==total_iters-1:
+                            if not pbar.disable:
+                                pbar.n = idx+1
+                                log_str = self.create_log_str(config, epoch, global_rank,
+                                                x.shape,
+                                                torch.mean(gmaps_median).cpu().item(),
+                                                torch.mean(noise_sigmas).cpu().item(),
+                                                train_snr_meter.avg,
+                                                self.metric_manager,
+                                                curr_lr,
+                                                "tra")
 
-                        # Print out metrics from this epoch
-                        log_str = self.create_log_str(config, epoch, rank, 
-                                                    x.shape, 
-                                                    torch.mean(gmaps_median).cpu().item(),
-                                                    torch.mean(noise_sigmas).cpu().item(),
-                                                    train_snr_meter.avg,
-                                                    self.metric_manager,
-                                                    curr_lr, 
-                                                    "tra")
+                                pbar.set_description_str(log_str)
+                                logging.info(str(pbar))
 
-                        pbar.set_description(log_str)
-
-                        # Write training status to log file
-                        if rank<=0: 
-                            logging.getLogger("file_only").info(log_str)
-
-                        end_timer(enable=c.with_timer, t=tm, msg="---> epoch end logging and measuring took ")
+                        # -------------------------------------------------------
+                        # log train samples
+                        # if rank<=0 and idx >= total_iters-num_iters_to_log_tra:
+                        #     title = f"tra_{idx}_{x.shape}"
+                        #     if output_1st_net is None:
+                        #         output_1st_net = output
+                        #     vid = self.save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True), y_2x.numpy(force=True), output_1st_net.numpy(force=True))
+                        #     caption = self.metric_manager.compute_batch_statistics(x, output, y, gmaps_median, noise_sigmas)
+                        #     wandb_run.log({title: wandb.Video(vid, caption=f"epoch {epoch}, {idx} out of {total_iters}, {caption}", fps=1, format="gif")})
+                        # -------------------------------------------------------
+                        end_timer(enable=c.with_timer, t=tm, msg="---> epoch step logging and measuring took ")
                     # ------------------------------------------------------------------------------------------------------
 
-                    self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.train_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="tra_in_tra", split="tra_in_tra", final_eval=False, scaling_factor=1, ratio_to_eval=val_total_num_samples/total_num_samples)
+                    if config.ddp:
+                        logging.info(f"--> epoch {epoch}, rank {rank}, global_rank {global_rank}, sync after this epoch for all processes ... ")
+                        dist.barrier()
+
+                    # Run metric logging for each epoch
+                    tm = start_timer(enable=c.with_timer)
+
+                    self.metric_manager.on_train_epoch_end(self.model_manager, optim, sched, epoch, global_rank)
+
+                    # Print out metrics from this epoch
+                    log_str = self.create_log_str(config, epoch, global_rank,
+                                                x.shape,
+                                                torch.mean(gmaps_median).cpu().item(),
+                                                torch.mean(noise_sigmas).cpu().item(),
+                                                train_snr_meter.avg,
+                                                self.metric_manager,
+                                                curr_lr,
+                                                "tra")
+
+                    if not pbar.disable:
+                        pbar.set_description(log_str)
+                        logging.info(str(pbar))
+
+                    # Write training status to log file
+                    if global_rank<=0:
+                        logging.getLogger("file_only").info(log_str)
+
+                    end_timer(enable=c.with_timer, t=tm, msg="---> epoch end logging and measuring took ")
+
+                    if config.ddp:
+                        dist.barrier()
+
+                    logging.info(f"{Fore.YELLOW}==========> epoch {epoch}, rank {rank}, global_rank {global_rank}, train completed for this epoch ... <================{Style.RESET_ALL}")
+                    # ------------------------------------------------------------------------------------------------------
+
+                    logging.info(f"{Fore.YELLOW}---> epoch {epoch}, rank {rank}, global_rank {global_rank}, evaluate this epoch on tra_in_tra ... {Style.RESET_ALL}")
+                    self._eval_model(rank=rank, global_rank=global_rank, model_manager=model_manager, data_sets=self.train_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="tra_in_tra", split="tra_in_tra", final_eval=False, scaling_factor=1, ratio_to_eval=val_total_num_samples/total_num_samples, save_model=False)
+                    logging.info(f"{Fore.YELLOW}==========> epoch {epoch}, rank {rank}, global_rank {global_rank}, tra_in_tra completed for this epoch ... <================{Style.RESET_ALL}")
                     if rank <=0:
                         average_tra_in_tra_metrics = self.metric_manager.average_eval_metrics
 
-                    self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="val_in_tra", split="val", final_eval=False, scaling_factor=1, ratio_to_eval=1.0)
+                    logging.info(f"{Fore.YELLOW}---> epoch {epoch}, rank {rank}, global_rank {global_rank}, evaluate this epoch on val_in_tra ... {Style.RESET_ALL}")
+                    self._eval_model(rank=rank, global_rank=global_rank, model_manager=model_manager, data_sets=self.val_sets, epoch=epoch, device=device, optim=optim, sched=sched, id="val_in_tra", split="val", final_eval=False, scaling_factor=1, ratio_to_eval=1.0, save_model=True)
+                    logging.info(f"{Fore.YELLOW}==========> epoch {epoch}, rank {rank}, global_rank {global_rank}, val_in_tra completed for this epoch ... <================{Style.RESET_ALL}")
+
                     if rank <=0:
                         average_val_in_tra_metrics = self.metric_manager.average_eval_metrics
 
@@ -512,16 +533,16 @@ class MRITrainManager(TrainManager):
                             sched.step()
 
                         if c.ddp:
-                            self.distribute_learning_rates(rank, optim, src=0)
+                            self.distribute_learning_rates(global_rank, optim, src=0)
 
                 # ----------------------------------------------------------------------------
 
-                if rank <= 0:
-                    self.model_manager.save(os.path.join(self.config.log_dir, self.config.run_name, 'last_checkpoint'), epoch, optim, sched)
+                if global_rank <= 0:
+                    self.model_manager.save(os.path.join(self.config.checkpoint_dir, self.config.run_name, 'last_checkpoint'), epoch, optim, sched)
                     if wandb_run is not None:
-                        wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_pre.pth'))
-                        wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_backbone.pth'))
-                        wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_post.pth'))
+                        wandb_run.save(os.path.join(self.config.checkpoint_dir,self.config.run_name,'last_checkpoint_pre.pth'))
+                        wandb_run.save(os.path.join(self.config.checkpoint_dir,self.config.run_name,'last_checkpoint_backbone.pth'))
+                        wandb_run.save(os.path.join(self.config.checkpoint_dir,self.config.run_name,'last_checkpoint_post.pth'))
 
                 # Load the best model from training
                 if self.config.eval_train_set or self.config.eval_val_set or self.config.eval_test_set:
@@ -534,20 +555,20 @@ class MRITrainManager(TrainManager):
                         if self.metric_manager.best_pre_model_file is not None: wandb_run.save(self.metric_manager.best_pre_model_file)
                         if self.metric_manager.best_backbone_model_file is not None: wandb_run.save(self.metric_manager.best_backbone_model_file)
                         if self.metric_manager.best_post_model_file is not None: wandb_run.save(self.metric_manager.best_post_model_file)
-                else: 
+                else:
                     epoch = 0
 
             except KeyboardInterrupt:
 
-                logging.info(f"{Fore.YELLOW}Interrupted from the keyboard at epoch {epoch} ...{Style.RESET_ALL}", flush=True)
+                logging.info(f"{Fore.YELLOW}Interrupted from the keyboard at epoch {epoch} ...{Style.RESET_ALL}")
 
-                logging.info(f"{Fore.YELLOW}Save current model ...{Style.RESET_ALL}", flush=True)
+                logging.info(f"{Fore.YELLOW}Save current model ...{Style.RESET_ALL}")
 
-                self.model_manager.save(os.path.join(self.config.log_dir, self.config.run_name, 'last_checkpoint'), epoch, optim, sched)
+                self.model_manager.save(os.path.join(self.config.checkpoint_dir, self.config.run_name, 'last_checkpoint'), epoch, optim, sched)
                 if wandb_run is not None:
-                    wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_pre.pth'))
-                    wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_backbone.pth'))
-                    wandb_run.save(os.path.join(self.config.log_dir,self.config.run_name,'last_checkpoint_post.pth'))
+                    wandb_run.save(os.path.join(self.config.checkpoint_dir,self.config.run_name,'last_checkpoint_pre.pth'))
+                    wandb_run.save(os.path.join(self.config.checkpoint_dir,self.config.run_name,'last_checkpoint_backbone.pth'))
+                    wandb_run.save(os.path.join(self.config.checkpoint_dir,self.config.run_name,'last_checkpoint_post.pth'))
 
                 # Load the best model from training
                 if self.config.eval_train_set or self.config.eval_val_set or self.config.eval_test_set:
@@ -561,23 +582,25 @@ class MRITrainManager(TrainManager):
                         if self.metric_manager.best_backbone_model_file is not None: wandb_run.save(self.metric_manager.best_backbone_model_file)
                         if self.metric_manager.best_post_model_file is not None: wandb_run.save(self.metric_manager.best_post_model_file)
 
-                logging.info(f"{Fore.YELLOW}Continue to evaluate current model ...{Style.RESET_ALL}", flush=True)
+                logging.info(f"{Fore.YELLOW}Continue to evaluate current model ...{Style.RESET_ALL}")
 
         # -----------------------------------------------
         # Evaluate models of each split
-        if self.config.eval_train_set: 
-            logging.info(f"{Fore.CYAN}----> Evaluating the best model on the train set ... <----{Style.RESET_ALL}")
-            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.train_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="train", split="train_in_final", final_eval=True, scaling_factor=1, ratio_to_eval=self.config.ratio_to_eval)
-        if self.config.eval_val_set: 
-            logging.info(f"{Fore.CYAN}----> Evaluating the best model on the val set ... <----{Style.RESET_ALL}")
-            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.val_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="val", split="val_in_final", final_eval=True, scaling_factor=1, ratio_to_eval=1.0)
-        if self.config.eval_test_set: 
-            logging.info(f"{Fore.CYAN}----> Evaluating the best model on the test set ... <----{Style.RESET_ALL}")
-            self._eval_model(rank=rank, model_manager=model_manager, data_sets=self.test_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="test", split="test", final_eval=True, scaling_factor=1, ratio_to_eval=1.0)
-
+        try:
+            if self.config.eval_train_set:
+                logging.info(f"{Fore.YELLOW}=================> Evaluating the best model on the train set ... <================={Style.RESET_ALL}")
+                self._eval_model(rank=rank, global_rank=global_rank, model_manager=model_manager, data_sets=self.train_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="train", split="train_in_final", final_eval=True, scaling_factor=1, ratio_to_eval=self.config.ratio_to_eval, save_model=False)
+            if self.config.eval_val_set:
+                logging.info(f"{Fore.RED}=================> Evaluating the best model on the val set ... <================={Style.RESET_ALL}")
+                self._eval_model(rank=rank, global_rank=global_rank, model_manager=model_manager, data_sets=self.val_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="val", split="val_in_final", final_eval=True, scaling_factor=1, ratio_to_eval=1.0, save_model=False)
+            if self.config.eval_test_set:
+                logging.info(f"{Fore.LIGHTRED_EX}=================> Evaluating the best model on the test set ... <================={Style.RESET_ALL}")
+                self._eval_model(rank=rank, global_rank=global_rank, model_manager=model_manager, data_sets=self.test_sets, epoch=self.config.num_epochs, device=device, optim=optim, sched=sched, id="test", split="test", final_eval=True, scaling_factor=1, ratio_to_eval=1.0, save_model=False)
+        except:
+            logging.info(f"{Fore.YELLOW}Errors during evaluation ...{Style.RESET_ALL}")
         # -----------------------------------------------
 
-        if rank <= 0 and self.config.train_model:
+        if global_rank <= 0 and self.config.train_model:
             save_path, save_file_name, config_yaml_file = self.model_manager.save_entire_model(epoch=self.config.num_epochs)
             model_loaded, config_loaded = load_model(os.path.join(save_path, save_file_name+'.pth'))
             model_full_path = os.path.join(save_path, save_file_name+'.pth')
@@ -590,26 +613,27 @@ class MRITrainManager(TrainManager):
         # -----------------------------------------------
 
         # Finish up training
-        self.metric_manager.on_training_end(rank, epoch, model_manager, optim, sched, self.config.train_model)
+        self.metric_manager.on_training_end(global_rank, epoch, model_manager, optim, sched, self.config.train_model)
 
         if c.ddp:
             dist.barrier()
-        print(f"--> run finished ...")
+        logging.info(f"{Fore.RED}--> rank {rank}, global_rank {global_rank}, RUN FINISHED ... <--{Style.RESET_ALL}")
+        exit(0)
 
     # =============================================================================================================================
 
-    def _eval_model(self, rank, model_manager, data_sets, epoch, device, optim, sched, id, split, final_eval, scaling_factor=1, ratio_to_eval=1.0):
+    def _eval_model(self, rank, global_rank, model_manager, data_sets, epoch, device, optim, sched, id, split, final_eval, scaling_factor=1, ratio_to_eval=1.0, save_model=True):
 
         c = self.config
         curr_lr = optim.param_groups[0]['lr']
 
         # ------------------------------------------------------------------------
-        # Determine if we will save the predictions to files for thie eval 
-        if 'tra' in split: 
+        # Determine if we will save the predictions to files for thie eval
+        if 'tra' in split:
             save_samples = final_eval and self.config.save_train_samples
-        elif 'val' in split: 
+        elif 'val' in split:
             save_samples = final_eval and self.config.save_val_samples
-        elif split=='test': 
+        elif split=='test':
             save_samples = final_eval and self.config.save_test_samples
             self.config.num_uploaded *= 8
         else: raise ValueError(f"Unknown split {split} specified, should be in [train/tra, val, test]")
@@ -629,7 +653,7 @@ class MRITrainManager(TrainManager):
                 shuffle = True
 
         # ------------------------------------------------------------------------
-        # Set up data loader to evaluate        
+        # Set up data loader to evaluate
         batch_size = c.batch_size if isinstance(data_sets[0], MRIDenoisingDatasetTrain) else 1
         num_workers_per_loader = c.num_workers // (2 * len(data_sets))
 
@@ -648,15 +672,15 @@ class MRITrainManager(TrainManager):
         # ------------------------------------------------------------------------
         self.metric_manager.on_eval_epoch_start()
 
-        if rank<=0:
+        if global_rank<=0:
             wandb_run = self.metric_manager.wandb_run
         else:
             wandb_run = None
-        
+
         # ------------------------------------------------------------------------
         model_manager.eval()
         # ------------------------------------------------------------------------
-        if rank <= 0 and epoch < 1:
+        if global_rank <= 0 and epoch < 1:
             logging.info(f"Eval height and width is {c.mri_height[-1]}, {c.mri_width[-1]}")
 
         cutout = (c.time, c.mri_height[-1], c.mri_width[-1])
@@ -670,162 +694,178 @@ class MRITrainManager(TrainManager):
         if ratio_to_eval < 1:
             total_iters = int(total_iters*ratio_to_eval)
             total_iters = 1 if total_iters < 1 else total_iters
-            logging.info(f"Eval {ratio_to_eval*100:.1f}% of total data ... ")
+            if global_rank <= 0:
+                logging.info(f"Eval {ratio_to_eval*100:.1f}% of total data ... ")
 
         # ------------------------------------------------------------------------
 
         images_logged = 0
 
+        if c.ddp and c.cluster_mode:
+            pbar_step_size = round(total_iters/20)
+        else:
+            pbar_step_size = round(total_iters/10)
+
+        if pbar_step_size == 0:
+            pbar_step_size = 1
+
         # ------------------------------------------------------------------------
         # Evaluation loop
         with torch.inference_mode():
-            with tqdm(total=total_iters, bar_format=get_bar_format()) as pbar:
+            pbar = tqdm(total=total_iters, bar_format=get_bar_format(), disable=(self.config.cluster_mode and rank>0), file=open(os.devnull, 'w'))
+            #with tqdm(total=total_iters, bar_format=get_bar_format(), disable=(self.config.cluster_mode and rank>0)) as pbar:
 
-                for idx in range(total_iters):
+            for idx in range(total_iters):
 
+                loader_ind = idx % len(data_loader_iters)
+                loader_outputs = next(data_loader_iters[loader_ind], None)
+                while loader_outputs is None:
+                    del data_loader_iters[loader_ind]
                     loader_ind = idx % len(data_loader_iters)
                     loader_outputs = next(data_loader_iters[loader_ind], None)
-                    while loader_outputs is None:
-                        del data_loader_iters[loader_ind]
-                        loader_ind = idx % len(data_loader_iters)
-                        loader_outputs = next(data_loader_iters[loader_ind], None)
-                    x, y, y_degraded, y_2x, gmaps_median, noise_sigmas, signal_scaling = loader_outputs
+                x, y, y_degraded, y_2x, gmaps_median, noise_sigmas, signal_scaling = loader_outputs
 
-                    gmaps_median = gmaps_median.to(device=device, dtype=x.dtype)
-                    noise_sigmas = noise_sigmas.to(device=device, dtype=x.dtype)
+                gmaps_median = gmaps_median.to(device=device, dtype=x.dtype)
+                noise_sigmas = noise_sigmas.to(device=device, dtype=x.dtype)
 
-                    B = x.shape[0]
-                    noise_sigmas = torch.reshape(noise_sigmas, (B, 1, 1, 1, 1))
+                B = x.shape[0]
+                noise_sigmas = torch.reshape(noise_sigmas, (B, 1, 1, 1, 1))
 
-                    #print(noise_sigmas.detach().cpu().numpy())
+                if self.config.super_resolution:
+                    y = y_2x
 
-                    if self.config.super_resolution:
-                        y = y_2x
+                x = x.to(device)
+                y = y.to(device)
 
-                    x = x.to(device)
-                    y = y.to(device)
-
-                    if batch_size >1 and (x.shape[-1]==c.mri_width[-1] or x.shape[-1]==c.mri_width[0]):
-                        output = self.model_manager(x)
-                        if isinstance(output, tuple):
-                            output_1st_net = output[1]
-                            output = output[0]
-                        else:
-                            output_1st_net = None
+                if batch_size >1 and (x.shape[-1]==c.mri_width[-1] or x.shape[-1]==c.mri_width[0]):
+                    output = self.model_manager(x)
+                    if isinstance(output, tuple):
+                        output_1st_net = output[1]
+                        output = output[0]
                     else:
-                        B, C, T, H, W = x.shape
-
-                        x = torch.permute(x, (0, 2, 1, 3, 4))
-
-                        if self.config.scale_by_signal:
-                            signal_scaling_factor = np.ones(B)
-                            for b in range(B):
-                                a_x = x[b, :, :2, :, :]
-                                a_x_mag = torch.sqrt(a_x[0]*a_x[0] + a_x[1]*a_x[1])
-                                signal_scaling_factor[b] = np.percentile(a_x_mag.cpu().numpy(), 95)
-                                x[b, :, :2, :, :] /= signal_scaling_factor[b]
-
-                        cutout_in = cutout
-                        overlap_in = overlap
-                        if not self.config.pad_time:
-                            cutout_in = (T, c.mri_height[-1], c.mri_width[-1])
-                            overlap_in = (0, c.mri_height[-1]//2, c.mri_width[-1]//2)
-
-                        if scaling_factor > 0:
-                            x *= scaling_factor
-
-                        try:
-                            _, output = running_inference(self.model_manager, x, cutout=cutout_in, overlap=overlap_in, device=device)
-                            output_1st_net = None
-                        except:
-                            logging.info(f"{Fore.YELLOW}---> call inference on cpu ...")
-                            _, output = running_inference(self.model_manager, x, cutout=cutout_in, overlap=overlap_in, device="cpu")
-                            y = y.to("cpu")
-
-                        if self.config.scale_by_signal:
-                            for b in range(B):
-                                output[b, :, :, :, :] *= signal_scaling_factor[b]
-
-                        x = torch.permute(x, (0, 2, 1, 3, 4))
-                        output = torch.permute(output, (0, 2, 1, 3, 4))
-
-                        if scaling_factor > 0:
-                            output /= scaling_factor
-
-                    # compute loss
-                    with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
-                        loss = loss_f(output, y)
-
-                    # Update evaluation metrics
-                    caption, _ = self.metric_manager.on_eval_step_end(loss.item(), (output, output_1st_net), loader_outputs, f"{idx}", rank, save_samples, split)
-
-                    if rank<=0:
-                        if images_logged < self.config.num_uploaded and wandb_run is not None:
-                            images_logged += 1
-                            title = f"{id.upper()}_{images_logged}_{x.shape}"
-                            if output_1st_net is None: 
-                                output_1st_net = output
-                            vid = self.save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True), y_2x.numpy(force=True), output_1st_net.numpy(force=True))
-                            wandb_run.log({title: wandb.Video(vid, caption=f"epoch {epoch}, {caption}", fps=1, format="gif")})
-
-                    # Print evaluation metrics to terminal
-                    pbar.update(1)
-
-                    log_str = self.create_log_str(self.config, epoch, rank, 
-                                                x.shape, 
-                                                torch.mean(gmaps_median).cpu().item(),
-                                                torch.mean(noise_sigmas).cpu().item(),
-                                                -1,
-                                                self.metric_manager,
-                                                curr_lr, 
-                                                split)
-
-                    pbar.set_description(log_str)
-
-                # Update evaluation metrics 
-                self.metric_manager.on_eval_epoch_end(rank, epoch, model_manager, optim, sched, split, final_eval)
-
-                # Print evaluation metrics to terminal
-                log_str = self.create_log_str(self.config, epoch, rank, 
-                                                x.shape, 
-                                                torch.mean(gmaps_median).cpu().item(),
-                                                torch.mean(noise_sigmas).cpu().item(),
-                                                -1,
-                                                self.metric_manager,
-                                                curr_lr, 
-                                                split)
-
-                
-                if hasattr(self.metric_manager, 'average_eval_metrics'):
-                    #print(f"--> rank {rank}, self.metric_manager.average_eval_metrics : {self.metric_manager.average_eval_metrics}")
-                    pbar_str = f"--> rank {rank}, {split}, epoch {epoch}"
-                    if isinstance(self.metric_manager.average_eval_metrics, dict):
-                        for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
-                            try: 
-                                pbar_str += f", {Fore.CYAN} {metric_name} {metric_value:.4f}"
-                            except: 
-                                pass
-
-                        # Save final evaluation metrics to a text file
-                        if final_eval and rank<=0:
-                            for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
-                                if wandb_run is not None: wandb_run.summary[f"{split}_{metric_name}"] = metric_value
-
-                            metric_file = os.path.join(self.config.log_dir,self.config.run_name, f'{split}_metrics.json')
-                            with open(metric_file, 'w', encoding='utf-8') as f:
-                                json.dump(self.metric_manager.average_eval_metrics, f, ensure_ascii=True, indent=4)
-                            if wandb_run is not None: wandb_run.save(metric_file)
-
-                    pbar_str += f"{Style.RESET_ALL}"
+                        output_1st_net = None
                 else:
-                    pbar_str = log_str
+                    B, C, T, H, W = x.shape
 
+                    x = torch.permute(x, (0, 2, 1, 3, 4))
+
+                    if self.config.scale_by_signal:
+                        signal_scaling_factor = np.ones(B)
+                        for b in range(B):
+                            a_x = x[b, :, :2, :, :]
+                            a_x_mag = torch.sqrt(a_x[0]*a_x[0] + a_x[1]*a_x[1])
+                            signal_scaling_factor[b] = np.percentile(a_x_mag.cpu().numpy(), 95)
+                            x[b, :, :2, :, :] /= signal_scaling_factor[b]
+
+                    cutout_in = cutout
+                    overlap_in = overlap
+                    if not self.config.pad_time:
+                        cutout_in = (T, c.mri_height[-1], c.mri_width[-1])
+                        overlap_in = (0, c.mri_height[-1]//2, c.mri_width[-1]//2)
+
+                    if scaling_factor > 0:
+                        x *= scaling_factor
+
+                    try:
+                        _, output = running_inference(self.model_manager, x, cutout=cutout_in, overlap=overlap_in, device=device)
+                        output_1st_net = None
+                    except:
+                        logging.info(f"{Fore.YELLOW}---> call inference on cpu ...")
+                        _, output = running_inference(self.model_manager, x, cutout=cutout_in, overlap=overlap_in, device="cpu")
+                        y = y.to("cpu")
+
+                    if self.config.scale_by_signal:
+                        for b in range(B):
+                            output[b, :, :, :, :] *= signal_scaling_factor[b]
+
+                    x = torch.permute(x, (0, 2, 1, 3, 4))
+                    output = torch.permute(output, (0, 2, 1, 3, 4))
+
+                    if scaling_factor > 0:
+                        output /= scaling_factor
+
+                # compute loss
+                with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=c.use_amp):
+                    loss = loss_f(output, y)
+
+                # Update evaluation metrics
+                caption, _ = self.metric_manager.on_eval_step_end(loss.item(), (output, output_1st_net), loader_outputs, f"{idx}", global_rank, save_samples, split)
+
+                if global_rank<=0:
+                    if images_logged < self.config.num_uploaded and wandb_run is not None:
+                        images_logged += 1
+                        title = f"{id.upper()}_{images_logged}_{x.shape}"
+                        if output_1st_net is None:
+                            output_1st_net = output
+                        vid = self.save_image_batch(c.complex_i, x.numpy(force=True), output.numpy(force=True), y.numpy(force=True), y_2x.numpy(force=True), output_1st_net.numpy(force=True))
+                        wandb_run.log({title: wandb.Video(vid, caption=f"epoch {epoch}, {caption}", fps=1, format="gif")})
+
+                if idx%pbar_step_size==0 or idx==total_iters-1:
+                    if not pbar.disable:
+                        pbar.n = idx+1
+                        log_str = self.create_log_str(self.config, epoch, global_rank,
+                                                    x.shape,
+                                                    torch.mean(gmaps_median).cpu().item(),
+                                                    torch.mean(noise_sigmas).cpu().item(),
+                                                    -1,
+                                                    self.metric_manager,
+                                                    curr_lr,
+                                                    split)
+                        pbar.set_description(log_str)
+                        logging.info(str(pbar))
+            # -------------------------------------------------------
+
+            if self.config.ddp:
+                logging.info(f"--> epoch {epoch}, rank {rank}, global_rank {global_rank}, sync after eval for all processes ... ")
+                dist.barrier()
+
+            # Update evaluation metrics
+            self.metric_manager.on_eval_epoch_end(global_rank, epoch, model_manager, optim, sched, split, final_eval, save_model)
+
+            # Print evaluation metrics to terminal
+            log_str = self.create_log_str(self.config, epoch, global_rank,
+                                            x.shape,
+                                            torch.mean(gmaps_median).cpu().item(),
+                                            torch.mean(noise_sigmas).cpu().item(),
+                                            -1,
+                                            self.metric_manager,
+                                            curr_lr,
+                                            split)
+
+            if hasattr(self.metric_manager, 'average_eval_metrics'):
+                #print(f"--> rank {rank}, self.metric_manager.average_eval_metrics : {self.metric_manager.average_eval_metrics}")
+                pbar_str = f"--> global_rank {global_rank}, rank {rank}, {split}, epoch {epoch}"
+                if isinstance(self.metric_manager.average_eval_metrics, dict):
+                    for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
+                        try:
+                            pbar_str += f", {Fore.CYAN} {metric_name} {metric_value:.4f}"
+                        except:
+                            pass
+
+                    # Save final evaluation metrics to a text file
+                    if (final_eval and global_rank<=0) or (final_eval and not self.config.ddp):
+                        for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
+                            if wandb_run is not None: wandb_run.summary[f"{split}_{metric_name}"] = metric_value
+
+                        metric_file = os.path.join(self.config.checkpoint_dir, self.config.run_name, f'{split}_metrics.json')
+                        logging.info(f"---> Save the metric file {Fore.GREEN}{metric_file}{Style.RESET_ALL} <---")
+                        with open(metric_file, 'w', encoding='utf-8') as f:
+                            json.dump(self.metric_manager.average_eval_metrics, f, ensure_ascii=True, indent=4)
+                        if wandb_run is not None: wandb_run.save(metric_file)
+
+                pbar_str += f"{Style.RESET_ALL}"
+            else:
+                pbar_str = log_str
+
+            if not pbar.disable:
                 pbar.set_description(pbar_str)
+                logging.info(str(pbar))
 
-                if rank<=0: 
-                    logging.getLogger("file_only").info(pbar_str)
-        return 
+            if global_rank<=0:
+                logging.getLogger("file_only").info(pbar_str)
+        return
 
+    # -------------------------------------------------------------------------------------------------
 
     def create_log_str(self, config, epoch, rank, data_shape, gmap_median, noise_sigma, snr, loss_meters, curr_lr, role):
         if data_shape is not None:
@@ -860,7 +900,6 @@ class MRITrainManager(TrainManager):
             f"{data_str}, l1 {l1:.3f}, perp {perp:.3f}, vgg {vgg:.3f}, gaussian {gaussian:.3f}, gaussian3D {gaussian3D:.3f}, spec {spec:.3f}, dwt {dwt:.3f}, ssim3D {ssim3D:.3f}, charb {charb:.3f} {Style.RESET_ALL}{lr_str}"
 
         return str
-  
 
     # -------------------------------------------------------------------------------------------------
 
@@ -931,7 +970,7 @@ class MRITrainManager(TrainManager):
         max_col = 16
         if B>max_col:
             num_row = B//max_col
-            if max_col*num_row < B: 
+            if max_col*num_row < B:
                 num_row += 1
             composed_res = np.zeros((T, 5*H*num_row, max_col*W))
             for b in range(B):
@@ -949,7 +988,7 @@ class MRITrainManager(TrainManager):
                 a_composed_res = np.clip(a_composed_res, a_min=0.5*np.median(a_composed_res), a_max=np.percentile(a_composed_res, 90))
                 temp = np.zeros_like(a_composed_res)
                 composed_res[:,:,c*W:(c+1)*W] = cv2.normalize(a_composed_res, temp, 0, 255, norm_type=cv2.NORM_MINMAX)
-        
+
         elif B>2:
             composed_res = np.zeros((T, 5*H, B*W))
             for b in range(B):
@@ -988,7 +1027,7 @@ class MRITrainManager(TrainManager):
 
 # -------------------------------------------------------------------------------------------------
 def tests():
-    pass    
+    pass
 
 if __name__=="__main__":
     tests()

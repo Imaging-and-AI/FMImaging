@@ -43,6 +43,7 @@ class mri_parser(object):
         # Noise Augmentation arguments
         self.parser.add_argument("--min_noise_level", type=float, default=2.0, help='minimum noise sigma to add')
         self.parser.add_argument("--max_noise_level", type=float, default=24.0, help='maximum noise sigma to add')
+        self.parser.add_argument("--max_noise_level_for_val", type=float, default=0.0, help='maximum noise sigma to add for validation; if <=0, use the max_noise_level')
         self.parser.add_argument('--matrix_size_adjust_ratio', type=float, nargs='+', default=[0.35, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0], help='down/upsample the image, keeping the fov')
         self.parser.add_argument('--kspace_filter_sigma', type=float, nargs='+', default=[0.5, 0.8, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5], help='sigma for kspace filter')
         self.parser.add_argument('--kspace_T_filter_sigma', type=float, nargs='+', default=[0.25, 0.5, 0.65, 0.85, 1.0, 1.5, 2.0, 2.25, 3.0], help='sigma for T filter')
@@ -115,5 +116,4 @@ class mri_parser(object):
         self.parser.add_argument('--ratio_to_eval', type=float, default=0.2, help='ratio to evaluate in tra')
         self.parser.add_argument("--num_saved_samples", type=int, default=32, help='number of samples to save')
         self.parser.add_argument("--model_type", type=str, default="STCNNT_MRI", choices=["STCNNT_MRI", "MRI_hrnet", "MRI_double_net", "omnivore_MRI"],  help="STCNNT_MRI or MRI_hrnet, MRI_double_net, omnivore_MRI")
-
-    
+        self.parser.add_argument("--find_and_load_checkpoint", action="store_true", help='if set and load_path is None, the run will try to find and load latest check point.')

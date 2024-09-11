@@ -7,12 +7,15 @@ import argparse
 import itertools
 import subprocess
 import os
+import fnmatch
+import re
 import shutil
 import pickle
 import copy
 import itertools
 import time
 from colorama import Fore, Back, Style
+import torch
 
 from pathlib import Path
 
@@ -37,16 +40,33 @@ class run_ddp_base(object):
         self.project = project
         self.script_to_run = script_to_run
         self.cmd = []
-        
+        self.log_dir = []
+
     def set_up_torchrun(self, config):
+
+        if config.cluster_mode and "MASTER_ADDR" in os.environ:
+            print(f"{Fore.YELLOW}---> Cluster model ... Use the environmental variables to set the torchrun ...")
+            if "MASTER_ADDR" in os.environ:
+                config.rdzv_endpoint = os.environ["MASTER_ADDR"]
+            if "MASTER_PORT" in os.environ:
+                config.master_port = os.environ["MASTER_PORT"]
+            if "RANK" in os.environ:
+                config.node_rank = os.environ["RANK"]
+        print(f"---> nnodes is {config.nnodes}, rdzv_endpoint is {config.rdzv_endpoint}, master_port is {config.master_port}, node_rank is {config.node_rank}{Style.RESET_ALL}")
+
         self.cmd = ["torchrun"]
+
+        if config.nproc_per_node > torch.cuda.device_count():
+            print(f"{Fore.RED}Input nproc_per_node {config.nproc_per_node} is higher than device_count {torch.cuda.device_count()}; set nproc_per_node to be the device count ... {Style.RESET_ALL}")
+            config.nproc_per_node = torch.cuda.device_count()
 
         self.cmd.extend(["--nproc_per_node", f"{config.nproc_per_node}", "--max_restarts", "1", "--master_port", f"{config.master_port}"])
 
-        if config.standalone:
+        if config.standalone or config.nnodes == 1:
+            print(f"{Fore.YELLOW}---> nnodes is 1, enable the standalone mode ... {Style.RESET_ALL}")
             self.cmd.extend(["--standalone"])
         else:
-            self.cmd.extend(["--nnodes", config.nnodes, 
+            self.cmd.extend(["--nnodes", f"{config.nnodes}", 
                         "--node_rank", f"{config.node_rank}", 
                         "--rdzv_id", f"{config.rdzv_id}", 
                         "--rdzv_backend", f"{config.rdzv_backend}", 
@@ -54,12 +74,15 @@ class run_ddp_base(object):
 
         self.cmd.extend([self.script_to_run])
 
-    
     def set_up_run_path(self, config):
         if "FMIMAGING_PROJECT_BASE" in os.environ:
             project_base_dir = os.environ['FMIMAGING_PROJECT_BASE']
+        elif "AMLT_OUTPUT_DIR" in os.environ:
+            project_base_dir = os.environ['AMLT_OUTPUT_DIR']
         else:
-            project_base_dir = '/export/Lab-Xue/projects'
+            project_base_dir = os.environ['HOME']
+
+        print(f"{Fore.YELLOW}project_base_dir is {project_base_dir}{Style.RESET_ALL}")
 
         # unchanging paths
 
@@ -78,11 +101,22 @@ class run_ddp_base(object):
 
         data_root = config.data_root if config.data_root is not None else os.path.join(project_base_dir, config.project, "data")
         log_root = config.log_root if config.log_root is not None else os.path.join(project_base_dir, config.project, "logs")
+        checkpoint_root = config.checkpoint_root if config.checkpoint_root is not None else os.path.join(project_base_dir, config.project, "logs")
+
+        wandb_dir = config.wandb_dir if config.wandb_dir is not None else os.path.join(project_base_dir, config.project, "wandb")
 
         self.cmd.extend([
             "--data_dir", data_root,
-            "--log_dir", log_root
+            "--log_dir", log_root,
+            "--checkpoint_dir", checkpoint_root, 
+            "--wandb_dir", wandb_dir
         ])
+
+        # buffer log directory, in case to find check points
+        self.log_dir = log_root
+        self.checkpoint_dir = checkpoint_root
+
+        print(f"{Fore.YELLOW}IMPORTANT PATHES{Style.RESET_ALL} --- data_dir: {data_root}, log_dir: {log_root}, checkpoint_dir: {checkpoint_root}, wandb_dir: {wandb_dir}")
 
         if config.with_timer:
             self.cmd.extend(["--with_timer"])
@@ -128,7 +162,6 @@ class run_ddp_base(object):
             "--scale_ratio_in_mixer", f"{scale_ratio_in_mixer}",
             "--stride_s", f"{config.stride_s}",
             "--stride_t", f"{config.stride_t}",
-            "--wandb_dir", f"{config.wandb_dir}",
             "--override"
         ])
 
@@ -140,7 +173,7 @@ class run_ddp_base(object):
  
         if bk=='STCNNT_UNET': 
             cmd_run.extend(["--backbone_unet.C", f"{c}",
-                            "--backbone_unet.use_unet_attention", "1",
+                            "--backbone_unet.use_unet_attention", "0",
                             "--backbone_unet.use_interpolation", "1",
                             "--backbone_unet.with_conv", "1",
                             "--backbone_unet.num_resolution_levels", "2"
@@ -227,6 +260,10 @@ class run_ddp_base(object):
         if config.use_amp:
             cmd_run.extend(["--use_amp"])
 
+        if config.cluster_mode:
+            cmd_run.extend(["--cluster_mode"])
+            cmd_run.extend(["--find_and_load_checkpoint"])
+            
         if config.separable_conv:
             cmd_run.extend(["--separable_conv"])
 
@@ -246,7 +283,8 @@ class run_ddp_base(object):
         "--summary_depth", "6",
         "--device", "cuda",
         "--ddp", 
-        "--project", config.project
+        "--project", config.project,
+        "--wandb_entity", config.wandb_entity
         ])
 
     def set_up_variables(self, config):
@@ -275,6 +313,24 @@ class run_ddp_base(object):
                     ]
 
         return vars
+
+    def find_newest_checkpoint(self, run_dir, pattern):
+        if not os.path.isdir(run_dir):
+            return None
+
+        candidates = fnmatch.filter(os.listdir(run_dir), pattern)
+        if candidates:
+            last_epoch = 0
+            checkpoint = None
+            for c in candidates:
+                numbers = re.findall(r'\d+', c)
+                if int(numbers[0]) > last_epoch:
+                    last_epoch = int(numbers[0])
+                    checkpoint = c
+
+            return checkpoint
+        else:
+            return None
 
     def run_vars(self, config, vars):
 
@@ -338,14 +394,16 @@ class run_ddp_base(object):
         parser = argparse.ArgumentParser(prog=self.project)
 
         parser.add_argument("--project", type=str, default="mri", help="project name")
+        parser.add_argument("--wandb_entity", type=str, default="biomed-signal-processing", help="wandb entity")
 
         parser.add_argument("--data_root", type=str, default=None, help="data folder; if None, use the project folder")
         parser.add_argument("--log_root", type=str, default=None, help="log folder; if None, use the project folder")
-        parser.add_argument("--wandb_dir", type=str, default='/export/Lab-Xue/projects/mri/wandb', help='directory for saving wandb')
+        parser.add_argument("--checkpoint_root", type=str, default=None, help="checkpoint folder; if None, use the project folder")
+        parser.add_argument("--wandb_dir", type=str, default=None, help='directory for saving wandb')
 
         parser.add_argument("--standalone", action="store_true", help='whether to run in the standalone mode')
         parser.add_argument("--nproc_per_node", type=int, default=4, help="number of processes per node")
-        parser.add_argument("--nnodes", type=str, default="1", help="number of nodes")
+        parser.add_argument("--nnodes", type=int, default=1, help="number of nodes")
         parser.add_argument("--node_rank", type=int, default=0, help="current node rank")
         parser.add_argument("--master_port", type=int, default=9050, help="torchrun port")
         parser.add_argument("--rdzv_id", type=int, default=100, help="run id")
@@ -375,7 +433,7 @@ class run_ddp_base(object):
         parser.add_argument("--test_ratio", type=float, default=100, help="percentage of test data used")
 
         parser.add_argument("--stride_s", type=int, default=1, help='stride for spatial attention, q and k (equal x and y)') 
-        parser.add_argument("--stride_t", type=int, default=2, help='stride for temporal attention, q and k (equal x and y)') 
+        parser.add_argument("--stride_t", type=int, default=1, help='stride for temporal attention, q and k (equal x and y)') 
         parser.add_argument("--separable_conv", action="store_true", help='if set, use separable conv')
 
         parser.add_argument("--scheduler_type", type=none_or_str, default="OneCycleLR", choices=["ReduceLROnPlateau", "StepLR", "OneCycleLR", None], help='Which LR scheduler to use')
@@ -395,11 +453,11 @@ class run_ddp_base(object):
 
         parser.add_argument("--save_samples", action="store_true", help='if set, save test samples.')
 
-        parser.add_argument("--ut_mode", action="store_true", help='if set, this run is for unit test.')
+        parser.add_argument("--cluster_mode", action="store_true", help='if set, this run is for preemptible cluster training, the log directory is fixed.')
 
         parser.add_argument('--scheduler_factor', type=float, default=0.9, help="LR reduction factor, multiplication")
 
-        parser.add_argument("--norm_mode", type=str, default="instance2d", help='normalization mode, batch2d, instance2d, batch3d, instance3d')
+        parser.add_argument("--norm_mode", type=str, default="instance2d", help='normalization mode, layer, batch2d, instance2d, batch3d, instance3d')
 
         parser.add_argument("--backbone_C", type=int, default=64, help='backbone channels')
 
@@ -438,8 +496,22 @@ class run_ddp_base(object):
             print(f"{Fore.GREEN}{cmd_run}{Style.RESET_ALL}")
             print("--" * 20)
             print(f"Running command:\n{Fore.WHITE}{Back.BLUE}{' '.join(cmd_run)}{Style.RESET_ALL}")
-            time.sleep(3)
-            subprocess.run(cmd_run)
+
+            if config.cluster_mode:
+                for t in range(24):
+                    try:
+                        print(f"Cluster mode - launch the run {t} ...")
+                        time.sleep(60)
+                        subprocess.run(cmd_run, check=True)
+                        break
+                    except:
+                        print(f"FAILED - trial {t} - running command:\n{Fore.WHITE}{Back.RED}{' '.join(cmd_run)}{Style.RESET_ALL}")
+                        if t == 23:
+                            print(f"{Fore.RED}This run was failed, after multiple attempts ... exit with status 1 ... {Style.RESET_ALL}")
+                            exit(1)
+            else:
+                subprocess.run(cmd_run, check=True)
+
             print("===" * 20)
 
             # run_completed = []
@@ -450,6 +522,9 @@ class run_ddp_base(object):
             # run_completed.append(cmd_run)
             # with open(self.run_record, 'wb') as f:
                 #     pickle.dump(run_completed, f)
+
+        print(f"{Fore.GREEN}All run_lists are completed with success ... {Style.RESET_ALL}")
+        exit(0)
 
 # -------------------------------------------------------------
 

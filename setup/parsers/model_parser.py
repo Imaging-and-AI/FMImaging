@@ -49,8 +49,8 @@ class model_parser(object):
         self.parser.add_argument("--block_dense_connection", type=int, default=1, help='whether to add dense connections between cells in a block')
         self.parser.add_argument("--a_type", type=str, default="conv", choices=['conv', 'lin'], help='type of attention in the spatial attention modules')
         self.parser.add_argument("--mixer_type", type=str, default="conv", choices=['conv', 'lin'], help='conv or lin, type of mixer in the spatial attention modules; only conv is possible for the temporal attention')
-        self.parser.add_argument("--window_size", nargs='+', type=int, default=[64, 64], help='size of window for spatial attention. This is the number of pixels in a window. Given image height and weight H and W, number of windows is H/windows_size * W/windows_size')
-        self.parser.add_argument("--patch_size", nargs='+', type=int, default=[16, 16], help='size of patch for spatial attention. This is the number of pixels in a patch. An image is first split into windows. Every window is further split into patches.')
+        self.parser.add_argument("--window_size", nargs='+', type=int, default=[16, 16], help='size of window for spatial attention. This is the number of pixels in a window. Given image height and weight H and W, number of windows is H/windows_size * W/windows_size')
+        self.parser.add_argument("--patch_size", nargs='+', type=int, default=[2, 2], help='size of patch for spatial attention. This is the number of pixels in a patch. An image is first split into windows. Every window is further split into patches.')
         self.parser.add_argument("--window_sizing_method", type=str, default="mixed", choices=['mixed', 'keep_window_size', 'keep_num_window'], help='method to adjust window_size between resolution levels, "keep_window_size", "keep_num_window", "mixed".\
                                     "keep_window_size" means number of pixels in a window is kept after down/upsample the image; \
                                     "keep_num_window" means the number of windows is kept after down/upsample the image; \
@@ -60,7 +60,7 @@ class model_parser(object):
         self.parser.add_argument("--stride", type=int, default=1, help='stride for CNN (equal x and y)')
         self.parser.add_argument("--padding", type=int, default=1, help='padding for CNN (equal x and y)')
         self.parser.add_argument("--stride_s", type=int, default=1, help='stride for spatial attention, q and k (equal x and y)') 
-        self.parser.add_argument("--stride_t", type=int, default=2, help='stride for temporal attention, q and k (equal x and y)') 
+        self.parser.add_argument("--stride_t", type=int, default=1, help='stride for temporal attention, q and k (equal x and y)') 
         self.parser.add_argument("--separable_conv", action="store_true", help='if set, use separable conv')
         self.parser.add_argument("--mixer_kernel_size", type=int, default=5, help='conv kernel size for the mixer')
         self.parser.add_argument("--mixer_stride", type=int, default=1, help='stride for the mixer')

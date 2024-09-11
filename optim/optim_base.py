@@ -180,17 +180,15 @@ class OptimManager(object):
             self.sched = optim.lr_scheduler.ReduceLROnPlateau(self.optim, mode="min", factor=c.scheduler.factor,
                                                                     patience=c.scheduler.patience, 
                                                                     cooldown=c.scheduler.cooldown, 
-                                                                    min_lr=c.scheduler.min_lr,
-                                                                    verbose=True)
+                                                                    min_lr=c.scheduler.min_lr)
         elif c.scheduler_type == "StepLR":
             self.sched = optim.lr_scheduler.StepLR(self.optim, 
                                                    step_size=c.scheduler.step_size, 
                                                    gamma=c.scheduler.gamma, 
-                                                   last_epoch=-1,
-                                                   verbose=True)
+                                                   last_epoch=-1)
         elif c.scheduler_type == "OneCycleLR":
             self.sched = optim.lr_scheduler.OneCycleLR(self.optim, max_lr=c.optim.global_lr, total_steps=total_steps,
-                                                            pct_start=c.scheduler.pct_start, anneal_strategy="cos", verbose=False)
+                                                            pct_start=c.scheduler.pct_start, anneal_strategy="cos")
         elif c.scheduler_type is None:
             self.sched = None
         else:

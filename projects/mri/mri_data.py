@@ -902,11 +902,14 @@ def load_mri_data(config):
             train_set[-1].images = images
 
     kwargs["snr_perturb_prob"] = 0
+    kwargs["max_noise_level"] = c.max_noise_level_for_val if c.max_noise_level_for_val>0 else c.max_noise_level
+    logging.info(f"{Fore.GREEN}--> Set validation max noise level to be {kwargs['max_noise_level']} ...{Style.RESET_ALL}")
     val_set = [MRIDenoisingDatasetTrain(h5file=[h_file], keys=[val_keys[i]], max_load=c.max_load, 
                                         data_type=c.train_data_types[i], cutout_shape=[c.mri_height[-1], c.mri_width[-1]], **kwargs)
                                             for (i,h_file) in enumerate(h5files)]
 
     if c.test_files is None or c.test_files[0] is None: # no test case given so use some from train data
+        logging.info(f"{Fore.GREEN}--> Set validation max noise level to be {kwargs['max_noise_level']} ...{Style.RESET_ALL}")
         test_set = [MRIDenoisingDatasetTrain(h5file=[h_file], keys=[test_keys[i]], max_load=c.max_load, 
                                              data_type=c.train_data_types[i], cutout_shape=[c.mri_height[-1], c.mri_width[-1]], **kwargs)
                                                 for (i,h_file) in enumerate(h5files)]

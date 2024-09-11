@@ -13,6 +13,7 @@ from torchinfo import summary
 import torch.distributed as dist
 from collections import OrderedDict
 from colorama import Fore, Style
+from datetime import timedelta
 
 from pathlib import Path
 Project_DIR = Path(__file__).parents[1].resolve()
@@ -71,9 +72,9 @@ def setup_ddp():
     if not dist.is_initialized():
         torch.cuda.set_device(torch.device(f'cuda:{rank}'))
         if torch.cuda.is_available():
-            dist.init_process_group(backend=torch.distributed.Backend.NCCL, rank=global_rank, world_size=world_size)
+            dist.init_process_group(backend=torch.distributed.Backend.NCCL, rank=global_rank, world_size=world_size, timeout=timedelta(seconds=1800))
         else:
-            dist.init_process_group(backend=torch.distributed.Backend.GLOO, rank=global_rank, world_size=world_size)
+            dist.init_process_group(backend=torch.distributed.Backend.GLOO, rank=global_rank, world_size=world_size, timeout=timedelta(seconds=1800))
     
     # os.environ['MASTER_ADDR'] = 'localhost'
     # os.environ['MASTER_PORT'] = '12355'  
@@ -88,11 +89,18 @@ def setup_run(config):
     """
     # get current date
     now = datetime.now()
-    now = now.strftime("%H-%M-%S-%Y%m%d") # make sure in ddp, different nodes have the save file name
-    config.date = now
+    now_str = now.strftime("%H-%M-%S-%Y%m%d") # make sure in ddp, different nodes have the save file name
+    config.date = f"{now.microsecond}_{now_str}"
+
+    if config.ddp:
+        global_rank = int(os.environ["RANK"])
+        config.date = f"rank_{global_rank}_{now.microsecond}_{now_str}"
 
     # setup logging
     setup_logger(config)
+
+    os.makedirs(config.checkpoint_dir, exist_ok=True)
+    os.makedirs(os.path.join(config.checkpoint_dir, config.run_name), exist_ok=True)
 
     # create relevant directories
     os.makedirs(config.log_dir, exist_ok=True)
@@ -120,7 +128,7 @@ def setup_run(config):
         config.world_size = world_size
 
     if config.ddp: setup_ddp()
-    logging.info(f"Training on {config.device} with ddp set to {config.ddp}")
+    logging.info(f"Training on {config.device} with ddp set to {config.ddp}, date {config.date}")
 
 # -------------------------------------------------------------------------------------------------
 

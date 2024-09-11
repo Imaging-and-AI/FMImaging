@@ -131,7 +131,7 @@ class TrainManager(object):
                 setup_logger(self.config) # setup master process logging; I don't know if this needs to be here, it is also in setup.py
 
         # Handle mix precision training
-        scaler = torch.cuda.amp.GradScaler(enabled=c.use_amp)
+        scaler = torch.amp.GradScaler('cuda', enabled=c.use_amp)
 
         # Zero gradient before training
         optim.zero_grad(set_to_none=True)
@@ -356,6 +356,7 @@ class TrainManager(object):
                         # Save final evaluation metrics to a text file
                         if final_eval and rank<=0:
                             metric_file = os.path.join(self.config.log_dir,self.config.run_name,f'{split}_metrics.txt')
+                            logging.info(f"{split}, metric file is {metric_file}")
                             with open(metric_file, 'w') as f:
                                 for metric_name, metric_value in self.metric_manager.average_eval_metrics.items():
                                     try: f.write(f"{split}_{metric_name}: {metric_value:.4f}, ")
@@ -382,9 +383,9 @@ class TrainManager(object):
         else:
             rank = -1
             global_rank = -1
-            print(f"---> ddp is off <---", flush=True)
+            logging.info(f"---> ddp is off <---")
 
-        print(f"--------> run training on local rank {rank}", flush=True)
+        logging.info(f"--------> run training on local rank {rank}")
 
         # -------------------------------------------------------
         # initialize wandb
@@ -399,22 +400,22 @@ class TrainManager(object):
 
             # if rank<=0:
             #     c_list = [self.config]
-            #     print(f"{Fore.RED}--->before, on local rank {rank}, {c_list[0].run_name}{Style.RESET_ALL}", flush=True)
+            #     logging.info(f"{Fore.RED}--->before, on local rank {rank}, {c_list[0].run_name}{Style.RESET_ALL}")
             # else:
             #     c_list = [None]
-            #     print(f"{Fore.RED}--->before, on local rank {rank}, {self.config.run_name}{Style.RESET_ALL}", flush=True)
+            #     logging.info(f"{Fore.RED}--->before, on local rank {rank}, {self.config.run_name}{Style.RESET_ALL}")
 
             # if world_size > 1:
             #     torch.distributed.broadcast_object_list(c_list, src=0, group=None, device=rank)
 
-            # print(f"{Fore.RED}--->after, on local rank {rank}, {c_list[0].run_name}{Style.RESET_ALL}", flush=True)
+            # logging.info(f"{Fore.RED}--->after, on local rank {rank}, {c_list[0].run_name}{Style.RESET_ALL}")
             # if rank>0:
             #     self.config = c_list[0]
 
-            # print(f"---> config synced for the local rank {rank}")
+            # logging.info(f"---> config synced for the local rank {rank}")
             # if world_size > 1: dist.barrier()
 
-            print(f"{Fore.RED}---> Ready to run on local rank {rank}, {self.config.run_name}{Style.RESET_ALL}", flush=True)
+            logging.info(f"{Fore.RED}---> Ready to run on local rank {rank}, {self.config.run_name}{Style.RESET_ALL}")
 
             self.config.device = torch.device(f'cuda:{rank}')
 
@@ -423,10 +424,10 @@ class TrainManager(object):
         try: 
             self._train_model(rank=rank, global_rank=global_rank)
 
-            print(f"{Fore.RED}---> Run finished on local rank {rank} <---{Style.RESET_ALL}", flush=True)
+            logging.info(f"{Fore.RED}---> Run finished on local rank {rank} <---{Style.RESET_ALL}")
 
         except KeyboardInterrupt:
-            print(f"{Fore.YELLOW}Interrupted from the keyboard ...{Style.RESET_ALL}", flush=True)
+            logging.info(f"{Fore.YELLOW}Interrupted from the keyboard ...{Style.RESET_ALL}")
 
             if self.config.ddp:
                 torch.distributed.destroy_process_group()
@@ -435,13 +436,13 @@ class TrainManager(object):
             clean_after_training()
 
             if self.metric_manager.wandb_run is not None: 
-                print(f"{Fore.YELLOW}Remove {self.metric_manager.wandb_run.name} ...{Style.RESET_ALL}", flush=True)
+                logging.info(f"{Fore.YELLOW}Remove {self.metric_manager.wandb_run.name} ...{Style.RESET_ALL}")
 
         # -------------------------------------------------------
         # after the run, release the process groups
         if self.config.ddp:
             if dist.is_initialized():
-                print(f"---> dist.destory_process_group on local rank {rank}", flush=True)
+                logging.info(f"---> dist.destory_process_group on local rank {rank}")
                 dist.destroy_process_group()
 
     # -------------------------------------------------------------------------------------------------
