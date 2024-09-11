@@ -107,7 +107,7 @@ class StandardAttention(nn.Module):
         # Compute attention matrix, use the matrix broadcasing 
         # https://pytorch.org/docs/stable/notes/broadcasting.html
         # (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
-        att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+        att = (q @ k.transpose(-2, -1)) * (1.0 / torch.sqrt(torch.tensor(k.size(-1))))
         
         # if causality is needed, apply the mask
         if(self.is_causal):

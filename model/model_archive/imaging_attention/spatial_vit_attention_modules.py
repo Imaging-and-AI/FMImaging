@@ -81,15 +81,15 @@ class SpatialViTAttention(CnnAttentionBase):
         if a_type=="conv":
             # key, query, value projections convolution
             # Wk, Wq, Wv
-            self.key = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_qk, padding=padding, bias=False, separable_conv=self.separable_conv)
-            self.query = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_qk, padding=padding, bias=False, separable_conv=self.separable_conv)
-            self.value = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=False, separable_conv=self.separable_conv)
+            self.key = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_qk, padding=padding, bias=True, separable_conv=self.separable_conv)
+            self.query = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_qk, padding=padding, bias=True, separable_conv=self.separable_conv)
+            self.value = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True, separable_conv=self.separable_conv)
         elif a_type=="lin":
             # linear projections
             num_pixel_win = self.window_size[0]*self.window_size[1]
-            self.key = LinearGridExt(C_in*num_pixel_win, C_out*num_pixel_win, bias=False)
-            self.query = LinearGridExt(C_in*num_pixel_win, C_out*num_pixel_win, bias=False)
-            self.value = LinearGridExt(C_in*num_pixel_win, C_out*num_pixel_win, bias=False)
+            self.key = LinearGridExt(C_in*num_pixel_win, C_out*num_pixel_win, bias=True)
+            self.query = LinearGridExt(C_in*num_pixel_win, C_out*num_pixel_win, bias=True)
+            self.value = LinearGridExt(C_in*num_pixel_win, C_out*num_pixel_win, bias=True)
         else:
             raise NotImplementedError(f"Attention type not implemented: {a_type}")
 
@@ -124,7 +124,7 @@ class SpatialViTAttention(CnnAttentionBase):
                 k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
                 q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
 
-            att = q @ k.transpose(-2, -1) * torch.tensor(1.0 / math.sqrt(hc))
+            att = q @ k.transpose(-2, -1) * torch.sqrt(torch.tensor(1.0/hc))
 
         end_timer(enable=self.with_timer, t=tm, msg="att")
 
@@ -194,7 +194,7 @@ class SpatialViTAttention(CnnAttentionBase):
                     k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
                     q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
 
-                att = torch.einsum("BTWND, BTSND -> BTNWS", q, k) * torch.tensor(1.0 / math.sqrt(hc))
+                att = torch.einsum("BTWND, BTSND -> BTNWS", q, k) * torch.tensor(1.0 / torch.sqrt(torch.tensor(hc)))
                 end_timer(enable=self.with_timer, t=tm, msg="normalize_Q_K, BTWND, BTSND -> BTNWS")
 
             tm = start_timer(enable=self.with_timer)

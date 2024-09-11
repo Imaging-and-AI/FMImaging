@@ -15,7 +15,118 @@ from torch.nn import functional as F
 from attention_modules import *
 
 # -------------------------------------------------------------------------------------------------
-# Temporal attention layer. Attention is computed between images along dimension T.
+
+class TemporalChannelCnnAttention(CnnAttentionBase):
+    """
+    Multi-head cnn attention model for complete temporal attention, heads cut along channel
+    """
+    def __init__(self, C_in, C_out=16, H=128, W=128, is_causal=False, n_head=8, 
+                    kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), 
+                    stride_qk=(1,1), separable_conv=False, att_dropout_p=0.0, 
+                    cosine_att=False, normalize_Q_K=False, att_with_output_proj=True,
+                    use_einsum=False):
+        """
+        Defines the layer for a cnn self-attention on temporal axis
+
+        Input to the attention layer has the size [B, T, C, H, W]
+        Output has the size [B, T, output_channels, H', W']
+        Usually used with conv definition such that H',W' = H,W
+
+        Calculates attention using all the time points
+
+        @args:
+            - is_causal (bool): whether to mask attention to imply causality
+            - stride_qk (int, int): special stride for temporal attention k,q matrices
+        """
+        super().__init__(C_in=C_in, 
+                         C_out=C_out, 
+                         H=H, W=W,
+                         n_head=n_head, 
+                         kernel_size=kernel_size, 
+                         stride=stride, 
+                         separable_conv=separable_conv,
+                         padding=padding, 
+                         stride_qk=stride_qk,
+                         att_dropout_p=att_dropout_p, 
+                         cosine_att=cosine_att,
+                         normalize_Q_K=normalize_Q_K, 
+                         att_with_output_proj=att_with_output_proj)
+
+        self.is_causal = is_causal
+        self.stride_f = stride_qk[0]
+        self.use_einsum = use_einsum
+
+        assert self.C_out % self.n_head == 0, \
+            f"Number of output channel {self.C_out} should be divisible by number of heads {self.n_head}"
+
+        # key, query, value projections convolution
+        # Wk, Wq, Wv
+        self.key = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_qk, padding=padding, bias=True, separable_conv=self.separable_conv)
+        self.query = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_qk, padding=padding, bias=True, separable_conv=self.separable_conv)
+        self.value = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True, separable_conv=self.separable_conv)
+
+        self.register_buffer("mask", torch.tril(torch.ones(1000, 1000, dtype=torch.bool)).view(1, 1, 1000, 1000))
+
+    def attention(self, k, q, v):
+        B, T, C_prime, H_prime, W_prime = k.shape
+
+        hc = torch.div(C_prime, self.n_head, rounding_mode="floor")
+        Hv, Wv = v.shape[-2:]
+
+        k = k.view(B, T, self.n_head, hc, H_prime, W_prime).transpose(1, 2)
+        q = q.view(B, T, self.n_head, hc, H_prime, W_prime).transpose(1, 2)
+        v = v.view(B, T, self.n_head, hc, Hv, Wv).transpose(1, 2)
+
+        B, nh, T, hc, H_prime, W_prime = k.shape
+
+        q = q.view(B, nh, T, hc*H_prime*W_prime)
+        k = k.view(B, nh, T, hc*H_prime*W_prime)
+
+        # (B, nh, T, hc*H'*W') x (B, nh, hc*H'*W', T) -> (B, nh, T, T)
+        if self.cosine_att:
+            att = F.normalize(q, dim=-1) @ F.normalize(k, dim=-1).transpose(-2, -1)
+        else:
+            if self.normalize_Q_K:
+                eps = torch.finfo(k.dtype).eps
+                k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
+                q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
+
+            att = q @ k.transpose(-2, -1) / torch.sqrt(torch.tensor(1.0*hc*H_prime*W_prime))
+
+        if(self.is_causal):
+            att = att.masked_fill(self.mask[:,:,:T,:T] == 0, float("-inf"))
+
+        att = F.softmax(att, dim=-1)
+        att = self.attn_drop(att)
+
+        y = att @ v.view(B, nh, T, hc*Hv*Wv)
+        y = y.transpose(1, 2).contiguous().view(B, T, self.C_out, Hv, Wv)
+
+        return y
+
+    def forward(self, x):
+        """
+        @args:
+            x ([B, T, C, H, W]): Input of a batch of time series
+
+        @rets:
+            y ([B, T, C_out, H', W']): logits
+        """
+        B, T, C, H, W = x.size()
+
+        assert C == self.C_in, f"Input channel {C} does not match expected input channel {self.C_in}"
+
+        # apply the key, query and value matrix
+        k = self.key(x)
+        q = self.query(x)
+        v = self.value(x)
+
+        y = self.attention(k, q, v)
+
+        y = self.output_proj(y)
+
+        return y
+    
 
 class TemporalCnnStandardAttention(CnnAttentionBase):
     """
@@ -23,7 +134,7 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
     """
     def __init__(self, C_in, C_out=16, H=128, W=128, is_causal=False, n_head=8, 
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), 
-                    stride_qk=(2,2), separable_conv=False, att_dropout_p=0.0, 
+                    stride_qk=(1,1), separable_conv=False, att_dropout_p=0.0, 
                     cosine_att=False, normalize_Q_K=False, att_with_output_proj=True,
                     use_einsum=False):
         """
@@ -87,7 +198,7 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
                 k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
                 q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
 
-            att = (q @ k.transpose(-2, -1)) * torch.tensor(1.0 / math.sqrt(H))
+            att = (q @ k.transpose(-2, -1)) * torch.tensor(1.0 / torch.sqrt(torch.tensor(H)))
 
         if(self.is_causal):
             att = att.masked_fill(self.mask[:,:,:T,:T] == 0, float("-inf"))
@@ -123,7 +234,7 @@ class TemporalCnnStandardAttention(CnnAttentionBase):
                     k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
                     q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
 
-                att = torch.einsum("BTND, BKND -> BNTK", q, k) * torch.tensor(1.0 / math.sqrt(H))
+                att = torch.einsum("BTND, BKND -> BNTK", q, k) * torch.tensor(1.0 / torch.sqrt(torch.tensor(H)))
 
             if(self.is_causal):
                 att = att.masked_fill(self.mask[:,:,:T,:T] == 0, float("-inf"))
@@ -171,7 +282,7 @@ class TemporalCnnAttention(CnnAttentionBase):
     """
     def __init__(self, C_in, C_out=16, H=128, W=128, is_causal=False, n_head=8, \
                     kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), \
-                    stride_qk=(2,2), separable_conv=False, att_dropout_p=0.0, 
+                    stride_qk=(1,1), separable_conv=False, att_dropout_p=0.0, 
                     cosine_att=False, normalize_Q_K=False, att_with_output_proj=True):
         """
         Defines the layer for a cnn self-attention on temporal axis
@@ -208,9 +319,9 @@ class TemporalCnnAttention(CnnAttentionBase):
 
         # key, query, value projections convolution
         # Wk, Wq, Wv
-        self.key = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_qk, padding=padding, bias=False, separable_conv=self.separable_conv)
-        self.query = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_qk, padding=padding, bias=False, separable_conv=self.separable_conv)
-        self.value = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=False, separable_conv=self.separable_conv)
+        self.key = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_qk, padding=padding, bias=True, separable_conv=self.separable_conv)
+        self.query = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_qk, padding=padding, bias=True, separable_conv=self.separable_conv)
+        self.value = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True, separable_conv=self.separable_conv)
 
     def forward(self, x):
         """
@@ -239,7 +350,7 @@ class TemporalCnnAttention(CnnAttentionBase):
 
         ### START OF FLASH ATTENTION IMPLEMENTATION ###
         if self.cosine_att:
-            q = F.normalize(q,dim=-1) / torch.tensor(1.0 / math.sqrt(H))
+            q = F.normalize(q,dim=-1) / torch.tensor(1.0 / torch.sqrt(torch.tensor(H)))
             k = F.normalize(k,dim=-1)
         elif self.normalize_Q_K:
             eps = torch.finfo(k.dtype).eps
@@ -292,14 +403,14 @@ def tests():
                     temporal = TemporalCnnAttention(C, C_out=C_out, n_head=32, is_causal=causal, normalize_Q_K=normalize_Q_K, att_with_output_proj=att_with_output_proj, stride_qk=stride_qk).to(device=device)
                     test_out = temporal(test_in)
                     t1 = time.time()
-                    print(f"forward pass - {t1-t0} seconds")
+                    print(f"forward pass - {(t1-t0)*1000} ms")
 
                     t0 = time.time()
                     loss = nn.MSELoss()
                     mse = loss(test_in, test_out[:,:,:C,:,:])
                     mse.backward()
                     t1 = time.time()
-                    print(f"backward pass - {t1-t0} seconds")
+                    print(f"backward pass - {(t1-t0)*1000} ms")
 
                     Bo, To, Co, Ho, Wo = test_out.shape
                     assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
@@ -309,14 +420,31 @@ def tests():
                     temporal = TemporalCnnStandardAttention(C, C_out=C_out, is_causal=causal, normalize_Q_K=normalize_Q_K, att_with_output_proj=att_with_output_proj).to(device=device)
                     test_out = temporal(test_in)
                     t1 = time.time()
-                    print(f"forward pass - {t1-t0} seconds")
+                    print(f"forward pass - {(t1-t0)*1000} ms")
 
                     t0 = time.time()
                     loss = nn.MSELoss()
                     mse = loss(test_in, test_out[:,:,:C,:,:])
                     mse.backward()
                     t1 = time.time()
-                    print(f"backward pass - {t1-t0} seconds")
+                    print(f"backward pass - {(t1-t0)*1000} ms")
+
+                    Bo, To, Co, Ho, Wo = test_out.shape
+                    assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
+
+                    # --------------------------------------
+                    t0 = time.time()
+                    temporal = TemporalChannelCnnAttention(C, C_out=C_out, is_causal=causal, normalize_Q_K=normalize_Q_K, att_with_output_proj=att_with_output_proj).to(device=device)
+                    test_out = temporal(test_in)
+                    t1 = time.time()
+                    print(f"forward pass - {(t1-t0)*1000} ms")
+
+                    t0 = time.time()
+                    loss = nn.MSELoss()
+                    mse = loss(test_in, test_out[:,:,:C,:,:])
+                    mse.backward()
+                    t1 = time.time()
+                    print(f"backward pass - {(t1-t0)*1000} ms")
 
                     Bo, To, Co, Ho, Wo = test_out.shape
                     assert B==Bo and T==To and Co==C_out and H==Ho and W==Wo
@@ -350,10 +478,10 @@ def tests():
     test_out = temporal(test_in)
     print(f"test_out - {test_out[1,1,0,3,:]}")
 
-    test_out_GT = torch.tensor([-0.0083618164, -0.1445312500, -0.0568847656, -0.0600585938,
-        -0.0703125000, -0.1103515625, -0.0771484375, -0.0805664062,
-        -0.0515136719, -0.0712890625, -0.1176757812, -0.1054687500,
-        -0.0766601562, -0.1259765625, -0.0810546875, -0.0142211914])
+    test_out_GT = torch.tensor([-0.1503906250, -0.2480468750, -0.1562500000, -0.1708984375,
+        -0.1689453125, -0.2001953125, -0.1660156250, -0.2441406250,
+        -0.1845703125, -0.1601562500, -0.2500000000, -0.1865234375,
+        -0.1503906250, -0.1875000000, -0.1777343750, -0.2324218750])
 
     assert torch.allclose(test_out[1,1,0,3,:].cpu(), test_out_GT)
 
@@ -367,9 +495,16 @@ def tests():
 
 def benchmark():
 
+    import os
     from utils.benchmark import benchmark_all, benchmark_memory, pytorch_profiler
     from setup.setup_utils import set_seed
     from colorama import Fore, Style
+
+    from pathlib import Path
+
+    Current_DIR = Path(__file__).parents[0].resolve()
+    Model_DIR = Path(__file__).parents[1].resolve()
+    Project_DIR = Path(__file__).parents[2].resolve()
 
     set_seed(seed=53)
 
@@ -467,12 +602,34 @@ def benchmark():
 
     benchmark_memory(temporal, test_in, desc='TemporalCnnStandardAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
 
+    print(f"{Fore.GREEN}-------------> channel temporal attention <----------------------{Style.RESET_ALL}")
+    temporal = TemporalChannelCnnAttention(C_in=C, 
+                                    C_out=C_out, 
+                                    H=H, W=W,
+                                    n_head=16,
+                                    cosine_att=True,
+                                    normalize_Q_K=True, 
+                                    att_with_output_proj=False,
+                                    use_einsum=True)
+
+    temporal.to(device=device)
+
+    with torch.inference_mode():
+        y = temporal(test_in)
+
+    f, b, all2 = benchmark_all(temporal, test_in, grad=None, min_run_time=min_run_time, desc='TemporalChannelCnnAttention', verbose=True, amp=True, amp_dtype=torch.bfloat16)
+
+    benchmark_memory(temporal, test_in, desc='TemporalChannelCnnAttention', amp=True, amp_dtype=torch.bfloat16, verbose=True)
+
+    print(f"---" * 20)
+
     def loss(model, x):
         y = model(x)
         l = torch.sum(y)
         return l
 
-    pytorch_profiler(loss, temporal, test_in, trace_filename='/export/Lab-Xue/projects/mri/profiling/TemporalCnnAttention.json', backward=True, amp=True, amp_dtype=torch.bfloat16, cpu=False, verbose=True)
+    pytorch_profiler(loss, temporal, test_in, trace_filename=os.path.join(Project_DIR, 'profiling/TemporalCnnAttention.json'), backward=True, amp=True, amp_dtype=torch.bfloat16, cpu=False, verbose=True)
+
 
 if __name__=="__main__":
     tests()

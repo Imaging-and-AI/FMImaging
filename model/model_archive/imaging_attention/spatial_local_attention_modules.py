@@ -9,6 +9,7 @@ import math
 import sys
 import time
 import numpy as np
+from colorama import Fore, Back, Style
 
 import torch
 import torch.nn as nn
@@ -82,18 +83,20 @@ class SpatialLocalAttention(CnnAttentionBase):
         assert self.C_out*self.patch_size[0]*self.patch_size[1] % self.n_head == 0, \
             f"Number of pixels in a patch {self.C_out*self.patch_size[0]*self.patch_size[1]} should be divisible by number of heads {self.n_head}"
 
+        print(f"{Fore.GREEN}--> Spatial, local, win size {self.window_size}, patch size {self.patch_size}{Style.RESET_ALL}")
+
         if a_type=="conv":
             # key, query, value projections convolution
             # Wk, Wq, Wv
-            self.key = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_qk, padding=padding, bias=False, separable_conv=self.separable_conv)
-            self.query = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_qk, padding=padding, bias=False, separable_conv=self.separable_conv)
-            self.value = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=False, separable_conv=self.separable_conv)
+            self.key = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_qk, padding=padding, bias=True, separable_conv=self.separable_conv)
+            self.query = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride_qk, padding=padding, bias=True, separable_conv=self.separable_conv)
+            self.value = Conv2DExt(C_in, C_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True, separable_conv=self.separable_conv)
         elif a_type=="lin":
             # linear projections
             num_pixel_patch = self.patch_size[0]*self.patch_size[1]
-            self.key = LinearGridExt(C_in*num_pixel_patch, C_out*num_pixel_patch, bias=False)
-            self.query = LinearGridExt(C_in*num_pixel_patch, C_out*num_pixel_patch, bias=False)
-            self.value = LinearGridExt(C_in*num_pixel_patch, C_out*num_pixel_patch, bias=False)
+            self.key = LinearGridExt(C_in*num_pixel_patch, C_out*num_pixel_patch, bias=True)
+            self.query = LinearGridExt(C_in*num_pixel_patch, C_out*num_pixel_patch, bias=True)
+            self.value = LinearGridExt(C_in*num_pixel_patch, C_out*num_pixel_patch, bias=True)
         else:
             raise NotImplementedError(f"Attention type not implemented: {a_type}")
 
@@ -109,8 +112,9 @@ class SpatialLocalAttention(CnnAttentionBase):
         assert self.num_patch[1] == num_patch_w_per_win
 
         # format the window
-        hc = torch.div(C*ph*pw, self.n_head, rounding_mode="floor")
-        hc_v= torch.div(C*ph_v*pw_v, self.n_head, rounding_mode="floor")
+        # use torch.sym_... to support onnx conversion
+        hc = (C*ph*pw) // self.n_head
+        hc_v= (C*ph_v*pw_v) // self.n_head
 
         # k, q, v will be [B, T, num_win_h*num_win_w, self.n_head, num_patch_h_per_win*num_patch_w_per_win, hc]
         tm = start_timer(enable=self.with_timer)
@@ -129,7 +133,7 @@ class SpatialLocalAttention(CnnAttentionBase):
                 k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
                 q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
 
-            att = q @ k.transpose(-2, -1) * torch.tensor(1.0 / math.sqrt(hc))
+            att = q @ k.transpose(-2, -1) * torch.sqrt(torch.tensor(1.0/hc))
         end_timer(enable=self.with_timer, t=tm, msg="att")
 
         tm = start_timer(enable=self.with_timer)
@@ -204,7 +208,7 @@ class SpatialLocalAttention(CnnAttentionBase):
                     k = (k - torch.mean(k, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(k, dim=-1, keepdim=True) + eps) )
                     q = (q - torch.mean(q, dim=-1, keepdim=True)) / ( torch.sqrt(torch.var(q, dim=-1, keepdim=True) + eps) )
 
-                att = torch.einsum("BTWPND, BTWQND -> BTWNPQ", q, k) * torch.tensor(1.0 / math.sqrt(hc))
+                att = torch.einsum("BTWPND, BTWQND -> BTWNPQ", q, k) * torch.tensor(1.0 / torch.sqrt(torch.tensor(hc)))
                 end_timer(enable=self.with_timer, t=tm, msg="BTWPND, BTWQND -> BTWNPQ")
 
             tm = start_timer(enable=self.with_timer)

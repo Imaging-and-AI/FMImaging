@@ -57,7 +57,7 @@ class STCNNT_Cell(nn.Module):
                  kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), 
                  activation_func="prelu",
                  stride_s=(1,1), 
-                 stride_t=(2,2),
+                 stride_t=(1,1),
                  separable_conv=False,
                  mixer_kernel_size=(5, 5), mixer_stride=(1, 1), mixer_padding=(2, 2),
                  normalize_Q_K=False, 
@@ -182,7 +182,7 @@ class STCNNT_Cell(nn.Module):
                                                 att_dropout_p=att_dropout_p, 
                                                 att_with_output_proj=att_with_output_proj)
             else:
-                self.attn = TemporalCnnStandardAttention(C_in=C_in, C_out=C_out, H=self.H, W=self.W,
+                self.attn = TemporalChannelCnnAttention(C_in=C_in, C_out=C_out, H=self.H, W=self.W,
                                                 is_causal=is_causal, n_head=n_head, 
                                                 kernel_size=kernel_size, stride=stride, padding=padding, 
                                                 stride_qk=stride_t, separable_conv=separable_conv,
@@ -308,7 +308,7 @@ class STCNNT_Parallel_Cell(nn.Module):
                  mixer_type="conv",
                  window_size=None, patch_size=None, num_wind=[8, 8], num_patch=[4, 4], 
                  is_causal=False, n_head=8,
-                 kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), stride_s=(1,1), stride_t=(2,2),
+                 kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), stride_s=(1,1), stride_t=(1,1),
                  activation_func="prelu",
                  separable_conv=False,
                  mixer_kernel_size=(5, 5), mixer_stride=(1, 1), mixer_padding=(2, 2),
@@ -399,7 +399,7 @@ class STCNNT_Parallel_Cell(nn.Module):
                                                 att_dropout_p=att_dropout_p, 
                                                 att_with_output_proj=att_with_output_proj)
             else:
-                self.attn = TemporalCnnStandardAttention(C_in=C_in, C_out=C_out, 
+                self.attn = TemporalChannelCnnAttention(C_in=C_in, C_out=C_out, 
                                                 H=H, W=W,
                                                 is_causal=is_causal, n_head=n_head, 
                                                 kernel_size=kernel_size, stride=stride, padding=padding, 
@@ -447,7 +447,7 @@ class STCNNT_Parallel_Cell(nn.Module):
                                             att_with_output_proj=att_with_output_proj,
                                             use_einsum=self.use_einsum)
         elif(att_mode=="conv2d" or att_mode=="conv3d"):
-            self.attn = ConvolutionModule(conv_type=att_mode, C_in=C_in, C_out=C_out,
+            self.attn = ConvolutionModule(conv_type=att_mode, C_in=C_in, C_out=C_out, H=H, W=W, 
                                             kernel_size=kernel_size, stride=stride, padding=padding,
                                             separable_conv=separable_conv,
                                             norm_mode=norm_mode,
