@@ -116,7 +116,7 @@ class SingleTaskTrainingScheme(nn.Module):
         Forward pass of the training scheme
         """
         # Extract module from ddp 
-        model_module = model_manager.module if self.config.ddp else self.model_manager 
+        model_module = model_manager.module if self.config.ddp else model_manager 
 
         # Sample from dataloaders
         inputs, outputs, ids, task_name = self._sampler(idx, epoch, train_dataloaders, model_manager)

@@ -255,7 +255,7 @@ class ModelManager(nn.Module):
 
         os.makedirs(save_dir, exist_ok=True)
         full_save_path = os.path.join(save_dir, save_filename+'.pth')
-        logging.info(f"{Fore.YELLOW}Saving entire model at {full_save_path}{Style.RESET_ALL}")
+        logging.info(f"\n {Fore.YELLOW}Saving entire model at {full_save_path}{Style.RESET_ALL}")
         
         save_dict = {
             "epoch":epoch,
