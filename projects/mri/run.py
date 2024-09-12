@@ -10,6 +10,8 @@ from time import time
 import os
 import sys
 import logging
+import fnmatch
+import re
 
 from colorama import Fore, Back, Style
 import nibabel as nib
@@ -56,6 +58,26 @@ from mri_trainer import MRITrainManager, get_rank_str
 from inference import apply_model, load_model, apply_model_3D, load_model_pre_backbone_post
 
 # -------------------------------------------------------------------------------------------------
+
+def find_newest_checkpoint(run_dir, pattern):
+    if not os.path.isdir(run_dir):
+        return None
+
+    candidates = fnmatch.filter(os.listdir(run_dir), pattern)
+    if candidates:
+        last_epoch = 0
+        checkpoint = None
+        for c in candidates:
+            numbers = re.findall(r'\d+', c)
+            if int(numbers[0]) > last_epoch:
+                last_epoch = int(numbers[0])
+                checkpoint = c
+
+        return checkpoint
+    else:
+        return None
+
+# -------------------------------------------------------------------------------------------------
 def main():
 
     # -----------------------------------------------
@@ -93,7 +115,30 @@ def main():
 
     # -----------------------------------------------
 
-    logging.info(f"{rank_str}, {Fore.YELLOW}config, min noise level - {config.min_noise_level}, max noise level - {config.max_noise_level} {Style.RESET_ALL}")
+    logging.info(f"{rank_str}, {Fore.YELLOW}config, min noise level - {config.min_noise_level}, max noise level - {config.max_noise_level}, {config.max_noise_level_for_val} {Style.RESET_ALL}")
+
+    # -----------------------------------------------
+
+    if config.find_and_load_checkpoint:
+        if (config.pre_model_load_path is None or config.backbone_model_load_path is None or config.post_model_load_path is None):
+            save_path = os.path.join(config.checkpoint_dir, config.run_name)
+            print(f"{Fore.RED}Try to find the latest check point to load from {save_path} {Style.RESET_ALL}")
+            check_point = find_newest_checkpoint(save_path, "checkpoint_epoch_*_backbone.pth")
+            if check_point is not None:
+                ind = check_point.find('_backbone')
+                check_point = check_point[:ind]
+
+                print(f"{Fore.RED}Cluster mode, found the latest check point as {check_point} {Style.RESET_ALL}")
+
+                config.pre_model_load_path = os.path.join(save_path, f"{check_point}_pre.pth")
+                config.backbone_model_load_path = os.path.join(save_path, f"{check_point}_backbone.pth")
+                config.post_model_load_path = os.path.join(save_path, f"{check_point}_post.pth")
+
+                config.continued_training = True
+            else:
+                print(f"{Fore.RED}Cannot find a valid check point in {save_path} {Style.RESET_ALL}")
+
+    # -----------------------------------------------
 
     start = time()
     train_set, val_set, test_set = load_mri_data(config=config)
@@ -169,6 +214,7 @@ def main():
 
     min_noise_level = config.min_noise_level
     max_noise_level = config.max_noise_level
+    max_noise_level_for_val = config.max_noise_level_for_val
 
     ratio_to_eval = config.ratio_to_eval
     eval_train_set = config.eval_train_set
@@ -205,6 +251,7 @@ def main():
         config.time = c_time
         config.use_amp = use_amp
         config.num_workers = num_workers
+        config.continued_training = continued_training
         config.freeze_pre = freeze_pre
         config.freeze_backbone = freeze_backbone
         config.freeze_post = freeze_post
@@ -240,6 +287,7 @@ def main():
 
         config.min_noise_level = min_noise_level
         config.max_noise_level = max_noise_level
+        config.max_noise_level_for_val = max_noise_level_for_val
 
         config.ddp = ddp
 

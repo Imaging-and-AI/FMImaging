@@ -28,6 +28,7 @@ class general_parser(object):
         # Path args
         self.parser.add_argument("--run_name", type=str, default='project_'+str(datetime.now().strftime("%H-%M-%S-%Y%m%d")), help='Name to identify this run (in logs and wandb)')
         self.parser.add_argument("--log_dir", type=str, default=os.path.join(Project_DIR, 'logs'), help='Directory to store log files')
+        self.parser.add_argument("--checkpoint_dir", type=str, default=os.path.join(Project_DIR, 'checkpoints'), help='Directory to store checkpoint files')
         self.parser.add_argument("--data_dir", type=str, default=os.path.join(Project_DIR,'data'), help='Directory where data is stored, will be passed to dataloader')
         self.parser.add_argument("--split_csv_path", type=none_or_str, default=None, help='Path to csv that specifies data splits; if not specified, data will be split into 60% train, 20% val, 20% test randomly (used with default dataloader only)')
         self.parser.add_argument("--pre_model_load_path", type=none_or_str, default=None, help='Path to load pre model from; set to None if not loading a model')
@@ -107,6 +108,7 @@ class general_parser(object):
         self.parser.add_argument("--eval_frequency", type=int, default=1, help="How often (in epochs) to evaluate val set")
         self.parser.add_argument("--exact_metrics", type=str_to_bool, default=False, help="Whether to store all validation preds and gt labels to compute exact metrics, or use approximate metrics via averaging over batch")
         self.parser.add_argument("--ddp", action="store_true", help='Whether training with ddp; if so, call torchrun from command line')
+        self.parser.add_argument("--cluster_mode", action="store_true", help='if set, the training is performed on a virtual cluster.')
         
         # Training parameters
         self.parser.add_argument("--num_epochs", type=int, default=50, help='Number of epochs to train for')

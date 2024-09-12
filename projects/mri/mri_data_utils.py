@@ -3,6 +3,7 @@ Data utilities for MRI data.
 Provides the torch dataset class for traind and test and functions to load from multiple h5files
 """
 
+import os
 import sys
 import logging
 
@@ -52,18 +53,19 @@ def load_images_from_h5file(h5file, keys, max_load=100000):
 
             if max_load<=0:
                 logging.info(f"{h5file[i]}, data will not be pre-read ...")
-            
-            with tqdm(total=len(keys[i]), bar_format=get_bar_format()) as pbar:
-                for n, key in enumerate(keys[i]):
-                    if num_loaded < max_load:
-                        images.append([np.array(h5file[i][key+"/image"]), np.array(h5file[i][key+"/gmap"]), np.array(h5file[i][key+"/image_resized"]), i])
-                        num_loaded += 1
-                    else:
-                        images.append([key+"/image", key+"/gmap", key+"/image_resized", i])
-                        
-                    if n>0 and n%100 == 0:
-                        pbar.update(100)
-                        pbar.set_description_str(f"{h5file}, {n} in {len(keys[i])}, total {len(images)}")
+
+            progress_bar = tqdm(total=len(keys[i]), bar_format=get_bar_format(), file=open(os.devnull, 'w'))
+            for n, key in enumerate(keys[i]):
+                if num_loaded < max_load:
+                    images.append([np.array(h5file[i][key+"/image"]), np.array(h5file[i][key+"/gmap"]), np.array(h5file[i][key+"/image_resized"]), i])
+                    num_loaded += 1
+                else:
+                    images.append([key+"/image", key+"/gmap", key+"/image_resized", i])
+
+                if (n>0 and n%5000 == 0) or (n == len(keys[i])-1):
+                    progress_bar.n = n+1
+                    progress_bar.set_description_str(f"{h5file}, {n} in {len(keys[i])}, total {len(images)}")
+                    logging.info(str(progress_bar))
 
         return images
 
@@ -85,7 +87,7 @@ def load_images_for_statistics(h5file, keys, max_loaded=30):
         stat['median'] = list()
         stat['gmap_median'] = list()
         for i in range(len(h5file)):
-            with tqdm(total=len(keys[i]), bar_format=get_bar_format()) as pbar:
+            with tqdm(total=len(keys[i]), bar_format=get_bar_format(), desc="compute image statistics ... ") as pbar:
                 case_num_loaded = 0
                 for n, key in enumerate(keys[i]):
                     im = np.array(h5file[i][key+"/image"])
@@ -122,17 +124,19 @@ def load_test_images_from_h5file(h5file, keys, data_types):
 
     num_loaded = 0
     for i in range(len(h5file)):
-        with tqdm(total=len(keys[i]), bar_format=get_bar_format()) as pbar:
-            for n, key in enumerate(keys[i]):
-                if 'clean' in h5file[i][key].keys():
-                    images.append([key+"/noisy", key+"/clean", key+"/clean", key+"/gmap", key+"/noise_sigma", i, data_types[i]])
-                else:
-                    images.append([key+"/noisy", key+"/image", key+"/image_resized", key+"/gmap", key+"/noise_sigma", i, data_types[i]])
-                num_loaded += 1
+        pbar = tqdm(total=len(keys[i]), bar_format=get_bar_format(), file=open(os.devnull, 'w'))
+        #with tqdm(total=len(keys[i]), bar_format=get_bar_format()) as pbar:
+        for n, key in enumerate(keys[i]):
+            if 'clean' in h5file[i][key].keys():
+                images.append([key+"/noisy", key+"/clean", key+"/clean", key+"/gmap", key+"/noise_sigma", i, data_types[i]])
+            else:
+                images.append([key+"/noisy", key+"/image", key+"/image_resized", key+"/gmap", key+"/noise_sigma", i, data_types[i]])
+            num_loaded += 1
 
-                if n>0 and n%100 == 0:
-                    pbar.update(100)
-                    pbar.set_description_str(f"{h5file}, {n} in {len(keys[i])}, total {len(images)}")
+            if (n>0 and n%200 == 0) or (n == len(keys[i])-1):
+                pbar.n = n+1
+                pbar.set_description_str(f"{h5file}, {n} in {len(keys[i])}, total {len(images)}")
+                logging.info(str(pbar))
 
     return images
 

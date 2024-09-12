@@ -26,7 +26,7 @@ REPO_DIR = Path(__file__).parents[3].resolve()
 sys.path.append(str(REPO_DIR))
 
 from utils import *
-from inference import apply_model, load_model, apply_model_3D, load_model_pre_backbone_post
+from inference import apply_model, load_model, load_model_onnx, apply_model_3D, load_model_pre_backbone_post
 
 # -------------------------------------------------------------------------------------------------
 # setup for testing from cmd
@@ -45,13 +45,13 @@ def arg_parser():
     parser.add_argument("--scaling_factor", type=float, default=1.0, help="scaling factor to adjust model strength; higher scaling means lower strength")
     parser.add_argument("--im_scaling", type=float, default=1.0, help="extra scaling applied to image")
     parser.add_argument("--gmap_scaling", type=float, default=1.0, help="extra scaling applied to gmap")
-    parser.add_argument("--saved_model_path", type=str, default=None, help='model path. endswith ".pt" or ".pts"')
+    parser.add_argument("--saved_model_path", type=str, default=None, help='model path. endswith ".pt" or ".pts" or "onnx"')
     parser.add_argument("--pad_time", action="store_true", help="with to pad along time")
     parser.add_argument("--patch_size_inference", type=int, default=-1, help='patch size for inference; if <=0, use the config setup')
     parser.add_argument("--overlap", nargs='+', type=int, default=None, help='overlap for (T, H, W), e.g. (2, 8, 8), (0, 0, 0) means no overlap')
 
-    parser.add_argument("--input_fname", type=str, default="im", help='input file name')
-    parser.add_argument("--gmap_fname", type=str, default="gfactor", help='gmap input file name')
+    parser.add_argument("--input_fname", type=str, default="input", help='input file name')
+    parser.add_argument("--gmap_fname", type=str, default="gmap", help='gmap input file name')
 
     parser.add_argument("--scale_by_signal", action="store_true", help='if set, scale images by 95 percentile.')
 
@@ -122,7 +122,7 @@ def main():
         gmap = np.ones((image.shape[:2]))
 
     if len(image.shape) == 3 and gmap.ndim==3 and gmap.shape[2]==image.shape[2]:
-        output = apply_model_3D(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device(), verbose=True)
+        output = apply_model_3D(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device(), batch_size=config.batch_size, verbose=True)
         print(f"3D mode, {args.input_dir}, images - {image.shape}, gmap - {gmap.shape}, median gmap {np.median(gmap)}")
     else:
         if len(image.shape) == 2:
@@ -149,7 +149,7 @@ def main():
         else:
             overlap_used = None
 
-        output = apply_model(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device(), overlap=overlap_used, verbose=True)
+        output = apply_model(image, model, gmap, config=config, scaling_factor=args.scaling_factor, device=get_device(), overlap=overlap_used, batch_size=config.batch_size, verbose=True)
 
         # input = np.flip(image, axis=0)
         # output2 = apply_model(input, model, np.flip(gmap, axis=0), config=config, scaling_factor=args.scaling_factor, device=get_device())

@@ -229,19 +229,23 @@ def create_3d_repeated(write_path, N=20, sigmas=[1,11,1], random_mask=False):
 
 def main():
 
-    write_path_2d = f"{base_file_path}/test_2D_sig_1_120_500.h5"
+    write_path_2d = f"{base_file_path}/test_perf_2D_sig_1_120_500.h5"
     create_2d(write_path=write_path_2d, N=500)
     print(f"{write_path_2d} - done")
 
-    write_path_3d = f"{base_file_path}/test_2DT_sig_1_120_1000.h5"
+    write_path_3d = f"{base_file_path}/test_perf_2DT_sig_1_120_100.h5"
+    create_3d(write_path=write_path_3d, N=100)
+    print(f"{write_path_3d} - done")
+
+    write_path_3d = f"{base_file_path}/test_perf_2DT_sig_1_120_1000.h5"
     create_3d(write_path=write_path_3d, N=1000)
     print(f"{write_path_3d} - done")
 
-    write_path_3d = f"{base_file_path}/test_2DT_sig_1_120_2000.h5"
+    write_path_3d = f"{base_file_path}/test_perf_2DT_sig_1_120_2000.h5"
     create_3d(write_path=write_path_3d, N=2000)
     print(f"{write_path_3d} - done")
 
-    write_path_3d = f"{base_file_path}/test_2DT_sig_1_120_3000.h5"
+    write_path_3d = f"{base_file_path}/test_perf_2DT_sig_1_120_3000.h5"
     create_3d(write_path=write_path_3d, N=3000)
     print(f"{write_path_3d} - done")
 
