@@ -5,6 +5,7 @@ Helper functions for train manager
 import os
 import torch
 import torch.utils.data
+import torch.distributed as dist
 
 # -------------------------------------------------------------------------------------------------         
 class DistributedSamplerNoDuplicate(torch.utils.data.DistributedSampler):
@@ -33,15 +34,3 @@ def get_bar_format():
     return '{desc}{percentage:3.0f}%|{bar:10}{r_bar}'
 
 # -------------------------------------------------------------------------------------------------
-def distribute_learning_rates(self, rank, optim, src=0):
-
-    N = len(optim.param_groups)
-    new_lr = torch.zeros(N).to(rank)
-    for ind in range(N):
-        new_lr[ind] = optim.param_groups[ind]["lr"]
-
-    dist.broadcast(new_lr, src=src)
-
-    if rank != src:
-        for ind in range(N):
-            optim.param_groups[ind]["lr"] = new_lr[ind].item()

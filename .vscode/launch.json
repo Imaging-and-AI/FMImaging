@@ -78,9 +78,27 @@
             "program": "./projects/cifar_classify/custom_cifar_run.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "0"},
+            "env": {"PYDEVD_WARN_EVALUATION_TIMEOUT": "10", "CUDA_VISIBLE_DEVICES": "0", "run_dir": "/tmp/cifar"},
             "args": [
-                "--log_dir", "/export/Lab-Xue/projects/cifar/logs"
+                "--project", "cifar_demo",
+                "--run_name", "cifar_demo", 
+                "--log_dir", "/tmp/cifar/logs", 
+                "--data_dir", "/tmp/cifar/data", 
+                "--height", "128", 
+                "--width", "128", 
+                "--time", "1", 
+                "--no_in_channel", "3", 
+                "--no_out_channel", "10",
+                "--task_type", "class", 
+                "--optim_type", "adam", 
+                "--scheduler_type", "OneCycleLR", 
+                "--loss_func", "CrossEntropy", 
+                "--num_workers","32", "--num_epochs", "8", 
+                "--batch_size", "64", "--clip_grad_norm", "1.0", 
+                "--optim.lr", "1e-4", "--optim.weight_decay", "0",
+                "--backbone_component", "ViT", "--post_component", "ViTLinear",
+                "--ViT.patch_size", "1", "8", "8",
+                "--override"
             ]
         },
         // -----------------------------------------------------------------------------------------

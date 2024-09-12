@@ -55,10 +55,10 @@ class general_parser(object):
         self.parser.add_argument("--inference_run_name", type=str, default='project_'+str(datetime.now().strftime("%H-%M-%S-%Y%m%d")), help='Name to identify this run (in logs and wandb) when inference_only is true')
 
         # Wandb args
-        self.parser.add_argument("--project", type=str, default='FMImaging', help='Project name for wandb')
+        self.parser.add_argument("--project", type=str, default='test', help='Project name for wandb')
         self.parser.add_argument("--group", type=str, default='training', help='Group for wandb')
         self.parser.add_argument("--run_notes", type=str, default='Default project notes', help='Notes for the current run for wandb')
-        self.parser.add_argument("--wandb_entity", type=str, default="nhlbi", help='Wandb entity to link with')
+        self.parser.add_argument("--wandb_entity", type=str, default="biomed-signal-processing", help='Wandb entity to link with')
         self.parser.add_argument("--wandb_dir", type=str, default=os.path.join(Project_DIR, 'wandb'), help='directory for saving wandb')
         
         # Task args

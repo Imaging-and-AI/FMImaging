@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from zoologydev.src.models.mixers.hyena_simple import SimpleHyenaOperator
+#from zoologydev.src.models.mixers.hyena_simple import SimpleHyenaOperator
 
 import itertools
 from collections.abc import Sequence

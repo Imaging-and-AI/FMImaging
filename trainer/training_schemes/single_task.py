@@ -29,7 +29,7 @@ class SingleTaskTrainingScheme(nn.Module):
         self.device = config.device
 
         # Handle mix precision training
-        self.scaler = torch.cuda.amp.GradScaler(enabled=self.config.use_amp)
+        self.scaler = torch.GradScaler('cuda', enabled=self.config.use_amp)
 
     def compute_total_iters(self, all_train_loaders):
         """
@@ -69,7 +69,7 @@ class SingleTaskTrainingScheme(nn.Module):
         outputs = outputs.to(self.device)
 
         end_timer(enable=self.config.with_timer, t=tm, msg="---> training scheme: load batch took ")        
-        
+
         return inputs, outputs, ids, loader_task
 
     def _model_forward_pass(self, task_name, inputs, outputs, model_manager, model_module):

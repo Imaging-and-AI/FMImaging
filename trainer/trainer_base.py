@@ -7,7 +7,7 @@ import sys
 import logging
 import warnings
 
-from colorama import Fore, Style
+from colorama import Fore, Style, Back
 
 import torch
 import torch.nn as nn
@@ -64,6 +64,19 @@ class TrainManager(object):
         else:
             self.cast_type = torch.float32
 
+    def distribute_learning_rates(self, rank, optim, src=0):
+
+        N = len(optim.param_groups)
+        new_lr = torch.zeros(N).to(rank)
+        for ind in range(N):
+            new_lr[ind] = optim.param_groups[ind]["lr"]
+
+        dist.broadcast(new_lr, src=src)
+
+        if rank != src:
+            for ind in range(N):
+                optim.param_groups[ind]["lr"] = new_lr[ind].item()
+
     def _train_and_eval_model(self, rank, global_rank):
         """
         The training loop. Allows training on cpu/single gpu/multiple gpu (ddp)
@@ -108,7 +121,7 @@ class TrainManager(object):
         if rank<=0:
             logging.info(f"Configuration for this run:\n{c}")
             model_info(self.model_manager, c)
-            logging.info(f"Wandb name:\n{self.metric_manager.wandb_run.name}")
+            logging.info(f"Wandb name:\n{Fore.YELLOW}{self.metric_manager.wandb_run.name}{Style.RESET_ALL}")
             self.metric_manager.wandb_run.watch(self.model_manager)
             if c.ddp: 
                 setup_logger(self.config) # setup master process logging; I don't know if this needs to be here, it is also in setup.py
@@ -117,7 +130,7 @@ class TrainManager(object):
         optim = self.optim_manager.optim
         sched = self.optim_manager.sched
         curr_epoch = self.optim_manager.curr_epoch
-        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, global rank {global_rank}{'-'*20}{Style.RESET_ALL}")
+        logging.info(f"{Fore.RED}{'-'*20}Local Rank:{rank}, global rank {global_rank} {'-'*20}{Style.RESET_ALL}")
 
         # Zero gradient before training
         optim.zero_grad(set_to_none=True)
@@ -181,10 +194,10 @@ class TrainManager(object):
                         self.metric_manager.on_train_step_end(task_name, loss.item(), model_outputs, gt_outputs, rank, curr_lr)
 
                         pbar.update(1)
-                        pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} tra, rank {rank}, {inputs.shape}, lr {curr_lr:.8f}, task {task_name}, loss {loss.item():.4f}{Style.RESET_ALL}")
+                        pbar.set_description(f"{Fore.WHITE}{Style.BRIGHT}{Back.BLACK}Epoch {epoch}/{c.num_epochs} {Style.RESET_ALL}, {Fore.MAGENTA}tra{Style.RESET_ALL}, rank {rank}, {inputs.shape}, lr {curr_lr:.8f}, task {Fore.RED}{task_name}{Style.RESET_ALL}, loss {Fore.GREEN}{loss.item():.4f}{Style.RESET_ALL}")
 
                         end_timer(enable=c.with_timer, t=tm, msg="---> epoch step logging and measuring took ")
-                        
+
                     # Run metric logging for each epoch 
                     tm = start_timer(enable=c.with_timer) 
 
@@ -220,8 +233,8 @@ class TrainManager(object):
                     elif c.scheduler_type == "StepLR":
                         sched.step()
 
-                    # if c.ddp:
-                    #     self.distribute_learning_rates(rank, optim, src=0)
+                    if c.ddp:
+                        self.distribute_learning_rates(rank, optim, src=0)
 
             # Load the best model from training
             dist.barrier()
@@ -248,7 +261,7 @@ class TrainManager(object):
 
         # Finish up training
         self.metric_manager.on_training_end(rank, epoch, self.model_manager, optim, sched, self.config.train_model)
-        
+
     def _eval_model(self, rank, model_manager, epoch, device, optim, sched, id, split, final_eval):
         """
         Model evaluation.
@@ -352,7 +365,7 @@ class TrainManager(object):
 
                     # Print evaluation metrics to terminal
                     pbar.update(1)
-                    pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} {split}, rank {rank}, {id} {inputs.shape}, lr {curr_lr:.8f}, loss {loss.item():.4f}{Style.RESET_ALL}")
+                    pbar.set_description(f"{Fore.GREEN}Epoch {epoch}/{c.num_epochs},{Style.RESET_ALL} {Fore.BLUE}{split}{Style.RESET_ALL}, rank {rank}, {id} {inputs.shape}, lr {curr_lr:.8f}, loss {loss.item():.4f}{Style.RESET_ALL}")
 
                 # Update evaluation metrics 
                 self.metric_manager.on_eval_epoch_end(rank, epoch, model_manager, optim, sched, split, final_eval)
@@ -392,11 +405,11 @@ class TrainManager(object):
             global_rank = int(os.environ["RANK"])
             world_size = int(os.environ["WORLD_SIZE"])
             local_world_size = int(os.environ["LOCAL_WORLD_SIZE"])
-
+            print(f"---> ddp is {Fore.YELLOW}ON{Style.RESET_ALL}, rank {rank}, global_back {global_rank}, world_size {world_size}, local_world_size {local_world_size} <---", flush=True)
         else:
             rank = -1
             global_rank = -1
-            print(f"---> ddp is off <---", flush=True)
+            print(f"---> ddp is {Fore.YELLOW}OFF{Style.RESET_ALL} <---", flush=True)
 
         print(f"--------> run training on local rank {rank}", flush=True)
 
@@ -405,7 +418,7 @@ class TrainManager(object):
 
         if global_rank<=0:
             self.metric_manager.init_wandb()
-            
+
         # -------------------------------------------------------
         # If ddp is used, broadcast the parameters from rank0 to all other ranks (originally used for sweep, commented out for now)
 

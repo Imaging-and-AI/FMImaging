@@ -2,7 +2,7 @@
 Standard run file 
 """
 
-import os, sys, glob
+import os
 from setup.setup_base import parse_config_and_setup_run
 from setup.config_utils import config_to_yaml
 from model.model_base import ModelComponent, ModelManager
@@ -68,8 +68,6 @@ def main():
     # -----------------------------
     # Execute training and evaluation
     train_manager.run()
-
-    
 
 # -------------------------------------------------------------------------------------------------
 if __name__=="__main__":    

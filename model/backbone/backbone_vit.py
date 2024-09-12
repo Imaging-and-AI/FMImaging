@@ -33,7 +33,7 @@ sys.path.append(str(Model_DIR))
 sys.path.append(os.path.join(str(Model_DIR),'hyena'))
 sys.path.append(os.path.join(str(Model_DIR),'hyena','zoologydev'))
 
-from zoologydev.src.models.mixers.hyena_simple import SimpleHyenaOperator
+#from zoologydev.src.models.mixers.hyena_simple import SimpleHyenaOperator
 
 Rearrange, _ = optional_import("einops.layers.torch", name="Rearrange")
 rearrange, _ = optional_import("einops", name="rearrange")
